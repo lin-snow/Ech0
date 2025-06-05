@@ -6,19 +6,25 @@ import (
 	"go.uber.org/zap"
 )
 
-func HandleError(se *model.ServerError) *model.ServerError {
+func HandleError(se *model.ServerError) string {
 	if se.Err != nil {
+		if se.Msg == "" || len(se.Msg) == 0 {
+			se.Msg = se.Err.Error()
+		}
 		util.Logger.Error(
 			se.Msg,
 			zap.Error(se.Err),
 		)
 	}
 
-	return se
+	return se.Msg
 }
 
 func HandlePanicError(se *model.ServerError) {
 	if se.Err != nil {
+		if se.Msg == "" || len(se.Msg) == 0 {
+			se.Msg = se.Err.Error()
+		}
 		util.Logger.Panic(
 			se.Msg,
 			zap.Error(se.Err),
