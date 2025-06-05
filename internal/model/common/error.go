@@ -16,4 +16,7 @@ const (
 	PASSWORD_INCORRECT                = "密码错误"
 	USER_COUNT_EXCEED_LIMIT           = "用户数量超过限制"
 	USERNAME_HAS_EXISTS               = "用户名已存在"
+	TOKEN_NOT_FOUND                   = "未找到令牌,请点击右上角登录"
+	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
+	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
 )
