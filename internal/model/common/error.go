@@ -20,3 +20,9 @@ const (
 	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
 	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
 )
+
+// Echo 错误相关常量
+const (
+	NO_PERMISSION_DENIED  = "没有权限,请联系系统管理员"
+	ECHO_CAN_NOT_BE_EMPTY = "ECHO 内容不能为空"
+)

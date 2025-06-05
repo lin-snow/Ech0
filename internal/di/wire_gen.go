@@ -8,8 +8,11 @@ package di
 
 import (
 	"github.com/google/wire"
+	handler2 "github.com/lin-snow/ech0/internal/handler/echo"
 	"github.com/lin-snow/ech0/internal/handler/user"
+	repository2 "github.com/lin-snow/ech0/internal/repository/echo"
 	"github.com/lin-snow/ech0/internal/repository/user"
+	service2 "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/service/user"
 	"gorm.io/gorm"
 )
@@ -21,7 +24,10 @@ func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 	userRepositoryInterface := repository.NewUserRepository(db)
 	userServiceInterface := service.NewUserService(userRepositoryInterface)
 	userHandler := handler.NewUserHandler(userServiceInterface)
-	handlers := NewHandlers(userHandler)
+	echoRepositoryInterface := repository2.NewEchoRepository(db)
+	echoServiceInterface := service2.NewEchoService(echoRepositoryInterface, userServiceInterface)
+	echoHandler := handler2.NewEchoHandler(echoServiceInterface)
+	handlers := NewHandlers(userHandler, echoHandler)
 	return handlers, nil
 }
 
@@ -29,3 +35,6 @@ func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 
 // UserSet 包含了构建 UserHandler 所需的所有 Provider
 var UserSet = wire.NewSet(repository.NewUserRepository, service.NewUserService, handler.NewUserHandler)
+
+// EchoSet 包含了构建 EchoHandler 所需的所有 Provider
+var EchoSet = wire.NewSet(repository2.NewEchoRepository, service2.NewEchoService, handler2.NewEchoHandler)

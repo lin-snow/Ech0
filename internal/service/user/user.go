@@ -51,7 +51,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	if err != nil {
 		return err
 	}
-	if len(users) > 0 {
+	if len(users) > authModel.MAX_USER_COUNT {
 		return errors.New(commonModel.USER_COUNT_EXCEED_LIMIT)
 	}
 
@@ -71,7 +71,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	}
 
 	// 检查是否该系统第一次注册用户
-	if len(users) > 0 {
+	if len(users) == 0 {
 		// 第一个注册的用户为系统管理员
 		newUser.IsAdmin = true
 	}
@@ -83,6 +83,6 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	return nil
 }
 
-func (userService *UserService) GetUserByID(userId int) (*model.User, error) {
+func (userService *UserService) GetUserByID(userId int) (model.User, error) {
 	return userService.userRepository.GetUserByID(userId)
 }

@@ -9,3 +9,7 @@ type MyClaims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
+
+const (
+	MAX_USER_COUNT = 5
+)

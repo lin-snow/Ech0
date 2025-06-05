@@ -42,10 +42,10 @@ func (userRepository *UserRepository) CreateUser(user *model.User) error {
 	return nil
 }
 
-func (userRepository *UserRepository) GetUserByID(id int) (*model.User, error) {
+func (userRepository *UserRepository) GetUserByID(id int) (model.User, error) {
 	var user model.User
 	if err := userRepository.db.First(&user, id).Error; err != nil {
-		return nil, err
+		return user, err
 	}
-	return &user, nil
+	return user, nil
 }

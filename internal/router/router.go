@@ -19,4 +19,5 @@ func SetupRouter(r *gin.Engine, h *di.Handlers) {
 	setupUserRoutes(appRouterGroup, h)
 
 	// Setup Echo Routes
+	setupEchoRoutes(appRouterGroup, h)
 }

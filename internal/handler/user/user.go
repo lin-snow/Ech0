@@ -38,6 +38,7 @@ func (userHandler *UserHandler) Login(ctx *gin.Context) {
 			Msg: "",
 			Err: err,
 		})))
+		return
 	}
 
 	// 返回成功响应， 包含 JWT Token
@@ -52,6 +53,7 @@ func (userHandler *UserHandler) Register(ctx *gin.Context) {
 			Msg: commonModel.INVALID_REQUEST_BODY,
 			Err: err,
 		})))
+		return
 	}
 
 	// 调用 Service 层处理注册
@@ -60,6 +62,7 @@ func (userHandler *UserHandler) Register(ctx *gin.Context) {
 			Msg: "",
 			Err: err,
 		})))
+		return
 	}
 
 	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.REGISTER_SUCCESS))
