@@ -1,0 +1,61 @@
+{
+  "name": "Ech0s~",
+  "short_name": "Ech0",
+  "description": "Ech0 is an open-source platform for quickly sharing thoughts, text, and links with full data control.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ec",
+  "theme_color": "#f4f1ec",
+  "icons": [
+    {
+      "src": "web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-desktop.png",
+      "sizes": "1548x971",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "640x1136",
+      "type": "image/png"
+    }
+  ]
+}

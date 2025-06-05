@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 触发条件：打 Tag，比如 v1.0.0
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    # 🍱 构建多个平台的版本（这里以 Linux/amd64 和 Linux/arm64 为例）
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [amd64]
+      max-parallel: 1
+
+    steps:
+      # ✅ 拉取源码
+      - name: 🔄 Checkout source code
+        uses: actions/checkout@v4
+
+      # ✅ 清理 Go 缓存目录
+      - name: 🧹 Clean Go cache directory
+        run: rm -rf ~/.cache/go-build ~/go/pkg/mod
+
+      # 配置 Go 缓存
+      # - name: Cache Go modules
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       ~/.cache/go-build
+      #       ~/go/pkg/mod
+      #     key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-go-
+      #     fail-on-cache-miss: false
+
+      # ✅ 设置 Go 环境
+      - name: 🧰 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+      
+      # 设置 Go 代理
+      - name: 🧙 Set Go proxy
+        run: go env -w GOPROXY=https://proxy.golang.org,direct
+
+      - uses: pnpm/action-setup@v4
+        name: 📦 Install pnpm
+        with:
+          version: 10
+          run_install: false
+
+      - name: 📦 Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache-dependency-path: 'web/pnpm-lock.yaml'
+          cache: 'pnpm'
+
+      # 验证 PNPM 安装
+      - name: 👾 Verify PNPM installation
+        run: pnpm --version
+
+      # ✅ 安装前端依赖并构建
+      - name: 📦 Install frontend deps
+        working-directory: ./web 
+        run: pnpm install
+
+      - name: 🔧 Build frontend
+        working-directory: ./web
+        run: pnpm build --mode production
+
+      # ✅ 构建后端二进制
+      - name: 🛠️ Build Go backend (${{ matrix.goos }}/${{ matrix.goarch }})
+        run: |
+          mkdir -p dist
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=1 \
+          go build -o dist/ech0-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/server/main.go
+
+      # ✅ 打包后端二进制
+      - name: 📦 Package backend binary
+        run: |
+          cd dist
+          tar -czvf ech0-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz ech0-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      # ✅ 打包前端构建产物（只执行一次）
+      - name: 📦 Package frontend (only once)
+        if: matrix.goarch == 'amd64' && matrix.goos == 'linux'
+        run: |
+          tar -czvf dist/ech0-template.tar.gz -C web/dist .
+
+      # ✅ 打包配置文件（只包含 config.yaml）
+      - name: 📦 Package config.yaml only
+        run: |
+          tar -czvf dist/ech0-config.tar.gz -C config config.yaml
+
+      # ✅ 打包最终的完整压缩包
+      - name: 📦 Package final release bundle
+        run: |
+          mkdir -p dist/ech0-release/config
+          mkdir -p dist/ech0-release/template
+          mkdir -p dist/ech0-release/data
+
+          cp dist/ech0-${{ matrix.goos }}-${{ matrix.goarch }} dist/ech0-release/ech0
+
+          cp -r config/* dist/ech0-release/config/
+
+          cp -r web/dist/* dist/ech0-release/template/
+
+          cd dist
+          tar -czvf ech0-release-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz ech0-release
+          rm -rf ech0-release
+              
+      # ✅ 上传 Release 资源
+      - name: 🚀 Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ✅ 登录 GHCR
+      - name: 🐳 Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      # ✅ 登录 Docker Hub
+      - name: 🐳 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ✅ 构建 Docker 镜像（带 tag 版本）
+      - name: 🐳 Build Docker image
+        run: |
+          GHCR_TAG=ghcr.io/${{ github.repository_owner }}/ech0:${{ github.ref_name }}
+          GHCR_LATEST=ghcr.io/${{ github.repository_owner }}/ech0:latest
+          DOCKER_TAG=docker.io/${{ vars.DOCKERHUB_USERNAME }}/ech0:${{ github.ref_name }}
+          DOCKER_LATEST=docker.io/${{ vars.DOCKERHUB_USERNAME }}/ech0:latest
+
+          docker build -t $GHCR_TAG -t $GHCR_LATEST -t $DOCKER_TAG -t $DOCKER_LATEST .
+
+
+      # ✅ 推送 Docker 镜像
+      - name: 📤 Push Docker images
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/ech0:${{ github.ref_name }}
+          docker push ghcr.io/${{ github.repository_owner }}/ech0:latest
+          docker push docker.io/${{ vars.DOCKERHUB_USERNAME }}/ech0:${{ github.ref_name }}
+          docker push docker.io/${{ vars.DOCKERHUB_USERNAME }}/ech0:latest

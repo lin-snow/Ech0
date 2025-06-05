@@ -1,0 +1,50 @@
+{
+  "name": "web_v2",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "preview": "vite preview",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build",
+    "lint": "eslint . --fix",
+    "format": "prettier --write src/"
+  },
+  "dependencies": {
+    "@fancyapps/ui": "^5.0.36",
+    "aplayer": "^1.10.1",
+    "cropperjs": "1",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
+    "md-editor-v3": "^5.5.0",
+    "mermaid": "^11.6.0",
+    "ofetch": "^1.4.1",
+    "pinia": "^3.0.2",
+    "screenfull": "^6.0.2",
+    "vditor": "^3.11.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "vue-toastification": "2.0.0-rc.5"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.1",
+    "@types/node": "^22.14.1",
+    "@unocss/preset-wind4": "66.1.0-beta.11",
+    "@vitejs/plugin-vue": "^5.2.3",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.5.0",
+    "@vue/tsconfig": "^0.7.0",
+    "eslint": "^9.24.0",
+    "eslint-plugin-vue": "~10.0.0",
+    "jiti": "^2.4.2",
+    "npm-run-all2": "^7.0.2",
+    "prettier": "3.5.3",
+    "typescript": "~5.8.3",
+    "unocss": "66.1.0-beta.11",
+    "vite": "^6.3.0",
+    "vite-plugin-vue-devtools": "^7.7.2",
+    "vue-tsc": "^2.2.8"
+  }
+}

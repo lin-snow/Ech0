@@ -1,0 +1,14 @@
+server:
+  port: 6277
+  host: "0.0.0.0"
+  mode: "debug" # "release" or "debug"
+
+database:
+  type: "sqlite"
+  path: "data/ech0.db"
+
+auth:
+  jwt:
+    expires: 2592000 # 30天（单位秒）
+    issuer: "ech0s"
+    audience: "ech0s"

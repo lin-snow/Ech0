@@ -1,0 +1,14 @@
+# 忽略 node_modules 文件夹
+node_modules/
+
+# 忽略 Git 相关文件
+.git/
+
+# 忽略 macOS 的系统文件
+.DS_Store
+
+web/dist/
+
+web_old/node_modules
+
+web/node_modules

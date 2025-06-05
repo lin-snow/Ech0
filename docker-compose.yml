@@ -1,0 +1,11 @@
+version: '3'
+services:
+  ech0:
+    image: sn0wl1n/ech0:latest
+    container_name: ech0
+    ports:
+      - "6277:6277"
+    volumes:
+      - ./ech0/data:/app/data
+    environment:
+      - JWT_SECRET="Hello Echos!"
