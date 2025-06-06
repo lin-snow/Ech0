@@ -4,23 +4,28 @@ import (
 	"errors"
 	"github.com/lin-snow/ech0/internal/config"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	userService "github.com/lin-snow/ech0/internal/service/user"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
+	repository "github.com/lin-snow/ech0/internal/repository/common"
 	storageUtil "github.com/lin-snow/ech0/internal/util/storage"
 	"mime/multipart"
 )
 
 type CommonService struct {
-	userService userService.UserServiceInterface
+	commonRepository repository.CommonRepositoryInterface
 }
 
-func NewCommonService(userService userService.UserServiceInterface) CommonServiceInterface {
+func NewCommonService(commonRepository repository.CommonRepositoryInterface) CommonServiceInterface {
 	return &CommonService{
-		userService: userService,
+		commonRepository: commonRepository,
 	}
 }
 
+func (commonService *CommonService) CommonGetUserByUserId(userId uint) (userModel.User, error) {
+	return commonService.commonRepository.GetUserByUserId(userId)
+}
+
 func (commonService *CommonService) UploadImage(userId uint, file *multipart.FileHeader) (string, error) {
-	user, err := commonService.userService.GetUserByID((int)(userId))
+	user, err := commonService.commonRepository.GetUserByUserId(userId)
 	if err != nil {
 		return "", err
 	}

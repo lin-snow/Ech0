@@ -10,12 +10,16 @@ import (
 	"github.com/google/wire"
 	handler3 "github.com/lin-snow/ech0/internal/handler/common"
 	handler2 "github.com/lin-snow/ech0/internal/handler/echo"
+	handler4 "github.com/lin-snow/ech0/internal/handler/setting"
 	"github.com/lin-snow/ech0/internal/handler/user"
-	repository2 "github.com/lin-snow/ech0/internal/repository/echo"
+	repository2 "github.com/lin-snow/ech0/internal/repository/common"
+	repository3 "github.com/lin-snow/ech0/internal/repository/echo"
+	"github.com/lin-snow/ech0/internal/repository/keyvalue"
 	"github.com/lin-snow/ech0/internal/repository/user"
-	service3 "github.com/lin-snow/ech0/internal/service/common"
-	service2 "github.com/lin-snow/ech0/internal/service/echo"
-	"github.com/lin-snow/ech0/internal/service/user"
+	"github.com/lin-snow/ech0/internal/service/common"
+	service4 "github.com/lin-snow/ech0/internal/service/echo"
+	service2 "github.com/lin-snow/ech0/internal/service/setting"
+	service3 "github.com/lin-snow/ech0/internal/service/user"
 	"gorm.io/gorm"
 )
 
@@ -24,24 +28,31 @@ import (
 // BuildHandlers 使用wire生成的代码来构建Handlers实例
 func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 	userRepositoryInterface := repository.NewUserRepository(db)
-	userServiceInterface := service.NewUserService(userRepositoryInterface)
+	commonRepositoryInterface := repository2.NewCommonRepository(db)
+	commonServiceInterface := service.NewCommonService(commonRepositoryInterface)
+	keyValueRepositoryInterface := keyvalue.NewKeyValueRepository(db)
+	settingServiceInterface := service2.NewSettingService(commonServiceInterface, keyValueRepositoryInterface)
+	userServiceInterface := service3.NewUserService(userRepositoryInterface, settingServiceInterface)
 	userHandler := handler.NewUserHandler(userServiceInterface)
-	echoRepositoryInterface := repository2.NewEchoRepository(db)
-	echoServiceInterface := service2.NewEchoService(echoRepositoryInterface, userServiceInterface)
+	echoRepositoryInterface := repository3.NewEchoRepository(db)
+	echoServiceInterface := service4.NewEchoService(commonServiceInterface, echoRepositoryInterface)
 	echoHandler := handler2.NewEchoHandler(echoServiceInterface)
-	commonServiceInterface := service3.NewCommonService(userServiceInterface)
 	commonHandler := handler3.NewCommonHandler(commonServiceInterface)
-	handlers := NewHandlers(userHandler, echoHandler, commonHandler)
+	settingHandler := handler4.NewSettingHandler(settingServiceInterface)
+	handlers := NewHandlers(userHandler, echoHandler, commonHandler, settingHandler)
 	return handlers, nil
 }
 
 // wire.go:
 
 // UserSet 包含了构建 UserHandler 所需的所有 Provider
-var UserSet = wire.NewSet(repository.NewUserRepository, service.NewUserService, handler.NewUserHandler)
+var UserSet = wire.NewSet(repository.NewUserRepository, service3.NewUserService, handler.NewUserHandler)
 
 // EchoSet 包含了构建 EchoHandler 所需的所有 Provider
-var EchoSet = wire.NewSet(repository2.NewEchoRepository, service2.NewEchoService, handler2.NewEchoHandler)
+var EchoSet = wire.NewSet(repository3.NewEchoRepository, service4.NewEchoService, handler2.NewEchoHandler)
 
 // CommonSet 包含了构建 CommonHandler 所需的所有 Provider
-var CommonSet = wire.NewSet(service3.NewCommonService, handler3.NewCommonHandler)
+var CommonSet = wire.NewSet(repository2.NewCommonRepository, service.NewCommonService, handler3.NewCommonHandler)
+
+// SettingSet 包含了构建 SettingHandler 所需的所有 Provider
+var SettingSet = wire.NewSet(keyvalue.NewKeyValueRepository, service2.NewSettingService, handler4.NewSettingHandler)

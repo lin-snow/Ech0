@@ -36,6 +36,16 @@ type AppConfig struct {
 		ImagePath    string   `yaml:"imagepath"`
 		AudioPath    string   `yaml:"audiopath"`
 	} `yaml:"upload"`
+	Setting struct {
+		SiteTitle     string `yaml:"sitetitle"`
+		Servername    string `yaml:"servername"`
+		Serverurl     string `yaml:"serverurl"`
+		AllowRegister bool   `yaml:"allowregister"`
+		Icpnumber     string `yaml:"icpnumber"`
+		MetingAPI     string `yaml:"metingapi"`
+		CustomCSS     string `yaml:"customcss"`
+		CustomJS      string `yaml:"customjs"`
+	}
 }
 
 type ServerConfig struct {

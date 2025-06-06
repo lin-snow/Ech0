@@ -19,6 +19,7 @@ const (
 	TOKEN_NOT_FOUND                   = "未找到令牌,请点击右上角登录"
 	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
 	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
+	USER_REGISTER_NOT_ALLOW           = "当前系统禁止注册新用户"
 )
 
 // Echo 错误相关常量
@@ -34,3 +35,6 @@ const (
 	FILE_TYPE_NOT_ALLOWED  = "不支持的文件类型"
 	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
 )
+
+// Setting 错误相关常量
+const ()

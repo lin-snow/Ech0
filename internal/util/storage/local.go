@@ -49,3 +49,12 @@ func UploadFileToLocal(file *multipart.FileHeader, fileType commonModel.UploadFi
 	imageURL := fmt.Sprintf("/images/%s", newFileName)
 	return imageURL, nil
 }
+
+func DeleteFileFromLocal(filePath string) error {
+	err := os.Remove(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		// 只有当错误不是"文件不存在"时才返回错误
+		return err
+	}
+	return nil
+}

@@ -5,7 +5,9 @@ import (
 
 	"github.com/lin-snow/ech0/internal/config"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	connectModel "github.com/lin-snow/ech0/internal/model/connect"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	todoModel "github.com/lin-snow/ech0/internal/model/todo"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 
 	util "github.com/lin-snow/ech0/internal/util/err"
@@ -19,7 +21,7 @@ func InitDatabase() {
 	// 读取数据库类型和保存路径
 	dbType := config.Config.Database.Type
 	dbPath := config.Config.Database.Path
-	
+
 	dir := dbPath[:len(dbPath)-len("/ech0.db")] // 提取目录部分
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		util.HandlePanicError(&commonModel.ServerError{
@@ -51,6 +53,10 @@ func MigrateDB() error {
 	models := []interface{}{
 		&userModel.User{},
 		&echoModel.Echo{},
+		&echoModel.Image{},
+		&commonModel.KeyValue{},
+		&todoModel.Todo{},
+		&connectModel.Connected{},
 	}
 
 	return DB.AutoMigrate(

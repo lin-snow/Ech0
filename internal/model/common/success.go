@@ -20,3 +20,9 @@ const (
 const (
 	UPLOAD_SUCCESS = "上传成功"
 )
+
+// Setting 成功相关常量
+const (
+	GET_SETTINGS_SUCCESS    = "获取设置成功！"
+	UPDATE_SETTINGS_SUCCESS = "更新设置成功！"
+)

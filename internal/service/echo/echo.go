@@ -5,26 +5,26 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	repository "github.com/lin-snow/ech0/internal/repository/echo"
-	userService "github.com/lin-snow/ech0/internal/service/user"
+	commonService "github.com/lin-snow/ech0/internal/service/common"
 	httpUtil "github.com/lin-snow/ech0/internal/util/http"
 )
 
 type EchoService struct {
+	commonService  commonService.CommonServiceInterface
 	echoRepository repository.EchoRepositoryInterface
-	userService    userService.UserServiceInterface
 }
 
-func NewEchoService(echoRepository repository.EchoRepositoryInterface, userService userService.UserServiceInterface) EchoServiceInterface {
+func NewEchoService(commonService commonService.CommonServiceInterface, echoRepository repository.EchoRepositoryInterface) EchoServiceInterface {
 	return &EchoService{
+		commonService:  commonService,
 		echoRepository: echoRepository,
-		userService:    userService,
 	}
 }
 
 func (echoService *EchoService) PostEcho(userid uint, newEcho *model.Echo) error {
 	newEcho.UserID = userid
 
-	user, err := echoService.userService.GetUserByID((int)(userid))
+	user, err := echoService.commonService.CommonGetUserByUserId(userid)
 	if err != nil {
 		return err
 	}

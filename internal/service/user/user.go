@@ -4,19 +4,23 @@ import (
 	"errors"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	model "github.com/lin-snow/ech0/internal/model/user"
 	repository "github.com/lin-snow/ech0/internal/repository/user"
+	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 )
 
 type UserService struct {
 	userRepository repository.UserRepositoryInterface
+	settingService settingService.SettingServiceInterface
 }
 
-func NewUserService(userRepository repository.UserRepositoryInterface) UserServiceInterface {
+func NewUserService(userRepository repository.UserRepositoryInterface, settingService settingService.SettingServiceInterface) UserServiceInterface {
 	return &UserService{
 		userRepository: userRepository,
+		settingService: settingService,
 	}
 }
 
@@ -76,6 +80,15 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		newUser.IsAdmin = true
 	}
 
+	// 检查是否开放注册
+	var setting settingModel.SystemSetting
+	if err := userService.settingService.GetSetting(&setting); err != nil {
+		return err
+	}
+	if len(users) != 0 && !setting.AllowRegister {
+		return errors.New(commonModel.USER_REGISTER_NOT_ALLOW)
+	}
+
 	if err := userService.userRepository.CreateUser(&newUser); err != nil {
 		return err
 	}
@@ -83,6 +96,6 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	return nil
 }
 
-func (userService *UserService) GetUserByID(userId int) (model.User, error) {
-	return userService.userRepository.GetUserByID(userId)
-}
+//func (userService *UserService) GetUserByID(userId int) (model.User, error) {
+//	return userService.userRepository.GetUserByID(userId)
+//}

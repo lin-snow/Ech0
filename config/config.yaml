@@ -28,3 +28,13 @@ upload:
     - "image/avif"
     - "audio/mpeg"
     - "audio/flac"
+
+setting:
+  sitetitle: "Ech0s~"
+  servername: "Ech0s~"
+  serverurl: "https://ech0.example.com"
+  allowregister: true
+  icpnumber: ""
+  metingapi: ""
+  customcss: ""
+  customjs: ""
