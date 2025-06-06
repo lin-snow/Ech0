@@ -4,9 +4,11 @@ import (
 	"github.com/gin-gonic/gin"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	model "github.com/lin-snow/ech0/internal/model/user"
 	service "github.com/lin-snow/ech0/internal/service/user"
 	errorUtil "github.com/lin-snow/ech0/internal/util/err"
 	"net/http"
+	"strconv"
 )
 
 type UserHandler struct {
@@ -66,4 +68,84 @@ func (userHandler *UserHandler) Register(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.REGISTER_SUCCESS))
+}
+
+func (userHandler *UserHandler) UpdateUser(ctx *gin.Context) {
+	// 解析用户请求体中的参数
+	var userdto model.UserInfoDto
+	if err := ctx.ShouldBindJSON(&userdto); err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: commonModel.INVALID_REQUEST_BODY,
+			Err: err,
+		})))
+		return
+	}
+
+	// 获取当前用户 ID
+	userid := ctx.MustGet("userid").(uint)
+	if err := userHandler.userService.UpdateUser(userid, userdto); err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: "",
+			Err: err,
+		})))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.UPDATE_USER_SUCCESS))
+}
+
+// UpdateUserAdmin 更新用户权限
+func (userHandler *UserHandler) UpdateUserAdmin(ctx *gin.Context) {
+	// 获取当前用户 ID
+	userid := ctx.MustGet("userid").(uint)
+
+	if err := userHandler.userService.UpdateUserAdmin(userid); err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: "",
+			Err: err,
+		})))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.UPDATE_USER_SUCCESS))
+
+}
+
+// GetAllUsers 获取所有用户
+func (userHandler *UserHandler) GetAllUsers(ctx *gin.Context) {
+	allusers, err := userHandler.userService.GetAllUsers()
+	if err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: "",
+			Err: err,
+		})))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, commonModel.OK[[]model.User](allusers, commonModel.GET_USER_SUCCESS))
+}
+
+func (userHandler *UserHandler) DeleteUser(ctx *gin.Context) {
+	// 获取当前用户 ID
+	userid := ctx.MustGet("userid").(uint)
+
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: commonModel.INVALID_PARAMS,
+			Err: err,
+		})))
+		return
+	}
+
+	if err := userHandler.userService.DeleteUser(userid, uint(id)); err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: err.Error(),
+			Err: err,
+		})))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.DELETE_USER_SUCCESS))
 }

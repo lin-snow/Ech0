@@ -6,6 +6,7 @@ func setupUserRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
 	// Public
 	appRouterGroup.PublicRouterGroup.POST("/login", h.UserHandler.Login)
 	appRouterGroup.PublicRouterGroup.POST("/register", h.UserHandler.Register)
+	appRouterGroup.PublicRouterGroup.GET("/allusers", h.UserHandler.GetAllUsers)
 
 	// Auth
 }

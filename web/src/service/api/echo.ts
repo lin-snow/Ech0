@@ -3,7 +3,7 @@ import { request, requestWithDirectUrlAndData } from '../request'
 // 分页获取Echos
 export function fetchGetEchosByPage(searchParams: App.Api.Ech0.ParamsByPagination) {
   return request<App.Api.Ech0.PaginationResult>({
-    url: `/messages/page`,
+    url: `/echo/page`,
     method: 'POST',
     data: searchParams,
   })
@@ -23,7 +23,7 @@ export function fetchUploadImage(file: File) {
 // 添加Echo
 export function fetchAddEcho(echoToAdd: App.Api.Ech0.EchoToAdd) {
   return request({
-    url: `/messages`,
+    url: `/echo`,
     method: 'POST',
     data: echoToAdd,
   })
@@ -32,7 +32,7 @@ export function fetchAddEcho(echoToAdd: App.Api.Ech0.EchoToAdd) {
 // 删除Echo
 export function fetchDeleteEcho(echoId: number) {
   return request({
-    url: `/messages/${echoId}`,
+    url: `/echo/${echoId}`,
     method: 'DELETE',
   })
 }

@@ -96,6 +96,122 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	return nil
 }
 
+func (userService *UserService) UpdateUser(userid uint, userdto model.UserInfoDto) error {
+	user, err := userService.userRepository.GetUserByID(int(userid))
+	if err != nil {
+		return err
+	}
+	if !user.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+
+	// 检查是否需要更新用户名
+	if userdto.Username != "" && userdto.Username != user.Username {
+		// 检查用户名是否已存在
+		existingUser, _ := userService.userRepository.GetUserByUsername(userdto.Username)
+		if existingUser.ID != model.USER_NOT_EXISTS_ID {
+			return errors.New(commonModel.USERNAME_ALREADY_EXISTS)
+		}
+		user.Username = userdto.Username
+	}
+
+	// 检查是否需要更新密码
+	if userdto.Password != "" && cryptoUtil.MD5Encrypt(userdto.Password) != user.Password {
+		// 检查密码是否为空
+		if userdto.Password == "" {
+			return errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
+		}
+		// 更新密码
+		user.Password = cryptoUtil.MD5Encrypt(userdto.Password)
+	}
+
+	// 检查是否需要更新头像
+	if userdto.Avatar != "" && userdto.Avatar != user.Avatar {
+		// 更新头像
+		user.Avatar = userdto.Avatar
+	}
+	// 更新用户信息
+	if err := userService.userRepository.UpdateUser(&user); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (userService *UserService) UpdateUserAdmin(userid uint) error {
+	user, err := userService.userRepository.GetUserByID(int(userid))
+	if err != nil {
+		return err
+	}
+
+	user.IsAdmin = !user.IsAdmin
+
+	// 更新用户信息
+	if err := userService.userRepository.UpdateUser(&user); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (userService *UserService) GetAllUsers() ([]model.User, error) {
+	allures, err := userService.userRepository.GetAllUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	sysadmin, err := userService.GetSysAdmin()
+	if err != nil {
+		return nil, err
+	}
+
+	// 处理用户信息(去掉管理员用户)
+	for i := range allures {
+		if allures[i].ID == sysadmin.ID {
+			allures = append(allures[:i], allures[i+1:]...)
+			break
+		}
+	}
+
+	// 处理用户信息(去掉密码)
+	for i := range allures {
+		allures[i].Password = ""
+	}
+
+	return allures, nil
+}
+
+func (userService *UserService) GetSysAdmin() (model.User, error) {
+	sysadmin, err := userService.userRepository.GetSysAdmin()
+	if err != nil {
+		return model.User{}, err
+	}
+
+	return sysadmin, nil
+}
+
+func (userService *UserService) DeleteUser(userid, id uint) error {
+	user, err := userService.userRepository.GetUserByID(int(userid))
+	if err != nil {
+		return err
+	}
+
+	sysadmin, err := userService.GetSysAdmin()
+	if err != nil {
+		return err
+	}
+
+	if id == user.ID || id == sysadmin.ID {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+
+	if err := userService.userRepository.DeleteUser(id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 //func (userService *UserService) GetUserByID(userId int) (model.User, error) {
 //	return userService.userRepository.GetUserByID(userId)
 //}

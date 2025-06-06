@@ -7,4 +7,7 @@ type UserRepositoryInterface interface {
 	GetUserByUsername(username string) (model.User, error)
 	GetAllUsers() ([]model.User, error)
 	CreateUser(newUser *model.User) error
+	GetSysAdmin() (model.User, error)
+	UpdateUser(user *model.User) error
+	DeleteUser(id uint) error
 }

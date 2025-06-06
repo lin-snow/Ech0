@@ -8,5 +8,5 @@ func setupEchoRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
 	// Auth
 	appRouterGroup.AuthRouterGroup.POST("/echo", h.EchoHandler.PostEcho)
 	appRouterGroup.AuthRouterGroup.POST("/echo/page", h.EchoHandler.GetEchosByPage)
-	appRouterGroup.AuthRouterGroup.DELETE("/messages/:id", h.EchoHandler.DeleteEcho)
+	appRouterGroup.AuthRouterGroup.DELETE("/echo/:id", h.EchoHandler.DeleteEcho)
 }

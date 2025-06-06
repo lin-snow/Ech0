@@ -6,16 +6,19 @@ package di
 import (
 	"github.com/google/wire"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
+	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
 	echoHandler "github.com/lin-snow/ech0/internal/handler/echo"
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
 	todoHandler "github.com/lin-snow/ech0/internal/handler/todo"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
 	commonRepository "github.com/lin-snow/ech0/internal/repository/common"
+	connectRepository "github.com/lin-snow/ech0/internal/repository/connect"
 	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	todoRepository "github.com/lin-snow/ech0/internal/repository/todo"
 	userRepository "github.com/lin-snow/ech0/internal/repository/user"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
+	connectService "github.com/lin-snow/ech0/internal/service/connect"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	todoService "github.com/lin-snow/ech0/internal/service/todo"
@@ -31,7 +34,7 @@ func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 		CommonSet,
 		SettingSet,
 		TodoSet,
-		//ConnectSet,
+		ConnectSet,
 		NewHandlers,
 	)
 
@@ -73,5 +76,9 @@ var TodoSet = wire.NewSet(
 	todoHandler.NewTodoHandler,
 )
 
-//// ConnectSet 包含了构建 ConnectHandler 所需的所有 Provider
-//var ConnectSet = wire.NewSet()
+// ConnectSet 包含了构建 ConnectHandler 所需的所有 Provider
+var ConnectSet = wire.NewSet(
+	connectRepository.NewConnectRepository,
+	connectService.NewConnectService,
+	connectHandler.NewConnectHandler,
+)

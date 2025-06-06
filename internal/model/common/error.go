@@ -38,7 +38,16 @@ const (
 	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
 	IMAGE_NOT_FOUND        = "图片未找到"
 	INVALID_PARAMS         = "错误的参数"
+	SIGNUP_FIRST           = "请先注册用户"
 )
 
-// Setting 错误相关常量
-const ()
+// User 错误相关常量
+const (
+	USERNAME_ALREADY_EXISTS = "用户名已存在"
+)
+
+// Connect 错误相关常量
+const (
+	INVALID_CONNECTION_URL = "connect url不能为空"
+	CONNECT_HAS_EXISTS     = "connect 已经存在"
+)

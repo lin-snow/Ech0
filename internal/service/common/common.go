@@ -133,3 +133,44 @@ func (commonService *CommonService) DirectDeleteImage(url, source string) error 
 
 	return nil
 }
+
+func (commonService *CommonService) GetSysAdmin() (userModel.User, error) {
+	return commonService.commonRepository.GetSysAdmin()
+}
+
+func (commonService *CommonService) GetStatus() (commonModel.Status, error) {
+	// 获取系统管理员信息
+	sysuser, err := commonService.commonRepository.GetSysAdmin()
+	if err != nil {
+		return commonModel.Status{}, err
+	}
+
+	// 获取所有用户状态信息
+	var users []commonModel.UserStatus
+	allusers, err := commonService.commonRepository.GetAllUsers()
+	if err != nil {
+		return commonModel.Status{}, err
+	}
+	for _, user := range allusers {
+		users = append(users, commonModel.UserStatus{
+			UserID:   user.ID,
+			UserName: user.Username,
+			IsAdmin:  user.IsAdmin,
+		})
+	}
+
+	status := commonModel.Status{}
+
+	echos, err := commonService.commonRepository.GetAllEchos(true)
+	if err != nil {
+		return status, err
+	}
+
+	status.SysAdminID = sysuser.ID
+	status.Username = sysuser.Username
+	status.Logo = sysuser.Avatar
+	status.Users = users
+	status.TotalMessages = len(echos)
+
+	return status, nil
+}

@@ -67,3 +67,22 @@ func (commonHandler *CommonHandler) DeleteImage(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.DELETE_SUCCESS))
 }
+
+func (commonHandler *CommonHandler) GetStatus(ctx *gin.Context) {
+	_, err := commonHandler.commonService.GetSysAdmin()
+	if err != nil {
+		ctx.JSON(http.StatusOK, commonModel.OKWithCode[any](nil, commonModel.InitInstallCode, commonModel.SIGNUP_FIRST))
+		return
+	}
+
+	status, err := commonHandler.commonService.GetStatus()
+	if err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: "",
+			Err: err,
+		})))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, commonModel.OK[commonModel.Status](status, commonModel.GET_STATUS_SUCCESS))
+}

@@ -2,6 +2,7 @@ package di
 
 import (
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
+	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
 	echoHandler "github.com/lin-snow/ech0/internal/handler/echo"
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
 	todoHandler "github.com/lin-snow/ech0/internal/handler/todo"
@@ -15,6 +16,7 @@ type Handlers struct {
 	CommonHandler  *commonHandler.CommonHandler
 	SettingHandler *settingHandler.SettingHandler
 	TodoHandler    *todoHandler.TodoHandler
+	ConnectHandler *connectHandler.ConnectHandler
 }
 
 // NewHandlers 创建Handlers实例
@@ -24,6 +26,7 @@ func NewHandlers(
 	commonHandler *commonHandler.CommonHandler,
 	settingHandler *settingHandler.SettingHandler,
 	todoHandler *todoHandler.TodoHandler,
+	connectHandler *connectHandler.ConnectHandler,
 ) *Handlers {
 	return &Handlers{
 		UserHandler:    userHandler,
@@ -31,5 +34,6 @@ func NewHandlers(
 		CommonHandler:  commonHandler,
 		SettingHandler: settingHandler,
 		TodoHandler:    todoHandler,
+		ConnectHandler: connectHandler,
 	}
 }
