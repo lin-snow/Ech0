@@ -41,9 +41,10 @@ const (
 
 // User 成功相关常量
 const (
-	UPDATE_USER_SUCCESS = "更新用户信息成功"
-	GET_USER_SUCCESS    = "获取用户列表成功"
-	DELETE_USER_SUCCESS = "删除用户成功"
+	UPDATE_USER_SUCCESS   = "更新用户信息成功"
+	GET_USER_SUCCESS      = "获取用户列表成功"
+	GET_USER_INFO_SUCCESS = "获取用户信息成功"
+	DELETE_USER_SUCCESS   = "删除用户成功"
 )
 
 // Conenct 成功相关常量

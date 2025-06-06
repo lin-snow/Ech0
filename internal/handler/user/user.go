@@ -141,11 +141,30 @@ func (userHandler *UserHandler) DeleteUser(ctx *gin.Context) {
 
 	if err := userHandler.userService.DeleteUser(userid, uint(id)); err != nil {
 		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
-			Msg: err.Error(),
+			Msg: "",
 			Err: err,
 		})))
 		return
 	}
 
 	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.DELETE_USER_SUCCESS))
+}
+
+func (userHandler *UserHandler) GetUserInfo(ctx *gin.Context) {
+	// 获取当前用户 ID
+	userid := ctx.MustGet("userid").(uint)
+
+	// 调用 Service 层获取用户信息
+	user, err := userHandler.userService.GetUserByID(int(userid))
+	user.Password = "" // 不返回密码
+	if err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: "",
+			Err: err,
+		})))
+		return
+	}
+
+	// 返回成功响应
+	ctx.JSON(http.StatusOK, commonModel.OK[model.User](user, commonModel.GET_USER_INFO_SUCCESS))
 }

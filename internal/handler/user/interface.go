@@ -11,4 +11,5 @@ type UserHandlerInterface interface {
 	UpdateUserAdmin(ctx *gin.Context)
 	GetAllUsers(ctx *gin.Context)
 	DeleteUser(ctx *gin.Context)
+	GetUserInfo(ctx *gin.Context)
 }

@@ -51,7 +51,8 @@ func (todoService *TodoService) AddTodo(userid uint, todo *model.Todo) error {
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	// 设置用户名
+	// 设置TO DO
+	todo.UserID = userid
 	todo.Username = user.Username
 
 	if err := todoService.todoRepository.CreateTodo(todo); err != nil {

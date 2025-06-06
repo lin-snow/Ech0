@@ -9,4 +9,8 @@ func setupUserRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
 	appRouterGroup.PublicRouterGroup.GET("/allusers", h.UserHandler.GetAllUsers)
 
 	// Auth
+	appRouterGroup.AuthRouterGroup.GET("/user", h.UserHandler.GetUserInfo)
+	appRouterGroup.AuthRouterGroup.PUT("/user", h.UserHandler.UpdateUser)
+	appRouterGroup.AuthRouterGroup.DELETE("/user/:id", h.UserHandler.DeleteUser)
+	appRouterGroup.AuthRouterGroup.GET("/user/admin/:id", h.UserHandler.UpdateUserAdmin)
 }

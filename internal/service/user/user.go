@@ -212,6 +212,6 @@ func (userService *UserService) DeleteUser(userid, id uint) error {
 	return nil
 }
 
-//func (userService *UserService) GetUserByID(userId int) (model.User, error) {
-//	return userService.userRepository.GetUserByID(userId)
-//}
+func (userService *UserService) GetUserByID(userId int) (model.User, error) {
+	return userService.userRepository.GetUserByID(userId)
+}
