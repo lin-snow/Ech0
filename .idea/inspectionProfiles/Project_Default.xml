@@ -2,5 +2,10 @@
   <profile version="1.0">
     <option name="myName" value="Project Default" />
     <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="GoDfaErrorMayBeNotNil" enabled="true" level="WARNING" enabled_by_default="true">
+      <methods>
+        <method importPath="github.com/lin-snow/ech0/internal/repository/todo" receiver="TodoRepositoryInterface" name="GetTodoByID" />
+      </methods>
+    </inspection_tool>
   </profile>
 </component>

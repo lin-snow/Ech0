@@ -11,14 +11,17 @@ import (
 	handler3 "github.com/lin-snow/ech0/internal/handler/common"
 	handler2 "github.com/lin-snow/ech0/internal/handler/echo"
 	handler4 "github.com/lin-snow/ech0/internal/handler/setting"
+	handler5 "github.com/lin-snow/ech0/internal/handler/todo"
 	"github.com/lin-snow/ech0/internal/handler/user"
 	repository2 "github.com/lin-snow/ech0/internal/repository/common"
 	repository3 "github.com/lin-snow/ech0/internal/repository/echo"
 	"github.com/lin-snow/ech0/internal/repository/keyvalue"
+	repository4 "github.com/lin-snow/ech0/internal/repository/todo"
 	"github.com/lin-snow/ech0/internal/repository/user"
 	"github.com/lin-snow/ech0/internal/service/common"
 	service4 "github.com/lin-snow/ech0/internal/service/echo"
 	service2 "github.com/lin-snow/ech0/internal/service/setting"
+	service5 "github.com/lin-snow/ech0/internal/service/todo"
 	service3 "github.com/lin-snow/ech0/internal/service/user"
 	"gorm.io/gorm"
 )
@@ -39,7 +42,10 @@ func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 	echoHandler := handler2.NewEchoHandler(echoServiceInterface)
 	commonHandler := handler3.NewCommonHandler(commonServiceInterface)
 	settingHandler := handler4.NewSettingHandler(settingServiceInterface)
-	handlers := NewHandlers(userHandler, echoHandler, commonHandler, settingHandler)
+	todoRepositoryInterface := repository4.NewTodoRepository(db)
+	todoServiceInterface := service5.NewTodoService(todoRepositoryInterface, commonServiceInterface)
+	todoHandler := handler5.NewTodoHandler(todoServiceInterface)
+	handlers := NewHandlers(userHandler, echoHandler, commonHandler, settingHandler, todoHandler)
 	return handlers, nil
 }
 
@@ -56,3 +62,6 @@ var CommonSet = wire.NewSet(repository2.NewCommonRepository, service.NewCommonSe
 
 // SettingSet 包含了构建 SettingHandler 所需的所有 Provider
 var SettingSet = wire.NewSet(keyvalue.NewKeyValueRepository, service2.NewSettingService, handler4.NewSettingHandler)
+
+// TodoSet 包含了构建 TodoHandler 所需的所有 Provider
+var TodoSet = wire.NewSet(repository4.NewTodoRepository, service5.NewTodoService, handler5.NewTodoHandler)

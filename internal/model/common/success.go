@@ -29,3 +29,11 @@ const (
 	GET_SETTINGS_SUCCESS    = "获取设置成功！"
 	UPDATE_SETTINGS_SUCCESS = "更新设置成功！"
 )
+
+// To do 成功相关常量
+const (
+	GET_TODO_LIST_SUCCESS = "获取Todo list 成功"
+	ADD_TODO_SUCCESS      = "添加Todo成功"
+	UPDATE_TODO_SUCCESS   = "更新Todo成功"
+	DELETE_TODO_SUCCESS   = "删除Todo成功"
+)

@@ -31,3 +31,25 @@ type PageQueryResult[T any] struct {
 	Total int64 `json:"total"`
 	Items T     `json:"items"`
 }
+
+// 其他
+
+const (
+	InitInstallCode = 666
+)
+
+const (
+	Version = "2.0.0" // 当前版本号
+)
+
+const (
+	GreetingBanner = `
+███████╗     ██████╗    ██╗  ██╗     ██████╗ 
+██╔════╝    ██╔════╝    ██║  ██║    ██╔═████╗
+█████╗      ██║         ███████║    ██║██╔██║
+██╔══╝      ██║         ██╔══██║    ████╔╝██║
+███████╗    ╚██████╗    ██║  ██║    ╚██████╔╝
+╚══════╝     ╚═════╝    ╚═╝  ╚═╝     ╚═════╝ 
+                                             
+`
+)

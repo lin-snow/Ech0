@@ -36,6 +36,9 @@ func SetupRouter(r *gin.Engine, h *di.Handlers) {
 
 	// Setup To Do Routes
 	setupTodoRoutes(appRouterGroup, h)
+
+	// Setup Connect Routes
+	setupConnectRoutes(appRouterGroup, h)
 }
 
 func setupRouterGroup(r *gin.Engine) *AppRouterGroup {
