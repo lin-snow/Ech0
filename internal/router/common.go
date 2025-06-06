@@ -7,4 +7,5 @@ func setupCommonRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
 
 	// Auth
 	appRouterGroup.AuthRouterGroup.POST("/images/upload", h.CommonHandler.UploadImage)
+	appRouterGroup.AuthRouterGroup.POST("/images/delete", h.CommonHandler.DeleteImage)
 }

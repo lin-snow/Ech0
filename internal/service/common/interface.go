@@ -8,4 +8,6 @@ import (
 type CommonServiceInterface interface {
 	CommonGetUserByUserId(userId uint) (userModel.User, error)
 	UploadImage(userid uint, file *multipart.FileHeader) (string, error)
+	DeleteImage(userid uint, url, source string) error
+	DirectDeleteImage(url, source string) error
 }

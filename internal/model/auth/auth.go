@@ -11,5 +11,6 @@ type MyClaims struct {
 }
 
 const (
-	MAX_USER_COUNT = 5
+	MAX_USER_COUNT  = 5
+	NO_USER_LOGINED = 0
 )

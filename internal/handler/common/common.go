@@ -44,3 +44,26 @@ func (commonHandler *CommonHandler) UploadImage(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, commonModel.OK[string](imageUrl, commonModel.UPLOAD_SUCCESS))
 }
+
+func (commonHandler *CommonHandler) DeleteImage(ctx *gin.Context) {
+	userId := ctx.MustGet("userid").(uint)
+
+	var imageDto commonModel.ImageDto
+	if err := ctx.ShouldBindQuery(&imageDto); err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: commonModel.INVALID_REQUEST_BODY,
+			Err: err,
+		})))
+		return
+	}
+
+	if err := commonHandler.commonService.DeleteImage(userId, imageDto.URL, imageDto.SOURCE); err != nil {
+		ctx.JSON(http.StatusOK, commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+			Msg: "",
+			Err: err,
+		})))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.DELETE_SUCCESS))
+}

@@ -13,12 +13,15 @@ const (
 
 // Echo 成功相关常量
 const (
-	POST_ECHO_SUCCESS = "发布Echo成功！"
+	POST_ECHO_SUCCESS         = "发布Echo成功！"
+	GET_ECHOS_BY_PAGE_SUCCESS = "获取Echos成功！"
+	DELETE_ECHO_SUCCESS       = "删除Echo成功"
 )
 
 // Common 成功相关常量
 const (
 	UPLOAD_SUCCESS = "上传成功"
+	DELETE_SUCCESS = "删除成功"
 )
 
 // Setting 成功相关常量

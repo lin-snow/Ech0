@@ -26,3 +26,8 @@ const (
 	SystemSettingsKey = "system_settings" // 系统设置的键
 	ConnectKey        = "connect"         // Connect 信息的键
 )
+
+type PageQueryResult[T any] struct {
+	Total int64 `json:"total"`
+	Items T     `json:"items"`
+}

@@ -26,6 +26,7 @@ const (
 const (
 	NO_PERMISSION_DENIED  = "没有权限,请联系系统管理员"
 	ECHO_CAN_NOT_BE_EMPTY = "ECHO 内容不能为空"
+	ECHO_NOT_FOUND        = "找不到Echo"
 )
 
 // Common 错误相关常量
@@ -34,6 +35,8 @@ const (
 	NO_FILE_STORAGE_ERROR  = "未知存储方式"
 	FILE_TYPE_NOT_ALLOWED  = "不支持的文件类型"
 	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
+	IMAGE_NOT_FOUND        = "图片未找到"
+	INVALID_PARAMS         = "错误的参数"
 )
 
 // Setting 错误相关常量
