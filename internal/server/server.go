@@ -6,21 +6,23 @@ import (
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/di"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	model "github.com/lin-snow/ech0/internal/model/server"
-	serverModel "github.com/lin-snow/ech0/internal/model/server"
 	"github.com/lin-snow/ech0/internal/router"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	logUtil "github.com/lin-snow/ech0/internal/util/log"
 )
 
-func New() *model.Server {
+type Server struct {
+	GinEngine *gin.Engine
+}
+
+func New() *Server {
 	engine := gin.Default()
-	return &model.Server{
+	return &Server{
 		GinEngine: engine,
 	}
 }
 
-func Init(s *model.Server) {
+func (s *Server) Init() {
 	// Logger
 	logUtil.InitLogger()
 
@@ -50,7 +52,7 @@ func Init(s *model.Server) {
 	router.SetupRouter(s.GinEngine, handlers)
 }
 
-func Start(s *serverModel.Server) {
+func (s *Server) Start() {
 	port := config.Config.Server.Port
 	if err := s.GinEngine.Run(":" + port); err != nil {
 		errUtil.HandlePanicError(&commonModel.ServerError{

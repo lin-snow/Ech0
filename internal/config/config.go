@@ -29,6 +29,13 @@ type AppConfig struct {
 			Audience string `yaml:"audience"`
 		} `yaml:"jwt"`
 	} `yaml:"auth"`
+	Upload struct {
+		ImageMaxSize int      `yaml:"imagemaxsize"`
+		AudioMaxSize int      `yaml:"audiomaxsize"`
+		AllowedTypes []string `yaml:"allowedtypes"`
+		ImagePath    string   `yaml:"imagepath"`
+		AudioPath    string   `yaml:"audiopath"`
+	} `yaml:"upload"`
 }
 
 type ServerConfig struct {

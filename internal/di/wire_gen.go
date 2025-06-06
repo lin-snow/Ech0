@@ -8,10 +8,12 @@ package di
 
 import (
 	"github.com/google/wire"
+	handler3 "github.com/lin-snow/ech0/internal/handler/common"
 	handler2 "github.com/lin-snow/ech0/internal/handler/echo"
 	"github.com/lin-snow/ech0/internal/handler/user"
 	repository2 "github.com/lin-snow/ech0/internal/repository/echo"
 	"github.com/lin-snow/ech0/internal/repository/user"
+	service3 "github.com/lin-snow/ech0/internal/service/common"
 	service2 "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/service/user"
 	"gorm.io/gorm"
@@ -27,7 +29,9 @@ func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 	echoRepositoryInterface := repository2.NewEchoRepository(db)
 	echoServiceInterface := service2.NewEchoService(echoRepositoryInterface, userServiceInterface)
 	echoHandler := handler2.NewEchoHandler(echoServiceInterface)
-	handlers := NewHandlers(userHandler, echoHandler)
+	commonServiceInterface := service3.NewCommonService(userServiceInterface)
+	commonHandler := handler3.NewCommonHandler(commonServiceInterface)
+	handlers := NewHandlers(userHandler, echoHandler, commonHandler)
 	return handlers, nil
 }
 
@@ -38,3 +42,6 @@ var UserSet = wire.NewSet(repository.NewUserRepository, service.NewUserService, 
 
 // EchoSet 包含了构建 EchoHandler 所需的所有 Provider
 var EchoSet = wire.NewSet(repository2.NewEchoRepository, service2.NewEchoService, handler2.NewEchoHandler)
+
+// CommonSet 包含了构建 CommonHandler 所需的所有 Provider
+var CommonSet = wire.NewSet(service3.NewCommonService, handler3.NewCommonHandler)

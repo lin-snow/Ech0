@@ -7,7 +7,6 @@ import (
 	repository "github.com/lin-snow/ech0/internal/repository/echo"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	httpUtil "github.com/lin-snow/ech0/internal/util/http"
-	"log"
 )
 
 type EchoService struct {
@@ -29,7 +28,7 @@ func (echoService *EchoService) PostEcho(userid uint, newEcho *model.Echo) error
 	if err != nil {
 		return err
 	}
-	log.Println("user: ", user)
+
 	if !user.IsAdmin {
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}

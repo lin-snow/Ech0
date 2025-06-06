@@ -1,27 +1,10 @@
 package router
 
-import (
-	"github.com/gin-contrib/static"
-	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/middleware"
-)
+import "github.com/lin-snow/ech0/internal/di"
 
-type AppRouterGroup struct {
-	PublicRouterGroup *gin.RouterGroup
-	AuthRouterGroup   *gin.RouterGroup
-}
+func setupCommonRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
+	// Public
 
-func setupRouterGroup(r *gin.Engine) *AppRouterGroup {
-	public := r.Group("/api")
-	auth := r.Group("/api")
-	auth.Use(middleware.JWTAuthMiddleware())
-	return &AppRouterGroup{
-		PublicRouterGroup: public,
-		AuthRouterGroup:   auth,
-	}
-}
-
-func setupResourceRoutes(r *gin.Engine) {
-	r.Use(static.Serve("/", static.LocalFile("./template", true)))
-	r.Static("/api/images", "./data/images")
+	// Auth
+	appRouterGroup.AuthRouterGroup.POST("/images/upload", h.CommonHandler.UploadImage)
 }

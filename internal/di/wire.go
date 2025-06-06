@@ -5,10 +5,12 @@ package di
 
 import (
 	"github.com/google/wire"
+	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	echoHandler "github.com/lin-snow/ech0/internal/handler/echo"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
 	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
 	userRepository "github.com/lin-snow/ech0/internal/repository/user"
+	commonService "github.com/lin-snow/ech0/internal/service/common"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	"gorm.io/gorm"
@@ -19,6 +21,7 @@ func BuildHandlers(db *gorm.DB) (*Handlers, error) {
 	wire.Build(
 		UserSet,
 		EchoSet,
+		CommonSet,
 		NewHandlers,
 	)
 
@@ -37,4 +40,10 @@ var EchoSet = wire.NewSet(
 	echoRepository.NewEchoRepository,
 	echoService.NewEchoService,
 	echoHandler.NewEchoHandler,
+)
+
+// CommonSet 包含了构建 CommonHandler 所需的所有 Provider
+var CommonSet = wire.NewSet(
+	commonService.NewCommonService,
+	commonHandler.NewCommonHandler,
 )

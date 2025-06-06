@@ -7,8 +7,8 @@ func main() {
 	s := server.New()
 
 	// 初始化Server
-	server.Init(s)
+	s.Init()
 
 	// 启动Server
-	server.Start(s)
+	s.Start()
 }

@@ -15,3 +15,8 @@ const (
 const (
 	POST_ECHO_SUCCESS = "发布Echo成功！"
 )
+
+// Common 成功相关常量
+const (
+	UPLOAD_SUCCESS = "上传成功"
+)

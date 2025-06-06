@@ -12,3 +12,19 @@ auth:
     expires: 2592000 # 30天（单位秒）
     issuer: "ech0s"
     audience: "ech0s"
+
+upload:
+  imagemaxsize: 5242880 # 5MB
+  audiomaxsize: 20971520 # 20MB
+  imagepath: "data/images/"
+  audiopath: "data/audios/"
+  allowedtypes:
+    - "image/jpeg"
+    - "image/png"
+    - "image/gif"
+    - "image/webp"
+    - "image/jpg"
+    - "image/svg+xml"
+    - "image/avif"
+    - "audio/mpeg"
+    - "audio/flac"
