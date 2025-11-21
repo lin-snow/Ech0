@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/di"
 	"github.com/lin-snow/ech0/internal/middleware"
 )
@@ -29,6 +30,7 @@ func SetupRouter(r *gin.Engine, h *di.Handlers) {
 
 	// ===     静态资源映射     ===
 	r.Static("api/images", "./data/images")
+	r.Static("api/videos", config.Config.Upload.VideoPath)
 
 	// ===        中间件        ===
 	// Setup Middleware

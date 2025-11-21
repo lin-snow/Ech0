@@ -50,6 +50,8 @@ const (
 	ImageType UploadFileType = "image"
 	// AudioType  音频类型
 	AudioType UploadFileType = "audio"
+	// VideoType  视频类型
+	VideoType UploadFileType = "video"
 )
 
 const (

@@ -76,35 +76,50 @@ func (commonService *CommonService) UploadImage(userId uint, file *multipart.Fil
 	}
 
 	// 检查文件类型是否合法
-	if !storageUtil.IsAllowedType(file.Header.Get("Content-Type"), config.Config.Upload.AllowedTypes) {
+	contentType := file.Header.Get("Content-Type")
+	if !storageUtil.IsAllowedType(contentType, config.Config.Upload.AllowedTypes) {
+		return "", errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
+	}
+
+	// 根据Content-Type检测文件类型并选择对应的maxSize
+	var fileType commonModel.UploadFileType
+	var maxSize int64
+
+	if strings.HasPrefix(contentType, "image/") {
+		fileType = commonModel.ImageType
+		maxSize = int64(config.Config.Upload.ImageMaxSize)
+	} else if strings.HasPrefix(contentType, "video/") {
+		fileType = commonModel.VideoType
+		maxSize = int64(config.Config.Upload.VideoMaxSize)
+	} else {
 		return "", errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
 	}
 
 	// 检查文件大小是否合法
-	if file.Size > int64(config.Config.Upload.ImageMaxSize) {
+	if file.Size > maxSize {
 		return "", errors.New(commonModel.FILE_SIZE_EXCEED_LIMIT)
 	}
 
-	// 调用存储函数存储图片
-	imageUrl, err := storageUtil.UploadFile(file, commonModel.ImageType, commonModel.LOCAL_FILE, user.ID)
+	// 调用存储函数存储媒体文件
+	mediaUrl, err := storageUtil.UploadFile(file, fileType, commonModel.LOCAL_FILE, user.ID)
 	if err != nil {
 		return "", err
 	}
 
-	// 触发图片上传事件
+	// 触发媒体上传事件
 	user.Password = "" // 清除密码字段，避免泄露
 	commonService.eventBus.Publish(context.Background(), event.NewEvent(
 		event.EventTypeResourceUploaded,
 		event.EventPayload{
 			event.EventPayloadUser: user,
 			event.EventPayloadFile: file.Filename,
-			event.EventPayloadURL:  imageUrl,
+			event.EventPayloadURL:  mediaUrl,
 			event.EventPayloadSize: file.Size,
-			event.EventPayloadType: commonModel.ImageType,
+			event.EventPayloadType: fileType,
 		},
 	))
 
-	return imageUrl, nil
+	return mediaUrl, nil
 }
 
 func (commonService *CommonService) DeleteImage(userid uint, url, source, object_key string) error {
@@ -116,24 +131,38 @@ func (commonService *CommonService) DeleteImage(userid uint, url, source, object
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	// 检查图片是否存在
+	// 检查媒体是否存在
 	if url == "" {
 		return errors.New(commonModel.IMAGE_NOT_FOUND)
 	}
 
 	switch source {
-	case echoModel.ImageSourceLocal:
+	case echoModel.MediaSourceLocal:
+		// 根据URL路径判断媒体类型并使用对应的目录
+		var baseDir, prefix string
+		if strings.HasPrefix(url, "/videos/") {
+			baseDir = "data/videos"
+			prefix = "/videos/"
+		} else if strings.HasPrefix(url, "/audios/") {
+			baseDir = "data/audios"
+			prefix = "/audios/"
+		} else {
+			// 默认为图片
+			baseDir = "data/images"
+			prefix = "/images/"
+		}
+
 		// 使用安全的路径验证和清理，防止路径遍历攻击
-		imagePath, err := fileUtil.ValidateAndSanitizePath("data/images", url, "/images/")
+		mediaPath, err := fileUtil.ValidateAndSanitizePath(baseDir, url, prefix)
 		if err != nil {
 			return fmt.Errorf("路径验证失败: %w", err)
 		}
 
-		// 删除图片
-		return storageUtil.DeleteFileFromLocal(imagePath)
-	case echoModel.ImageSourceURL:
+		// 删除媒体文件
+		return storageUtil.DeleteFileFromLocal(mediaPath)
+	case echoModel.MediaSourceURL:
 		// 无需处理
-	case echoModel.ImageSourceS3:
+	case echoModel.MediaSourceS3:
 		if object_key == "" {
 			// 如果没有传入 object_key，则无法删除,忽略
 			return nil
@@ -145,42 +174,69 @@ func (commonService *CommonService) DeleteImage(userid uint, url, source, object
 			return nil
 		}
 
-		// 删除 S3 上的图片
+		// 删除 S3 上的媒体
 		return commonService.objStorage.DeleteObject(context.Background(), object_key)
 	default:
-		// 未知图片来源按本地图片处理
+		// 未知媒体来源按本地媒体处理
+		var baseDir, prefix string
+		if strings.HasPrefix(url, "/videos/") {
+			baseDir = "data/videos"
+			prefix = "/videos/"
+		} else if strings.HasPrefix(url, "/audios/") {
+			baseDir = "data/audios"
+			prefix = "/audios/"
+		} else {
+			// 默认为图片
+			baseDir = "data/images"
+			prefix = "/images/"
+		}
+
 		// 使用安全的路径验证和清理，防止路径遍历攻击
-		imagePath, err := fileUtil.ValidateAndSanitizePath("data/images", url, "/images/")
+		mediaPath, err := fileUtil.ValidateAndSanitizePath(baseDir, url, prefix)
 		if err != nil {
 			return fmt.Errorf("路径验证失败: %w", err)
 		}
 
-		// 删除图片
-		return storageUtil.DeleteFileFromLocal(imagePath)
+		// 删除媒体文件
+		return storageUtil.DeleteFileFromLocal(mediaPath)
 	}
 
 	return nil
 }
 
 func (commonService *CommonService) DirectDeleteImage(url, source, object_key string) error {
-	// 检查图片是否存在
+	// 检查媒体是否存在
 	if url == "" {
 		return errors.New(commonModel.IMAGE_NOT_FOUND)
 	}
 
 	switch source {
-	case echoModel.ImageSourceLocal:
+	case echoModel.MediaSourceLocal:
+		// 根据URL路径判断媒体类型并使用对应的目录
+		var baseDir, prefix string
+		if strings.HasPrefix(url, "/videos/") {
+			baseDir = "data/videos"
+			prefix = "/videos/"
+		} else if strings.HasPrefix(url, "/audios/") {
+			baseDir = "data/audios"
+			prefix = "/audios/"
+		} else {
+			// 默认为图片
+			baseDir = "data/images"
+			prefix = "/images/"
+		}
+
 		// 使用安全的路径验证和清理，防止路径遍历攻击
-		imagePath, err := fileUtil.ValidateAndSanitizePath("data/images", url, "/images/")
+		mediaPath, err := fileUtil.ValidateAndSanitizePath(baseDir, url, prefix)
 		if err != nil {
 			return fmt.Errorf("路径验证失败: %w", err)
 		}
 
-		// 删除图片
-		return storageUtil.DeleteFileFromLocal(imagePath)
-	case echoModel.ImageSourceURL:
+		// 删除媒体文件
+		return storageUtil.DeleteFileFromLocal(mediaPath)
+	case echoModel.MediaSourceURL:
 		// 无需处理
-	case echoModel.ImageSourceS3:
+	case echoModel.MediaSourceS3:
 		cli, _, err := commonService.GetS3Client()
 		if err != nil {
 			// 如果没有配置 S3，则无法删除,忽略
@@ -190,18 +246,31 @@ func (commonService *CommonService) DirectDeleteImage(url, source, object_key st
 			// 如果没有传入 object_key，则无法删除,忽略
 			return nil
 		}
-		// 删除 S3 上的图片
+		// 删除 S3 上的媒体
 		return cli.DeleteObject(context.Background(), object_key)
 	default:
-		// 未知图片来源按本地图片处理
+		// 未知媒体来源按本地图片处理
+		var baseDir, prefix string
+		if strings.HasPrefix(url, "/videos/") {
+			baseDir = "data/videos"
+			prefix = "/videos/"
+		} else if strings.HasPrefix(url, "/audios/") {
+			baseDir = "data/audios"
+			prefix = "/audios/"
+		} else {
+			// 默认为图片
+			baseDir = "data/images"
+			prefix = "/images/"
+		}
+
 		// 使用安全的路径验证和清理，防止路径遍历攻击
-		imagePath, err := fileUtil.ValidateAndSanitizePath("data/images", url, "/images/")
+		mediaPath, err := fileUtil.ValidateAndSanitizePath(baseDir, url, prefix)
 		if err != nil {
 			return fmt.Errorf("路径验证失败: %w", err)
 		}
 
-		// 删除图片
-		return storageUtil.DeleteFileFromLocal(imagePath)
+		// 删除媒体文件
+		return storageUtil.DeleteFileFromLocal(mediaPath)
 	}
 
 	return nil
@@ -326,28 +395,28 @@ func (commonService *CommonService) GenerateRSS(ctx *gin.Context) (string, error
 
 		title := msg.Username + " - " + msg.CreatedAt.Format("2006-01-02")
 
-		// 添加图片链接到正文前(scheme://host/api/ImageURL)
-		if len(msg.Images) > 0 {
-			for _, image := range msg.Images {
-				// 根据图片来源生成链接
-				switch image.ImageSource {
-				case echoModel.ImageSourceLocal:
-					imageURL := fmt.Sprintf("%s://%s/api%s", schema, host, image.ImageURL)
+		// 添加媒体链接到正文前(scheme://host/api/MediaURL)
+		if len(msg.Media) > 0 {
+			for _, media := range msg.Media {
+				// 根据媒体来源生成链接
+				switch media.MediaSource {
+				case echoModel.MediaSourceLocal:
+					mediaURL := fmt.Sprintf("%s://%s/api%s", schema, host, media.MediaURL)
 					renderedContent = append(
 						[]byte(
 							fmt.Sprintf(
 								"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
-								imageURL,
+								mediaURL,
 							),
 						),
 						renderedContent...)
-				case echoModel.ImageSourceS3:
-					imageURL := image.ImageURL
+				case echoModel.MediaSourceS3:
+					mediaURL := media.MediaURL
 					renderedContent = append(
 						[]byte(
 							fmt.Sprintf(
 								"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
-								imageURL,
+								mediaURL,
 							),
 						),
 						renderedContent...)
@@ -721,14 +790,14 @@ func (commonService *CommonService) RefreshEchoImageURL(echo *echoModel.Echo) {
 	var wg sync.WaitGroup
 	mu := sync.Mutex{}
 
-	for i := range echo.Images {
-		if echo.Images[i].ImageSource == echoModel.ImageSourceS3 && echo.Images[i].ObjectKey != "" {
+	for i := range echo.Media {
+		if echo.Media[i].MediaSource == echoModel.MediaSourceS3 && echo.Media[i].ObjectKey != "" {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				if newURL, err := commonService.GetS3ObjectURL(s3setting, echo.Images[i].ObjectKey); err == nil {
+				if newURL, err := commonService.GetS3ObjectURL(s3setting, echo.Media[i].ObjectKey); err == nil {
 					mu.Lock()
-					echo.Images[i].ImageURL = newURL
+					echo.Media[i].MediaURL = newURL
 					mu.Unlock()
 				}
 			}(i)

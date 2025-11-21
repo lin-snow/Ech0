@@ -50,7 +50,7 @@
           </div>
 
           <TheImageGallery
-            :images="props.echo.images"
+            :media="props.echo.media"
             :baseUrl="echo.server_url"
             :layout="props.echo.layout"
           />
@@ -59,7 +59,7 @@
         <template v-else>
           <!-- 图片在上，文字在下（瀑布流 / 单图轮播 等） -->
           <TheImageGallery
-            :images="props.echo.images"
+            :media="props.echo.media"
             :baseUrl="echo.server_url"
             :layout="props.echo.layout"
           />

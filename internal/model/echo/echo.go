@@ -7,7 +7,7 @@ type Echo struct {
 	ID            uint      `gorm:"primaryKey"                                       json:"id"`
 	Content       string    `gorm:"type:text;not null"                               json:"content"`
 	Username      string    `gorm:"type:varchar(100)"                                json:"username,omitempty"`
-	Images        []Image   `gorm:"foreignKey:MessageID;constraint:OnDelete:CASCADE" json:"images,omitempty"`
+	Media         []Media   `gorm:"foreignKey:MessageID;constraint:OnDelete:CASCADE" json:"media,omitempty"`
 	Layout        string    `gorm:"type:varchar(50);default:'waterfall'"             json:"layout,omitempty"`
 	Private       bool      `gorm:"default:false"                                    json:"private"`
 	UserID        uint      `gorm:"not null;index"                                   json:"user_id"`
@@ -33,15 +33,16 @@ type Echo struct {
 // 	CreatedAt     time.Time `                            json:"created_at"`
 // }
 
-// Image 定义Image实体
-type Image struct {
+// Media 定义Media实体（原Image实体）
+type Media struct {
 	ID          uint   `gorm:"primaryKey"       json:"id"`
 	MessageID   uint   `gorm:"index;not null"   json:"message_id"`           // 关联的Echo ID(注意⚠️: 该字段名为MessageID, 但实际关联的是Echo表,因为为了兼容旧版Echo用户)
-	ImageURL    string `gorm:"type:text"        json:"image_url"`            // 图片URL
-	ImageSource string `gorm:"type:varchar(20)" json:"image_source"`         // 图片来源: local/url/s3
+	MediaURL    string `gorm:"type:text"        json:"media_url"`            // 媒体URL（原image_url）
+	MediaType   string `gorm:"type:varchar(20)" json:"media_type"`           // 媒体类型: image/video
+	MediaSource string `gorm:"type:varchar(20)" json:"media_source"`         // 媒体来源: local/url/s3（原image_source）
 	ObjectKey   string `gorm:"type:text"        json:"object_key,omitempty"` // 对象存储的Key (如果是本地存储则为空)
-	Width       int    `gorm:"default:0"        json:"width,omitempty"`      // 图片宽度
-	Height      int    `gorm:"default:0"        json:"height,omitempty"`     // 图片高度
+	Width       int    `gorm:"default:0"        json:"width,omitempty"`      // 媒体宽度
+	Height      int    `gorm:"default:0"        json:"height,omitempty"`     // 媒体高度
 }
 
 // Tag 定义Tag实体
@@ -64,9 +65,12 @@ const (
 	Extension_GITHUBPROJ = "GITHUBPROJ" // 扩展附加内容--GitHub项目
 	Extension_WEBSITE    = "WEBSITE"    // 扩展附加内容--网站
 
-	ImageSourceLocal = "local" // 本地图片
-	ImageSourceURL   = "url"   // 直链图片
-	ImageSourceS3    = "s3"    // S3 图片
+	MediaTypeImage = "image" // 媒体类型--图片
+	MediaTypeVideo = "video" // 媒体类型--视频
+
+	MediaSourceLocal = "local" // 本地媒体（原ImageSourceLocal）
+	MediaSourceURL   = "url"   // 直链媒体（原ImageSourceURL）
+	MediaSourceS3    = "s3"    // S3 媒体（原ImageSourceS3）
 
 	LayoutWaterfall  = "waterfall"  // 瀑布流布局
 	LayoutGrid       = "grid"       // 九宫格布局

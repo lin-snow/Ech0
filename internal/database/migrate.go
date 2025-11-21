@@ -24,11 +24,52 @@ func fixOldEchoLayoutData() error {
 	return nil
 }
 
+// MigrateImageToMedia 将images表迁移到media表
+func MigrateImageToMedia() error {
+	db := GetDB()
+	if db == nil {
+		return errors.New(commonModel.DATABASE_NOT_INITED)
+	}
+
+	// 检查是否需要迁移（images表是否存在）
+	if !db.Migrator().HasTable("images") {
+		// images表不存在，说明是新安装或已经迁移过，无需处理
+		return nil
+	}
+
+	// images表存在，需要迁移数据到media表
+	// 注意：media表已经由MigrateDB()的AutoMigrate创建
+
+	// 复制数据，将所有现有图片的media_type设置为'image'
+	if err := db.Exec(`
+		INSERT INTO media (id, message_id, media_url, media_type, media_source, object_key, width, height)
+		SELECT id, message_id, image_url, 'image', image_source, object_key, width, height
+		FROM images
+	`).Error; err != nil {
+		return err
+	}
+
+	// 删除旧表
+	if err := db.Migrator().DropTable("images"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // UpdateMigration 执行旧数据库迁移和数据修复任务
 func UpdateMigration() error {
 	var err error
 
 	err = fixOldEchoLayoutData()
+	if err != nil {
+		return err
+	}
 
-	return err
+	err = MigrateImageToMedia()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

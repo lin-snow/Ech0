@@ -51,12 +51,14 @@ import { onMounted, ref, onBeforeUnmount } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useTodoStore } from '@/stores/todo'
 import { useEchoStore } from '@/stores/echo'
+import { useEditorStore } from '@/stores/editor'
 import { storeToRefs } from 'pinia'
 import TheAudioCard from '@/components/advanced/TheAudioCard.vue'
 
 const todoStore = useTodoStore()
 const userStore = useUserStore()
 const echoStore = useEchoStore()
+const editorStore = useEditorStore()
 const { getTodos } = todoStore
 const { todoMode, todos } = storeToRefs(todoStore)
 const { isLogin } = storeToRefs(userStore)

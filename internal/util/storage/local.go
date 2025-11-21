@@ -27,6 +27,9 @@ func UploadFileToLocal(file *multipart.FileHeader, fileType commonModel.UploadFi
 	case commonModel.AudioType:
 		// 上传音频到本地
 		return UploadAudioToLocal(file, userID)
+	case commonModel.VideoType:
+		// 上传视频到本地
+		return UploadVideoToLocal(file, userID)
 	default:
 		// 不支持的文件类型
 		return "", errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
@@ -131,6 +134,59 @@ func UploadAudioToLocal(file *multipart.FileHeader, userID uint) (string, error)
 	// 返回音频的 URL
 	audioURL := fmt.Sprintf("/audios/%s", newFileName)
 	return audioURL, nil
+}
+
+// UploadVideoToLocal 将视频上传到本地存储
+func UploadVideoToLocal(file *multipart.FileHeader, userID uint) (string, error) {
+	// 创建视频存储目录
+	if err := createDirIfNotExist(config.Config.Upload.VideoPath); err != nil {
+		return "", err
+	}
+
+	// 获取扩展名
+	ext := filepath.Ext(file.Filename)
+
+	// 生成新的文件名,格式为[userID]_[timestamp]_[random].[ext]
+	newFileName, err := GenerateRandomFilename(userID, ext)
+	if err != nil {
+		return "", err
+	}
+
+	// 保存文件到指定目录
+	savePath := filepath.Join(config.Config.Upload.VideoPath, newFileName)
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		// 确保文件被正确关闭
+		if closeErr := src.Close(); closeErr != nil {
+			log.Println("Failed to close file source:", closeErr)
+		}
+	}()
+
+	if err = os.MkdirAll(filepath.Dir(savePath), 0o750); err != nil {
+		return "", err
+	}
+
+	out, err := os.Create(savePath)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		// 确保文件被正确关闭
+		if closeErr := out.Close(); closeErr != nil {
+			log.Println("Failed to close destination file:", closeErr)
+		}
+	}()
+
+	if _, err = io.Copy(out, src); err != nil {
+		return "", err
+	}
+
+	// 返回视频的 URL
+	videoURL := fmt.Sprintf("/videos/%s", newFileName)
+	return videoURL, nil
 }
 
 // DeleteFileFromLocal 删除本地文件

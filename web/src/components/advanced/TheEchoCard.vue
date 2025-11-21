@@ -126,12 +126,12 @@
             />
           </div>
 
-          <TheImageGallery :images="props.echo.images" :layout="props.echo.layout" />
+          <TheImageGallery :media="props.echo.media" :layout="props.echo.layout" />
         </template>
 
         <template v-else>
           <!-- 图片在上，文字在下（瀑布流 / 单图轮播 等） -->
-          <TheImageGallery :images="props.echo.images" :layout="props.echo.layout" />
+          <TheImageGallery :media="props.echo.media" :layout="props.echo.layout" />
 
           <div class="mx-auto w-11/12 pl-1 mt-3">
             <MdPreview

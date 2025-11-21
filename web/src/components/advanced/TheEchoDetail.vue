@@ -52,12 +52,12 @@
             />
           </div>
 
-          <TheImageGallery :images="props.echo.images" :layout="props.echo.layout" />
+          <TheImageGallery :media="props.echo.media" :layout="props.echo.layout" />
         </template>
 
         <template v-else>
           <!-- 图片在上，文字在下 -->
-          <TheImageGallery :images="props.echo.images" :layout="props.echo.layout" />
+          <TheImageGallery :media="props.echo.media" :layout="props.echo.layout" />
 
           <div class="mt-3">
             <MdPreview

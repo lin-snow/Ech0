@@ -483,18 +483,23 @@ func cleanBackupDir(path string) error {
 	return nil
 }
 
-// GetImageURL 获取图片 URL 列表
-func GetImageURL(image echoModel.Image, serverURL string) string {
-	switch image.ImageSource {
-	case echoModel.ImageSourceLocal:
-		return fmt.Sprintf("%s/api/%s", serverURL, httpUtil.TrimURL(image.ImageURL))
-	case echoModel.ImageSourceURL:
-		return image.ImageURL
-	case echoModel.ImageSourceS3:
-		return image.ImageURL
+// GetMediaURL 获取媒体 URL（原GetImageURL）
+func GetMediaURL(media echoModel.Media, serverURL string) string {
+	switch media.MediaSource {
+	case echoModel.MediaSourceLocal:
+		return fmt.Sprintf("%s/api/%s", serverURL, httpUtil.TrimURL(media.MediaURL))
+	case echoModel.MediaSourceURL:
+		return media.MediaURL
+	case echoModel.MediaSourceS3:
+		return media.MediaURL
 	default:
-		return fmt.Sprintf("%s/api/%s", serverURL, httpUtil.TrimURL(image.ImageURL))
+		return fmt.Sprintf("%s/api/%s", serverURL, httpUtil.TrimURL(media.MediaURL))
 	}
+}
+
+// GetImageURL 保持向后兼容（已废弃，请使用GetMediaURL）
+func GetImageURL(media echoModel.Media, serverURL string) string {
+	return GetMediaURL(media, serverURL)
 }
 
 // ValidateAndSanitizePath 验证并清理文件路径，防止路径遍历攻击

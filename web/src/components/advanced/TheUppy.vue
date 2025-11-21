@@ -33,7 +33,7 @@ const props = defineProps<{
 
 const memorySource = ref<string>(props.TheImageSource) // 用于记住上传方式
 const isUploading = ref<boolean>(false) // 是否正在上传
-const files = ref<App.Api.Ech0.ImageToAdd[]>([]) // 已上传的文件列表
+const files = ref<App.Api.Ech0.MediaToAdd[]>([]) // 已上传的文件列表
 const tempFiles = ref<Map<string, { url: string; objectKey: string }>>(new Map()) // 用于S3临时存储文件回显地址的 Map(key: fileName, value: {url, objectKey})
 
 const userStore = useUserStore()
@@ -74,7 +74,7 @@ const initUppy = () => {
   uppy = new Uppy({
     restrictions: {
       maxNumberOfFiles: 6,
-      allowedFileTypes: ['image/*'],
+      allowedFileTypes: ['image/*', 'video/*'],
     },
     autoProceed: true,
   })
@@ -91,7 +91,7 @@ const initUppy = () => {
     proudlyDisplayPoweredByUppy: false,
     height: 200,
     locale: zh_CN,
-    note: '支持粘贴或选择图片上传哦！',
+    note: '支持粘贴或选择图片、视频上传哦！',
   })
 
   // 根据 props.TheImageSource 动态切换上传插件
@@ -148,7 +148,7 @@ const initUppy = () => {
       return
     }
     isUploading.value = true
-    editorStore.ImageUploading = true
+    editorStore.MediaUploading = true
   })
   // 上传开始前，检查是否登录
   uppy.on('upload', () => {
@@ -158,7 +158,7 @@ const initUppy = () => {
     }
     theToast.info('正在上传图片，请稍等... ⏳', { duration: 500 })
     isUploading.value = true
-    editorStore.ImageUploading = true
+    editorStore.MediaUploading = true
   })
   // 单个文件上传失败后，显示错误信息
   uppy.on('upload-error', (file, error, response) => {
@@ -171,7 +171,10 @@ const initUppy = () => {
         data: any
       }
 
-      let errorMsg = '上传图片时发生错误 😢'
+      // 判断文件类型以显示更具体的错误信息
+      const isVideo = file?.type?.startsWith('video/')
+      let errorMsg = isVideo ? '上传视频时发生错误 😢' : '上传图片时发生错误 😢'
+      
       // @ts-nocheck
       /* eslint-disable */
       const resp = response as any // 忽略 TS 类型限制
@@ -188,30 +191,40 @@ const initUppy = () => {
           errorMsg = resObj.msg
         }
       }
-      theToast.error(errorMsg)
+      theToast.error(errorMsg, { duration: 3000 })
+    } else if (props.TheImageSource === ImageSource.S3) {
+      // S3上传失败的错误处理
+      const isVideo = file?.type?.startsWith('video/')
+      const errorMsg = isVideo ? '视频上传到S3失败 😢' : '图片上传到S3失败 😢'
+      theToast.error(errorMsg, { duration: 3000 })
     }
     isUploading.value = false
-    editorStore.ImageUploading = false
+    editorStore.MediaUploading = false
   })
   // 单个文件上传成功后，保存文件 URL 到 files 列表
   uppy.on('upload-success', (file, response) => {
     theToast.success(`好耶,上传成功！🎉`)
 
+    // 判断文件类型
+    const mediaType = file?.type?.startsWith('video/') ? 'video' : 'image'
+
     // 分两种情况: Local 或者 S3
     if (memorySource.value === ImageSource.LOCAL) {
       const fileUrl = String(response.body?.data)
-      const item: App.Api.Ech0.ImageToAdd = {
-        image_url: fileUrl,
-        image_source: ImageSource.LOCAL,
+      const item: App.Api.Ech0.MediaToAdd = {
+        media_url: fileUrl,
+        media_type: mediaType,
+        media_source: ImageSource.LOCAL,
         object_key: '',
       }
       files.value.push(item)
     } else if (memorySource.value === ImageSource.S3) {
       const uploadedFile = tempFiles.value.get(file?.name || '') || ''
       if (uploadedFile) {
-        const item: App.Api.Ech0.ImageToAdd = {
-          image_url: uploadedFile.url,
-          image_source: ImageSource.S3,
+        const item: App.Api.Ech0.MediaToAdd = {
+          media_url: uploadedFile.url,
+          media_type: mediaType,
+          media_source: ImageSource.S3,
           object_key: uploadedFile.objectKey,
         }
         files.value.push(item)
@@ -221,9 +234,9 @@ const initUppy = () => {
   // 全部文件上传完成后，发射事件到父组件
   uppy.on('complete', () => {
     isUploading.value = false
-    editorStore.ImageUploading = false
-    const ImageToAddResult = [...files.value]
-    editorStore.handleUppyUploaded(ImageToAddResult)
+    editorStore.MediaUploading = false
+    const MediaToAddResult = [...files.value]
+    editorStore.handleUppyUploaded(MediaToAddResult)
     files.value = []
     tempFiles.value.clear()
   })

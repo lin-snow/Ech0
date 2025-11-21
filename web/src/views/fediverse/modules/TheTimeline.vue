@@ -235,8 +235,9 @@ const resolvedItems = computed(() =>
     const galleryImages: App.Api.Ech0.Image[] = images.map((url, index) => ({
       id: index,
       message_id: item.id ?? 0,
-      image_url: url,
-      image_source: ImageSource.URL,
+      media_url: url,
+      media_type: 'image',
+      media_source: ImageSource.URL,
     }))
     const displayName = item.actorDisplayName || item.actorPreferredUsername || '联邦好友'
     const avatarCandidate = typeof item.actorAvatar === 'string' ? item.actorAvatar.trim() : ''

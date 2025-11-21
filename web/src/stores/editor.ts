@@ -27,16 +27,16 @@ export const useEditorStore = defineStore('editorStore', () => {
   //================================================================
   const isSubmitting = ref<boolean>(false) // 是否正在提交
   const isUpdateMode = ref<boolean>(false) // 是否为编辑更新模式
-  const ImageUploading = ref<boolean>(false) // 图片是否正在上传
+  const MediaUploading = ref<boolean>(false) // 媒体是否正在上传
 
   //================================================================
   // 编辑器数据状态管理(待添加的Echo)
   //================================================================
   const echoToAdd = ref<App.Api.Ech0.EchoToAdd>({
     content: '', // 文字板块
-    images: [], // 图片板块
+    media: [], // 媒体板块（图片和视频）
     private: false, // 是否私密
-    layout: ImageLayout.WATERFALL, // 图片布局方式，默认为 waterfall
+    layout: ImageLayout.WATERFALL, // 媒体布局方式，默认为 waterfall
     extension: null, // 拓展内容（对于扩展类型所需的数据）
     extension_type: null, // 拓展内容类型（音乐/视频/链接/GITHUB项目）
   })
@@ -46,15 +46,16 @@ export const useEditorStore = defineStore('editorStore', () => {
   const todoToAdd = ref<App.Api.Todo.TodoToAdd>({ content: '' })
 
   //================================================================
-  // 辅助Echo的添加变量（图片板块）
+  // 辅助Echo的添加变量（媒体板块）
   //================================================================
-  const imageToAdd = ref<App.Api.Ech0.ImageToAdd>({
-    image_url: '', // 图片地址(依据存储方式不同而不同)
-    image_source: ImageSource.LOCAL, // 图片存储方式（本地/直链/S3）
+  const mediaToAdd = ref<App.Api.Ech0.MediaToAdd>({
+    media_url: '', // 媒体地址(依据存储方式不同而不同)
+    media_type: 'image', // 媒体类型（图片/视频）
+    media_source: ImageSource.LOCAL, // 媒体存储方式（本地/直链/S3）
     object_key: '', // 对象存储的Key (如果是本地存储或直链则为空)
   })
-  const imagesToAdd = ref<App.Api.Ech0.ImageToAdd[]>([]) // 最终要添加的图片列表
-  const imageIndex = ref<number>(0) // 当前图片索引（用于编辑图片时定位）
+  const mediaListToAdd = ref<App.Api.Ech0.MediaToAdd[]>([]) // 最终要添加的媒体列表
+  const mediaIndex = ref<number>(0) // 当前媒体索引（用于编辑媒体时定位）
 
   //================================================================
   // 辅助Echo的添加变量（扩展内容板块）
@@ -104,19 +105,20 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     echoToAdd.value = {
       content: '',
-      images: [],
+      media: [],
       private: false,
       layout: ImageLayout.WATERFALL,
       extension: null,
       extension_type: null,
       tags: [],
     }
-    imageToAdd.value = {
-      image_url: '',
-      image_source: rememberedImageSource.value,
+    mediaToAdd.value = {
+      media_url: '',
+      media_type: 'image',
+      media_source: rememberedImageSource.value,
       object_key: '',
     }
-    imagesToAdd.value = []
+    mediaListToAdd.value = []
     videoURL.value = ''
     musicURL.value = ''
     githubRepo.value = ''
@@ -136,39 +138,42 @@ export const useEditorStore = defineStore('editorStore', () => {
   }
 
   //===============================================================
-  // 图片模式功能函数
+  // 媒体模式功能函数
   //===============================================================
-  // 添加更多图片
-  const handleAddMoreImage = () => {
-    imagesToAdd.value.push({
-      image_url: imageToAdd.value.image_url,
-      image_source: imageToAdd.value.image_source,
-      object_key: imageToAdd.value.object_key ? imageToAdd.value.object_key : '',
+  // 添加更多媒体
+  const handleAddMoreMedia = () => {
+    mediaListToAdd.value.push({
+      media_url: mediaToAdd.value.media_url,
+      media_type: mediaToAdd.value.media_type,
+      media_source: mediaToAdd.value.media_source,
+      object_key: mediaToAdd.value.object_key ? mediaToAdd.value.object_key : '',
     })
 
-    imageToAdd.value = {
-      image_url: '',
-      image_source: imageToAdd.value.image_source
-        ? imageToAdd.value.image_source
+    mediaToAdd.value = {
+      media_url: '',
+      media_type: 'image',
+      media_source: mediaToAdd.value.media_source
+        ? mediaToAdd.value.media_source
         : ImageSource.LOCAL, // 记忆存储方式
       object_key: '',
     }
   }
 
-  const handleUppyUploaded = (files: App.Api.Ech0.ImageToAdd[]) => {
+  const handleUppyUploaded = (files: App.Api.Ech0.MediaToAdd[]) => {
     files.forEach((file) => {
-      imageToAdd.value = {
-        image_url: file.image_url,
-        image_source: file.image_source,
+      mediaToAdd.value = {
+        media_url: file.media_url,
+        media_type: file.media_type,
+        media_source: file.media_source,
         object_key: file.object_key ? file.object_key : '',
         width: file.width,
         height: file.height,
       }
-      handleAddMoreImage()
+      handleAddMoreMedia()
     })
 
     if (isUpdateMode.value && echoStore.echoToUpdate) {
-      handleAddOrUpdateEcho(true) // 仅同步图片
+      handleAddOrUpdateEcho(true) // 仅同步媒体
     }
   }
 
@@ -182,7 +187,7 @@ export const useEditorStore = defineStore('editorStore', () => {
   //===============================================================
   // 添加或更新Echo
   //===============================================================
-  const handleAddOrUpdateEcho = async (justSyncImages: boolean) => {
+  const handleAddOrUpdateEcho = async (justSyncMedia: boolean) => {
     // 防止重复提交
     if (isSubmitting.value) return
     isSubmitting.value = true
@@ -193,8 +198,8 @@ export const useEditorStore = defineStore('editorStore', () => {
       // 处理扩展板块
       checkEchoExtension()
 
-      // 回填图片板块
-      echoToAdd.value.images = imagesToAdd.value
+      // 回填媒体板块
+      echoToAdd.value.media = mediaListToAdd.value
 
       // 回填标签板块
       echoToAdd.value.tags = tagToAdd.value?.trim() ? [{ name: tagToAdd.value.trim() }] : []
@@ -240,16 +245,16 @@ export const useEditorStore = defineStore('editorStore', () => {
         echoStore.echoToUpdate.content = echoToAdd.value.content
         echoStore.echoToUpdate.private = echoToAdd.value.private
         echoStore.echoToUpdate.layout = echoToAdd.value.layout
-        echoStore.echoToUpdate.images = echoToAdd.value.images
+        echoStore.echoToUpdate.media = echoToAdd.value.media
         echoStore.echoToUpdate.extension = echoToAdd.value.extension
         echoStore.echoToUpdate.extension_type = echoToAdd.value.extension_type
         echoStore.echoToUpdate.tags = echoToAdd.value.tags
 
         // 更新 Echo
         theToast.promise(fetchUpdateEcho(echoStore.echoToUpdate), {
-          loading: justSyncImages ? '🔁同步图片中...' : '🚀更新中...',
+          loading: justSyncMedia ? '🔁同步图片/视频中...' : '🚀更新中...',
           success: (res) => {
-            if (res.code === 1 && !justSyncImages) {
+            if (res.code === 1 && !justSyncMedia) {
               clearEditor()
               echoStore.refreshEchos()
               isUpdateMode.value = false
@@ -257,8 +262,8 @@ export const useEditorStore = defineStore('editorStore', () => {
               setMode(Mode.ECH0)
               echoStore.getTags() // 刷新标签列表
               return '🎉更新成功！'
-            } else if (res.code === 1 && justSyncImages) {
-              return '🔁发现图片更改，已自动更新同步Echo！'
+            } else if (res.code === 1 && justSyncMedia) {
+              return '🔁发现图片/视频更改，已自动更新同步Echo！'
             } else {
               return '😭更新失败，请稍后再试！'
             }
@@ -274,7 +279,7 @@ export const useEditorStore = defineStore('editorStore', () => {
   function checkIsEmptyEcho(echo: App.Api.Ech0.EchoToAdd): boolean {
     return (
       !echo.content &&
-      (!echo.images || echo.images.length === 0) &&
+      (!echo.media || echo.media.length === 0) &&
       !echo.extension &&
       !echo.extension_type
     )
@@ -408,14 +413,14 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     isSubmitting,
     isUpdateMode,
-    ImageUploading,
+    MediaUploading,
 
     echoToAdd,
     todoToAdd,
 
-    imageToAdd,
-    imagesToAdd,
-    imageIndex,
+    mediaToAdd,
+    mediaListToAdd,
+    mediaIndex,
 
     websiteToAdd,
     videoURL,
@@ -433,7 +438,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     toggleMode,
     clearEditor,
     handleGetPlayingMusic,
-    handleAddMoreImage,
+    handleAddMoreMedia,
     togglePrivate,
     handleAddTodo,
     handleAddOrUpdateEcho,

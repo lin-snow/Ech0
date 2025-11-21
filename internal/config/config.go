@@ -55,9 +55,11 @@ type AppConfig struct {
 	Upload struct {
 		ImageMaxSize int      `yaml:"imagemaxsize"` // 图片文件的最大上传大小，单位为字节
 		AudioMaxSize int      `yaml:"audiomaxsize"` // 音频文件的最大上传大小，单位为字节
+		VideoMaxSize int      `yaml:"videomaxsize"` // 视频文件的最大上传大小，单位为字节
 		AllowedTypes []string `yaml:"allowedtypes"` // 允许上传的文件类型
 		ImagePath    string   `yaml:"imagepath"`    // 图片文件存储路径
 		AudioPath    string   `yaml:"audiopath"`    // 音频文件存储路径
+		VideoPath    string   `yaml:"videopath"`    // 视频文件存储路径
 	} `yaml:"upload"`
 	Setting struct {
 		SiteTitle     string `yaml:"sitetitle"`     // 网站标题

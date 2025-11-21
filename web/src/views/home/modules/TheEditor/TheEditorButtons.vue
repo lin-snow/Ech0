@@ -128,7 +128,7 @@ import { theToast } from '@/utils/toast'
 import { localStg } from '@/utils/storage'
 
 const editorStore = useEditorStore()
-const { currentMode, isUpdateMode, echoToAdd, imageToAdd, tagToAdd } = storeToRefs(editorStore)
+const { currentMode, isUpdateMode, echoToAdd, mediaToAdd, tagToAdd } = storeToRefs(editorStore)
 const echoStore = useEchoStore()
 const { tagOptions } = storeToRefs(echoStore)
 
@@ -141,14 +141,14 @@ const handleChangeMode = () => {
 }
 
 const handleAddImageMode = () => {
-  if (imageToAdd.value.image_source === '') {
-    imageToAdd.value.image_source = ImageSource.LOCAL
+  if (mediaToAdd.value.media_source === '') {
+    mediaToAdd.value.media_source = ImageSource.LOCAL
   }
 
   // 检查localStg中是否有记忆的上传方式
   const rememberedSource = localStg.getItem<ImageSource>('image_source')
   if (rememberedSource) {
-    imageToAdd.value.image_source = rememberedSource
+    mediaToAdd.value.media_source = rememberedSource
   }
 
   editorStore.setMode(Mode.Image)

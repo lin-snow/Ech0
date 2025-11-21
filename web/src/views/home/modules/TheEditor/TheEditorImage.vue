@@ -1,5 +1,5 @@
 <template>
-  <!-- 图片预览 -->
+  <!-- 媒体预览（图片和视频） -->
   <div
     v-if="
       imagesToAdd &&
@@ -11,29 +11,47 @@
     <button
       @click="handleRemoveImage"
       class="absolute -top-3 -right-4 bg-red-100 hover:bg-red-300 text-gray-600 rounded-lg w-7 h-7 flex items-center justify-center shadow"
-      title="移除图片"
+      title="移除媒体"
     >
       <Close class="w-4 h-4" />
     </button>
     <div class="rounded-lg overflow-hidden">
-      <template v-for="(img, idx) in imagesToAdd" :key="idx">
+      <template v-for="(item, idx) in imagesToAdd" :key="idx">
+        <!-- 图片预览 -->
         <a
-          :href="getImageToAddUrl(img)"
+          v-if="item.media_type === 'image'"
+          :href="getMediaToAddUrl(item)"
           data-fancybox="gallery"
-          :data-thumb="getImageToAddUrl(img)"
+          :data-thumb="getMediaToAddUrl(item)"
           :class="{ hidden: idx !== imageIndex }"
         >
           <img
-            :src="getImageToAddUrl(img)"
+            :src="getMediaToAddUrl(item)"
             alt="Image"
             class="max-w-full object-cover"
             loading="lazy"
           />
         </a>
+        
+        <!-- 视频预览 -->
+        <div
+          v-else-if="item.media_type === 'video'"
+          :class="{ hidden: idx !== imageIndex }"
+        >
+          <video
+            :src="getMediaToAddUrl(item)"
+            controls
+            playsinline
+            preload="metadata"
+            class="max-w-full object-cover"
+          >
+            您的浏览器不支持视频播放
+          </video>
+        </div>
       </template>
     </div>
   </div>
-  <!-- 图片切换 -->
+  <!-- 媒体切换 -->
   <div v-if="imagesToAdd.length > 1" class="flex items-center justify-center">
     <button @click="imageIndex = Math.max(imageIndex - 1, 0)">
       <Prev class="w-7 h-7" />
@@ -53,8 +71,8 @@ import { storeToRefs } from 'pinia'
 import Next from '@/components/icons/next.vue'
 import Prev from '@/components/icons/prev.vue'
 import Close from '@/components/icons/close.vue'
-import { getImageToAddUrl } from '@/utils/other'
-import { fetchDeleteImage } from '@/service/api'
+import { getMediaToAddUrl } from '@/utils/other'
+import { fetchDeleteMedia } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useEchoStore } from '@/stores/echo'
 import { Mode } from '@/enums/enums'
@@ -78,7 +96,7 @@ const imageIndex = ref<number>(0) // 临时图片索引变量
 const echoStore = useEchoStore()
 const { echoToUpdate } = storeToRefs(echoStore)
 const editorStore = useEditorStore()
-const { imagesToAdd, currentMode, isUpdateMode } = storeToRefs(editorStore)
+const { mediaListToAdd: imagesToAdd, currentMode, isUpdateMode } = storeToRefs(editorStore)
 
 const handleRemoveImage = () => {
   if (
@@ -86,23 +104,25 @@ const handleRemoveImage = () => {
     imageIndex.value >= imagesToAdd.value.length ||
     imagesToAdd.value.length === 0
   ) {
-    theToast.error('当前图片索引无效，无法删除！')
+    theToast.error('当前媒体索引无效，无法删除！')
     return
   }
   const index = imageIndex.value
+  const currentItem = imagesToAdd.value[index]
+  const mediaType = currentItem?.media_type === 'video' ? '视频' : '图片'
 
   openConfirm({
-    title: '确定要移除图片吗？',
+    title: `确定要移除${mediaType}吗？`,
     description: '',
     onConfirm: () => {
-      const imageToDel: App.Api.Ech0.ImageToDelete = {
-        url: String(imagesToAdd.value[index]?.image_url),
-        source: String(imagesToAdd.value[index]?.image_source),
+      const imageToDel: App.Api.Ech0.MediaToDelete = {
+        url: String(imagesToAdd.value[index]?.media_url),
+        source: String(imagesToAdd.value[index]?.media_source),
         object_key: imagesToAdd.value[index]?.object_key,
       }
 
       if (imageToDel.source === ImageSource.LOCAL || imageToDel.source === ImageSource.S3) {
-        fetchDeleteImage({
+        fetchDeleteMedia({
           url: imageToDel.url,
           source: imageToDel.source,
           object_key: imageToDel.object_key,

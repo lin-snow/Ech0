@@ -1,30 +1,59 @@
 import { getApiUrl } from '@/service/request/shared'
 import { ImageSource, MusicProvider } from '@/enums/enums'
-// 获取图片链接
-export const getImageUrl = (image: App.Api.Ech0.Image) => {
-  if (image.image_source === ImageSource.LOCAL) {
-    return getApiUrl() + String(image.image_url)
-  } else if (image.image_source === ImageSource.URL) {
-    return String(image.image_url)
-  } else if (image.image_source === ImageSource.S3) {
-    return String(image.image_url)
+
+// 获取媒体链接（支持图片和视频）
+export const getMediaUrl = (media: App.Api.Ech0.Media) => {
+  if (media.media_source === ImageSource.LOCAL) {
+    return getApiUrl() + String(media.media_url)
+  } else if (media.media_source === ImageSource.URL) {
+    return String(media.media_url)
+  } else if (media.media_source === ImageSource.S3) {
+    return String(media.media_url)
   } else {
-    // 未知的图片来源，按照本地图片处理
-    return getApiUrl() + String(image.image_url)
+    // 未知的媒体来源，按照本地媒体处理
+    return getApiUrl() + String(media.media_url)
   }
 }
 
-// 获取待添加图片链接
-export const getImageToAddUrl = (image: App.Api.Ech0.ImageToAdd) => {
-  if (image.image_source === ImageSource.LOCAL) {
-    return getApiUrl() + String(image.image_url)
-  } else if (image.image_source === ImageSource.URL) {
-    return String(image.image_url)
-  } else if (image.image_source === ImageSource.S3) {
-    return String(image.image_url)
+// 获取图片链接（保留向后兼容）
+export const getImageUrl = (image: App.Api.Ech0.Image) => {
+  if (image.media_source === ImageSource.LOCAL) {
+    return getApiUrl() + String(image.media_url)
+  } else if (image.media_source === ImageSource.URL) {
+    return String(image.media_url)
+  } else if (image.media_source === ImageSource.S3) {
+    return String(image.media_url)
   } else {
     // 未知的图片来源，按照本地图片处理
-    return getApiUrl() + String(image.image_url)
+    return getApiUrl() + String(image.media_url)
+  }
+}
+
+// 获取待添加媒体链接
+export const getMediaToAddUrl = (media: App.Api.Ech0.MediaToAdd) => {
+  if (media.media_source === ImageSource.LOCAL) {
+    return getApiUrl() + String(media.media_url)
+  } else if (media.media_source === ImageSource.URL) {
+    return String(media.media_url)
+  } else if (media.media_source === ImageSource.S3) {
+    return String(media.media_url)
+  } else {
+    // 未知的媒体来源，按照本地媒体处理
+    return getApiUrl() + String(media.media_url)
+  }
+}
+
+// 获取待添加图片链接（向后兼容）
+export const getImageToAddUrl = (image: App.Api.Ech0.ImageToAdd) => {
+  if (image.media_source === ImageSource.LOCAL) {
+    return getApiUrl() + String(image.media_url)
+  } else if (image.media_source === ImageSource.URL) {
+    return String(image.media_url)
+  } else if (image.media_source === ImageSource.S3) {
+    return String(image.media_url)
+  } else {
+    // 未知的图片来源，按照本地图片处理
+    return getApiUrl() + String(image.media_url)
   }
 }
 
@@ -162,16 +191,30 @@ export async function getImageSize(file: File): Promise<{ width: number; height:
   return { width: bitmap.width, height: bitmap.height }
 }
 
-// 获取 HubEcho 的图片
+// 获取 HubEcho 的媒体链接（支持图片和视频）
+export const getHubMediaUrl = (media: App.Api.Ech0.Media, baseurl: string) => {
+  if (media.media_source === ImageSource.LOCAL) {
+    return baseurl + '/api' + String(media.media_url)
+  } else if (media.media_source === ImageSource.URL) {
+    return String(media.media_url)
+  } else if (media.media_source === ImageSource.S3) {
+    return String(media.media_url)
+  } else {
+    // 未知的媒体来源，按照本地媒体处理
+    return baseurl + '/api' + String(media.media_url)
+  }
+}
+
+// 获取 HubEcho 的图片（保留向后兼容）
 export const getHubImageUrl = (image: App.Api.Ech0.Image, baseurl: string) => {
-  if (image.image_source === ImageSource.LOCAL) {
-    return baseurl + '/api' + String(image.image_url)
-  } else if (image.image_source === ImageSource.URL) {
-    return String(image.image_url)
-  } else if (image.image_source === ImageSource.S3) {
-    return String(image.image_url)
+  if (image.media_source === ImageSource.LOCAL) {
+    return baseurl + '/api' + String(image.media_url)
+  } else if (image.media_source === ImageSource.URL) {
+    return String(image.media_url)
+  } else if (image.media_source === ImageSource.S3) {
+    return String(image.media_url)
   } else {
     // 未知的图片来源，按照本地图片处理
-    return baseurl + '/api' + String(image.image_url)
+    return baseurl + '/api' + String(image.media_url)
   }
 }

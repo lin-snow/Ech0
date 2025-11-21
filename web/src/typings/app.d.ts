@@ -61,7 +61,7 @@ declare namespace App {
         username: string
         image_url: string
         image_source: string
-        images: Image[]
+        media: Media[]
         layout?: string
         private: boolean
         user_id: number
@@ -72,11 +72,12 @@ declare namespace App {
         created_at: string
       }
 
-      type Image = {
+      type Media = {
         id: number
         message_id: number
-        image_url: string
-        image_source: string
+        media_url: string
+        media_type: 'image' | 'video'
+        media_source: string
         object_key?: string // 对象存储的Key (如果是本地存储则为空)
         width?: number // 图片宽度
         height?: number // 图片高度
@@ -89,13 +90,18 @@ declare namespace App {
         created_at: string
       }
 
-      type ImageToAdd = {
-        image_url: string
-        image_source: string
+      type MediaToAdd = {
+        media_url: string
+        media_type: 'image' | 'video'
+        media_source: string
         object_key?: string // 对象存储的Key (如果是本地存储则为空)
         width?: number // 图片宽度
         height?: number // 图片高度
       }
+
+      // Backward compatibility aliases
+      type Image = Media
+      type ImageToAdd = MediaToAdd
 
       type TagToAdd = {
         id?: number
@@ -106,7 +112,7 @@ declare namespace App {
 
       type EchoToAdd = {
         content: string
-        images?: ImageToAdd[] | null
+        media?: MediaToAdd[] | null
         tags?: TagToAdd[] | null
         layout?: string | null
         extension?: string | null
@@ -118,7 +124,7 @@ declare namespace App {
         id: number
         content: string
         username: string
-        images?: ImageToAdd[] | null
+        media?: MediaToAdd[] | null
         tags?: TagToAdd[] | null
         layout?: string | null
         private: boolean
@@ -146,11 +152,14 @@ declare namespace App {
         count: number
       }[]
 
-      type ImageToDelete = {
+      type MediaToDelete = {
         url: string
         source: string
-        object_key?: string // 对象存储的 Key, 用于删除 S3/R2 上的图片
+        object_key?: string // 对象存储的 Key, 用于删除 S3/R2 上的媒体文件
       }
+
+      // Backward compatibility alias
+      type ImageToDelete = MediaToDelete
 
       type GithubCardData = {
         name: string
@@ -437,8 +446,8 @@ declare namespace App {
         username: string
         image_url: string
         image_source: string
-        images: Image[]
-        tags?: Tag[]
+        media: Ech0.Media[]
+        tags?: Ech0.Tag[]
         layout?: string
         private: boolean
         user_id: number

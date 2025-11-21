@@ -37,16 +37,20 @@ const (
 
 // Common 错误相关常量
 const (
-	NO_FILE_UPLOAD_ERROR   = "找不到上传的文件"
-	NO_FILE_STORAGE_ERROR  = "未知存储方式"
-	FILE_TYPE_NOT_ALLOWED  = "不支持的文件类型"
-	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
-	IMAGE_NOT_FOUND        = "图片未找到"
-	INVALID_PARAMS         = "错误的参数"
-	SIGNUP_FIRST           = "请先注册用户"
-	S3_NOT_ENABLED         = "S3存储未启用"
-	S3_NOT_CONFIGURED      = "S3存储未配置"
-	S3_CONFIG_ERROR        = "S3存储配置错误"
+	NO_FILE_UPLOAD_ERROR       = "找不到上传的文件"
+	NO_FILE_STORAGE_ERROR      = "未知存储方式"
+	FILE_TYPE_NOT_ALLOWED      = "不支持的文件类型"
+	FILE_SIZE_EXCEED_LIMIT     = "文件大小超过限制"
+	IMAGE_NOT_FOUND            = "图片未找到"
+	VIDEO_NOT_FOUND            = "视频未找到"
+	VIDEO_UPLOAD_FAILED        = "视频上传失败"
+	VIDEO_SIZE_TOO_LARGE       = "视频文件过大"
+	VIDEO_FORMAT_NOT_SUPPORTED = "不支持的视频格式"
+	INVALID_PARAMS             = "错误的参数"
+	SIGNUP_FIRST               = "请先注册用户"
+	S3_NOT_ENABLED             = "S3存储未启用"
+	S3_NOT_CONFIGURED          = "S3存储未配置"
+	S3_CONFIG_ERROR            = "S3存储配置错误"
 )
 
 // User 错误相关常量

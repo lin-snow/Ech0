@@ -89,13 +89,13 @@ func (echoService *EchoService) PostEcho(userid uint, newEcho *model.Echo) error
 
 	newEcho.Username = user.Username
 
-	for i := range newEcho.Images {
-		if newEcho.Images[i].ImageURL == "" {
-			newEcho.Images[i].ImageSource = ""
+	for i := range newEcho.Media {
+		if newEcho.Media[i].MediaURL == "" {
+			newEcho.Media[i].MediaSource = ""
 		}
 	}
 
-	if newEcho.Content == "" && len(newEcho.Images) == 0 &&
+	if newEcho.Content == "" && len(newEcho.Media) == 0 &&
 		(newEcho.Extension == "" || newEcho.ExtensionType == "") {
 		return errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
 	}
@@ -107,15 +107,15 @@ func (echoService *EchoService) PostEcho(userid uint, newEcho *model.Echo) error
 		}
 
 		// 处理临时文件表，防止被当作孤儿文件删除
-		for i := range newEcho.Images {
-			// 只有S3图片且有ObjectKey的才处理
-			if newEcho.Images[i].ImageSource == model.ImageSourceS3 && newEcho.Images[i].ObjectKey != "" {
+		for i := range newEcho.Media {
+			// 只有S3媒体且有ObjectKey的才处理
+			if newEcho.Media[i].MediaSource == model.MediaSourceS3 && newEcho.Media[i].ObjectKey != "" {
 				// 使用外层事务的 ctx 直接调用仓储层方法
-				if err := echoService.commonRepository.DeleteTempFileByObjectKey(ctx, newEcho.Images[i].ObjectKey); err != nil {
-					logUtil.GetLogger().Error("Failed to process temp file for ObjectKey: ", zap.String("Image ObjectKey", newEcho.Images[i].ObjectKey))
+				if err := echoService.commonRepository.DeleteTempFileByObjectKey(ctx, newEcho.Media[i].ObjectKey); err != nil {
+					logUtil.GetLogger().Error("Failed to process temp file for ObjectKey: ", zap.String("Media ObjectKey", newEcho.Media[i].ObjectKey))
 					return err
 				}
-				logUtil.GetLogger().Info("Processed temp file for ObjectKey: ", zap.String("Image ObjectKey", newEcho.Images[i].ObjectKey))
+				logUtil.GetLogger().Info("Processed temp file for ObjectKey: ", zap.String("Media ObjectKey", newEcho.Media[i].ObjectKey))
 			}
 		}
 
@@ -218,10 +218,10 @@ func (echoService *EchoService) DeleteEchoById(userid, id uint) error {
 			return errors.New(commonModel.ECHO_NOT_FOUND)
 		}
 
-		// 删除Echo中的图片
-		if len(echo.Images) > 0 {
-			for _, img := range echo.Images {
-				if err := echoService.commonService.DirectDeleteImage(img.ImageURL, img.ImageSource, img.ObjectKey); err != nil {
+		// 删除Echo中的媒体
+		if len(echo.Media) > 0 {
+			for _, m := range echo.Media {
+				if err := echoService.commonService.DirectDeleteImage(m.MediaURL, m.MediaSource, m.ObjectKey); err != nil {
 					return err
 				}
 			}
@@ -315,18 +315,18 @@ func (echoService *EchoService) UpdateEcho(userid uint, echo *model.Echo) error 
 		echo.ExtensionType = ""
 	}
 
-	// 处理无效图片
-	for i := range echo.Images {
-		if echo.Images[i].ImageURL == "" {
-			echo.Images[i].ImageSource = ""
-			echo.Images[i].ImageURL = ""
+	// 处理无效媒体
+	for i := range echo.Media {
+		if echo.Media[i].MediaURL == "" {
+			echo.Media[i].MediaSource = ""
+			echo.Media[i].MediaURL = ""
 		}
 		// 确保外键正确设置
-		echo.Images[i].MessageID = echo.ID
+		echo.Media[i].MessageID = echo.ID
 	}
 
 	// 检查是否为空
-	if echo.Content == "" && len(echo.Images) == 0 && (echo.Extension == "" || echo.ExtensionType == "") {
+	if echo.Content == "" && len(echo.Media) == 0 && (echo.Extension == "" || echo.ExtensionType == "") {
 		return errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
 	}
 
@@ -336,16 +336,16 @@ func (echoService *EchoService) UpdateEcho(userid uint, echo *model.Echo) error 
 			return err
 		}
 
-		// 处理无效图片的临时文件表，防止被当作孤儿文件删除
-		for i := range echo.Images {
-			// 只有S3图片且有ObjectKey的才处理
-			if echo.Images[i].ImageSource == model.ImageSourceS3 && echo.Images[i].ObjectKey != "" {
+		// 处理无效媒体的临时文件表，防止被当作孤儿文件删除
+		for i := range echo.Media {
+			// 只有S3媒体且有ObjectKey的才处理
+			if echo.Media[i].MediaSource == model.MediaSourceS3 && echo.Media[i].ObjectKey != "" {
 				// 使用外层事务的 ctx 直接调用仓储层方法
-				if err := echoService.commonRepository.DeleteTempFileByObjectKey(ctx, echo.Images[i].ObjectKey); err != nil {
-					logUtil.GetLogger().Error("Failed to process temp file for ObjectKey: ", zap.String("Image ObjectKey", echo.Images[i].ObjectKey))
+				if err := echoService.commonRepository.DeleteTempFileByObjectKey(ctx, echo.Media[i].ObjectKey); err != nil {
+					logUtil.GetLogger().Error("Failed to process temp file for ObjectKey: ", zap.String("Media ObjectKey", echo.Media[i].ObjectKey))
 					return err
 				}
-				logUtil.GetLogger().Info("Processed temp file for ObjectKey: ", zap.String("Image ObjectKey", echo.Images[i].ObjectKey))
+				logUtil.GetLogger().Info("Processed temp file for ObjectKey: ", zap.String("Media ObjectKey", echo.Media[i].ObjectKey))
 			}
 		}
 

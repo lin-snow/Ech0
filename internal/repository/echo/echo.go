@@ -89,7 +89,7 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 
 	// 获取总数并进行分页查询
 	query.Count(&total).
-		Preload("Images").
+		Preload("Media").
 		Preload("Tags").
 		Limit(pageSize).
 		Offset(offset).
@@ -119,9 +119,9 @@ func (echoRepository *EchoRepository) GetEchosById(id uint) (*model.Echo, error)
 	}
 
 	// 缓存未命中，查询数据库
-	// 使用 Preload 预加载关联的 Images
+	// 使用 Preload 预加载关联的 Media
 	var echo model.Echo
-	result := echoRepository.db().Preload("Images").Preload("Tags").First(&echo, id)
+	result := echoRepository.db().Preload("Media").Preload("Tags").First(&echo, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, nil // 如果未找到记录，则返回 nil
@@ -138,8 +138,8 @@ func (echoRepository *EchoRepository) GetEchosById(id uint) (*model.Echo, error)
 // DeleteEchoById 删除 Echo
 func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id uint) error {
 	var echo model.Echo
-	// 删除外键images
-	echoRepository.getDB(ctx).Where("message_id = ?", id).Delete(&model.Image{})
+	// 删除外键media
+	echoRepository.getDB(ctx).Where("message_id = ?", id).Delete(&model.Media{})
 
 	result := echoRepository.getDB(ctx).Delete(&echo, id)
 	if result.Error != nil {
@@ -189,7 +189,7 @@ func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool) []model.Ec
 
 	// 获取总数并进行分页查询
 	query.
-		Preload("Images").
+		Preload("Media").
 		Preload("Tags").
 		Order("created_at DESC").
 		Find(&echos)
@@ -209,8 +209,8 @@ func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *mode
 	echoRepository.cache.Delete(GetTodayEchosCacheKey(true))  // 删除今天的 Echo 缓存（管理员视图）
 	echoRepository.cache.Delete(GetTodayEchosCacheKey(false)) // 删除今天的 Echo 缓存（非管理员视图）
 
-	// 1. 先删除该 Echo 关联的所有旧图片
-	if err := echoRepository.getDB(ctx).Where("message_id = ?", echo.ID).Delete(&model.Image{}).Error; err != nil {
+	// 1. 先删除该 Echo 关联的所有旧媒体
+	if err := echoRepository.getDB(ctx).Where("message_id = ?", echo.ID).Delete(&model.Media{}).Error; err != nil {
 		return err
 	}
 
@@ -227,16 +227,16 @@ func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *mode
 		return err
 	}
 
-	// 3. 重新添加Images
-	if len(echo.Images) > 0 {
-		var images []model.Image
-		for _, img := range echo.Images {
-			// 确保每个图片都关联到正确的 Echo ID
-			img.MessageID = echo.ID
-			images = append(images, img)
+	// 3. 重新添加Media
+	if len(echo.Media) > 0 {
+		var media []model.Media
+		for _, m := range echo.Media {
+			// 确保每个媒体都关联到正确的 Echo ID
+			m.MessageID = echo.ID
+			media = append(media, m)
 		}
-		// 批量插入新图片
-		if err := echoRepository.getDB(ctx).Create(&images).Error; err != nil {
+		// 批量插入新媒体
+		if err := echoRepository.getDB(ctx).Create(&media).Error; err != nil {
 			return err
 		}
 	}
@@ -409,7 +409,7 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 
 	if err := echoRepository.db().
 		Where("id IN ?", echoIDs).
-		Preload("Images").
+		Preload("Media").
 		Preload("Tags").
 		Order("created_at DESC").
 		Find(&echos).Error; err != nil {

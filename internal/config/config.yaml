@@ -16,8 +16,10 @@ auth:
 upload:
   imagemaxsize: 20971520 #  20MB
   audiomaxsize: 20971520 # 20MB
+  videomaxsize: 104857600 # 100MB
   imagepath: "data/images/"
   audiopath: "data/audios/"
+  videopath: "data/videos/"
   allowedtypes:
     - "image/jpeg"
     - "image/png"
@@ -30,6 +32,9 @@ upload:
     - "audio/flac"
     - "audio/wav"
     - "audio/mp4"
+    - "video/mp4"
+    - "video/webm"
+    - "video/quicktime"
 
 setting:
   sitetitle: "Ech0"

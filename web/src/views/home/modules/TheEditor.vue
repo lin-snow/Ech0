@@ -68,7 +68,6 @@ const {
   echoToAdd,
   videoURL,
   extensionToAdd,
-  imagesToAdd,
   websiteToAdd,
   tagToAdd,
   currentExtensionType,
@@ -112,15 +111,18 @@ watch(
       // 1. 填充本文
       echoToAdd.value.content = echoToUpdate.value?.content || ''
 
-      // 2. 填充图片
-      if (echoToUpdate.value?.images && echoToUpdate.value.images.length > 0) {
-        imagesToAdd.value = echoToUpdate.value.images.map((img) => ({
-          image_url: img.image_url || '',
-          image_source: img.image_source || '',
-          object_key: img.object_key || '',
+      // 2. 填充媒体（图片和视频）
+      if (echoToUpdate.value?.media && echoToUpdate.value.media.length > 0) {
+        editorStore.mediaListToAdd = echoToUpdate.value.media.map((item) => ({
+          media_url: item.media_url || '',
+          media_type: item.media_type || 'image',
+          media_source: item.media_source || '',
+          object_key: item.object_key || '',
+          width: item.width,
+          height: item.height,
         }))
       } else {
-        imagesToAdd.value = []
+        editorStore.mediaListToAdd = []
       }
 
       // 3. 填充扩展

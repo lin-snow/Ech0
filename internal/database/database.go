@@ -115,7 +115,7 @@ func MigrateDB() error {
 	models := []interface{}{
 		&userModel.User{},
 		&echoModel.Echo{},
-		&echoModel.Image{},
+		&echoModel.Media{},
 		&commonModel.KeyValue{},
 		&todoModel.Todo{},
 		&connectModel.Connected{},

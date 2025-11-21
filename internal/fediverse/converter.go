@@ -58,11 +58,11 @@ func (core *FediverseCore) ConvertEchoToObject(
 	serverURL string,
 ) model.Object {
 	var attachments []model.Attachment
-	for i := range echo.Images {
+	for i := range echo.Media {
 		attachments = append(attachments, model.Attachment{
 			Type:      "Image",
-			MediaType: httpUtil.GetMIMETypeFromFilenameOrURL(echo.Images[i].ImageURL),
-			URL:       fileUtil.GetImageURL(echo.Images[i], serverURL),
+			MediaType: httpUtil.GetMIMETypeFromFilenameOrURL(echo.Media[i].MediaURL),
+			URL:       fileUtil.GetMediaURL(echo.Media[i], serverURL),
 		})
 	}
 
