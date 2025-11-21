@@ -35,6 +35,7 @@ const (
 	GET_HELLO_SUCCESS          = "获取Hello成功"
 	GET_S3_PRESIGN_URL_SUCCESS = "获取 S3 预签名 URL 成功"
 	GET_METRICS_SUCCESS        = "获取系统指标成功"
+	GET_WEBSITE_TITLE_SUCCESS  = "获取网站标题成功"
 )
 
 // Setting 成功相关常量

@@ -372,3 +372,37 @@ func (commonHandler *CommonHandler) GetS3PresignURL() gin.HandlerFunc {
 		}
 	})
 }
+
+// GetWebsiteTitle 获取网站标题
+//
+// @Summary 获取网站标题
+// @Description 获取网站标题
+// @Tags 通用功能
+// @Accept json
+// @Produce json
+// @Param website_url query string true "网站URL"
+// @Success 200 {object} res.Response{data=string} "获取网站标题成功"
+// @Failure 200 {object} res.Response "获取网站标题失败"
+// @Router /website/title [get]
+func (commonHandler *CommonHandler) GetWebsiteTitle() gin.HandlerFunc {
+	return res.Execute(func(ctx *gin.Context) res.Response {
+		var dto commonModel.GetWebsiteTitleDto
+		if err := ctx.ShouldBindQuery(&dto); err != nil {
+			return res.Response{
+				Msg: commonModel.INVALID_QUERY_PARAMS,
+				Err: err,
+			}
+		}
+		title, err := commonHandler.commonService.GetWebsiteTitle(dto.WebSiteURL)
+		if err != nil {
+			return res.Response{
+				Msg: "",
+				Err: err,
+			}
+		}
+		return res.Response{
+			Data: title,
+			Msg:  commonModel.GET_WEBSITE_TITLE_SUCCESS,
+		}
+	})
+}

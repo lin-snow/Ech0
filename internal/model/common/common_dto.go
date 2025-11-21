@@ -39,3 +39,10 @@ type GetPresignURLDto struct {
 	FileName    string `json:"file_name"    binding:"required"` // 原始文件名
 	ContentType string `json:"content_type"`                    // 文件的 MIME 类型
 }
+
+// GetWebsiteTitleDto 用于请求网站标题的请求数据传输对象
+//
+// swagger:model GetWebsiteTitleDto
+type GetWebsiteTitleDto struct {
+	WebSiteURL string `json:"website_url" form:"website_url" binding:"required"` // 网站URL
+}

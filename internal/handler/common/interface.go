@@ -41,4 +41,7 @@ type CommonHandlerInterface interface {
 
 	// GetMetrics 获取系统指标
 	GetMetrics() gin.HandlerFunc
+
+	// GetWebsiteTitle 获取网站标题
+	GetWebsiteTitle() gin.HandlerFunc
 }

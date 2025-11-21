@@ -63,4 +63,7 @@ type CommonServiceInterface interface {
 
 	// RefreshEchoImageURL 刷新 Echo 中的图片 URL
 	RefreshEchoImageURL(echo *echoModel.Echo)
+
+	// GetWebsiteTitle 获取网站标题
+	GetWebsiteTitle(websiteURL string) (string, error)
 }

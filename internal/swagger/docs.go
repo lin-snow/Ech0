@@ -15,6 +15,93 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/access-tokens": {
+            "get": {
+                "description": "列出当前用户的所有访问令牌",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "列出访问令牌",
+                "responses": {
+                    "200": {
+                        "description": "列出访问令牌失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "为当前用户创建一个新的访问令牌",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "创建访问令牌",
+                "parameters": [
+                    {
+                        "description": "新的访问令牌信息",
+                        "name": "accessToken",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.AccessTokenSettingDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建访问令牌失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/access-tokens/{id}": {
+            "delete": {
+                "description": "根据 ID 删除指定的访问令牌",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "删除访问令牌",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "要删除的访问令牌 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除访问令牌失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/addConnect": {
             "post": {
                 "description": "用户添加一个新的连接",
@@ -203,6 +290,61 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "导入备份失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/backup/schedule": {
+            "get": {
+                "description": "获取系统的定期备份计划设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "获取备份计划",
+                "responses": {
+                    "200": {
+                        "description": "获取备份计划失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "为系统设置定期备份计划",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "更新备份计划",
+                "parameters": [
+                    {
+                        "description": "备份计划设置",
+                        "name": "backupSchedule",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BackupScheduleDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "设置备份计划失败",
                         "schema": {
                             "$ref": "#/definitions/handler.Response"
                         }
@@ -687,6 +829,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/fediverse/settings": {
+            "get": {
+                "description": "获取系统的联邦网络相关设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "获取联邦网络设置",
+                "responses": {
+                    "200": {
+                        "description": "获取联邦网络设置失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新系统的联邦网络相关设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统设置"
+                ],
+                "summary": "更新联邦网络设置",
+                "parameters": [
+                    {
+                        "description": "新的联邦网络设置",
+                        "name": "fediverseSettings",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.FediverseSettingDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新联邦网络设置失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/getmusic": {
             "get": {
                 "description": "获取当前可供播放的音乐文件URL",
@@ -861,6 +1058,29 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "登录失败，返回错误信息",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics": {
+            "get": {
+                "description": "获取当前系统的各项运行指标，如 CPU 使用率、内存使用情况等",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "通用功能"
+                ],
+                "summary": "获取系统指标",
+                "responses": {
+                    "200": {
+                        "description": "获取系统指标失败",
                         "schema": {
                             "$ref": "#/definitions/handler.Response"
                         }
@@ -1629,6 +1849,54 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/website/title": {
+            "get": {
+                "description": "获取网站标题",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "通用功能"
+                ],
+                "summary": "获取网站标题",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "网站URL",
+                        "name": "website_url",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取网站标题失败",
+                        "schema": {
+                            "$ref": "#/definitions/handler.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws/metrics": {
+            "get": {
+                "description": "通过 WebSocket 实时订阅系统的各项运行指标",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "通用功能"
+                ],
+                "summary": "通过 WebSocket 订阅系统指标",
+                "responses": {}
+            }
         }
     },
     "definitions": {
@@ -1645,6 +1913,74 @@ const docTemplate = `{
                 "msg": {
                     "description": "Msg 返回信息，通常是状态描述",
                     "type": "string"
+                }
+            }
+        },
+        "model.AccessTokenSetting": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "访问令牌创建时间，Unix 时间戳格式",
+                    "type": "string"
+                },
+                "expiry": {
+                    "description": "指针类型，NULL 表示永不过期",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "访问令牌 ID",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "访问令牌名称",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "访问令牌",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "创建该访问令牌的用户 ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.AccessTokenSettingDto": {
+            "type": "object",
+            "properties": {
+                "expiry": {
+                    "description": "访问令牌过期时间，Unix 时间戳格式",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "访问令牌名称",
+                    "type": "string"
+                }
+            }
+        },
+        "model.BackupSchedule": {
+            "type": "object",
+            "properties": {
+                "cron_expression": {
+                    "description": "备份计划的 Cron 表达式",
+                    "type": "string"
+                },
+                "enable": {
+                    "description": "是否启用备份计划",
+                    "type": "boolean"
+                }
+            }
+        },
+        "model.BackupScheduleDto": {
+            "type": "object",
+            "properties": {
+                "cron_expression": {
+                    "description": "备份计划的 Cron 表达式",
+                    "type": "string"
+                },
+                "enable": {
+                    "description": "是否启用备份计划",
+                    "type": "boolean"
                 }
             }
         },
@@ -1721,6 +2057,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/model.Image"
                     }
                 },
+                "layout": {
+                    "type": "string"
+                },
                 "private": {
                     "type": "boolean"
                 },
@@ -1734,6 +2073,32 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.FediverseSetting": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "是否启用联邦网络功能",
+                    "type": "boolean"
+                },
+                "server_url": {
+                    "description": "服务器 URL",
+                    "type": "string"
+                }
+            }
+        },
+        "model.FediverseSettingDto": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "是否启用联邦网络功能",
+                    "type": "boolean"
+                },
+                "server_url": {
+                    "description": "服务器 URL",
                     "type": "string"
                 }
             }
@@ -1757,11 +2122,15 @@ const docTemplate = `{
         "model.Image": {
             "type": "object",
             "properties": {
+                "height": {
+                    "description": "图片高度",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "integer"
                 },
                 "image_source": {
-                    "description": "图片来源: local/url/s3/r2",
+                    "description": "图片来源: local/url/s3",
                     "type": "string"
                 },
                 "image_url": {
@@ -1775,6 +2144,10 @@ const docTemplate = `{
                 "object_key": {
                     "description": "对象存储的Key (如果是本地存储则为空)",
                     "type": "string"
+                },
+                "width": {
+                    "description": "图片宽度",
+                    "type": "integer"
                 }
             }
         },
@@ -1785,6 +2158,10 @@ const docTemplate = `{
                 "url"
             ],
             "properties": {
+                "height": {
+                    "description": "图片高度",
+                    "type": "integer"
+                },
                 "object_key": {
                     "description": "对象存储的 Key, 用于删除 S3/R2 上的图片",
                     "type": "string"
@@ -1795,6 +2172,10 @@ const docTemplate = `{
                 "url": {
                     "description": "图片的 URL 地址",
                     "type": "string"
+                },
+                "width": {
+                    "description": "图片宽度",
+                    "type": "integer"
                 }
             }
         },
@@ -1952,7 +2333,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "provider": {
-                    "description": "S3 服务提供商，例如 \"aws\", \"aliyun\", \"minio\", \"other\"",
+                    "description": "S3 服务提供商，例如 \"aws\", \"r2\", \"minio\", \"other\"",
                     "type": "string"
                 },
                 "public_read": {

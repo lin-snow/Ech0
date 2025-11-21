@@ -11,6 +11,54 @@ definitions:
         description: Msg 返回信息，通常是状态描述
         type: string
     type: object
+  model.AccessTokenSetting:
+    properties:
+      created_at:
+        description: 访问令牌创建时间，Unix 时间戳格式
+        type: string
+      expiry:
+        description: 指针类型，NULL 表示永不过期
+        type: string
+      id:
+        description: 访问令牌 ID
+        type: integer
+      name:
+        description: 访问令牌名称
+        type: string
+      token:
+        description: 访问令牌
+        type: string
+      user_id:
+        description: 创建该访问令牌的用户 ID
+        type: integer
+    type: object
+  model.AccessTokenSettingDto:
+    properties:
+      expiry:
+        description: 访问令牌过期时间，Unix 时间戳格式
+        type: string
+      name:
+        description: 访问令牌名称
+        type: string
+    type: object
+  model.BackupSchedule:
+    properties:
+      cron_expression:
+        description: 备份计划的 Cron 表达式
+        type: string
+      enable:
+        description: 是否启用备份计划
+        type: boolean
+    type: object
+  model.BackupScheduleDto:
+    properties:
+      cron_expression:
+        description: 备份计划的 Cron 表达式
+        type: string
+      enable:
+        description: 是否启用备份计划
+        type: boolean
+    type: object
   model.CommentSetting:
     properties:
       comment_api:
@@ -61,6 +109,8 @@ definitions:
         items:
           $ref: '#/definitions/model.Image'
         type: array
+      layout:
+        type: string
       private:
         type: boolean
       tags:
@@ -70,6 +120,24 @@ definitions:
       user_id:
         type: integer
       username:
+        type: string
+    type: object
+  model.FediverseSetting:
+    properties:
+      enable:
+        description: 是否启用联邦网络功能
+        type: boolean
+      server_url:
+        description: 服务器 URL
+        type: string
+    type: object
+  model.FediverseSettingDto:
+    properties:
+      enable:
+        description: 是否启用联邦网络功能
+        type: boolean
+      server_url:
+        description: 服务器 URL
         type: string
     type: object
   model.GetPresignURLDto:
@@ -85,10 +153,13 @@ definitions:
     type: object
   model.Image:
     properties:
+      height:
+        description: 图片高度
+        type: integer
       id:
         type: integer
       image_source:
-        description: '图片来源: local/url/s3/r2'
+        description: '图片来源: local/url/s3'
         type: string
       image_url:
         description: 图片URL
@@ -99,9 +170,15 @@ definitions:
       object_key:
         description: 对象存储的Key (如果是本地存储则为空)
         type: string
+      width:
+        description: 图片宽度
+        type: integer
     type: object
   model.ImageDto:
     properties:
+      height:
+        description: 图片高度
+        type: integer
       object_key:
         description: 对象存储的 Key, 用于删除 S3/R2 上的图片
         type: string
@@ -110,6 +187,9 @@ definitions:
       url:
         description: 图片的 URL 地址
         type: string
+      width:
+        description: 图片宽度
+        type: integer
     required:
     - source
     - url
@@ -222,7 +302,7 @@ definitions:
         description: 存储路径前缀，例如 "uploads/"，方便隔离目录
         type: string
       provider:
-        description: S3 服务提供商，例如 "aws", "aliyun", "minio", "other"
+        description: S3 服务提供商，例如 "aws", "r2", "minio", "other"
         type: string
       public_read:
         description: 上传时是否默认设置对象为 public-read
@@ -435,6 +515,63 @@ info:
   title: Ech0 API 文档
   version: "1.0"
 paths:
+  /access-tokens:
+    get:
+      consumes:
+      - application/json
+      description: 列出当前用户的所有访问令牌
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 列出访问令牌失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 列出访问令牌
+      tags:
+      - 系统设置
+    post:
+      consumes:
+      - application/json
+      description: 为当前用户创建一个新的访问令牌
+      parameters:
+      - description: 新的访问令牌信息
+        in: body
+        name: accessToken
+        required: true
+        schema:
+          $ref: '#/definitions/model.AccessTokenSettingDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建访问令牌失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 创建访问令牌
+      tags:
+      - 系统设置
+  /access-tokens/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据 ID 删除指定的访问令牌
+      parameters:
+      - description: 要删除的访问令牌 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除访问令牌失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 删除访问令牌
+      tags:
+      - 系统设置
   /addConnect:
     post:
       consumes:
@@ -561,6 +698,42 @@ paths:
       summary: 恢复数据备份
       tags:
       - 系统备份
+  /backup/schedule:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统的定期备份计划设置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取备份计划失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取备份计划
+      tags:
+      - 系统设置
+    post:
+      consumes:
+      - application/json
+      description: 为系统设置定期备份计划
+      parameters:
+      - description: 备份计划设置
+        in: body
+        name: backupSchedule
+        required: true
+        schema:
+          $ref: '#/definitions/model.BackupScheduleDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 设置备份计划失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 更新备份计划
+      tags:
+      - 系统设置
   /comment/settings:
     get:
       consumes:
@@ -873,6 +1046,42 @@ paths:
       summary: 获取今天的Echo列表
       tags:
       - Echo
+  /fediverse/settings:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统的联邦网络相关设置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取联邦网络设置失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取联邦网络设置
+      tags:
+      - 系统设置
+    put:
+      consumes:
+      - application/json
+      description: 更新系统的联邦网络相关设置
+      parameters:
+      - description: 新的联邦网络设置
+        in: body
+        name: fediverseSettings
+        required: true
+        schema:
+          $ref: '#/definitions/model.FediverseSettingDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新联邦网络设置失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 更新联邦网络设置
+      tags:
+      - 系统设置
   /getmusic:
     get:
       consumes:
@@ -988,6 +1197,21 @@ paths:
       summary: 用户登录接口
       tags:
       - 用户认证
+  /metrics:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前系统的各项运行指标，如 CPU 使用率、内存使用情况等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取系统指标失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取系统指标
+      tags:
+      - 通用功能
   /oauth2/settings:
     get:
       consumes:
@@ -1482,4 +1706,36 @@ paths:
       summary: 更新 Webhook
       tags:
       - 系统设置
+  /website/title:
+    get:
+      consumes:
+      - application/json
+      description: 获取网站标题
+      parameters:
+      - description: 网站URL
+        in: query
+        name: website_url
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取网站标题失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取网站标题
+      tags:
+      - 通用功能
+  /ws/metrics:
+    get:
+      consumes:
+      - application/json
+      description: 通过 WebSocket 实时订阅系统的各项运行指标
+      produces:
+      - application/json
+      responses: {}
+      summary: 通过 WebSocket 订阅系统指标
+      tags:
+      - 通用功能
 swagger: "2.0"

@@ -61,3 +61,11 @@ export function fetchImportBackup(file: File) {
     data: formData,
   })
 }
+
+// 获取网站标题
+export function fetchGetWebsiteTitle(websiteURL: string) {
+  return request<string>({
+    url: `/website/title?website_url=${websiteURL}`,
+    method: 'GET',
+  })
+}
