@@ -91,6 +91,7 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 	query.Count(&total).
 		Preload("Media").
 		Preload("Tags").
+		Joins("User").
 		Limit(pageSize).
 		Offset(offset).
 		Order("created_at DESC").
@@ -119,9 +120,9 @@ func (echoRepository *EchoRepository) GetEchosById(id uint) (*model.Echo, error)
 	}
 
 	// 缓存未命中，查询数据库
-	// 使用 Preload 预加载关联的 Media
+	// 使用 Preload 预加载关联的 Media，使用 Joins 关联 User
 	var echo model.Echo
-	result := echoRepository.db().Preload("Media").Preload("Tags").First(&echo, id)
+	result := echoRepository.db().Preload("Media").Preload("Tags").Joins("User").First(&echo, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, nil // 如果未找到记录，则返回 nil
@@ -191,6 +192,7 @@ func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool) []model.Ec
 	query.
 		Preload("Media").
 		Preload("Tags").
+		Joins("User").
 		Order("created_at DESC").
 		Find(&echos)
 
@@ -411,6 +413,7 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 		Where("id IN ?", echoIDs).
 		Preload("Media").
 		Preload("Tags").
+		Joins("User").
 		Order("created_at DESC").
 		Find(&echos).Error; err != nil {
 		return nil, 0, err

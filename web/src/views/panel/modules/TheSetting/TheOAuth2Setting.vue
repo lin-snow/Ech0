@@ -282,7 +282,7 @@ const oauth2EditMode = ref(false)
 const OAuth2ProviderOptions = [
   { label: 'GitHub', value: OAuth2Provider.GITHUB },
   { label: 'Google', value: OAuth2Provider.GOOGLE },
-  // { label: 'QQ', value: OAuth2Provider.QQ },
+  { label: 'QQ', value: OAuth2Provider.QQ },
   { label: 'Custom', value: OAuth2Provider.CUSTOM },
 ]
 

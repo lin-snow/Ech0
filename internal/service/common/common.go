@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -287,6 +288,24 @@ func (commonService *CommonService) GetStatus() (commonModel.Status, error) {
 		return commonModel.Status{}, err
 	}
 
+	// 获取系统设置（用于获取站点Logo）
+	var setting settingModel.SystemSetting
+	value, err := commonService.keyvalueRepository.GetKeyValue("system_settings")
+	if err != nil || value == nil {
+		// 如果获取失败，使用空字符串作为默认值
+		setting.Logo = ""
+	} else {
+		// GetKeyValue返回的是JSON字符串，需要反序列化
+		if jsonStr, ok := value.(string); ok {
+			if err := json.Unmarshal([]byte(jsonStr), &setting); err != nil {
+				// 反序列化失败，使用空字符串
+				setting.Logo = ""
+			}
+		} else {
+			setting.Logo = ""
+		}
+	}
+
 	// 获取所有用户状态信息
 	var users []commonModel.UserStatus
 	allusers, err := commonService.commonRepository.GetAllUsers()
@@ -310,7 +329,7 @@ func (commonService *CommonService) GetStatus() (commonModel.Status, error) {
 
 	status.SysAdminID = sysuser.ID     // 管理员ID
 	status.Username = sysuser.Username // 管理员用户名
-	status.Logo = sysuser.Avatar       // 管理员头像
+	status.Logo = setting.Logo         // 站点Logo（修改：从管理员头像改为站点Logo）
 	status.Users = users               // 所有用户状态
 	status.TotalEchos = len(echos)     // Echo总数
 

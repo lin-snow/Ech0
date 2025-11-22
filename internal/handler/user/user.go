@@ -436,12 +436,26 @@ func (userHandler *UserHandler) GoogleCallback() gin.HandlerFunc {
 	})
 }
 
-// QQLogin 处理 QQ OAuth2 登录请求
+// QQLogin 处理QQ OAuth2登录请求
+// 生成QQ互联授权URL并重定向用户到QQ登录页面
+//
+// 流程:
+//  1. 从查询参数获取前端提供的redirect_uri
+//  2. 调用Service层生成QQ授权URL（包含state参数）
+//  3. 重定向用户到QQ登录页面
+//
+// 查询参数:
+//   - redirect_uri: 登录成功后的前端回调地址
+//
+// 响应:
+//   - 302重定向到QQ授权页面
+//   - 失败时返回错误信息
 func (userHandler *UserHandler) QQLogin() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
-		// 获取重定向 URL
+		// 获取前端提供的重定向URL
 		redirect_URI := ctx.Query("redirect_uri")
 
+		// 生成QQ授权URL
 		redirectURL, err := userHandler.userService.GetOAuthLoginURL(
 			string(commonModel.OAuth2QQ),
 			redirect_URI,
@@ -453,15 +467,29 @@ func (userHandler *UserHandler) QQLogin() gin.HandlerFunc {
 			}
 		}
 
-		// 重定向到 QQ 登录页面
+		// 重定向到QQ登录页面
 		ctx.Redirect(302, redirectURL)
 		return res.Response{}
 	})
 }
 
-// QQCallback 处理 QQ OAuth2 回调
+// QQCallback 处理QQ OAuth2回调
+// 接收QQ互联的授权回调，完成登录或绑定流程
+//
+// 流程:
+//  1. 从查询参数获取code和state
+//  2. 调用Service层处理OAuth回调（验证state、交换token、获取用户信息）
+//  3. 重定向到前端页面（携带token或error参数）
+//
+// 查询参数:
+//   - code: QQ互联返回的授权码
+//   - state: OAuth state参数（用于验证请求合法性）
+//
+// 响应:
+//   - 302重定向到前端回调地址（携带token或error参数）
 func (userHandler *UserHandler) QQCallback() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
+		// 获取OAuth回调参数
 		code := ctx.Query("code")
 		state := ctx.Query("state")
 		if code == "" || state == "" {
@@ -471,6 +499,7 @@ func (userHandler *UserHandler) QQCallback() gin.HandlerFunc {
 			}
 		}
 
+		// 处理OAuth回调
 		redirectURL := userHandler.userService.HandleOAuthCallback(
 			string(commonModel.OAuth2QQ),
 			code,
@@ -481,12 +510,31 @@ func (userHandler *UserHandler) QQCallback() gin.HandlerFunc {
 	})
 }
 
-// BindQQ 绑定 QQ 账号
+// BindQQ 绑定QQ账号
+// 为已登录用户生成QQ账号绑定URL
+//
+// 流程:
+//  1. 从JWT token获取当前用户ID
+//  2. 从请求体获取前端提供的redirect_uri
+//  3. 调用Service层生成QQ绑定URL（包含state参数）
+//  4. 返回绑定URL给前端
+//
+// 请求体:
+//   - redirect_uri: 绑定成功后的前端回调地址
+//
+// 响应:
+//   - 成功: 返回QQ授权URL
+//   - 失败: 返回错误信息
+//
+// 权限要求:
+//   - 需要用户登录（JWT认证）
+//   - 需要管理员权限
 func (userHandler *UserHandler) BindQQ() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
-		// 获取当前用户 ID
+		// 获取当前用户ID
 		userid := ctx.MustGet("userid").(uint)
 
+		// 解析请求体
 		type Req struct {
 			RedirectURI string `json:"redirect_uri"`
 		}
@@ -498,6 +546,7 @@ func (userHandler *UserHandler) BindQQ() gin.HandlerFunc {
 			}
 		}
 
+		// 生成QQ绑定URL
 		bindURL, err := userHandler.userService.BindOAuth(
 			userid,
 			string(commonModel.OAuth2QQ),

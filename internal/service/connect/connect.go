@@ -135,14 +135,14 @@ func (connectService *ConnectService) GetConnect() (model.Connect, error) {
 	connect.TodayEchos = len(todayEchos)
 	connect.SysUsername = status.Username
 
-	// 处理 Logo URL，避免出现重复的斜杠
+	// 处理 URL，避免出现重复的斜杠
 	trimmedServerURL := setting.ServerURL
 	if len(trimmedServerURL) > 0 && trimmedServerURL[len(trimmedServerURL)-1] == '/' {
 		trimmedServerURL = trimmedServerURL[:len(trimmedServerURL)-1]
 	}
 
+	// 设置站点Logo（从Status获取，Status.Logo现在存储的是站点Logo）
 	if status.Logo != "" {
-		// 如果 Logo URL 以 / 开头，去掉一个 /
 		logoPath := status.Logo
 		if len(logoPath) > 0 && logoPath[0] == '/' {
 			logoPath = logoPath[1:]

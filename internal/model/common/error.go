@@ -66,6 +66,10 @@ const (
 	NO_PERMISSION_BINDING_GOOGLE   = "没有权限绑定 Google 账号"
 	NO_PERMISSION_BINDING_QQ       = "没有权限绑定 QQ 账号"
 	NO_PERMISSION_BINDING_CUSTOM   = "没有权限绑定自定义 OAuth2 账号"
+	QQ_TOKEN_EXCHANGE_FAILED       = "QQ Token 交换失败"
+	QQ_OPENID_FETCH_FAILED         = "获取 QQ OpenID 失败"
+	QQ_OAUTH_STATE_INVALID         = "QQ OAuth 状态参数无效"
+	QQ_OAUTH_ALREADY_BOUND         = "该 QQ 账号已被其他用户绑定"
 )
 
 // TO DO 错误相关常量

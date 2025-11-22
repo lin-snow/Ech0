@@ -105,6 +105,46 @@ export const useHubStore = defineStore('hubStore', () => {
   const loadEchoListPage = async () => {
     if (!hasMore.value || isLoading.value || isPreparing.value) return
 
+    // 数据标准化函数：将旧版本的 images 字段转换为 media 字段
+    const normalizeEchoData = (echo: any, serverUrl: string): App.Api.Hub.Echo => {
+      // 如果没有 media 字段或 media 为空，但有 images 字段，则进行转换
+      if ((!echo.media || echo.media.length === 0) && echo.images && Array.isArray(echo.images)) {
+        // 将 images 转换为 media 格式
+        echo.media = echo.images.map((image: any) => ({
+          id: image.id,
+          message_id: image.message_id,
+          media_url: image.image_url || image.media_url, // 兼容两种字段名
+          media_type: 'image' as const, // 旧版本只支持图片
+          media_source: image.image_source || image.media_source, // 兼容两种字段名
+          object_key: image.object_key,
+          width: image.width,
+          height: image.height,
+        }))
+
+        // 开发环境日志
+        if (import.meta.env.DEV) {
+          console.log('[兼容性转换] 检测到旧版本数据格式，已转换 images → media', {
+            echoId: echo.id,
+            serverUrl: serverUrl,
+            imagesCount: echo.images.length,
+          })
+        }
+      }
+
+      // 如果既没有 media 也没有 images，设置为空数组
+      if (!echo.media || !Array.isArray(echo.media)) {
+        echo.media = []
+        if (import.meta.env.DEV && echo.images === undefined) {
+          console.warn('[兼容性转换] Echo 数据缺少 media 和 images 字段', {
+            echoId: echo.id,
+            serverUrl: serverUrl,
+          })
+        }
+      }
+
+      return echo
+    }
+
     isLoading.value = true
     try {
       const promises = hubList.value.map(async (item) => {
@@ -120,17 +160,24 @@ export const useHubStore = defineStore('hubStore', () => {
 
         if (error.value || data.value?.code !== 1) return []
 
-        // 增加必要字段
-        return (data.value?.data.items || []).map((echo: App.Api.Ech0.Echo) => ({
-          ...echo,
-          createdTs: new Date(echo.created_at).getTime(),
-          server_name: hubInfoMap.value.get(url)?.server_name || 'Ech0',
-          server_url: url,
-          logo:
-            hubInfoMap.value.get(url)?.logo !== ''
-              ? hubInfoMap.value.get(url)?.logo
-              : '/favicon.ico',
-        }))
+        // 增加必要字段并进行数据标准化
+        return (data.value?.data.items || []).map((echo: App.Api.Ech0.Echo) => {
+          // 先进行数据标准化（images → media 转换）
+          const normalizedEcho = normalizeEchoData(echo, url)
+
+          // 然后添加 Hub 相关字段
+          return {
+            ...normalizedEcho,
+            createdTs: new Date(normalizedEcho.created_at).getTime(),
+            server_name: hubInfoMap.value.get(url)?.server_name || 'Ech0',
+            server_url: url,
+            // 设置echo.logo为站点Logo（来自/api/connect接口）
+            logo:
+              hubInfoMap.value.get(url)?.logo && hubInfoMap.value.get(url)?.logo !== ''
+                ? hubInfoMap.value.get(url)?.logo
+                : '/favicon.ico',
+          }
+        })
       })
 
       const results = await Promise.allSettled(promises)

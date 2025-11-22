@@ -14,6 +14,39 @@
           </button>
         </div>
       </div>
+
+      <!-- 站点Logo -->
+      <div class="flex justify-start items-center mb-4">
+        <img
+          :src="
+            !SystemSetting?.logo || SystemSetting?.logo.length === 0
+              ? '/favicon.svg'
+              : `${API_URL}${SystemSetting?.logo}`
+          "
+          alt="站点Logo"
+          class="w-12 h-12 rounded-lg ml-2 mr-9 ring-1 ring-gray-200 shadow-sm object-cover"
+          @error="handleImageError"
+        />
+        <div>
+          <!-- 点击上传Logo -->
+          <input
+            id="logo-input"
+            class="hidden"
+            type="file"
+            accept="image/*"
+            ref="logoInput"
+            @change="handleUploadLogo"
+          />
+          <BaseButton
+            v-if="editMode"
+            class="rounded-md text-center w-auto text-align-center h-8 md:ml-5"
+            @click="handTriggerUpload"
+          >
+            更改
+          </BaseButton>
+        </div>
+      </div>
+
       <!-- 站点标题 -->
       <div class="flex flex-row items-center justify-start text-stone-500 gap-2 h-10">
         <h2 class="font-semibold w-26 shrink-0">站点标题:</h2>
@@ -143,20 +176,24 @@
 import PanelCard from '@/layout/PanelCard.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 import Edit from '@/components/icons/edit.vue'
 import Close from '@/components/icons/close.vue'
 import Saveupdate from '@/components/icons/saveupdate.vue'
-import { ref, onMounted } from 'vue'
-import { fetchUpdateSettings } from '@/service/api'
+import { ref, onMounted, watch } from 'vue'
+import { fetchUpdateSettings, fetchUploadImage } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useSettingStore } from '@/stores/setting'
 import { storeToRefs } from 'pinia'
+import { getApiUrl } from '@/service/request/shared'
 
 const settingStore = useSettingStore()
 const { getSystemSetting } = settingStore
 const { SystemSetting } = storeToRefs(settingStore)
 
 const editMode = ref<boolean>(false)
+const API_URL = getApiUrl()
+const logoInput = ref<HTMLInputElement | null>(null)
 
 const handleUpdateSystemSetting = async () => {
   await fetchUpdateSettings(settingStore.SystemSetting)
@@ -170,6 +207,39 @@ const handleUpdateSystemSetting = async () => {
       // 重新获取设置
       getSystemSetting()
     })
+}
+
+const handTriggerUpload = () => {
+  if (logoInput.value) {
+    logoInput.value.click()
+  }
+}
+
+const handleUploadLogo = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  try {
+    const res = await theToast.promise(fetchUploadImage(file), {
+      loading: 'Logo上传中...',
+      success: 'Logo上传成功！',
+      error: '上传失败，请稍后再试',
+    })
+
+    if (res.code === 1) {
+      SystemSetting.value.logo = res.data
+    }
+  } catch (err) {
+    console.error('上传异常', err)
+  } finally {
+    target.value = ''
+  }
+}
+
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = '/favicon.svg'
 }
 
 onMounted(() => {

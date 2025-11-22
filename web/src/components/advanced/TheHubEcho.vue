@@ -1,26 +1,29 @@
 <template>
   <div class="w-full max-w-sm bg-white h-auto p-5 shadow rounded-lg mx-auto">
-    <!-- 顶部Logo 和 用户名 -->
+    <!-- 顶部用户头像和信息 -->
     <div class="flex flex-row items-center gap-2 mt-2 mb-4">
-      <!-- <div class="text-xl">👾</div> -->
       <div>
         <img
-          :src="echo.logo"
-          alt="logo"
+          :src="userAvatar"
+          alt="用户头像"
           class="w-10 h-10 sm:w-12 sm:h-12 rounded-full ring-1 ring-gray-200 shadow-sm object-cover"
+          @error="handleImageError"
         />
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-1">
           <h2 class="text-gray-700 font-bold overflow-hidden whitespace-nowrap text-center">
-            <a :href="echo.server_url" target="_blank">{{ echo.server_name }}</a>
+            {{ displayUsername }}
           </h2>
 
           <div>
             <Verified class="text-sky-500 w-5 h-5" />
           </div>
         </div>
-        <span class="text-[#5b7083] font-serif">@ {{ echo.username }} </span>
+        <span class="text-[#5b7083] font-serif flex items-center gap-1">
+          <span>🌐</span>
+          <a :href="echo.server_url" target="_blank">{{ echo.server_name }}</a>
+        </span>
       </div>
     </div>
 
@@ -179,6 +182,40 @@ const previewOptions = {
 }
 
 const isLikeAnimating = ref(false)
+
+// 用户头像（优先使用user.avatar，如果不存在则使用logo作为fallback）
+const userAvatar = computed(() => {
+  // 优先使用关联查询的发布者头像（新版本服务器）
+  if (props.echo.user?.avatar) {
+    const avatar = props.echo.user.avatar
+    // 如果是完整URL则直接使用，否则需要拼接服务器地址
+    if (avatar.startsWith('http')) {
+      return avatar
+    }
+    // 拼接远程服务器地址
+    return `${props.echo.server_url}/api${avatar}`
+  }
+  
+  // Fallback: 使用站点Logo（旧版本服务器或新版本服务器没有user字段时）
+  const logo = props.echo.logo
+  if (logo && logo.length > 0) {
+    return logo
+  }
+  
+  return '/favicon.svg'
+})
+
+// 显示用户名（优先使用user.username，如果不存在则使用echo.username）
+const displayUsername = computed(() => {
+  // 优先使用实时查询的发布者用户名（新版本服务器）
+  // Fallback到echos表中保存的用户名快照（旧版本服务器或新版本服务器没有user字段时）
+  return props.echo.user?.username || props.echo.username || '未知用户'
+})
+
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = '/favicon.svg'
+}
 
 onMounted(() => {})
 </script>

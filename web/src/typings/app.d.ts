@@ -62,6 +62,7 @@ declare namespace App {
         image_url: string
         image_source: string
         media: Media[]
+        images?: Image[] // 向后兼容：旧版本服务器使用 images 字段
         layout?: string
         private: boolean
         user_id: number
@@ -70,6 +71,11 @@ declare namespace App {
         tags?: Tag[]
         fav_count: number
         created_at: string
+        user?: {
+          id: number
+          username: string
+          avatar: string
+        }
       }
 
       type Media = {
@@ -142,7 +148,7 @@ declare namespace App {
       type Status = {
         sys_admin_id: number // 系统管理员ID
         username: string // 系统管理员用户名
-        logo: string // 系统管理员Logo
+        logo: string // 站点Logo
         users: App.Api.User.UserStatus[] // 用户列表
         total_echos: number // Echo总数
       }
@@ -196,6 +202,7 @@ declare namespace App {
         meting_api: string
         custom_css: string
         custom_js: string
+        logo: string
       }
 
       type CommentSetting = {
@@ -294,7 +301,7 @@ declare namespace App {
       type Connect = {
         server_name: string
         server_url: string
-        logo: string
+        logo: string // 站点Logo
         total_echos: number
         today_echos: number
         sys_username: string
@@ -447,6 +454,7 @@ declare namespace App {
         image_url: string
         image_source: string
         media: Ech0.Media[]
+        images?: Ech0.Image[] // 向后兼容：旧版本服务器使用 images 字段
         tags?: Ech0.Tag[]
         layout?: string
         private: boolean
@@ -459,6 +467,11 @@ declare namespace App {
         server_name: string
         server_url: string
         logo: string
+        user?: {
+          id: number
+          username: string
+          avatar: string
+        }
       }
     }
   }

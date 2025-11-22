@@ -186,7 +186,17 @@ func (userRepository *UserRepository) BindOAuth(ctx context.Context, userID uint
 	return nil
 }
 
-// GetUserByOAuthID 根据 OAuth 提供商和 OAuth ID 获取用户
+// GetUserByOAuthID 根据OAuth提供商和OAuth ID获取用户
+// 通过查询OAuth绑定表找到对应的用户ID，然后返回完整的用户信息
+//
+// 参数:
+//   - ctx: 上下文对象，用于事务管理
+//   - provider: OAuth提供商名称（如"github", "google", "qq", "custom"）
+//   - oauthID: 第三方平台的用户唯一标识（如GitHub的user ID、QQ的OpenID）
+//
+// 返回:
+//   - model.User: 用户信息
+//   - error: 如果未找到绑定关系或用户不存在，返回错误
 func (userRepository *UserRepository) GetUserByOAuthID(
 	ctx context.Context,
 	provider, oauthID string,

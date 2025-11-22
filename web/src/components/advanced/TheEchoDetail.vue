@@ -2,27 +2,30 @@
   <div
     class="w-full max-w-sm bg-[var(--echo-detail-bg-color)] h-auto p-5 shadow rounded-lg mx-auto"
   >
-    <!-- 顶部Logo 和 用户名 -->
+    <!-- 顶部用户头像和信息 -->
     <div class="flex flex-row items-center gap-2 mt-2 mb-4">
-      <!-- <div class="text-xl">👾</div> -->
       <div>
         <img
-          :src="logo"
-          alt="logo"
+          :src="userAvatar"
+          alt="用户头像"
           class="w-10 h-10 sm:w-12 sm:h-12 rounded-full ring-1 ring-gray-200 shadow-sm object-cover"
+          @error="handleImageError"
         />
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-1">
           <h2 class="text-gray-700 font-bold overflow-hidden whitespace-nowrap text-center">
-            {{ SystemSetting.server_name }}
+            {{ displayUsername }}
           </h2>
 
           <div>
             <Verified class="text-sky-500 w-5 h-5" />
           </div>
         </div>
-        <span class="text-[#5b7083] font-serif">@ {{ echo.username }} </span>
+        <span class="text-[#5b7083] font-serif flex items-center gap-1">
+          <span>🌐</span>
+          <span>{{ SystemSetting.server_name }}</span>
+        </span>
       </div>
     </div>
 
@@ -169,8 +172,8 @@ import { fetchLikeEcho } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { localStg } from '@/utils/storage'
 import { storeToRefs } from 'pinia'
-import { fetchGetStatus } from '@/service/api'
 import { useSettingStore } from '@/stores/setting'
+import { useUserStore } from '@/stores/user'
 import { getApiUrl } from '@/service/request/shared'
 import { ExtensionType, ImageLayout } from '@/enums/enums'
 import { formatDate } from '@/utils/other'
@@ -241,21 +244,53 @@ const handleShareEcho = (echoId: number) => {
 }
 
 const settingStore = useSettingStore()
+const userStore = useUserStore()
 
 const { SystemSetting } = storeToRefs(settingStore)
+const { user } = storeToRefs(userStore)
 
 const apiUrl = getApiUrl()
-const logo = ref<string>('/favicon.svg')
+
+// 判断是否是当前用户的 Echo
+const isCurrentUserEcho = computed(() => {
+  return user.value && props.echo.user_id === user.value.id
+})
+
+// 用户头像（如果是当前用户，从 UserStore 获取实时数据；否则从 echo.user 获取缓存数据）
+const userAvatar = computed(() => {
+  // 如果是当前用户且已登录，使用 UserStore 的实时数据
+  if (isCurrentUserEcho.value && user.value?.avatar) {
+    const avatar = user.value.avatar
+    return avatar.startsWith('http') ? avatar : `${apiUrl}${avatar}`
+  }
+
+  // 否则使用 Echo 缓存中的数据（包括未登录或其他用户的情况）
+  const avatar = props.echo.user?.avatar
+  if (!avatar || avatar.length === 0) {
+    return '/favicon.svg'
+  }
+  return avatar.startsWith('http') ? avatar : `${apiUrl}${avatar}`
+})
+
+// 显示用户名（如果是当前用户，从 UserStore 获取实时数据；否则从 echo.user 获取缓存数据）
+const displayUsername = computed(() => {
+  // 如果是当前用户且已登录，使用 UserStore 的实时数据
+  if (isCurrentUserEcho.value && user.value?.username) {
+    return user.value.username
+  }
+
+  // 否则使用 Echo 缓存中的数据（包括未登录或其他用户的情况）
+  return props.echo.user?.username || props.echo.username || '未知用户'
+})
+
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = '/favicon.svg'
+}
 
 onMounted(() => {
-  fetchGetStatus().then((res) => {
-    if (res.code === 1) {
-      const theLogo = res.data.logo
-      if (theLogo && theLogo !== '') {
-        logo.value = `${apiUrl}${theLogo}`
-      }
-    }
-  })
+  // 获取系统设置
+  settingStore.getSystemSetting()
 })
 </script>
 

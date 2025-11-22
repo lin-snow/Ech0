@@ -10,8 +10,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lin-snow/ech0/internal/event"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -24,6 +24,13 @@ import (
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 )
+
+// OAuthUserProfile 统一的OAuth用户信息结构
+// 用于从不同OAuth提供商的原始用户数据中提取标准化的用户资料
+type OAuthUserProfile struct {
+	Username string // 用户名，从OAuth提供商获取或生成
+	Avatar   string // 头像URL，完整的https地址
+}
 
 // UserService 用户服务结构体，提供用户相关的业务逻辑处理
 type UserService struct {
@@ -394,7 +401,17 @@ func (userService *UserService) GetUserByID(userId int) (model.User, error) {
 	return userService.userRepository.GetUserByID(userId)
 }
 
-// BindOAuth 绑定 OAuth2 账号
+// BindOAuth 为已登录用户生成OAuth账号绑定URL
+// 只有管理员可以绑定OAuth账号
+//
+// 参数:
+//   - userID: 当前用户ID
+//   - provider: OAuth提供商名称
+//   - redirectURI: 绑定成功后的前端回调地址
+//
+// 返回:
+//   - string: OAuth授权URL
+//   - error: 生成失败时返回错误
 func (userService *UserService) BindOAuth(userID uint, provider string, redirectURI string) (string, error) {
 	user, err := userService.userRepository.GetUserByID(int(userID))
 	if err != nil {
@@ -428,7 +445,16 @@ func (userService *UserService) BindOAuth(userID uint, provider string, redirect
 	return authorizeURL, nil
 }
 
-// GetOAuthLoginURL 获取 OAuth2 登录 URL
+// GetOAuthLoginURL 获取OAuth登录URL
+// 生成OAuth授权URL，用于用户登录
+//
+// 参数:
+//   - provider: OAuth提供商名称
+//   - redirectURI: 登录成功后的前端回调地址
+//
+// 返回:
+//   - string: OAuth授权URL
+//   - error: 生成失败时返回错误
 func (userService *UserService) GetOAuthLoginURL(provider string, redirectURI string) (string, error) {
 	setting, err := userService.getOAuthSetting(provider)
 	if err != nil {
@@ -453,102 +479,227 @@ func (userService *UserService) GetOAuthLoginURL(provider string, redirectURI st
 	return authorizeURL, nil
 }
 
-// HandleOAuthCallback 处理 OAuth2 回调
-func (userService *UserService) HandleOAuthCallback(provider string, code string, state string) string {
-	setting, err := userService.getOAuthSetting(provider)
-	if err != nil {
-		return ""
-	}
-
+// validateOAuthState 验证OAuth state参数的有效性
+// 检查state的签名、过期时间和provider匹配性，确保OAuth回调的安全性
+//
+// 参数:
+//   - state: OAuth回调中的state参数（JWT格式）
+//   - provider: 当前OAuth提供商名称
+//
+// 返回:
+//   - *authModel.OAuthState: 解析后的state对象
+//   - error: 验证失败时返回错误
+func validateOAuthState(state, provider string) (*authModel.OAuthState, error) {
+	// 解析并验证state的JWT签名
 	oauthState, err := jwtUtil.ParseOAuthState(state)
 	if err != nil {
-		return ""
+		fmt.Printf("[WARN] [OAuth:%s] State签名验证失败: %v\n", provider, err)
+		return nil, fmt.Errorf("state签名验证失败: %w", err)
 	}
 
+	// 检查state是否过期
+	currentTime := time.Now().Unix()
+	if oauthState.Exp < currentTime {
+		fmt.Printf("[WARN] [OAuth:%s] State已过期\n", provider)
+		return nil, errors.New("state已过期")
+	}
+
+	// 检查provider是否匹配，防止state被用于错误的OAuth提供商
 	if oauthState.Provider != provider {
-		return ""
+		fmt.Printf("[WARN] [OAuth:%s] Provider不匹配: 期望%s, 实际%s\n", provider, oauthState.Provider, provider)
+		return nil, fmt.Errorf("provider不匹配: 期望%s, 实际%s", oauthState.Provider, provider)
 	}
 
+	return oauthState, nil
+}
+
+// HandleOAuthCallback 处理OAuth2回调
+// 这是OAuth登录和绑定流程的核心处理函数，统一处理所有OAuth提供商的回调
+//
+// 处理流程:
+//  1. 验证state参数（签名、过期时间、provider匹配）
+//  2. 获取OAuth配置
+//  3. 根据provider交换token并获取用户信息
+//  4. 根据action类型执行登录或绑定操作
+//
+// 参数:
+//   - provider: OAuth提供商名称（"github", "google", "qq", "custom"）
+//   - code: OAuth授权码
+//   - state: OAuth状态参数（JWT格式，包含action、userID、redirect等信息）
+//
+// 返回:
+//   - string: 重定向URL（包含token、error或bind参数）
+func (userService *UserService) HandleOAuthCallback(provider string, code string, state string) string {
+	// 1. 验证state参数的有效性和安全性
+	oauthState, err := validateOAuthState(state, provider)
+	if err != nil {
+		return buildErrorRedirect("", commonModel.QQ_OAUTH_STATE_INVALID)
+	}
+
+	// 2. 获取OAuth配置信息
+	setting, err := userService.getOAuthSetting(provider)
+	if err != nil {
+		return buildErrorRedirect(oauthState.Redirect, "OAuth配置错误")
+	}
+
+	// 3. 处理不同OAuth提供商的token交换和用户信息获取
+	externalID, userInfo, err := userService.processOAuthProvider(provider, setting, code)
+	if err != nil {
+		return buildErrorRedirect(oauthState.Redirect, err.Error())
+	}
+
+	// 4. 根据action类型处理回调逻辑（登录或绑定）
+	return userService.resolveOAuthCallback(oauthState, provider, externalID, userInfo)
+}
+
+// processOAuthProvider 处理不同OAuth提供商的token交换和用户信息获取
+// 统一各OAuth提供商的处理流程，返回外部用户ID和用户信息
+//
+// 参数:
+//   - provider: OAuth提供商名称
+//   - setting: OAuth配置信息
+//   - code: OAuth授权码
+//
+// 返回:
+//   - externalID: 第三方平台的用户唯一标识
+//   - userInfo: 用户信息（不同provider类型不同）
+//   - error: 处理过程中的错误
+func (userService *UserService) processOAuthProvider(
+	provider string,
+	setting *settingModel.OAuth2Setting,
+	code string,
+) (externalID string, userInfo interface{}, err error) {
 	switch provider {
 	case string(commonModel.OAuth2GITHUB):
-		tokenResp, err := exchangeGithubCodeForToken(setting, code)
-		if err != nil {
-			fmt.Printf("Error exchanging %s code for token: %v\n", provider, err)
-			return ""
-		}
-
-		githubUser, err := fetchGitHubUserInfo(setting, tokenResp.AccessToken)
-		if err != nil {
-			fmt.Printf("Error fetching %s user info: %v\n", provider, err)
-			return ""
-		}
-
-		return userService.resolveOAuthCallback(oauthState, provider, fmt.Sprint(githubUser.ID))
+		return userService.processGitHubOAuth(setting, code)
 
 	case string(commonModel.OAuth2GOOGLE):
-		tokenResp, err := exchangeGoogleCodeForToken(setting, code)
-		if err != nil {
-			fmt.Printf("Error exchanging %s code for token: %v\n", provider, err)
-			return ""
-		}
-
-		googleUser, err := fetchGoogleUserInfo(setting, tokenResp.AccessToken)
-		if err != nil {
-			fmt.Printf("Error fetching %s user info: %v\n", provider, err)
-			return ""
-		}
-
-		return userService.resolveOAuthCallback(oauthState, provider, googleUser.Sub)
+		return userService.processGoogleOAuth(setting, code)
 
 	case string(commonModel.OAuth2QQ):
-		tokenResp, err := exchangeQQCodeForToken(setting, code)
-		if err != nil {
-			fmt.Printf("Error exchanging %s code for token: %v\n", provider, err)
-			return ""
-		}
-
-		qqOpenIDResp, err := fetchQQUserInfo(tokenResp.AccessToken)
-		if err != nil {
-			fmt.Printf("Error fetching %s user info: %v\n", provider, err)
-			return ""
-		}
-
-		return userService.resolveOAuthCallback(oauthState, provider, qqOpenIDResp.OpenID)
+		return userService.processQQOAuth(setting, code)
 
 	case string(commonModel.OAuth2CUSTOM):
-		accessToken, err := exchangeCustomCodeForToken(setting, code)
-		if err != nil {
-			fmt.Printf("Error exchanging %s code for token: %v\n", provider, err)
-			return ""
-		}
-
-		customUserID, err := fetchCustomUserInfo(setting, accessToken)
-		if err != nil {
-			fmt.Printf("Error fetching %s user info: %v\n", provider, err)
-			return ""
-		}
-
-		return userService.resolveOAuthCallback(oauthState, provider, customUserID)
+		return userService.processCustomOAuth(setting, code)
 
 	default:
-		return ""
+		return "", nil, errors.New("不支持的OAuth提供商")
 	}
 }
 
+// processGitHubOAuth 处理GitHub OAuth流程
+func (userService *UserService) processGitHubOAuth(
+	setting *settingModel.OAuth2Setting,
+	code string,
+) (string, interface{}, error) {
+	tokenResp, err := exchangeGithubCodeForToken(setting, code)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:GitHub] Token交换失败: %v\n", err)
+		return "", nil, err
+	}
+
+	githubUser, err := fetchGitHubUserInfo(setting, tokenResp.AccessToken)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:GitHub] 获取用户信息失败: %v\n", err)
+		return "", nil, err
+	}
+
+	return fmt.Sprint(githubUser.ID), githubUser, nil
+}
+
+// processGoogleOAuth 处理Google OAuth流程
+func (userService *UserService) processGoogleOAuth(
+	setting *settingModel.OAuth2Setting,
+	code string,
+) (string, interface{}, error) {
+	tokenResp, err := exchangeGoogleCodeForToken(setting, code)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:Google] Token交换失败: %v\n", err)
+		return "", nil, err
+	}
+
+	googleUser, err := fetchGoogleUserInfo(setting, tokenResp.AccessToken)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:Google] 获取用户信息失败: %v\n", err)
+		return "", nil, err
+	}
+
+	return googleUser.Sub, googleUser, nil
+}
+
+// processQQOAuth 处理QQ OAuth流程
+func (userService *UserService) processQQOAuth(
+	setting *settingModel.OAuth2Setting,
+	code string,
+) (string, interface{}, error) {
+	tokenResp, err := exchangeQQCodeForToken(setting, code)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:QQ] Token交换失败: %v\n", err)
+		return "", nil, err
+	}
+
+	openIDResp, err := fetchQQOpenID(setting, tokenResp.AccessToken)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:QQ] 获取OpenID失败: %v\n", err)
+		return "", nil, err
+	}
+
+	// 获取QQ用户信息（可选，失败时使用空对象）
+	qqUserInfo, err := fetchQQUserInfo(setting, tokenResp.AccessToken, openIDResp.OpenID)
+	if err != nil {
+		qqUserInfo = &authModel.QQUser{}
+	}
+
+	return openIDResp.OpenID, qqUserInfo, nil
+}
+
+// processCustomOAuth 处理自定义OAuth流程
+func (userService *UserService) processCustomOAuth(
+	setting *settingModel.OAuth2Setting,
+	code string,
+) (string, interface{}, error) {
+	accessToken, err := exchangeCustomCodeForToken(setting, code)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:Custom] Token交换失败: %v\n", err)
+		return "", nil, err
+	}
+
+	customUserID, err := fetchCustomUserInfo(setting, accessToken)
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:Custom] 获取用户信息失败: %v\n", err)
+		return "", nil, err
+	}
+
+	return customUserID, nil, nil
+}
+
+// getOAuthSetting 获取并验证OAuth配置
+// 检查OAuth配置是否完整且已启用
+//
+// 参数:
+//   - provider: OAuth提供商名称
+//
+// 返回:
+//   - *settingModel.OAuth2Setting: OAuth配置信息
+//   - error: 配置不存在、未启用或不完整时返回错误
 func (userService *UserService) getOAuthSetting(provider string) (*settingModel.OAuth2Setting, error) {
+	// 获取OAuth配置
 	var setting settingModel.OAuth2Setting
 	if err := userService.settingService.GetOAuth2Setting(0, &setting, true); err != nil {
 		return nil, err
 	}
 
+	// 验证provider是否匹配
 	if setting.Provider != provider {
 		return nil, errors.New(commonModel.OAUTH2_NOT_CONFIGURED)
 	}
 
+	// 检查是否已启用
 	if !setting.Enable {
 		return nil, errors.New(commonModel.OAUTH2_NOT_ENABLED)
 	}
 
+	// 验证必需字段是否完整
 	if setting.ClientID == "" || setting.RedirectURI == "" || setting.AuthURL == "" || setting.TokenURL == "" ||
 		setting.UserInfoURL == "" || setting.ClientSecret == "" {
 		return nil, errors.New(commonModel.OAUTH2_NOT_CONFIGURED)
@@ -557,10 +708,21 @@ func (userService *UserService) getOAuthSetting(provider string) (*settingModel.
 	return &setting, nil
 }
 
+// buildOAuthAuthorizeURL 构建OAuth授权URL
+// 根据不同的OAuth提供商构建相应的授权请求URL
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - provider: OAuth提供商名称
+//   - state: OAuth state参数（用于防止CSRF攻击）
+//
+// 返回:
+//   - string: 授权URL（如果provider不支持，返回空字符串）
 func (userService *UserService) buildOAuthAuthorizeURL(
 	setting *settingModel.OAuth2Setting,
 	provider, state string,
 ) string {
+	// 处理scope参数
 	scope := ""
 	if len(setting.Scopes) > 0 {
 		scope = strings.Join(setting.Scopes, " ")
@@ -568,6 +730,7 @@ func (userService *UserService) buildOAuthAuthorizeURL(
 
 	switch provider {
 	case string(commonModel.OAuth2GITHUB):
+		// GitHub OAuth授权URL
 		return fmt.Sprintf(
 			"%s?client_id=%s&redirect_uri=%s&scope=%s&state=%s",
 			setting.AuthURL,
@@ -576,7 +739,9 @@ func (userService *UserService) buildOAuthAuthorizeURL(
 			url.QueryEscape(scope),
 			url.QueryEscape(state),
 		)
+
 	case string(commonModel.OAuth2GOOGLE):
+		// Google OAuth授权URL
 		params := url.Values{}
 		params.Set("client_id", setting.ClientID)
 		params.Set("redirect_uri", setting.RedirectURI)
@@ -587,22 +752,21 @@ func (userService *UserService) buildOAuthAuthorizeURL(
 		if scope != "" {
 			params.Set("scope", scope)
 		}
-
 		return fmt.Sprintf("%s?%s", setting.AuthURL, params.Encode())
 
 	case string(commonModel.OAuth2QQ):
+		// QQ互联OAuth授权URL
+		// QQ互联使用固定的scope: get_user_info
 		params := url.Values{}
 		params.Set("response_type", "code")
 		params.Set("client_id", setting.ClientID)
 		params.Set("redirect_uri", setting.RedirectURI)
 		params.Set("state", state)
-		params.Set("display", "pc")
-		if scope != "" {
-			params.Set("scope", scope)
-		}
+		params.Set("scope", "get_user_info")
 		return fmt.Sprintf("%s?%s", setting.AuthURL, params.Encode())
 
 	case string(commonModel.OAuth2CUSTOM):
+		// 自定义OAuth授权URL
 		params := url.Values{}
 		params.Set("client_id", setting.ClientID)
 		params.Set("redirect_uri", setting.RedirectURI)
@@ -611,8 +775,8 @@ func (userService *UserService) buildOAuthAuthorizeURL(
 		if scope != "" {
 			params.Set("scope", scope)
 		}
-
 		return fmt.Sprintf("%s?%s", setting.AuthURL, params.Encode())
+
 	default:
 		return ""
 	}
@@ -633,63 +797,383 @@ func bindingPermissionError(provider string) error {
 	}
 }
 
-func (userService *UserService) resolveOAuthCallback(
+// buildSuccessRedirect 构建包含token的成功重定向URL
+// 在OAuth登录成功时使用，将JWT token添加到重定向URL的查询参数中
+//
+// 参数:
+//   - redirectURL: 重定向目标URL
+//   - token: JWT token
+//
+// 返回:
+//   - string: 包含token参数的重定向URL（如果redirectURL为空或解析失败，返回空字符串）
+func buildSuccessRedirect(redirectURL string, token string) string {
+	// 解析URL
+	parsedURL, err := url.Parse(redirectURL)
+	if err != nil {
+		return ""
+	}
+
+	// 添加token参数
+	query := parsedURL.Query()
+	query.Set("token", token)
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String()
+}
+
+// buildErrorRedirect 构建包含错误信息的重定向URL
+// 在OAuth回调失败时使用，将错误信息添加到重定向URL的查询参数中
+//
+// 参数:
+//   - redirectURL: 重定向目标URL
+//   - errorMsg: 错误消息
+//
+// 返回:
+//   - string: 包含error参数的重定向URL（如果redirectURL为空或解析失败，返回空字符串）
+func buildErrorRedirect(redirectURL string, errorMsg string) string {
+	// 如果重定向URL为空，返回空字符串
+	if redirectURL == "" {
+		return ""
+	}
+
+	// 解析URL
+	parsedURL, err := url.Parse(redirectURL)
+	if err != nil {
+		return ""
+	}
+
+	// 添加error参数
+	query := parsedURL.Query()
+	query.Set("error", errorMsg)
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String()
+}
+
+// extractUserProfile 从不同OAuth提供商的用户信息中提取统一的用户资料
+// 该函数处理各OAuth提供商返回的不同格式的用户数据，提取出用户名和头像URL
+//
+// 参数:
+//   - provider: OAuth提供商名称（"github", "google", "qq", "custom"）
+//   - userInfo: 原始用户信息（interface{}类型，需要类型断言）
+//   - externalID: 外部用户ID，用于生成默认用户名
+//
+// 返回:
+//   - OAuthUserProfile: 提取后的用户资料，包含用户名和头像URL
+func extractUserProfile(provider string, userInfo interface{}, externalID string) OAuthUserProfile {
+	// 默认用户资料，使用provider和随机字符串生成默认用户名
+	profile := OAuthUserProfile{
+		Username: fmt.Sprintf("%s_user_%s", provider, cryptoUtil.GenerateRandomString(6)),
+		Avatar:   "",
+	}
+
+	switch provider {
+	case string(commonModel.OAuth2GITHUB):
+		// GitHub用户信息提取
+		if githubUser, ok := userInfo.(*authModel.GitHubUser); ok && githubUser != nil {
+			if githubUser.Login != "" {
+				profile.Username = githubUser.Login
+			}
+			profile.Avatar = githubUser.AvatarURL
+		}
+
+	case string(commonModel.OAuth2GOOGLE):
+		// Google用户信息提取
+		if googleUser, ok := userInfo.(*authModel.GoogleUser); ok && googleUser != nil {
+			if googleUser.Name != "" {
+				profile.Username = googleUser.Name
+			} else if googleUser.Email != "" {
+				// 如果没有name，使用邮箱前缀作为用户名
+				profile.Username = strings.Split(googleUser.Email, "@")[0]
+			}
+			profile.Avatar = googleUser.Picture
+		}
+
+	case string(commonModel.OAuth2QQ):
+		// QQ用户信息提取
+		if qqUser, ok := userInfo.(*authModel.QQUser); ok && qqUser != nil {
+			if qqUser.Nickname != "" {
+				profile.Username = qqUser.Nickname
+			}
+			// QQ头像优先级: FigureURLQQ2(100x100) > FigureURLQQ1(40x40) > FigureURL2(100x100) > FigureURL1(50x50)
+			// 优先选择最高质量的头像
+			if qqUser.FigureURLQQ2 != "" {
+				profile.Avatar = qqUser.FigureURLQQ2
+			} else if qqUser.FigureURLQQ1 != "" {
+				profile.Avatar = qqUser.FigureURLQQ1
+			} else if qqUser.FigureURL2 != "" {
+				profile.Avatar = qqUser.FigureURL2
+			} else if qqUser.FigureURL1 != "" {
+				profile.Avatar = qqUser.FigureURL1
+			}
+		}
+
+	case string(commonModel.OAuth2CUSTOM):
+		// 自定义OAuth用户信息提取
+		// 尝试从多个可能的字段名中提取用户名和头像
+		if customData, ok := userInfo.(map[string]interface{}); ok {
+			// 尝试提取用户名，按优先级尝试多个字段
+			for _, key := range []string{"name", "username", "nickname", "display_name"} {
+				if val, exists := customData[key]; exists {
+					if name := fmt.Sprint(val); name != "" && name != "<nil>" {
+						profile.Username = name
+						break
+					}
+				}
+			}
+			// 尝试提取头像，按优先级尝试多个字段
+			for _, key := range []string{"avatar", "avatar_url", "picture", "photo"} {
+				if val, exists := customData[key]; exists {
+					if avatar := fmt.Sprint(val); avatar != "" && avatar != "<nil>" {
+						profile.Avatar = avatar
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return profile
+}
+
+// resolveUsernameConflict 解决用户名冲突
+// 检查用户名是否已存在，如果存在则添加随机后缀
+//
+// 参数:
+//   - username: 原始用户名
+//
+// 返回:
+//   - string: 可用的用户名（可能添加了随机后缀）
+func (userService *UserService) resolveUsernameConflict(username string) string {
+	existingUser, _ := userService.userRepository.GetUserByUsername(username)
+	if existingUser.ID != model.USER_NOT_EXISTS_ID {
+		// 用户名冲突，添加随机后缀
+		return fmt.Sprintf("%s_%s", username, cryptoUtil.GenerateRandomString(6))
+	}
+	return username
+}
+
+// createOAuthUser 创建OAuth用户
+// 从OAuth提供商的用户信息中提取资料，创建新用户并绑定OAuth账号
+//
+// 参数:
+//   - provider: OAuth提供商名称
+//   - externalID: 第三方平台的用户唯一标识
+//   - userInfo: 用户信息
+//
+// 返回:
+//   - model.User: 创建的用户信息（失败时返回空User，ID为0）
+func (userService *UserService) createOAuthUser(
+	provider, externalID string,
+	userInfo interface{},
+) model.User {
+	// 提取用户信息
+	profile := extractUserProfile(provider, userInfo, externalID)
+
+	// 处理用户名冲突
+	username := userService.resolveUsernameConflict(profile.Username)
+
+	// 创建新用户
+	newUser := model.User{
+		Username: username,
+		Password: cryptoUtil.MD5Encrypt(cryptoUtil.GenerateRandomString(32)), // 随机密码
+		IsAdmin:  false,
+		Avatar:   profile.Avatar,
+	}
+
+	// 在事务中创建用户并绑定OAuth
+	err := userService.txManager.Run(func(ctx context.Context) error {
+		// 创建用户
+		if err := userService.userRepository.CreateUser(ctx, &newUser); err != nil {
+			fmt.Printf("[ERROR] [OAuth:%s] 创建用户失败: %v\n", provider, err)
+			return err
+		}
+		fmt.Printf("[INFO] [OAuth:%s] 用户创建成功 (userID=%d), 开始绑定OAuth (externalID=%s)\n",
+			provider, newUser.ID, externalID)
+
+		// 绑定OAuth
+		if err := userService.userRepository.BindOAuth(ctx, newUser.ID, provider, externalID); err != nil {
+			fmt.Printf("[ERROR] [OAuth:%s] 绑定OAuth失败: %v\n", provider, err)
+			return err
+		}
+		fmt.Printf("[INFO] [OAuth:%s] OAuth绑定成功 (userID=%d, provider=%s, externalID=%s)\n",
+			provider, newUser.ID, provider, externalID)
+
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:%s] 创建用户并绑定失败: %v\n", provider, err)
+		return model.User{}
+	}
+
+	return newUser
+}
+
+// handleOAuthBind 处理OAuth绑定逻辑
+// 将OAuth账号绑定到已登录的用户，检查OAuth ID是否已被其他用户绑定
+//
+// 参数:
+//   - oauthState: OAuth状态信息
+//   - provider: OAuth提供商名称
+//   - externalID: 第三方平台的用户唯一标识
+//
+// 返回:
+//   - string: 重定向URL（包含bind=success或bind=error参数）
+func (userService *UserService) handleOAuthBind(
 	oauthState *authModel.OAuthState,
 	provider, externalID string,
 ) string {
-	switch oauthState.Action {
-	case string(authModel.OAuth2ActionLogin):
-		if oauthState.UserID != authModel.NO_USER_LOGINED {
-			return ""
+	// 检查OAuth ID是否已被其他用户绑定
+	existingUser, err := userService.userRepository.GetUserByOAuthID(
+		context.Background(),
+		provider,
+		externalID,
+	)
+	if err == nil && existingUser.ID != model.USER_NOT_EXISTS_ID && existingUser.ID != oauthState.UserID {
+		// OAuth ID已被其他用户绑定
+		errorMsg := ""
+		if provider == string(commonModel.OAuth2QQ) {
+			errorMsg = commonModel.QQ_OAUTH_ALREADY_BOUND
+		} else {
+			errorMsg = "该账号已被其他用户绑定"
 		}
 
-		user, err := userService.userRepository.GetUserByOAuthID(
-			context.Background(),
-			provider,
-			externalID,
-		)
-		if err != nil {
-			fmt.Printf("Error fetching user by %s OAuth ID: %v\n", provider, err)
-			return ""
-		}
-
-		token, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
-		if err != nil {
-			fmt.Printf("Error generating token: %v\n", err)
-			return ""
-		}
-
-		redirectURL, err := url.Parse(oauthState.Redirect)
-		if err != nil {
+		redirectURL, parseErr := url.Parse(oauthState.Redirect)
+		if parseErr != nil {
 			return ""
 		}
 		query := redirectURL.Query()
-		query.Set("token", token)
+		query.Set("bind", "error")
+		query.Set("error", errorMsg)
 		redirectURL.RawQuery = query.Encode()
-
 		return redirectURL.String()
+	}
+
+	// 执行绑定操作
+	if err := userService.txManager.Run(func(ctx context.Context) error {
+		return userService.userRepository.BindOAuth(ctx, oauthState.UserID, provider, externalID)
+	}); err != nil {
+		fmt.Printf("[ERROR] [OAuth:%s] 绑定失败: %v\n", provider, err)
+		redirectURL, parseErr := url.Parse(oauthState.Redirect)
+		if parseErr != nil {
+			return ""
+		}
+		query := redirectURL.Query()
+		query.Set("bind", "error")
+		query.Set("error", "绑定失败")
+		redirectURL.RawQuery = query.Encode()
+		return redirectURL.String()
+	}
+
+	return oauthState.Redirect + "?bind=success"
+}
+
+// handleOAuthLogin 处理OAuth登录逻辑
+// 查询用户是否已绑定OAuth账号，如果未绑定则创建新用户
+//
+// 参数:
+//   - oauthState: OAuth状态信息
+//   - provider: OAuth提供商名称
+//   - externalID: 第三方平台的用户唯一标识
+//   - userInfo: 用户信息
+//
+// 返回:
+//   - string: 重定向URL（包含token或error参数）
+func (userService *UserService) handleOAuthLogin(
+	oauthState *authModel.OAuthState,
+	provider, externalID string,
+	userInfo interface{},
+) string {
+	// 查询是否已存在OAuth绑定
+	user, err := userService.userRepository.GetUserByOAuthID(
+		context.Background(),
+		provider,
+		externalID,
+	)
+
+	if err != nil {
+		// 记录查询失败的详细信息，帮助诊断问题
+		fmt.Printf("[INFO] [OAuth:%s] 未找到已绑定用户 (provider=%s, externalID=%s, error=%v)，准备创建新用户\n",
+			provider, provider, externalID, err)
+
+		// 用户不存在，创建新用户
+		user = userService.createOAuthUser(provider, externalID, userInfo)
+		if user.ID == 0 {
+			fmt.Printf("[ERROR] [OAuth:%s] 创建用户失败\n", provider)
+			return buildErrorRedirect(oauthState.Redirect, "创建用户失败")
+		}
+
+		fmt.Printf("[INFO] [OAuth:%s] 成功创建新用户 (userID=%d, username=%s)\n",
+			provider, user.ID, user.Username)
+	} else {
+		// 找到已存在的用户
+		fmt.Printf("[INFO] [OAuth:%s] 找到已绑定用户 (userID=%d, username=%s)\n",
+			provider, user.ID, user.Username)
+	}
+
+	// 生成JWT token
+	token, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
+	if err != nil {
+		fmt.Printf("[ERROR] [OAuth:%s] 生成token失败: %v\n", provider, err)
+		return buildErrorRedirect(oauthState.Redirect, "生成token失败")
+	}
+
+	// 构建成功重定向URL
+	return buildSuccessRedirect(oauthState.Redirect, token)
+}
+
+// resolveOAuthCallback 根据action类型分发OAuth回调处理
+// 将OAuth回调分发到登录或绑定处理函数
+//
+// 参数:
+//   - oauthState: OAuth状态信息
+//   - provider: OAuth提供商名称
+//   - externalID: 第三方平台的用户唯一标识
+//   - userInfo: 用户信息
+//
+// 返回:
+//   - string: 重定向URL
+func (userService *UserService) resolveOAuthCallback(
+	oauthState *authModel.OAuthState,
+	provider, externalID string,
+	userInfo interface{},
+) string {
+	switch oauthState.Action {
+	case string(authModel.OAuth2ActionLogin):
+		// 登录操作：userID必须为0（未登录状态）
+		if oauthState.UserID != authModel.NO_USER_LOGINED {
+			return ""
+		}
+		return userService.handleOAuthLogin(oauthState, provider, externalID, userInfo)
 
 	case string(authModel.OAuth2ActionBind):
+		// 绑定操作：userID必须不为0（已登录状态）
 		if oauthState.UserID == authModel.NO_USER_LOGINED {
 			return ""
 		}
-
-		userService.txManager.Run(func(ctx context.Context) error {
-			return userService.userRepository.BindOAuth(ctx, oauthState.UserID, provider, externalID)
-		})
-
-		return oauthState.Redirect + "?bind=success"
+		return userService.handleOAuthBind(oauthState, provider, externalID)
 
 	default:
 		return ""
 	}
 }
 
-// 用 code 换取 access_token
+// exchangeGithubCodeForToken 用授权码换取GitHub访问令牌
+// GitHub使用JSON格式的POST请求交换token
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - code: OAuth授权码
+//
+// 返回:
+//   - *authModel.GitHubTokenResponse: GitHub token响应
+//   - error: 交换失败时返回错误
 func exchangeGithubCodeForToken(
 	setting *settingModel.OAuth2Setting,
 	code string,
 ) (*authModel.GitHubTokenResponse, error) {
+	// 构建请求数据
 	data := map[string]string{
 		"client_id":     setting.ClientID,
 		"client_secret": setting.ClientSecret,
@@ -698,53 +1182,80 @@ func exchangeGithubCodeForToken(
 	}
 	jsonData, _ := json.Marshal(data)
 
+	// 创建POST请求
 	req, _ := http.NewRequest("POST", setting.TokenURL, bytes.NewBuffer(jsonData))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
+	// 发送请求
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// 读取响应
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
 		return nil, errors.New("GitHub token 响应错误: " + string(body))
 	}
 
+	// 解析JSON响应
 	var tokenResp authModel.GitHubTokenResponse
 	_ = json.Unmarshal(body, &tokenResp)
 	return &tokenResp, nil
 }
 
-// 获取 GitHub 用户信息
+// fetchGitHubUserInfo 获取GitHub用户信息
+// 使用Bearer token认证获取用户的公开信息
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - accessToken: 访问令牌
+//
+// 返回:
+//   - *authModel.GitHubUser: GitHub用户信息
+//   - error: 获取失败时返回错误
 func fetchGitHubUserInfo(setting *settingModel.OAuth2Setting, accessToken string) (*authModel.GitHubUser, error) {
+	// 创建GET请求
 	req, _ := http.NewRequest("GET", setting.UserInfoURL, nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
+	// 发送请求
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// 读取响应
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
 		return nil, errors.New("GitHub 用户信息请求失败: " + string(body))
 	}
 
+	// 解析JSON响应
 	var user authModel.GitHubUser
 	_ = json.Unmarshal(body, &user)
 	return &user, nil
 }
 
-// 用 code 换取 Google access_token
+// exchangeGoogleCodeForToken 用授权码换取Google访问令牌
+// Google使用URL编码格式的POST请求交换token
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - code: OAuth授权码
+//
+// 返回:
+//   - *authModel.GoogleTokenResponse: Google token响应
+//   - error: 交换失败时返回错误
 func exchangeGoogleCodeForToken(
 	setting *settingModel.OAuth2Setting,
 	code string,
 ) (*authModel.GoogleTokenResponse, error) {
+	// 构建请求数据（URL编码格式）
 	data := url.Values{}
 	data.Set("client_id", setting.ClientID)
 	data.Set("client_secret", setting.ClientSecret)
@@ -752,21 +1263,25 @@ func exchangeGoogleCodeForToken(
 	data.Set("redirect_uri", setting.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
+	// 创建POST请求
 	req, _ := http.NewRequest("POST", setting.TokenURL, strings.NewReader(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
+	// 发送请求
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// 读取响应
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("Google token 响应错误: " + string(body))
 	}
 
+	// 解析JSON响应
 	var tokenResp authModel.GoogleTokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return nil, err
@@ -775,23 +1290,36 @@ func exchangeGoogleCodeForToken(
 	return &tokenResp, nil
 }
 
-// 获取 Google 用户信息
+// fetchGoogleUserInfo 获取Google用户信息
+// 使用Bearer token认证获取用户的公开信息
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - accessToken: 访问令牌
+//
+// 返回:
+//   - *authModel.GoogleUser: Google用户信息
+//   - error: 获取失败时返回错误
 func fetchGoogleUserInfo(setting *settingModel.OAuth2Setting, accessToken string) (*authModel.GoogleUser, error) {
+	// 创建GET请求
 	req, _ := http.NewRequest("GET", setting.UserInfoURL, nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
+	// 发送请求
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// 读取响应
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("Google 用户信息请求失败: " + string(body))
 	}
 
+	// 解析JSON响应
 	var user authModel.GoogleUser
 	if err := json.Unmarshal(body, &user); err != nil {
 		return nil, err
@@ -800,91 +1328,227 @@ func fetchGoogleUserInfo(setting *settingModel.OAuth2Setting, accessToken string
 	return &user, nil
 }
 
-// exchangeQQCodeForToken 用 code 换取 QQ access_token
-func exchangeQQCodeForToken(setting *settingModel.OAuth2Setting, code string) (*authModel.QQTokenResponse, error) {
-	data := url.Values{}
-	data.Set("grant_type", "authorization_code")
-	data.Set("client_id", setting.ClientID)
-	data.Set("client_secret", setting.ClientSecret)
-	data.Set("code", code)
-	data.Set("redirect_uri", setting.RedirectURI)
-	data.Set("fmt", "json")
-	data.Set("need_openid", "1")
+// exchangeQQCodeForToken 用授权码换取QQ访问令牌
+// QQ互联的token响应可能是JSON或URL编码格式，需要兼容处理
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - code: OAuth授权码
+//
+// 返回:
+//   - *authModel.QQTokenResponse: QQ token响应
+//   - error: 交换失败时返回错误
+func exchangeQQCodeForToken(
+	setting *settingModel.OAuth2Setting,
+	code string,
+) (*authModel.QQTokenResponse, error) {
+	// 构建请求参数
+	params := url.Values{}
+	params.Set("grant_type", "authorization_code")
+	params.Set("client_id", setting.ClientID)
+	params.Set("client_secret", setting.ClientSecret)
+	params.Set("code", code)
+	params.Set("redirect_uri", setting.RedirectURI)
 
-	req, _ := http.NewRequest("GET", setting.TokenURL+"?"+data.Encode(), nil)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	tokenURL := fmt.Sprintf("%s?%s", setting.TokenURL, params.Encode())
+
+	// 创建HTTP客户端，设置30秒超时
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", tokenURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(commonModel.QQ_TOKEN_EXCHANGE_FAILED)
+	}
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "timeout") {
+			return nil, errors.New("QQ登录请求超时，请稍后重试")
+		}
+		return nil, errors.New(commonModel.QQ_TOKEN_EXCHANGE_FAILED)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.New(commonModel.QQ_TOKEN_EXCHANGE_FAILED)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("QQ token 响应错误: " + string(body))
+		return nil, errors.New(commonModel.QQ_TOKEN_EXCHANGE_FAILED)
 	}
 
-	raw := strings.TrimSpace(string(body))
-
-	// 去掉 callback(...) 包裹
-	if strings.HasPrefix(raw, "callback(") && strings.HasSuffix(raw, ");") {
-		raw = strings.TrimPrefix(raw, "callback(")
-		raw = strings.TrimSuffix(raw, ");")
-		raw = strings.TrimSpace(raw)
-	}
-
+	// 尝试解析JSON格式响应
 	var tokenResp authModel.QQTokenResponse
-
-	// 优先尝试 JSON 解析
-	if err := json.Unmarshal([]byte(raw), &tokenResp); err == nil {
-		if tokenResp.AccessToken != "" {
-			return &tokenResp, nil
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		// JSON解析失败，尝试URL编码格式
+		vals, parseErr := url.ParseQuery(string(body))
+		if parseErr != nil {
+			return nil, errors.New(commonModel.QQ_TOKEN_EXCHANGE_FAILED)
 		}
-	}
 
-	// 尝试解析为 query 格式
-	vals, err := url.ParseQuery(raw)
-	if err == nil && vals.Get("access_token") != "" {
 		tokenResp.AccessToken = vals.Get("access_token")
+		if expiresIn := vals.Get("expires_in"); expiresIn != "" {
+			fmt.Sscanf(expiresIn, "%d", &tokenResp.ExpiresIn)
+		}
 		tokenResp.RefreshToken = vals.Get("refresh_token")
-		tokenResp.ExpiresIn, _ = strconv.ParseInt(vals.Get("expires_in"), 10, 64)
-		tokenResp.OpenID = vals.Get("openid")
-		return &tokenResp, nil
 	}
 
-	// 如果都失败，返回错误
-	return nil, errors.New("无法解析 QQ token 响应: " + string(body))
+	// 验证access_token是否存在
+	if tokenResp.AccessToken == "" {
+		return nil, errors.New(commonModel.QQ_TOKEN_EXCHANGE_FAILED)
+	}
+
+	return &tokenResp, nil
 }
 
-// fetchQQUserInfo 获取 QQ 用户信息
-func fetchQQUserInfo(accessToken string) (*authModel.QQOpenIDResponse, error) {
-	// 先获取 openid
-	openIDURL := "https://graph.qq.com/oauth2.0/me" + "?access_token=" + url.QueryEscape(accessToken) + "&fmt=json"
-	req, _ := http.NewRequest("GET", openIDURL, nil)
-	req.Header.Set("Accept", "application/json")
+// fetchQQOpenID 获取QQ用户的OpenID
+// OpenID是QQ用户在当前应用的唯一标识，需要单独调用API获取
+// QQ互联的响应可能包含JSONP格式的callback包装，需要去除
+//
+// 参数:
+//   - setting: OAuth2配置信息（未使用，保留以保持函数签名一致）
+//   - accessToken: 访问令牌
+//
+// 返回:
+//   - *authModel.QQOpenIDResponse: OpenID响应
+//   - error: 获取失败时返回错误
+func fetchQQOpenID(
+	setting *settingModel.OAuth2Setting,
+	accessToken string,
+) (*authModel.QQOpenIDResponse, error) {
+	// 构建请求参数
+	params := url.Values{}
+	params.Set("access_token", accessToken)
+	params.Set("fmt", "json") // 请求JSON格式响应
 
-	resp, err := http.DefaultClient.Do(req)
+	openIDURL := fmt.Sprintf("https://graph.qq.com/oauth2.0/me?%s", params.Encode())
+
+	// 创建HTTP客户端，设置30秒超时
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", openIDURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(commonModel.QQ_OPENID_FETCH_FAILED)
+	}
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "timeout") {
+			return nil, errors.New("获取QQ用户标识超时，请稍后重试")
+		}
+		return nil, errors.New(commonModel.QQ_OPENID_FETCH_FAILED)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("QQ openid 请求失败: " + string(body))
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.New(commonModel.QQ_OPENID_FETCH_FAILED)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(commonModel.QQ_OPENID_FETCH_FAILED)
+	}
+
+	// 去除JSONP格式的callback包装（如果存在）
+	bodyStr := string(body)
+	if strings.HasPrefix(bodyStr, "callback(") && strings.HasSuffix(bodyStr, ");") {
+		bodyStr = strings.TrimPrefix(bodyStr, "callback(")
+		bodyStr = strings.TrimSuffix(bodyStr, ");")
+		bodyStr = strings.TrimSpace(bodyStr)
+	}
+
+	// 解析JSON响应
 	var openIDResp authModel.QQOpenIDResponse
-	if err := json.Unmarshal(body, &openIDResp); err != nil {
-		return nil, err
+	if err := json.Unmarshal([]byte(bodyStr), &openIDResp); err != nil {
+		return nil, errors.New(commonModel.QQ_OPENID_FETCH_FAILED)
+	}
+
+	// 验证OpenID是否存在
+	if openIDResp.OpenID == "" {
+		return nil, errors.New(commonModel.QQ_OPENID_FETCH_FAILED)
 	}
 
 	return &openIDResp, nil
 }
 
-// exchangeCustomCodeForToken 通用 OAuth2 令牌交换
+// fetchQQUserInfo 获取QQ用户信息
+// 获取用户的昵称、头像等公开信息，此接口调用失败不影响登录流程
+// 失败时返回空的QQUser对象，使用默认用户名和空头像
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - accessToken: 访问令牌
+//   - openID: QQ用户的OpenID
+//
+// 返回:
+//   - *authModel.QQUser: QQ用户信息（失败时返回空对象）
+//   - error: 获取失败时返回错误（但不影响登录流程）
+func fetchQQUserInfo(
+	setting *settingModel.OAuth2Setting,
+	accessToken string,
+	openID string,
+) (*authModel.QQUser, error) {
+	// 构建请求参数
+	params := url.Values{}
+	params.Set("access_token", accessToken)
+	params.Set("oauth_consumer_key", setting.ClientID)
+	params.Set("openid", openID)
+
+	userInfoURL := fmt.Sprintf("https://graph.qq.com/user/get_user_info?%s", params.Encode())
+
+	// 创建HTTP客户端，设置30秒超时
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", userInfoURL, nil)
+	if err != nil {
+		return &authModel.QQUser{}, nil
+	}
+
+	// 发送请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return &authModel.QQUser{}, nil
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return &authModel.QQUser{}, nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return &authModel.QQUser{}, nil
+	}
+
+	// 解析JSON响应
+	var userInfo authModel.QQUser
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return &authModel.QQUser{}, nil
+	}
+
+	// 检查QQ互联API的返回码（0表示成功）
+	if userInfo.Ret != 0 {
+		return &authModel.QQUser{}, nil
+	}
+
+	return &userInfo, nil
+}
+
+// exchangeCustomCodeForToken 用授权码换取自定义OAuth访问令牌
+// 自定义OAuth使用URL编码格式的POST请求交换token
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - code: OAuth授权码
+//
+// 返回:
+//   - string: 访问令牌
+//   - error: 交换失败时返回错误
 func exchangeCustomCodeForToken(setting *settingModel.OAuth2Setting, code string) (string, error) {
+	// 构建请求数据（URL编码格式）
 	data := url.Values{}
 	data.Set("client_id", setting.ClientID)
 	data.Set("client_secret", setting.ClientSecret)
@@ -892,26 +1556,31 @@ func exchangeCustomCodeForToken(setting *settingModel.OAuth2Setting, code string
 	data.Set("redirect_uri", setting.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
+	// 创建POST请求
 	req, _ := http.NewRequest("POST", setting.TokenURL, strings.NewReader(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
+	// 发送请求
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	// 读取响应
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return "", errors.New("Custom token 响应错误: " + string(body))
 	}
 
+	// 解析JSON响应
 	var tokenResp map[string]any
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return "", err
 	}
 
+	// 提取access_token
 	if accessToken, ok := tokenResp["access_token"]; ok {
 		if tokenStr := fmt.Sprint(accessToken); tokenStr != "" && tokenStr != "<nil>" {
 			return tokenStr, nil
@@ -921,28 +1590,42 @@ func exchangeCustomCodeForToken(setting *settingModel.OAuth2Setting, code string
 	return "", errors.New("Custom token 响应缺少 access_token")
 }
 
-// fetchCustomUserInfo 获取自定义 OAuth2 用户信息
+// fetchCustomUserInfo 获取自定义OAuth用户信息
+// 尝试从多个可能的字段中提取用户唯一标识
+//
+// 参数:
+//   - setting: OAuth2配置信息
+//   - accessToken: 访问令牌
+//
+// 返回:
+//   - string: 用户唯一标识
+//   - error: 获取失败时返回错误
 func fetchCustomUserInfo(setting *settingModel.OAuth2Setting, accessToken string) (string, error) {
+	// 创建GET请求
 	req, _ := http.NewRequest("GET", setting.UserInfoURL, nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
+	// 发送请求
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	// 读取响应
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.New("Custom 用户信息请求失败: " + string(body))
 	}
 
+	// 解析JSON响应
 	var userData map[string]any
 	if err := json.Unmarshal(body, &userData); err != nil {
 		return "", err
 	}
 
+	// 尝试从多个可能的字段中提取用户ID
 	for _, key := range []string{"id", "sub", "user_id", "uid", "openid"} {
 		if val, ok := userData[key]; ok {
 			if id := fmt.Sprint(val); id != "" && id != "<nil>" {
@@ -954,7 +1637,16 @@ func fetchCustomUserInfo(setting *settingModel.OAuth2Setting, accessToken string
 	return "", errors.New("Custom 用户信息缺少唯一标识字段 (id/sub/user_id/uid)")
 }
 
-// GetOAuthInfo 获取 OAuth2 信息
+// GetOAuthInfo 获取用户的OAuth绑定信息
+// 只有管理员可以查看OAuth绑定信息
+//
+// 参数:
+//   - userId: 用户ID
+//   - provider: OAuth提供商名称
+//
+// 返回:
+//   - model.OAuthInfoDto: OAuth绑定信息
+//   - error: 获取失败时返回错误
 func (userService *UserService) GetOAuthInfo(userId uint, provider string) (model.OAuthInfoDto, error) {
 	var oauthInfo model.OAuthInfoDto
 

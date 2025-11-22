@@ -31,6 +31,7 @@ export const useSettingStore = defineStore('settingStore', () => {
     meting_api: '',
     custom_css: '',
     custom_js: '',
+    logo: '',
   })
   const CommentSetting = ref<App.Api.Setting.CommentSetting>({
     enable_comment: false,

@@ -66,11 +66,11 @@ func (commonRepository *CommonRepository) GetAllEchos(showPrivate bool) ([]echoM
 
 	// 是否将私密内容也查询出来
 	if showPrivate {
-		if err := commonRepository.db().Preload("Media").Preload("Tags").Order("created_at DESC").Find(&echos).Error; err != nil {
+		if err := commonRepository.db().Preload("Media").Preload("Tags").Joins("User").Order("created_at DESC").Find(&echos).Error; err != nil {
 			return nil, err
 		}
 	} else {
-		if err := commonRepository.db().Preload("Media").Preload("Tags").Where("private = ?", false).Find(&echos).Error; err != nil {
+		if err := commonRepository.db().Preload("Media").Preload("Tags").Joins("User").Where("private = ?", false).Find(&echos).Error; err != nil {
 			return nil, err
 		}
 	}

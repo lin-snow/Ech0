@@ -75,11 +75,11 @@ type GoogleUser struct {
 }
 
 // QQTokenResponse QQ token 响应结构
+// OpenID需要通过单独的API调用获取，不在token响应中
 type QQTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	ExpiresIn    int64  `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
-	OpenID       string `json:"openid,omitempty"`
 }
 
 // QQOpenIDResponse QQ OpenID 响应结构
@@ -89,12 +89,15 @@ type QQOpenIDResponse struct {
 }
 
 // QQUser QQ 用户信息
+// Ret和Msg字段用于QQ互联API的错误处理
 type QQUser struct {
-	Nickname     string `json:"nickname"`
-	FigureURL    string `json:"figureurl"`
-	FigureURL1   string `json:"figureurl_1"`
-	FigureURL2   string `json:"figureurl_2"`
-	FigureURLQQ1 string `json:"figureurl_qq_1"`
-	FigureURLQQ2 string `json:"figureurl_qq_2"`
-	Gender       string `json:"gender"`
+	Ret          int    `json:"ret"`            // 返回码，0表示成功
+	Msg          string `json:"msg"`            // 错误信息
+	Nickname     string `json:"nickname"`       // 用户昵称
+	FigureURL    string `json:"figureurl"`      // 30x30头像
+	FigureURL1   string `json:"figureurl_1"`    // 50x50头像
+	FigureURL2   string `json:"figureurl_2"`    // 100x100头像
+	FigureURLQQ1 string `json:"figureurl_qq_1"` // 40x40头像
+	FigureURLQQ2 string `json:"figureurl_qq_2"` // 100x100头像
+	Gender       string `json:"gender"`         // 性别
 }
