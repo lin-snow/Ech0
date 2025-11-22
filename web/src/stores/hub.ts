@@ -124,12 +124,13 @@ export const useHubStore = defineStore('hubStore', () => {
         return (data.value?.data.items || []).map((echo: App.Api.Ech0.Echo) => ({
           ...echo,
           createdTs: new Date(echo.created_at).getTime(),
-          server_name: hubInfoMap.value.get(url)?.server_name || 'Ech0',
-          server_url: url,
-          logo:
-            hubInfoMap.value.get(url)?.logo !== ''
-              ? hubInfoMap.value.get(url)?.logo
-              : '/favicon.ico',
+            server_name: hubInfoMap.value.get(url)?.server_name || 'Ech0',
+            server_url: url,
+            // 设置echo.logo为站点Logo（来自/api/connect接口）
+            logo:
+              hubInfoMap.value.get(url)?.logo && hubInfoMap.value.get(url)?.logo !== ''
+                ? hubInfoMap.value.get(url)?.logo
+                : '/favicon.ico',
         }))
       })
 

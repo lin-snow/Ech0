@@ -64,6 +64,7 @@ func (settingService *SettingService) GetSetting(setting *model.SystemSetting) e
 			setting.MetingAPI = config.Config.Setting.MetingAPI
 			setting.CustomCSS = config.Config.Setting.CustomCSS
 			setting.CustomJS = config.Config.Setting.CustomJS
+			setting.Logo = config.Config.Setting.Logo
 
 			// 处理 URL
 			setting.ServerURL = httpUtil.TrimURL(setting.ServerURL)
@@ -114,6 +115,7 @@ func (settingService *SettingService) UpdateSetting(userid uint, newSetting *mod
 		setting.MetingAPI = httpUtil.TrimURL(newSetting.MetingAPI)
 		setting.CustomCSS = newSetting.CustomCSS
 		setting.CustomJS = newSetting.CustomJS
+		setting.Logo = newSetting.Logo
 
 		// 序列化为 JSON
 		settingToJSON, err := jsonUtil.JSONMarshal(setting)

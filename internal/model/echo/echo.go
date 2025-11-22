@@ -16,6 +16,14 @@ type Echo struct {
 	Tags          []Tag     `gorm:"many2many:echo_tags;"                             json:"tags,omitempty"`
 	FavCount      int       `gorm:"default:0"                                        json:"fav_count"`
 	CreatedAt     time.Time `                                                        json:"created_at"`
+	User          User      `gorm:"foreignKey:UserID"                                json:"user,omitempty"` // 关联用户信息
+}
+
+// User 用户信息（用于Echo关联查询）
+type User struct {
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Avatar   string `json:"avatar"`
 }
 
 // Message 定义Message实体 (注意⚠️: 该模型为旧版Echo模型,新版已经弃用)

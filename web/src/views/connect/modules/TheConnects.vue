@@ -13,13 +13,14 @@
           <div
             v-for="(connect, index) in connectsInfo"
             :key="index"
-            class="relative flex flex-col items-center justify-center w-8 h-8 min-w-[2rem] min-h-[2rem] flex-none border-2 border-gray-200 shadow-sm rounded-full hover:shadow-md transition duration-200 ease-in-out group"
+            class="relative flex flex-col items-center justify-center w-8 h-8 min-w-[2rem] min-h-[2rem] flex-none border-2 border-gray-200 shadow-sm rounded-md hover:shadow-md transition duration-200 ease-in-out group"
           >
             <a :href="connect.server_url" target="_blank" class="block w-full h-full">
               <img
-                :src="connect.logo"
-                alt="avatar"
-                class="w-full h-full rounded-full object-cover"
+                :src="connect.logo || '/favicon.svg'"
+                alt="logo"
+                class="w-full h-full rounded-md object-cover"
+                @error="handleImageError"
               />
               <!-- 热力圆点 -->
               <span
@@ -65,6 +66,11 @@ const getColor = (count: number): string => {
   if (count >= 2) return '#7bc96f'
   if (count >= 1) return '#c6e48b'
   return '#b7bbb7' // 默认颜色
+}
+
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = '/favicon.svg'
 }
 
 onMounted(() => {
