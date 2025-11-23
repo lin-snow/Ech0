@@ -398,29 +398,40 @@ func (commonService *CommonService) GenerateRSS(ctx *gin.Context) (string, error
 		// 添加媒体链接到正文前(scheme://host/api/MediaURL)
 		if len(msg.Media) > 0 {
 			for _, media := range msg.Media {
+				var mediaURL string
 				// 根据媒体来源生成链接
 				switch media.MediaSource {
 				case echoModel.MediaSourceLocal:
-					mediaURL := fmt.Sprintf("%s://%s/api%s", schema, host, media.MediaURL)
-					renderedContent = append(
-						[]byte(
-							fmt.Sprintf(
-								"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
-								mediaURL,
-							),
-						),
-						renderedContent...)
+					mediaURL = fmt.Sprintf("%s://%s/api%s", schema, host, media.MediaURL)
 				case echoModel.MediaSourceS3:
-					mediaURL := media.MediaURL
-					renderedContent = append(
-						[]byte(
-							fmt.Sprintf(
-								"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
-								mediaURL,
-							),
-						),
-						renderedContent...)
+					mediaURL = media.MediaURL
+				default:
+					continue // 跳过未知来源
 				}
+
+				// 根据媒体类型生成对应的HTML标签
+				var mediaHTML string
+				switch media.MediaType {
+				case echoModel.MediaTypeImage:
+					mediaHTML = fmt.Sprintf(
+						"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
+						mediaURL,
+					)
+				case echoModel.MediaTypeVideo:
+					mediaHTML = fmt.Sprintf(
+						"<video controls style=\"max-width:100%%;height:auto;\"><source src=\"%s\" type=\"%s\" />Your browser does not support the video tag.</video>",
+						mediaURL,
+						httpUtil.GetMIMETypeFromFilenameOrURL(media.MediaURL),
+					)
+				default:
+					// 未知类型，使用链接
+					mediaHTML = fmt.Sprintf(
+						"<a href=\"%s\">Media File</a>",
+						mediaURL,
+					)
+				}
+
+				renderedContent = append([]byte(mediaHTML), renderedContent...)
 			}
 		}
 

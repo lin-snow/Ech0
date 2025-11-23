@@ -59,8 +59,18 @@ func (core *FediverseCore) ConvertEchoToObject(
 ) model.Object {
 	var attachments []model.Attachment
 	for i := range echo.Media {
+		// 根据Media.MediaType确定ActivityPub Attachment类型
+		// 图片 -> "Image", 视频 -> "Video", 其他 -> "Document"
+		attachmentType := "Document" // 默认类型
+		switch echo.Media[i].MediaType {
+		case echoModel.MediaTypeImage:
+			attachmentType = "Image"
+		case echoModel.MediaTypeVideo:
+			attachmentType = "Video"
+		}
+
 		attachments = append(attachments, model.Attachment{
-			Type:      "Image",
+			Type:      attachmentType,
 			MediaType: httpUtil.GetMIMETypeFromFilenameOrURL(echo.Media[i].MediaURL),
 			URL:       fileUtil.GetMediaURL(echo.Media[i], serverURL),
 		})
