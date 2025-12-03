@@ -63,6 +63,7 @@ const (
 	Extension_VIDEO      = "VIDEO"      // 扩展附加内容--视频
 	Extension_GITHUBPROJ = "GITHUBPROJ" // 扩展附加内容--GitHub项目
 	Extension_WEBSITE    = "WEBSITE"    // 扩展附加内容--网站
+	Extension_MODEL3D    = "MODEL3D"    // 扩展附加内容--3D模型
 
 	ImageSourceLocal = "local" // 本地图片
 	ImageSourceURL   = "url"   // 直链图片

@@ -17,8 +17,10 @@ auth:
 upload:
   imagemaxsize: 20971520 #  20MB
   audiomaxsize: 20971520 # 20MB
+  modelmaxsize: 52428800 # 50MB for 3D models
   imagepath: "data/images/"
   audiopath: "data/audios/"
+  modelpath: "data/models/"
   allowedtypes:
     - "image/jpeg"
     - "image/png"
@@ -31,6 +33,9 @@ upload:
     - "audio/flac"
     - "audio/wav"
     - "audio/mp4"
+    - "model/gltf-binary"
+    - "model/gltf+json"
+    - "application/octet-stream"
 
 setting:
   sitetitle: "Ech0"

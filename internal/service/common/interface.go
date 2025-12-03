@@ -43,6 +43,12 @@ type CommonServiceInterface interface {
 	// DeleteMusic 删除音乐文件
 	DeleteMusic(userid uint) error
 
+	// UploadModel 上传3D模型文件
+	UploadModel(userId uint, file *multipart.FileHeader) (string, error)
+
+	// DeleteModel 删除3D模型文件
+	DeleteModel(userid uint, url string) error
+
 	// GetPlayMusicUrl 获取可播放的音乐URL
 	GetPlayMusicUrl() string
 

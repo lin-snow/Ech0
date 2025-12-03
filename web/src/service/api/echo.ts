@@ -131,3 +131,23 @@ export function fetchGetEchosByTagId(tagId: number, searchParams: App.Api.Ech0.P
     method: 'GET',
   })
 }
+
+// 上传3D模型
+export function fetchUploadModel(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request<string>({
+    url: `/models/upload`,
+    method: 'POST',
+    data: formData,
+  })
+}
+
+// 删除3D模型
+export function fetchDeleteModel(url: string) {
+  return request({
+    url: `/models/delete`,
+    method: 'DELETE',
+    data: { url },
+  })
+}

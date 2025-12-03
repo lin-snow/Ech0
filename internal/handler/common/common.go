@@ -406,3 +406,80 @@ func (commonHandler *CommonHandler) GetWebsiteTitle() gin.HandlerFunc {
 		}
 	})
 }
+
+// UploadModel 上传3D模型
+//
+// @Summary 上传3D模型
+// @Description 用户上传3D模型文件（支持GLB/GLTF格式），成功后返回模型的访问 URL
+// @Tags 通用功能
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "3D模型文件"
+// @Success 200 {object} res.Response{data=string} "上传成功，返回模型URL"
+// @Failure 200 {object} res.Response "上传失败"
+// @Router /models/upload [post]
+func (commonHandler *CommonHandler) UploadModel() gin.HandlerFunc {
+	return res.Execute(func(ctx *gin.Context) res.Response {
+		// 提取上传的 File数据
+		file, err := ctx.FormFile("file")
+		if err != nil {
+			return res.Response{
+				Msg: commonModel.INVALID_REQUEST_BODY,
+				Err: err,
+			}
+		}
+
+		// 提取userid
+		userId := ctx.MustGet("userid").(uint)
+
+		// 调用 CommonService 上传文件
+		modelUrl, err := commonHandler.commonService.UploadModel(userId, file)
+		if err != nil {
+			return res.Response{
+				Msg: "",
+				Err: err,
+			}
+		}
+
+		return res.Response{
+			Data: modelUrl,
+			Msg:  commonModel.UPLOAD_SUCCESS,
+		}
+	})
+}
+
+// DeleteModel 删除3D模型
+//
+// @Summary 删除3D模型
+// @Description 用户删除已上传的3D模型文件
+// @Tags 通用功能
+// @Accept json
+// @Produce json
+// @Param modelDto body commonModel.ModelDto true "模型删除请求体"
+// @Success 200 {object} res.Response "删除成功"
+// @Failure 200 {object} res.Response "删除失败"
+// @Router /models/delete [delete]
+func (commonHandler *CommonHandler) DeleteModel() gin.HandlerFunc {
+	return res.Execute(func(ctx *gin.Context) res.Response {
+		userId := ctx.MustGet("userid").(uint)
+
+		var modelDto commonModel.ModelDto
+		if err := ctx.ShouldBindJSON(&modelDto); err != nil {
+			return res.Response{
+				Msg: commonModel.INVALID_REQUEST_BODY,
+				Err: err,
+			}
+		}
+
+		if err := commonHandler.commonService.DeleteModel(userId, modelDto.URL); err != nil {
+			return res.Response{
+				Msg: "",
+				Err: err,
+			}
+		}
+
+		return res.Response{
+			Msg: commonModel.DELETE_SUCCESS,
+		}
+	})
+}

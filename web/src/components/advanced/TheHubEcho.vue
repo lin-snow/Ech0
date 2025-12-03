@@ -100,6 +100,11 @@
             :website="props.echo.extension"
             class="px-2 mx-auto hover:shadow-md"
           />
+          <TheModel3DCard
+            v-if="props.echo.extension_type === ExtensionType.MODEL3D"
+            :modelSrc="props.echo.extension"
+            class="px-2 mx-auto hover:shadow-md"
+          />
         </div>
       </div>
     </div>
@@ -154,6 +159,7 @@ import GrayLike from '../icons/graylike.vue'
 import TheAPlayerCard from './TheAPlayerCard.vue'
 import TheWebsiteCard from './TheWebsiteCard.vue'
 import TheImageGallery from './TheImageGallery.vue'
+import TheModel3DCard from './TheModel3DCard.vue'
 import 'md-editor-v3/lib/preview.css'
 import { MdPreview } from 'md-editor-v3'
 import { onMounted, computed, ref } from 'vue'

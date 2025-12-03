@@ -44,4 +44,10 @@ type CommonHandlerInterface interface {
 
 	// GetWebsiteTitle 获取网站标题
 	GetWebsiteTitle() gin.HandlerFunc
+
+	// UploadModel 上传3D模型
+	UploadModel() gin.HandlerFunc
+
+	// DeleteModel 删除3D模型
+	DeleteModel() gin.HandlerFunc
 }

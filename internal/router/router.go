@@ -27,12 +27,14 @@ func SetupRouter(r *gin.Engine, h *di.Handlers) {
 	// === 使用 embed 提供前端 ===)
 	setupTemplateRoutes(r, h)
 
-	// ===     静态资源映射     ===
-	r.Static("api/images", "./data/images")
-
 	// ===        中间件        ===
 	// Setup Middleware
 	setupMiddleware(r)
+
+	// ===     静态资源映射     ===
+	// 注意：静态资源映射需要在中间件之后，以便CORS中间件生效
+	r.Static("api/images", "./data/images")
+	r.Static("api/models", "./data/models")
 
 	// ===  路由组与各模块路由  ===
 	// Setup Router Groups

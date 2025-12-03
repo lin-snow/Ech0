@@ -1,6 +1,9 @@
 import 'virtual:uno.css'
 import '@/themes/index.scss'
 
+// Google Model Viewer for 3D models
+import '@google/model-viewer'
+
 import { initStores } from './stores/store-init'
 
 // Md-Editor Start
