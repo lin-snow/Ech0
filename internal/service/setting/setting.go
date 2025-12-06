@@ -908,8 +908,9 @@ func (settingService *SettingService) UpdateAgentSettings(userid uint, newSettin
 		newSetting.Provider != string(commonModel.Anthropic) &&
 		newSetting.Provider != string(commonModel.Gemini) &&
 		newSetting.Provider != string(commonModel.Qwen) &&
-		newSetting.Provider != string(commonModel.Ollama) {
-		newSetting.Provider = string(commonModel.OpenAI)
+		newSetting.Provider != string(commonModel.Ollama) &&
+		newSetting.Provider != string(commonModel.Custom) {
+		newSetting.Provider = string(commonModel.Custom) // 如果提供商不在列表中，默认为 Custom
 	}
 
 	setting := &model.AgentSetting{

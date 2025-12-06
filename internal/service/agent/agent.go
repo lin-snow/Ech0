@@ -103,7 +103,7 @@ func (agentService *AgentService) buildRecentSummary(ctx context.Context) (strin
 		)
 
 		memos = append(memos, &schema.Message{
-			Role:    schema.Tool,
+			Role:    schema.User,
 			Content: content,
 		})
 	}
