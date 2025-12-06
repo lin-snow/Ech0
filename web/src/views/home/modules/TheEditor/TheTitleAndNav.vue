@@ -51,6 +51,12 @@ const { SystemSetting } = storeToRefs(settingStore)
 const apiUrl = getApiUrl()
 const logo = ref<string>('/favicon.svg')
 
+const modeTextMap = { light: '浅色', dark: '深色', auto: '自动' }
+
+const getModeText = () => {
+  return modeTextMap[themeStore.mode]
+}
+
 const handleHello = () => {
   themeStore.toggleTheme()
 
@@ -60,7 +66,7 @@ const handleHello = () => {
     if (res.code === 1) {
       hello.value = res.data
       theToast.success('你好呀！ 👋', {
-        description: `当前版本：v${hello.value.version}`,
+        description: `当前版本：v${hello.value.version} | ${getModeText()}`,
         duration: 2000,
         action: {
           label: 'Github',
