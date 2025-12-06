@@ -59,46 +59,106 @@ export const useHubStore = defineStore('hubStore', () => {
           : item
     })
 
+    // 创建带超时的请求函数
+    const fetchWithTimeout = async (
+      url: string,
+      timeout: number = 5000,
+    ): Promise<App.Api.Hub.HubItemInfo | null> => {
+      return new Promise((resolve) => {
+        let timeoutId: ReturnType<typeof setTimeout>
+        let isResolved = false
+
+        // 设置超时
+        timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true
+            console.warn(`[Hub] 请求超时: ${url}`)
+            resolve(null)
+          }
+        }, timeout)
+
+        // 发起请求
+        ;(async () => {
+          try {
+            const { error, data } = await useFetch<App.Api.Response<App.Api.Hub.HubItemInfo>>(
+              `${url}/api/connect`,
+            ).json()
+
+            clearTimeout(timeoutId)
+            if (!isResolved) {
+              isResolved = true
+              if (error.value || data.value?.code !== 1) {
+                console.warn(`[Hub] 请求失败: ${url}`, error.value)
+                resolve(null)
+              } else {
+                resolve(data.value?.data || null)
+              }
+            }
+          } catch (err) {
+            clearTimeout(timeoutId)
+            if (!isResolved) {
+              isResolved = true
+              console.error(`[Hub] 请求异常: ${url}`, err)
+              resolve(null)
+            }
+          }
+        })()
+      })
+    }
+
     // 使用 Promise.allSettled 来并行获取每个Hub的info
     const promises = hubList.value.map(async (hub) => {
-      const { error, data } = await useFetch<App.Api.Response<App.Api.Hub.HubItemInfo>>(
-        `${typeof hub === 'string' ? hub : hub.connect_url}/api/connect`,
-      ).json()
-
-      if (error.value || data.value?.code !== 1) {
-        return null
-      }
-
-      return data.value?.data || null
+      const url = typeof hub === 'string' ? hub : hub.connect_url
+      return await fetchWithTimeout(url, 5000) // 5秒超时
     })
 
-    await Promise.allSettled(promises).then((results) => {
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value) {
-          hubinfoList.value.push(result.value)
-          const hubKey =
-            typeof hubList.value?.[index] === 'string'
-              ? hubList.value?.[index]
-              : hubList.value?.[index]?.connect_url
+    const results = await Promise.allSettled(promises)
 
-          // 将Hub信息存入Map（确保 hubKey 为 string）
-          if (typeof hubKey === 'string') {
-            hubInfoMap.value.set(hubKey, result.value)
-          }
-        } else {
-          theToast.warning(`获取Hub信息失败: ${hubList.value[index]}`)
+    // 收集成功的结果，并从 hubList 中移除失败的实例
+    const validHubs: typeof hubList.value = []
+    const failedHubs: string[] = []
+
+    results.forEach((result, index) => {
+      const hub = hubList.value[index]
+      if (!hub) return // 防止 undefined
+
+      const hubUrl = typeof hub === 'string' ? hub : hub.connect_url
+
+      if (result.status === 'fulfilled' && result.value) {
+        // 成功获取信息
+        hubinfoList.value.push(result.value)
+        validHubs.push(hub)
+
+        // 将Hub信息存入Map
+        if (typeof hubUrl === 'string') {
+          hubInfoMap.value.set(hubUrl, result.value)
         }
-      })
+      } else {
+        // 失败的实例，记录并排除
+        if (typeof hubUrl === 'string') {
+          failedHubs.push(hubUrl)
+          console.warn(`[Hub] 实例不可用，已排除: ${hubUrl}`)
+        }
+      }
     })
+
+    // 更新 hubList，只保留可用的实例
+    hubList.value = validHubs
+
+    // 提示用户
+    if (failedHubs.length > 0) {
+      theToast.warning(`${failedHubs.length} 个实例不可用，已自动排除`)
+    }
 
     // 处理结果
-    if (hubinfoList.value.length === 0) {
+    if (hubList.value.length === 0) {
       theToast.info('当前Hub暂无可连接的实例。')
+      isPreparing.value = false
       return
     }
 
     isPreparing.value = false
-    theToast.success('开始加载 Echos')
+    theToast.success(`成功连接 ${hubList.value.length} 个实例，开始加载 Echos`)
   }
 
   // 3. 根据 hubList 获取 list 中每个 item 的 echo

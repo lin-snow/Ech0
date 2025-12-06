@@ -157,7 +157,8 @@ func (connectService *ConnectService) GetConnect() (model.Connect, error) {
 
 // GetConnectsInfo 获取实例获取到的其它实例的连接信息
 func (connectService *ConnectService) GetConnectsInfo() ([]model.Connect, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second) // 增加到15秒总超时
+	// 总超时时间：给予足够的缓冲，避免单个慢连接导致整体超时
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// 获取所有连接地址
@@ -179,10 +180,10 @@ func (connectService *ConnectService) GetConnectsInfo() ([]model.Connect, error)
 	seenURLs := make(map[string]struct{})
 	var seenMutex sync.Mutex
 
-	// 改进重试配置
+	// 重试配置：平衡速度和可靠性
 	const maxRetries = 3
 	const baseDelay = 1 * time.Second
-	const requestTimeout = 4 * time.Second // 单个请求超时时间
+	const requestTimeout = 3 * time.Second // 单个请求超时时间（降低到3秒，加快失败检测）
 
 	for _, conn := range connects {
 		wg.Add(1)
@@ -322,26 +323,53 @@ func (connectService *ConnectService) GetConnectsInfo() ([]model.Connect, error)
 		close(done)
 	}()
 
-	// 收集结果，支持超时和正常完成
+	// 在单独的 goroutine 中收集结果，使用 mutex 保护并发写入
+	var mu sync.Mutex
+	collectDone := make(chan struct{})
+	go func() {
+		for connect := range connectChan {
+			if connect.ServerURL != "" {
+				mu.Lock()
+				connectList = append(connectList, connect)
+				mu.Unlock()
+			}
+		}
+		close(collectDone)
+	}()
+
+	// 等待完成或超时
 	select {
 	case <-done:
-		// 正常收集完毕
-		logUtil.GetLogger().Info("[连接信息收集完成] 开始处理收集到的连接")
+		// 所有 goroutine 完成，等待收集完成
+		<-collectDone
+		mu.Lock()
+		count := len(connectList)
+		mu.Unlock()
+		logUtil.GetLogger().Info("[连接信息收集完成]", zap.Int("有效连接数", count))
 	case <-ctx.Done():
-		// 超时，但仍然处理已收集到的数据
-		logUtil.GetLogger().Info("[连接信息收集超时] 处理已收集到的部分连接")
-	}
-
-	// 收集所有有效的连接信息
-	for connect := range connectChan {
-		if connect.ServerURL == "" {
-			continue
+		// 超时，等待收集器完成或超时
+		logUtil.GetLogger().Info("[连接信息收集超时] 等待处理已收集到的数据")
+		select {
+		case <-collectDone:
+			// 收集器已完成
+			logUtil.GetLogger().Info("[收集器已完成]")
+		case <-time.After(200 * time.Millisecond):
+			// 给收集器额外的时间处理缓冲区中的数据
+			logUtil.GetLogger().Info("[收集器处理超时]")
 		}
-		connectList = append(connectList, connect)
+		mu.Lock()
+		count := len(connectList)
+		mu.Unlock()
+		logUtil.GetLogger().Info("[连接信息收集超时完成]", zap.Int("有效连接数", count))
 	}
 
-	logUtil.GetLogger().Info("[连接信息汇总]", zap.Int("有效连接数", len(connectList)))
-	return connectList, nil
+	// 安全地返回结果
+	mu.Lock()
+	result := make([]model.Connect, len(connectList))
+	copy(result, connectList)
+	mu.Unlock()
+
+	return result, nil
 }
 
 // GetConnects 获取当前实例添加的所有连接
