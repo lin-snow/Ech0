@@ -27,6 +27,9 @@ func UploadFileToLocal(file *multipart.FileHeader, fileType commonModel.UploadFi
 	case commonModel.AudioType:
 		// 上传音频到本地
 		return UploadAudioToLocal(file, userID)
+	case commonModel.ModelType:
+		// 上传3D模型到本地
+		return UploadModelToLocal(file, userID)
 	default:
 		// 不支持的文件类型
 		return "", errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
@@ -158,4 +161,55 @@ func GenerateRandomFilename(userID uint, ext string) (string, error) {
 
 	newFileName := fmt.Sprintf("%d_%d_%s%s", userID, timestamp, randomStr, ext)
 	return newFileName, nil
+}
+
+// UploadModelToLocal 将3D模型上传到本地存储
+func UploadModelToLocal(file *multipart.FileHeader, userID uint) (string, error) {
+	// 创建模型存储目录
+	if err := createDirIfNotExist(config.Config.Upload.ModelPath); err != nil {
+		return "", err
+	}
+
+	// 获取原始文件名和扩展名
+	ext := filepath.Ext(file.Filename)
+
+	// 生成新的文件名,格式为[userID]_[timestamp]_[random].[ext]
+	newFileName, err := GenerateRandomFilename(userID, ext)
+	if err != nil {
+		return "", err
+	}
+
+	// 保存文件到指定目录
+	savePath := filepath.Join(config.Config.Upload.ModelPath, newFileName)
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if closeErr := src.Close(); closeErr != nil {
+			log.Println("Failed to close file source:", closeErr)
+		}
+	}()
+
+	if err = os.MkdirAll(filepath.Dir(savePath), 0o750); err != nil {
+		return "", err
+	}
+
+	out, err := os.Create(savePath)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil {
+			log.Println("Failed to close destination file:", closeErr)
+		}
+	}()
+
+	if _, err = io.Copy(out, src); err != nil {
+		return "", err
+	}
+
+	// 返回模型的 URL
+	modelURL := fmt.Sprintf("/models/%s", newFileName)
+	return modelURL, nil
 }

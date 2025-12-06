@@ -51,6 +51,8 @@ const (
 	ImageType UploadFileType = "image"
 	// AudioType  音频类型
 	AudioType UploadFileType = "audio"
+	// ModelType  3D模型类型
+	ModelType UploadFileType = "model"
 )
 
 const (

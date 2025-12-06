@@ -46,3 +46,11 @@ type GetPresignURLDto struct {
 type GetWebsiteTitleDto struct {
 	WebSiteURL string `json:"website_url" form:"website_url" binding:"required"` // 网站URL
 }
+
+// ModelDto 用于3D模型相关的请求数据传输对象
+//
+// swagger:model ModelDto
+type ModelDto struct {
+	// 模型的 URL 地址
+	URL string `json:"url" binding:"required"`
+}

@@ -42,6 +42,7 @@ const (
 	FILE_TYPE_NOT_ALLOWED  = "不支持的文件类型"
 	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
 	IMAGE_NOT_FOUND        = "图片未找到"
+	FILE_NOT_FOUND         = "文件未找到"
 	INVALID_PARAMS         = "错误的参数"
 	SIGNUP_FIRST           = "请先注册用户"
 	S3_NOT_ENABLED         = "S3存储未启用"

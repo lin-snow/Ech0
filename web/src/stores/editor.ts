@@ -292,6 +292,11 @@ export const useEditorStore = defineStore('editorStore', () => {
             return
           }
           break
+        case ExtensionType.MODEL3D: // 处理3D模型扩展
+          if (!handleModel3DExtension()) {
+            return
+          }
+          break
         default: // 其他扩展类型暂不处理
           break
       }
@@ -302,6 +307,17 @@ export const useEditorStore = defineStore('editorStore', () => {
       // 没有设置扩展类型，清空扩展内容
       clearExtension()
     }
+  }
+
+  function handleModel3DExtension(): boolean {
+    const modelUrl = extensionToAdd.value.extension
+    if (!modelUrl) {
+      clearExtension()
+      return true
+    }
+    // 3D模型扩展直接使用URL
+    extensionToAdd.value.extension_type = ExtensionType.MODEL3D
+    return true
   }
 
   function handleWebsiteExtension(): boolean {

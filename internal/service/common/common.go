@@ -425,6 +425,79 @@ func (commonService *CommonService) DeleteMusic(userid uint) error {
 	return nil
 }
 
+func (commonService *CommonService) UploadModel(userId uint, file *multipart.FileHeader) (string, error) {
+	user, err := commonService.commonRepository.GetUserByUserId(userId)
+	if err != nil {
+		return "", err
+	}
+	if !user.IsAdmin {
+		return "", errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+
+	// 检查文件扩展名是否为支持的3D模型格式
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowedExts := []string{".glb", ".gltf"}
+	isAllowed := false
+	for _, allowed := range allowedExts {
+		if ext == allowed {
+			isAllowed = true
+			break
+		}
+	}
+	if !isAllowed {
+		return "", errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
+	}
+
+	// 检查文件大小是否合法
+	if file.Size > int64(config.Config.Upload.ModelMaxSize) {
+		return "", errors.New(commonModel.FILE_SIZE_EXCEED_LIMIT)
+	}
+
+	// 调用存储函数存储3D模型
+	modelUrl, err := storageUtil.UploadFile(file, commonModel.ModelType, commonModel.LOCAL_FILE, user.ID)
+	if err != nil {
+		return "", err
+	}
+
+	// 触发模型上传事件
+	user.Password = "" // 清除密码字段，避免泄露
+	commonService.eventBus.Publish(context.Background(), event.NewEvent(
+		event.EventTypeResourceUploaded,
+		event.EventPayload{
+			event.EventPayloadUser: user,
+			event.EventPayloadFile: file.Filename,
+			event.EventPayloadURL:  modelUrl,
+			event.EventPayloadSize: file.Size,
+			event.EventPayloadType: commonModel.ModelType,
+		},
+	))
+
+	return modelUrl, nil
+}
+
+func (commonService *CommonService) DeleteModel(userid uint, url string) error {
+	user, err := commonService.commonRepository.GetUserByUserId(userid)
+	if err != nil {
+		return err
+	}
+	if !user.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+
+	if url == "" {
+		return errors.New(commonModel.FILE_NOT_FOUND)
+	}
+
+	// 使用安全的路径验证和清理，防止路径遍历攻击
+	modelPath, err := fileUtil.ValidateAndSanitizePath("data/models", url, "/models/")
+	if err != nil {
+		return fmt.Errorf("路径验证失败: %w", err)
+	}
+
+	// 删除模型文件
+	return storageUtil.DeleteFileFromLocal(modelPath)
+}
+
 func (commonService *CommonService) GetPlayMusicUrl() string {
 	// 支持的音频格式
 	audioFiles := []string{"music.flac", "music.m4a", "music.mp3"}

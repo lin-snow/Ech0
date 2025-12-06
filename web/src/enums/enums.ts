@@ -15,6 +15,7 @@ export enum ExtensionType {
   VIDEO = 'VIDEO',
   GITHUBPROJ = 'GITHUBPROJ',
   WEBSITE = 'WEBSITE',
+  MODEL3D = 'MODEL3D',
 }
 
 // 图片来源

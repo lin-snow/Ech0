@@ -149,6 +149,10 @@ watch(
             websiteToAdd.value.title = websiteData.title || ''
             websiteToAdd.value.site = websiteData.site || ''
             break
+
+          case ExtensionType.MODEL3D:
+            // 3D模型直接使用extension作为URL
+            break
         }
       }
 

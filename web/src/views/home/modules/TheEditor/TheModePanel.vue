@@ -32,6 +32,13 @@
           title="添加网站链接"
           @click="handleAddExtension(ExtensionType.WEBSITE)"
         />
+        <!-- 添加3D模型 -->
+        <BaseButton
+          :icon="Model3D"
+          class="w-7 h-7 rounded-md"
+          title="添加3D模型"
+          @click="handleAddExtension(ExtensionType.MODEL3D)"
+        />
       </div>
     </div>
 
@@ -61,6 +68,7 @@ import Video from '@/components/icons/video.vue'
 import Githubproj from '@/components/icons/githubproj.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import Audio from '@/components/icons/audio.vue'
+import Model3D from '@/components/icons/model3d.vue'
 
 import { theToast } from '@/utils/toast'
 import { Mode, ExtensionType } from '@/enums/enums'
