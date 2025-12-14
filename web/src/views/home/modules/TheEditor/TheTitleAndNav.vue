@@ -39,7 +39,7 @@ import { storeToRefs } from 'pinia'
 import { onMounted, ref } from 'vue'
 import { fetchGetStatus, fetchHelloEch0 } from '@/service/api'
 import { useSettingStore } from '@/stores/setting'
-import { useThemeStore } from '@/stores/theme'
+import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { getApiUrl } from '@/service/request/shared'
 import { theToast } from '@/utils/toast'
 
@@ -51,6 +51,14 @@ const { SystemSetting } = storeToRefs(settingStore)
 const apiUrl = getApiUrl()
 const logo = ref<string>('/favicon.svg')
 
+const modeTextMap: Record<ThemeMode, string> = {
+  light: '浅色',
+  dark: '深色',
+  auto: '自动',
+}
+
+const getModeText = () => modeTextMap[themeStore.mode]
+
 const handleHello = () => {
   themeStore.toggleTheme()
 
@@ -60,7 +68,7 @@ const handleHello = () => {
     if (res.code === 1) {
       hello.value = res.data
       theToast.success('你好呀！ 👋', {
-        description: `当前版本：v${hello.value.version}`,
+        description: `当前版本：v${hello.value.version} | ${getModeText()}`,
         duration: 2000,
         action: {
           label: 'Github',
