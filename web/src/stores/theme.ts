@@ -19,7 +19,8 @@ export const useThemeStore = defineStore('themeStore', () => {
     savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'light',
   )
 
-  const toggleTheme = () => {
+  // 内部切换主题逻辑
+  const applyThemeToggle = () => {
     if (mode.value === 'system') {
       mode.value = 'light'
     } else if (mode.value === 'light') {
@@ -30,6 +31,47 @@ export const useThemeStore = defineStore('themeStore', () => {
 
     applyTheme()
     localStg.setItem('themeMode', mode.value)
+  }
+
+  // 带扩散动画的主题切换
+  const toggleTheme = async (event?: MouseEvent) => {
+    // 获取点击坐标，如果没有事件则从屏幕中心扩散
+    const x = event?.clientX ?? window.innerWidth / 2
+    const y = event?.clientY ?? window.innerHeight / 2
+
+    // 计算到最远角的距离（用于确定圆形大小）
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    )
+
+    // 检查浏览器是否支持 View Transitions API
+    // @ts-expect-error View Transitions API 类型支持
+    if (!document.startViewTransition) {
+      // 降级处理：直接切换
+      applyThemeToggle()
+      return
+    }
+
+    // 使用 View Transitions API
+    // @ts-expect-error View Transitions API 类型支持
+    const transition = document.startViewTransition(() => {
+      applyThemeToggle()
+    })
+
+    await transition.ready
+
+    // 执行圆形扩散动画
+    document.documentElement.animate(
+      {
+        clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`],
+      },
+      {
+        duration: 400,
+        easing: 'ease-out',
+        pseudoElement: '::view-transition-new(root)',
+      },
+    )
   }
 
   const applyTheme = () => {

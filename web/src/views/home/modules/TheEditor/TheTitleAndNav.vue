@@ -61,8 +61,8 @@ if (isLogin.value && user.value?.avatar && user.value?.avatar !== '') {
   logo.value = `${apiUrl}${SystemSetting.value.server_logo}`
 }
 
-const handleHello = () => {
-  themeStore.toggleTheme()
+const handleHello = (event: MouseEvent) => {
+  themeStore.toggleTheme(event)
   const modeText =
     themeStore.mode === 'system' ? 'Auto' : themeStore.mode === 'light' ? 'Light' : 'Dark'
 
