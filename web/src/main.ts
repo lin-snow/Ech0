@@ -3,96 +3,45 @@ import '@/themes/index.scss'
 
 import { initStores } from './stores'
 
-// Md-Editor Start - 使用懒加载优化首屏性能
+// Md-Editor Start
 import { config } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 
-// 懒加载重型库的 Promise 缓存
-let highlightPromise: Promise<typeof import('highlight.js')['default']> | null = null
-let katexPromise: Promise<typeof import('katex')['default']> | null = null
-let mermaidPromise: Promise<typeof import('mermaid')['default']> | null = null
-let prettierPromise: Promise<typeof import('prettier')> | null = null
-let parserMarkdownPromise: Promise<typeof import('prettier/plugins/markdown')['default']> | null = null
-let cropperPromise: Promise<typeof import('cropperjs')['default']> | null = null
-let screenfullPromise: Promise<typeof import('screenfull')['default']> | null = null
+// 内容渲染必需的库 - 同步加载
+import highlight from 'highlight.js'
+import 'highlight.js/styles/atom-one-dark.css'
 
-// 懒加载函数
-const loadHighlight = () => {
-  if (!highlightPromise) {
-    highlightPromise = Promise.all([
-      import('highlight.js'),
-      import('highlight.js/styles/atom-one-dark.css'),
-    ]).then(([mod]) => mod.default)
-  }
-  return highlightPromise
-}
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
-const loadKatex = () => {
-  if (!katexPromise) {
-    katexPromise = Promise.all([
-      import('katex'),
-      import('katex/dist/katex.min.css'),
-    ]).then(([mod]) => mod.default)
-  }
-  return katexPromise
-}
+import mermaid from 'mermaid'
 
-const loadMermaid = () => {
-  if (!mermaidPromise) {
-    mermaidPromise = import('mermaid').then((mod) => mod.default)
-  }
-  return mermaidPromise
-}
+// 编辑功能相关库 - 同步加载（Vite 会自动代码分割）
+import screenfull from 'screenfull'
+import Cropper from 'cropperjs'
+import * as prettier from 'prettier'
+import parserMarkdown from 'prettier/plugins/markdown'
 
-const loadPrettier = () => {
-  if (!prettierPromise) {
-    prettierPromise = import('prettier')
-  }
-  return prettierPromise
-}
-
-const loadParserMarkdown = () => {
-  if (!parserMarkdownPromise) {
-    parserMarkdownPromise = import('prettier/plugins/markdown').then((mod) => mod.default)
-  }
-  return parserMarkdownPromise
-}
-
-const loadCropper = () => {
-  if (!cropperPromise) {
-    cropperPromise = import('cropperjs').then((mod) => mod.default)
-  }
-  return cropperPromise
-}
-
-const loadScreenfull = () => {
-  if (!screenfullPromise) {
-    screenfullPromise = import('screenfull').then((mod) => mod.default)
-  }
-  return screenfullPromise
-}
-
-// 配置 md-editor-v3 使用懒加载
 config({
   editorExtensions: {
     prettier: {
-      prettierInstance: loadPrettier,
-      parserMarkdownInstance: loadParserMarkdown,
+      prettierInstance: prettier,
+      parserMarkdownInstance: parserMarkdown,
     },
     highlight: {
-      instance: loadHighlight,
+      instance: highlight,
     },
     screenfull: {
-      instance: loadScreenfull,
+      instance: screenfull,
     },
     katex: {
-      instance: loadKatex,
+      instance: katex,
     },
     cropper: {
-      instance: loadCropper,
+      instance: Cropper,
     },
     mermaid: {
-      instance: loadMermaid,
+      instance: mermaid,
     },
   },
   codeMirrorExtensions(extensions) {
