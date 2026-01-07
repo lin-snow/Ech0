@@ -55,7 +55,7 @@ export const useThemeStore = defineStore('themeStore', () => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     // 检查浏览器是否支持 View Transitions API
-    // @ts-expect-error View Transitions API 类型支持
+    // @ts-ignore View Transitions API
     if (prefersReducedMotion || !document.startViewTransition) {
       // 降级处理：直接切换，无动画
       applyThemeToggle()
@@ -65,7 +65,7 @@ export const useThemeStore = defineStore('themeStore', () => {
     isTransitioning = true
 
     // 使用 View Transitions API
-    // @ts-expect-error View Transitions API 类型支持
+    // @ts-ignore View Transitions API
     const transition = document.startViewTransition(() => {
       applyThemeToggle()
     })

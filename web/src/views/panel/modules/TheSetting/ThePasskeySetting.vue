@@ -163,19 +163,19 @@ function normalizeCreationOptions(raw: unknown): PublicKeyCredentialCreationOpti
   const exclude = Array.isArray(excludeCredentials)
     ? excludeCredentials.map((c) => ({
         ...c,
-        id: base64urlToUint8Array(c.id),
+        id: base64urlToUint8Array(c.id) as BufferSource,
       }))
     : undefined
 
   return {
     ...rest,
-    challenge: base64urlToUint8Array(challenge),
+    challenge: base64urlToUint8Array(challenge) as BufferSource,
     user: {
       ...user,
-      id: base64urlToUint8Array(user.id),
+      id: base64urlToUint8Array(user.id) as BufferSource,
     },
     ...(exclude ? { excludeCredentials: exclude } : {}),
-  }
+  } as PublicKeyCredentialCreationOptions
 }
 
 // 将 PublicKeyCredential 转换为 JSON

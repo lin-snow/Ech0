@@ -175,15 +175,15 @@ function normalizeRequestOptions(raw: unknown): PublicKeyCredentialRequestOption
   const allow = Array.isArray(allowCredentials)
     ? allowCredentials.map((c) => ({
         ...c,
-        id: base64urlToUint8Array(c.id),
+        id: base64urlToUint8Array(c.id) as BufferSource,
       }))
     : undefined
 
   return {
     ...rest,
-    challenge: base64urlToUint8Array(challenge),
+    challenge: base64urlToUint8Array(challenge) as BufferSource,
     ...(allow ? { allowCredentials: allow } : {}),
-  }
+  } as PublicKeyCredentialRequestOptions
 }
 
 function credentialToJSON(cred: PublicKeyCredential) {
