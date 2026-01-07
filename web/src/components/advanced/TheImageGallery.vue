@@ -217,10 +217,9 @@ onBeforeUnmount(() => {})
 button:hover .echoimg {
   transform: scale(1.01);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.04),
-    0 4px 8px rgba(0, 0, 0, 0.04),
-    0 8px 16px rgba(0, 0, 0, 0.04),
-    0 16px 32px rgba(0, 0, 0, 0.04);
+    0 1px 3px rgba(0, 0, 0, 0.03),
+    0 2px 6px rgba(0, 0, 0, 0.03),
+    0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 /* carousel, horizontal, grid styles (copied/adapted from provided template) */
