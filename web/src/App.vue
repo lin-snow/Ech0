@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView, useRouter } from 'vue-router'
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import { watch } from 'vue'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
