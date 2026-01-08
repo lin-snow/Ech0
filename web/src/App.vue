@@ -20,6 +20,14 @@ const transitionName = ref('fade')
 
 // 监听路由变化，根据导航方向选择动画
 router.afterEach((to, from) => {
+  // Panel 子页面之间切换不使用动画
+  const toName = to.name as string
+  const fromName = from.name as string
+  if (toName?.startsWith('panel-') && fromName?.startsWith('panel-')) {
+    transitionName.value = 'none'
+    return
+  }
+
   // 定义路由层级（用于判断前进/后退）
   const routeDepth: Record<string, number> = {
     home: 0,
@@ -32,8 +40,8 @@ router.afterEach((to, from) => {
     'not-found': 2,
   }
 
-  const toDepth = routeDepth[to.name as string] ?? 1
-  const fromDepth = routeDepth[from.name as string] ?? 1
+  const toDepth = routeDepth[toName] ?? 1
+  const fromDepth = routeDepth[fromName] ?? 1
 
   if (toDepth > fromDepth) {
     transitionName.value = 'slide-left'

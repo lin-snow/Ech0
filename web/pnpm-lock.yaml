@@ -976,11 +976,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@tanstack/virtual-core@3.13.17':
-    resolution: {integrity: sha512-m5mRfGNcL5GUzluWNom0Rmg8P8Dg3h6PnJtJBmJcBiJvkV+vufmUfLnVzKSPGQtmvzMW/ZuUdvL+SyjIUvHV3A==}
+  '@tanstack/virtual-core@3.13.18':
+    resolution: {integrity: sha512-Mx86Hqu1k39icq2Zusq+Ey2J6dDWTjDvEv43PJtRCoEYTLyfaPnxIQ6iy7YAOK0NV/qOEmZQ/uCufrppZxTgcg==}
 
-  '@tanstack/vue-virtual@3.13.17':
-    resolution: {integrity: sha512-w+Btl94IkuL7c2hSVSD0t8tXfhLRnKppOlGKlzBGjw0SrlIgKbiOJv/FcSTCO3SeyI9h0sx2gF/cO/PONtkidw==}
+  '@tanstack/vue-virtual@3.13.18':
+    resolution: {integrity: sha512-6pT8HdHtTU5Z+t906cGdCroUNA5wHjFXsNss9gwk7QAr1VNZtz9IQCs2Nhx0gABK48c+OocHl2As+TMg8+Hy4A==}
     peerDependencies:
       vue: ^2.7.0 || ^3.0.0
 
@@ -3726,7 +3726,7 @@ snapshots:
 
   '@headlessui/vue@1.7.23(vue@3.5.26(typescript@5.9.3))':
     dependencies:
-      '@tanstack/vue-virtual': 3.13.17(vue@3.5.26(typescript@5.9.3))
+      '@tanstack/vue-virtual': 3.13.18(vue@3.5.26(typescript@5.9.3))
       vue: 3.5.26(typescript@5.9.3)
 
   '@humanfs/core@0.19.1': {}
@@ -4024,11 +4024,11 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.55.1':
     optional: true
 
-  '@tanstack/virtual-core@3.13.17': {}
+  '@tanstack/virtual-core@3.13.18': {}
 
-  '@tanstack/vue-virtual@3.13.17(vue@3.5.26(typescript@5.9.3))':
+  '@tanstack/vue-virtual@3.13.18(vue@3.5.26(typescript@5.9.3))':
     dependencies:
-      '@tanstack/virtual-core': 3.13.17
+      '@tanstack/virtual-core': 3.13.18
       vue: 3.5.26(typescript@5.9.3)
 
   '@transloadit/prettier-bytes@0.3.5': {}

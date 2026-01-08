@@ -6,6 +6,7 @@
         <img
           :src="logo"
           alt="logo"
+          loading="lazy"
           class="w-6 sm:w-7 h-6 sm:h-7 rounded-full ring-1 ring-[var(--ring-color)] shadow-sm object-cover"
         />
       </div>
@@ -61,8 +62,10 @@ if (isLogin.value && user.value?.avatar && user.value?.avatar !== '') {
   logo.value = `${apiUrl}${SystemSetting.value.server_logo}`
 }
 
-const handleHello = (event: MouseEvent) => {
-  themeStore.toggleTheme(event)
+const handleHello = async (event: MouseEvent) => {
+  await themeStore.toggleTheme(event)
+
+  // 在主题切换完成后获取正确的模式
   const modeText =
     themeStore.mode === 'system' ? 'Auto' : themeStore.mode === 'light' ? 'Light' : 'Dark'
 
