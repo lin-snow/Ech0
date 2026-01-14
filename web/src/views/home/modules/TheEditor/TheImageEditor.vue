@@ -1,7 +1,7 @@
 <template>
   <div>
     <h2 class="text-[var(--text-color-500)] font-bold my-2">插入图片（支持直链、本地、S3存储）</h2>
-    <div v-if="!ImageUploading" class="flex items-center justify-between mb-3">
+    <div v-if="!ImageUploading" class="flex items-center gap-2 mb-3">
       <div class="flex items-center gap-2">
         <span class="text-[var(--text-color-500)]">选择添加方式：</span>
         <!-- 直链 -->
@@ -27,20 +27,11 @@
           title="S3存储图片"
         />
       </div>
-      <div>
-        <BaseButton
-          v-if="imageToAdd.image_url != ''"
-          :icon="Addmore"
-          class="w-7 h-7 sm:w-7 sm:h-7 rounded-md"
-          @click="editorStore.handleAddMoreImage"
-          title="添加更多图片"
-        />
-      </div>
     </div>
 
     <!-- 布局方式选择 -->
     <div class="mb-2 flex items-center gap-2">
-      <span class="text-[var(--text-color-500)]">布局方式：</span>
+      <span class="text-[var(--text-color-500)]">选择布局方式：</span>
       <BaseSelect
         v-model="echoToAdd.layout"
         :options="layoutOptions"
@@ -71,24 +62,6 @@
     </div>
 
     <div class="my-1">
-      <!-- 图片上传本地 -->
-      <!-- <input
-              id="file-input"
-              class="hidden"
-              type="file"
-              accept="image/*"
-              ref="fileInput"
-              @change="handleUploadImage"
-            />
-            <BaseButton
-              v-if="imageToAdd.image_source === ImageSource.LOCAL"
-              @click="handleTriggerUpload"
-              class="rounded-md"
-              title="上传本地图片"
-            >
-              <span class="text-[var(--text-color-400)]">点击上传</span>
-            </BaseButton> -->
-
       <!-- 图片上传 -->
       <TheUppy
         v-if="imageToAdd.image_source !== ImageSource.URL"
@@ -97,12 +70,20 @@
       />
 
       <!-- 图片直链 -->
-      <BaseInput
-        v-if="imageToAdd.image_source === ImageSource.URL"
-        v-model="imageToAdd.image_url"
-        class="rounded-lg h-auto w-full"
-        placeholder="请输入图片链接..."
-      />
+      <div v-if="imageToAdd.image_source === ImageSource.URL" class="flex items-center gap-2">
+        <BaseInput
+          v-model="imageToAdd.image_url"
+          class="rounded-lg h-auto flex-1"
+          placeholder="请输入图片链接..."
+        />
+        <BaseButton
+          v-if="imageToAdd.image_url != ''"
+          :icon="Addmore"
+          class="w-8 h-8 sm:w-8 sm:h-8 rounded-md shrink-0"
+          @click="editorStore.handleAddMoreImage"
+          title="添加更多图片"
+        />
+      </div>
     </div>
   </div>
 </template>
