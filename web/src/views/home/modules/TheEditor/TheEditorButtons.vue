@@ -52,7 +52,7 @@
       <div v-if="hasContent || hasImage || hasExtension" class="relative group">
         <Info class="w-6 h-6 text-[var(--text-color-300)] hover:text-[var(--text-color-400)]" />
         <div
-          class="absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md border border-[var(--border-color-400)] border-dotted bg-[var(--editor-bg-color)] px-2 py-1 text-xs text-[var(--text-color-500)] shadow-lg opacity-0 translate-y-1 scale-95 pointer-events-none transition-all duration-200 ease-out group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 group-hover:pointer-events-auto"
+          class="absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md border border-[var(--border-color-400)] border-dashed bg-[var(--editor-bg-color)] px-2 py-1 text-xs text-[var(--text-color-500)] shadow-lg opacity-0 translate-y-1 scale-95 pointer-events-none transition-all duration-200 ease-out group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 group-hover:pointer-events-auto"
         >
           <div v-if="infoTooltipLines.length > 0">
             <div class="mb-1 font-medium text-[var(--text-color-500)]">已添加：</div>
