@@ -1,20 +1,27 @@
 <template>
   <div
-    class="max-w-sm sm:max-w-full px-2 pb-4 py-2 mt-4 sm:mt-6 mb-10 mx-auto flex flex-col sm:flex-row justify-center items-start sm:gap-8"
+    class="max-w-sm sm:max-w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex flex-col sm:flex-row justify-center items-start sm:items-stretch sm:gap-8 sm:h-[100dvh] sm:overflow-hidden"
   >
-    <div class="sm:max-w-sm w-full">
+    <div class="sm:max-w-sm w-full sm:min-h-0 sm:h-full sm:overflow-y-auto">
       <TheTop class="sm:hidden" />
       <TheEditor v-if="isLogin" />
       <TheBoard v-else />
     </div>
-    <div ref="mainColumn" class="sm:max-w-lg w-full sm:mt-1">
-      <TheTop class="hidden sm:block sm:px-4" />
+    <div
+      ref="mainColumn"
+      class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:56px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto"
+    >
+      <div
+        class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-2 bg-[var(--bg-color)]"
+      >
+        <TheTop class="sm:px-4" />
+      </div>
       <TheEchos v-if="!todoMode && !isFilteringMode && !inboxMode" />
       <TheFilteredEchos v-else-if="!todoMode && isFilteringMode && !inboxMode" />
       <TheTodos v-else-if="todoMode && !inboxMode" />
       <TheInbox v-else />
     </div>
-    <div class="hidden xl:block sm:max-w-sm w-full px-6 h-screen">
+    <div class="hidden xl:block sm:max-w-sm w-full px-6 sm:min-h-0 sm:h-full sm:overflow-y-auto">
       <TheHeatMap class="mb-2" />
       <TheStatusCard v-if="isLogin" class="mb-2" />
       <div v-if="isLogin" class="mb-2 px-11">

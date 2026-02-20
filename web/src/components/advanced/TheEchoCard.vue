@@ -1,17 +1,19 @@
 <template>
   <div class="w-full">
     <!-- 日期时间 && 操作按钮 -->
-    <div class="flex justify-between items-center">
+    <div class="echo-header-sticky flex justify-between items-center">
       <!-- 日期时间 -->
       <div class="flex justify-start items-center h-auto">
-        <!-- 小点 -->
-        <div class="w-2 h-2 rounded-full bg-[var(--timeline-dot-color)] mr-2"></div>
-        <!-- 具体日期时间 -->
-        <div
-          @click="handleExpandEcho(echo.id)"
-          class="flex justify-start text-sm text-nowrap text-[var(--timeline-datetime-color)] hover:underline hover:decoration-offset-3 hover:decoration-1 mr-1"
-        >
-          {{ formatDate(props.echo.created_at) }}
+        <div class="flex items-center pr-1">
+          <!-- 小点 -->
+          <div class="w-2 h-2 rounded-full bg-[var(--timeline-dot-color)] mr-2"></div>
+          <!-- 具体日期时间 -->
+          <div
+            @click="handleExpandEcho(echo.id)"
+            class="flex justify-start text-sm text-nowrap text-[var(--timeline-datetime-color)] hover:underline hover:decoration-offset-3 hover:decoration-1 mr-1"
+          >
+            {{ formatDate(props.echo.created_at) }}
+          </div>
         </div>
         <!-- 标签 -->
         <div
@@ -369,5 +371,12 @@ onBeforeUnmount(() => {
   /* 单词太长时自动换行 */
   word-break: normal;
   /* 保持单词整体性，不随便拆开 */
+}
+
+.echo-header-sticky {
+  position: sticky;
+  top: var(--echo-date-sticky-top, 0px);
+  z-index: 8;
+  background-color: var(--bg-color);
 }
 </style>
