@@ -6,7 +6,7 @@
       data.isTyping ? 'pointer-events-none' : 'pointer-events-auto',
     ]"
     :style="containerStyle"
-    @mousedown="handleMouseDown"
+    @pointerdown="handlePointerDown"
   >
     <div :style="animationWrapperStyle">
       <div class="relative shadow-md" :style="paperStyle">
@@ -30,6 +30,7 @@
             v-if="!data.isTyping"
             class="absolute top-2 right-2 text-gray-400 hover:text-red-600 transition-colors z-10 mix-blend-multiply"
             @mousedown.stop
+            @pointerdown.stop
             @click.stop="emit('delete', data.id)"
           >
             <svg viewBox="0 0 24 24" fill="none" class="w-4 h-4" aria-hidden="true">
@@ -141,6 +142,7 @@ const containerStyle = computed(() => ({
   top: `${props.data.y}px`,
   zIndex: props.zIndex,
   width: '280px',
+  touchAction: 'none',
   transform: `rotate(${props.data.rotation}deg) scale(${isDragging.value ? 1.05 : 1})`,
   transition: isDragging.value
     ? 'none'
@@ -263,7 +265,7 @@ watch(
   },
 )
 
-const onMouseMove = (e: MouseEvent) => {
+const onPointerMove = (e: PointerEvent) => {
   if (!isDragging.value) return
   emit('update', props.data.id, {
     x: e.clientX - dragOffset.value.x,
@@ -271,13 +273,15 @@ const onMouseMove = (e: MouseEvent) => {
   })
 }
 
-const onMouseUp = () => {
+const onPointerUp = () => {
   isDragging.value = false
-  window.removeEventListener('mousemove', onMouseMove)
-  window.removeEventListener('mouseup', onMouseUp)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
 }
 
-const handleMouseDown = (e: MouseEvent) => {
+const handlePointerDown = (e: PointerEvent) => {
+  if (e.button !== 0) return
   e.stopPropagation()
   emit('focus', true)
   isDragging.value = true
@@ -285,14 +289,16 @@ const handleMouseDown = (e: MouseEvent) => {
     x: e.clientX - props.data.x,
     y: e.clientY - props.data.y,
   }
-  window.addEventListener('mousemove', onMouseMove)
-  window.addEventListener('mouseup', onMouseUp)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onPointerUp)
 }
 
 onBeforeUnmount(() => {
   clearTypingRaf()
-  window.removeEventListener('mousemove', onMouseMove)
-  window.removeEventListener('mouseup', onMouseUp)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
 })
 </script>
 
