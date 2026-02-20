@@ -9,10 +9,10 @@
     </div>
     <div
       ref="mainColumn"
-      class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:56px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto sm:[overscroll-behavior:contain]"
+      class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:52px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto sm:[overscroll-behavior:contain]"
     >
       <div
-        class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-2 bg-[var(--bg-color)]"
+        class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-1 bg-[var(--bg-color)]"
       >
         <TheTop class="sm:px-4" />
       </div>

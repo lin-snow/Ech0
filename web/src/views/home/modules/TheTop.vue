@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto mb-2">
+  <div class="mx-auto mb-1 sm:mb-0">
     <div class="w-full flex justify-between items-center">
       <!-- 搜索与过滤 -->
       <div class="flex justify-start items-center gap-2">
