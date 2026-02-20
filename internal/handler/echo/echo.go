@@ -9,6 +9,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	service "github.com/lin-snow/ech0/internal/service/echo"
+	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 )
 
 type EchoHandler struct {
@@ -174,7 +175,8 @@ func (echoHandler *EchoHandler) GetTodayEchos() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		// 获取当前用户 ID
 		userid := ctx.MustGet("userid").(uint)
-		result, err := echoHandler.echoService.GetTodayEchos(userid)
+		timezone := timezoneUtil.NormalizeTimezone(ctx.GetHeader(timezoneUtil.DefaultTimezoneHeader))
+		result, err := echoHandler.echoService.GetTodayEchos(userid, timezone)
 		if err != nil {
 			return res.Response{
 				Msg: "",

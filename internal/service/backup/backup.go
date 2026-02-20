@@ -93,7 +93,7 @@ func (backupService *BackupService) ExportBackup(ctx *gin.Context, userid uint) 
 	}
 
 	// 设置响应头
-	filename := fmt.Sprintf("ech0-backup-%s.zip", time.Now().Format("2006-01-02-150405"))
+	filename := fmt.Sprintf("ech0-backup-%s.zip", time.Now().UTC().Format("2006-01-02-150405"))
 
 	// 设置响应头的顺序很重要
 	ctx.Writer.Header().Set("Content-Type", "application/zip")
@@ -143,7 +143,7 @@ func (backupService *BackupService) ImportBackup(
 	}
 
 	// 保存上传的文件到临时位置, (./temp/snapshot_时间戳.zip)
-	timestamp := time.Now().Unix()
+	timestamp := time.Now().UTC().Unix()
 	tempFilePath := fmt.Sprintf("./temp/snapshot_%d.zip", timestamp)
 	if err := ctx.SaveUploadedFile(file, tempFilePath); err != nil {
 		return errors.New(commonModel.SNAPSHOT_UPLOAD_FAILED + ": " + err.Error())

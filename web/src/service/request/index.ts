@@ -21,11 +21,13 @@ const ofetchInstance = ofetch.create({
   // 请求拦截器
   onRequest({ options }) {
     const token = getAuthToken()
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
     const isDirectUrl = options.headers.get('X-Direct-URL')
     if (token && token.length > 0 && !isDirectUrl) {
       options.headers.append('Authorization', token)
     }
+    options.headers.set('X-Timezone', timezone)
 
     // 清空请求头
     options.headers.delete('X-Direct-URL')

@@ -32,10 +32,10 @@ func CreateClaims(user userModel.User) jwt.Claims {
 			Subject:  user.Username,
 			Audience: jwt.ClaimStrings{config.Config.Auth.Jwt.Audience},
 			ExpiresAt: jwt.NewNumericDate(
-				time.Now().Add(time.Duration(config.Config.Auth.Jwt.Expires) * time.Second),
+				time.Now().UTC().Add(time.Duration(config.Config.Auth.Jwt.Expires) * time.Second),
 			),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now().Add(-leeway)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			NotBefore: jwt.NewNumericDate(time.Now().UTC().Add(-leeway)),
 		},
 	}
 
@@ -52,14 +52,14 @@ func CreateClaimsWithExpiry(user userModel.User, expiry int64) jwt.Claims {
 			Issuer:    config.Config.Auth.Jwt.Issuer,
 			Subject:   user.Username,
 			Audience:  jwt.ClaimStrings{config.Config.Auth.Jwt.Audience},
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now().Add(-leeway)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			NotBefore: jwt.NewNumericDate(time.Now().UTC().Add(-leeway)),
 		},
 	}
 
 	// expiry = 0 表示永不过期
 	if expiry > 0 {
-		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Duration(expiry) * time.Second))
+		claims.ExpiresAt = jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(expiry) * time.Second))
 	}
 
 	return claims
@@ -99,7 +99,7 @@ func GenerateOAuthState(
 	userID uint,
 	redirect, provider string,
 ) (string, string, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	expiration := now.Add(10 * time.Minute)
 
 	nonce := cryptoUtil.GenerateRandomString(16)

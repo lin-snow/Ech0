@@ -10,6 +10,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	"github.com/lin-snow/ech0/internal/transaction"
+	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 	"gorm.io/gorm"
 )
 
@@ -44,8 +45,7 @@ func (echoRepository *EchoRepository) CreateEcho(ctx context.Context, echo *mode
 
 	// 清除相关缓存
 	ClearEchoPageCache(echoRepository.cache)
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(true))  // 删除今天的 Echo 缓存（管理员视图）
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(false)) // 删除今天的 Echo 缓存（非管理员视图）
+	ClearTodayEchosCache(echoRepository.cache)
 
 	return nil
 }
@@ -153,8 +153,7 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id uin
 
 	// 清除缓存
 	echoRepository.cache.Delete(GetEchoByIDCacheKey(id))      // 删除具体 Echo 的缓存
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(true))  // 删除今天的 Echo 缓存（管理员视图）
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(false)) // 删除今天的 Echo 缓存（非管理员视图）
+	ClearTodayEchosCache(echoRepository.cache)
 
 	// 清除相关缓存
 	ClearEchoPageCache(echoRepository.cache)
@@ -163,9 +162,11 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id uin
 }
 
 // GetTodayEchos 获取今天的 Echo 列表
-func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool) []model.Echo {
+func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool, timezone string) []model.Echo {
+	normalizedTimezone := timezoneUtil.NormalizeTimezone(timezone)
+
 	// 查找缓存
-	if cachedTodayEchos, err := echoRepository.cache.Get(GetTodayEchosCacheKey(showPrivate)); err == nil {
+	if cachedTodayEchos, err := echoRepository.cache.Get(GetTodayEchosCacheKey(showPrivate, normalizedTimezone)); err == nil {
 		// 缓存命中，直接返回
 		if todayEchos, ok := cachedTodayEchos.([]model.Echo); ok {
 			return todayEchos
@@ -175,10 +176,13 @@ func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool) []model.Ec
 	// 查询数据库
 	var echos []model.Echo
 
-	// 获取当天开始和结束时间
-	today := time.Now()
-	startOfDay := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
+	// 先按用户时区计算日界，再转为 UTC 查询数据库。
+	loc := timezoneUtil.LoadLocationOrUTC(normalizedTimezone)
+	nowUser := time.Now().UTC().In(loc)
+	startOfDayUser := time.Date(nowUser.Year(), nowUser.Month(), nowUser.Day(), 0, 0, 0, 0, loc)
+	endOfDayUser := startOfDayUser.Add(24 * time.Hour)
+	startOfDayUTC := startOfDayUser.UTC()
+	endOfDayUTC := endOfDayUser.UTC()
 
 	query := echoRepository.db().Model(&model.Echo{})
 	// 如果不是管理员，过滤私密Echo
@@ -187,7 +191,7 @@ func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool) []model.Ec
 	}
 
 	// 添加当天的时间过滤
-	query = query.Where("created_at >= ? AND created_at < ?", startOfDay, endOfDay)
+	query = query.Where("created_at >= ? AND created_at < ?", startOfDayUTC, endOfDayUTC)
 
 	// 获取总数并进行分页查询
 	query.
@@ -197,10 +201,13 @@ func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool) []model.Ec
 		Find(&echos)
 
 	// 保存到缓存，缓存到明天零点
-	ttl := time.Until(
-		time.Date(today.Year(), today.Month(), today.Day()+1, 0, 0, 0, 0, today.Location()),
-	)
-	echoRepository.cache.SetWithTTL(GetTodayEchosCacheKey(showPrivate), echos, 1, ttl)
+	ttl := time.Until(endOfDayUser)
+	if ttl <= 0 {
+		ttl = time.Minute
+	}
+	cacheKey := GetTodayEchosCacheKey(showPrivate, normalizedTimezone)
+	TrackTodayEchosCacheKey(cacheKey)
+	echoRepository.cache.SetWithTTL(cacheKey, echos, 1, ttl)
 
 	// 返回结果
 	return echos
@@ -211,8 +218,7 @@ func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *mode
 	// 清空缓存
 	ClearEchoPageCache(echoRepository.cache)
 	echoRepository.cache.Delete(GetEchoByIDCacheKey(echo.ID)) // 删除具体 Echo 的缓存
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(true))  // 删除今天的 Echo 缓存（管理员视图）
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(false)) // 删除今天的 Echo 缓存（非管理员视图）
+	ClearTodayEchosCache(echoRepository.cache)
 
 	// 1. 先删除该 Echo 关联的所有旧图片
 	if err := echoRepository.getDB(ctx).Where("message_id = ?", echo.ID).Delete(&model.Image{}).Error; err != nil {
@@ -280,8 +286,7 @@ func (echoRepository *EchoRepository) LikeEcho(ctx context.Context, id uint) err
 	// 清除相关缓存
 	ClearEchoPageCache(echoRepository.cache)
 	echoRepository.cache.Delete(GetEchoByIDCacheKey(id))      // 删除具体 Echo 的缓存
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(true))  // 删除今天的 Echo 缓存（管理员视图）
-	echoRepository.cache.Delete(GetTodayEchosCacheKey(false)) // 删除今天的 Echo 缓存（非管理员视图）
+	ClearTodayEchosCache(echoRepository.cache)
 
 	return nil
 }

@@ -79,7 +79,7 @@ func (id *InboxDispatcher) handleEch0UpdateCheck(ctx context.Context) error {
 			ReadCount: 0,
 			ReadAt:    0, // 首次发送时未读
 			Meta:      string(meta),
-			CreatedAt: time.Now().Unix(),
+			CreatedAt: time.Now().UTC().Unix(),
 		})
 		if err != nil {
 			return err
@@ -106,7 +106,7 @@ func (id *InboxDispatcher) handleInboxClear(ctx context.Context) error {
 	var unreadInboxIDs []uint
 	for _, inbox := range unreadInbox {
 		// 如果消息已读并且创建时间超过七天，则清理
-		if inbox.Read && inbox.ReadCount > 2 && time.Now().Unix()-inbox.ReadAt > 5*24*60*60 {
+		if inbox.Read && inbox.ReadCount > 2 && time.Now().UTC().Unix()-inbox.ReadAt > 5*24*60*60 {
 			unreadInboxIDs = append(unreadInboxIDs, inbox.ID)
 		}
 	}

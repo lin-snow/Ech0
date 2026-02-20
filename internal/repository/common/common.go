@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
@@ -79,18 +80,15 @@ func (commonRepository *CommonRepository) GetAllEchos(showPrivate bool) ([]echoM
 
 // GetHeatMap 获取热力图数据
 func (commonRepository *CommonRepository) GetHeatMap(
-	startDate, endDate string,
-) ([]commonModel.Heatmap, error) {
-	var results []commonModel.Heatmap
+	startUTC, endUTC time.Time,
+) ([]time.Time, error) {
+	var results []time.Time
 
-	// 查询数据
-	// 执行查询
-	err := commonRepository.db().Table("echos").
-		Select("DATE(created_at) as date, COUNT(*) as count").
-		Where("DATE(created_at) >= ? AND DATE(created_at) <= ?", startDate, endDate).
-		Group("DATE(created_at)").
-		Order("date ASC").
-		Scan(&results).Error
+	err := commonRepository.db().
+		Table("echos").
+		Where("created_at >= ? AND created_at < ?", startUTC, endUTC).
+		Order("created_at ASC").
+		Pluck("created_at", &results).Error
 	if err != nil {
 		return nil, err
 	}

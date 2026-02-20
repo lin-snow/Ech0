@@ -1363,7 +1363,7 @@ func (userService *UserService) PasskeyRegisterFinish(
 		CredentialJSON: string(credJSON),
 		PublicKey:      publicKey,
 		SignCount:      cred.Authenticator.SignCount,
-		LastUsedAt:     time.Now(),
+		LastUsedAt:     time.Now().UTC(),
 		DeviceName:     sess.DeviceName,
 		AAGUID:         aaguid,
 	}
@@ -1485,7 +1485,7 @@ func (userService *UserService) PasskeyLoginFinish(
 				ctx,
 				pk.ID,
 				credentialObj.Authenticator.SignCount,
-				time.Now(),
+				time.Now().UTC(),
 			)
 		})
 	}

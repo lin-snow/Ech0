@@ -43,7 +43,7 @@ func (core *FediverseCore) ConvertEchoToActivity(
 		Cc:         []string{actor.Followers},
 		Summary:    "",
 		Delivered:  false,
-		CreatedAt:  time.Now(),
+		CreatedAt:  time.Now().UTC(),
 	}
 
 	activityJSON, _ := json.Marshal(activity)

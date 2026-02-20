@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	model "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
@@ -22,7 +23,7 @@ type CommonRepositoryInterface interface {
 	GetAllEchos(showPrivate bool) ([]echoModel.Echo, error)
 
 	// GetHeatMap 获取热力图数据
-	GetHeatMap(startDate, endDate string) ([]model.Heatmap, error)
+	GetHeatMap(startUTC, endUTC time.Time) ([]time.Time, error)
 
 	// SaveTempFile 保存临时文件记录
 	SaveTempFile(ctx context.Context, file model.TempFile) error

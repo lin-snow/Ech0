@@ -107,9 +107,9 @@ func (fa *FediverseAgent) HandleCreateEchoEvent(ctx context.Context, e *Event) e
 				deadLetter.Payload = payload
 				deadLetter.ErrorMsg = err.Error()
 				deadLetter.RetryCount = 0
-				deadLetter.NextRetry = time.Now().Add(12 * time.Hour) // 初始重试时间为 12 小时后
-				deadLetter.CreatedAt = time.Now()
-				deadLetter.UpdatedAt = time.Now()
+				deadLetter.NextRetry = time.Now().UTC().Add(12 * time.Hour) // 初始重试时间为 12 小时后
+				deadLetter.CreatedAt = time.Now().UTC()
+				deadLetter.UpdatedAt = time.Now().UTC()
 				deadLetter.Status = queueModel.DeadLetterStatusPending // 初始状态为待处理
 
 				if err := fa.txManager.Run(func(ctx context.Context) error {

@@ -41,8 +41,8 @@ func (dlr *DeadLetterResolver) Handle(ctx context.Context, event *Event) error {
 		// 更新状态为处理中
 		deadLetter.Status = queueModel.DeadLetterStatusProcessing
 		deadLetter.RetryCount += 1
-		deadLetter.UpdatedAt = time.Now()
-		deadLetter.NextRetry = time.Now().Add(6 * time.Hour)
+		deadLetter.UpdatedAt = time.Now().UTC()
+		deadLetter.NextRetry = time.Now().UTC().Add(6 * time.Hour)
 
 		if err := dlr.queueRepo.UpdateDeadLetter(ctx, &deadLetter); err != nil {
 			return fmt.Errorf("failed to update dead letter to processing: %v", err)
@@ -53,7 +53,7 @@ func (dlr *DeadLetterResolver) Handle(ctx context.Context, event *Event) error {
 			// 处理失败，更新状态为失败
 			deadLetter.ErrorMsg = err.Error()
 			deadLetter.Status = queueModel.DeadLetterStatusFailed
-			deadLetter.UpdatedAt = time.Now()
+			deadLetter.UpdatedAt = time.Now().UTC()
 			if err := dlr.queueRepo.UpdateDeadLetter(ctx, &deadLetter); err != nil {
 				return fmt.Errorf("failed to update dead letter to failed: %v", err)
 			}
@@ -62,7 +62,7 @@ func (dlr *DeadLetterResolver) Handle(ctx context.Context, event *Event) error {
 
 		// 处理成功，更新状态为完成
 		deadLetter.Status = queueModel.DeadLetterStatusCompleted
-		deadLetter.UpdatedAt = time.Now()
+		deadLetter.UpdatedAt = time.Now().UTC()
 		if err := dlr.queueRepo.UpdateDeadLetter(ctx, &deadLetter); err != nil {
 			return fmt.Errorf("failed to update dead letter to completed: %v", err)
 		}
@@ -86,7 +86,7 @@ func (dlr *DeadLetterResolver) Handle(ctx context.Context, event *Event) error {
 		}
 
 		// 更新死信任务
-		deadLetter.UpdatedAt = time.Now()
+		deadLetter.UpdatedAt = time.Now().UTC()
 		if err := dlr.queueRepo.UpdateDeadLetter(ctx, &deadLetter); err != nil {
 			return fmt.Errorf("failed to update dead letter: %v", err)
 		}

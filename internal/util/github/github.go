@@ -40,7 +40,7 @@ func GetLatestVersion() (string, error) {
 	}
 
 	// 获取最新版本
-	now := time.Now()
+	now := time.Now().UTC()
 	latestVersionCache.mu.Lock()
 	if latestVersionCache.version != "" && now.Before(latestVersionCache.expiresAt) {
 		v := latestVersionCache.version
@@ -69,7 +69,7 @@ func GetLatestVersion() (string, error) {
 
 	latestVersionCache.mu.Lock()
 	latestVersionCache.version = result
-	latestVersionCache.expiresAt = time.Now().Add(30 * time.Minute)
+	latestVersionCache.expiresAt = time.Now().UTC().Add(30 * time.Minute)
 	latestVersionCache.mu.Unlock()
 
 	return result, nil

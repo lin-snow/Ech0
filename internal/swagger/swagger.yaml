@@ -14,7 +14,7 @@ definitions:
   model.AccessTokenSetting:
     properties:
       created_at:
-        description: 访问令牌创建时间，Unix 时间戳格式
+        description: 访问令牌创建时间，RFC3339 时间字符串
         type: string
       expiry:
         description: 指针类型，NULL 表示永不过期
@@ -35,7 +35,7 @@ definitions:
   model.AccessTokenSettingDto:
     properties:
       expiry:
-        description: 访问令牌过期时间，Unix 时间戳格式
+        description: 访问令牌过期策略（8_hours/1_month/never）
         type: string
       name:
         description: 访问令牌名称

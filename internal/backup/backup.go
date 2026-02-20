@@ -21,7 +21,7 @@ const (
 
 // ExecuteBackup 执行备份
 func ExecuteBackup() (string, string, error) {
-	backupTime := time.Now().Format(timeLayout)
+	backupTime := time.Now().UTC().Format(timeLayout)
 	backupFileName := fmt.Sprintf("%s_%s.zip", backupFileName, backupTime) // 暂时不开启多备份，每次只保留最新的一份备份
 	backupPath := fmt.Sprintf("%s/%s", backupDir, backupFileName)
 

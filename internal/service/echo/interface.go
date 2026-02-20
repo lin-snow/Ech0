@@ -19,7 +19,7 @@ type EchoServiceInterface interface {
 	DeleteEchoById(userid, id uint) error
 
 	// GetTodayEchos 获取今天的Echo列表
-	GetTodayEchos(userid uint) ([]model.Echo, error)
+	GetTodayEchos(userid uint, timezone string) ([]model.Echo, error)
 
 	// UpdateEcho 更新指定ID的Echo
 	UpdateEcho(userid uint, echo *model.Echo) error

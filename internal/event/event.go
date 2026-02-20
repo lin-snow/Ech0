@@ -69,14 +69,15 @@ type (
 
 // NewEvent 创建一个新的事件
 func NewEvent(eventType EventType, payload EventPayload, meta ...map[string]any) *Event {
-	id := ulid.MustNew(ulid.Timestamp(time.Now()), rand.New(rand.NewSource(time.Now().UnixNano()))).
+	now := time.Now().UTC()
+	id := ulid.MustNew(ulid.Timestamp(now), rand.New(rand.NewSource(now.UnixNano()))).
 		String()
 		// 使用 ULID 生成唯一 ID
 	return &Event{
 		ID:        id,
 		Type:      eventType,
 		Payload:   payload,
-		Timestamp: time.Now(),
+		Timestamp: now,
 		Meta: func() map[string]any {
 			if len(meta) > 0 {
 				return meta[0]

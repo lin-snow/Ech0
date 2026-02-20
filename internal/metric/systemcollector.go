@@ -26,7 +26,7 @@ func NewSystemCollector() MetricCollector {
 
 func (sc *SystemCollector) Collect() (model.Metrics, error) {
 	var m model.Metrics
-	now := time.Now()
+	now := time.Now().UTC()
 
 	// ---------- CPU ----------
 	// Windows 第一次采样会返回 0，所以使用短暂采样间隔

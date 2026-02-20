@@ -20,7 +20,7 @@ type EchoRepositoryInterface interface {
 	DeleteEchoById(ctx context.Context, id uint) error
 
 	// GetTodayEchos 获取今天的 Echo 列表
-	GetTodayEchos(showPrivate bool) []model.Echo
+	GetTodayEchos(showPrivate bool, timezone string) []model.Echo
 
 	// UpdateEcho 更新 Echo
 	UpdateEcho(ctx context.Context, echo *model.Echo) error

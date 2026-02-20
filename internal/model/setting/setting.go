@@ -68,7 +68,7 @@ type AccessTokenSetting struct {
 	Token     string     `json:"token"`      // 访问令牌
 	Name      string     `json:"name"`       // 访问令牌名称
 	Expiry    *time.Time `json:"expiry"`     // 指针类型，NULL 表示永不过期
-	CreatedAt time.Time  `json:"created_at"` // 访问令牌创建时间，Unix 时间戳格式
+	CreatedAt time.Time  `json:"created_at"` // 访问令牌创建时间，RFC3339 时间字符串
 }
 
 // FediverseSetting 定义联邦网络设置实体

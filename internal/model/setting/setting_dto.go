@@ -64,7 +64,7 @@ type WebhookDto struct {
 
 type AccessTokenSettingDto struct {
 	Name   string `json:"name"`   // 访问令牌名称
-	Expiry string `json:"expiry"` // 访问令牌过期时间，Unix 时间戳格式
+	Expiry string `json:"expiry"` // 访问令牌过期策略（8_hours/1_month/never）
 }
 
 type FediverseSettingDto struct {

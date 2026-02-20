@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+var seededRand = rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
 
 // MD5Encrypt 对内容进行 MD5 编码
 func MD5Encrypt(text string) string {

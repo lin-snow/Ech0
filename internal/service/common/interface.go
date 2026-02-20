@@ -31,7 +31,7 @@ type CommonServiceInterface interface {
 	GetStatus() (model.Status, error)
 
 	// GetHeatMap 获取热力图数据
-	GetHeatMap() ([]model.Heatmap, error)
+	GetHeatMap(timezone string) ([]model.Heatmap, error)
 
 	// GenerateRSS 生成RSS订阅链接
 	GenerateRSS(ctx *gin.Context) (string, error)

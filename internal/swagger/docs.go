@@ -2149,7 +2149,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "访问令牌创建时间，Unix 时间戳格式",
+                    "description": "访问令牌创建时间，RFC3339 时间字符串",
                     "type": "string"
                 },
                 "expiry": {
@@ -2178,7 +2178,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "expiry": {
-                    "description": "访问令牌过期时间，Unix 时间戳格式",
+                    "description": "访问令牌过期策略（8_hours/1_month/never）",
                     "type": "string"
                 },
                 "name": {

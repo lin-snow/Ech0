@@ -148,7 +148,7 @@ func DeleteFileFromLocal(filePath string) error {
 }
 
 func GenerateRandomFilename(userID uint, ext string) (string, error) {
-	timestamp := time.Now().Unix()
+	timestamp := time.Now().UTC().Unix()
 	bytes := make([]byte, 3)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err

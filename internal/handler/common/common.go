@@ -9,6 +9,7 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	service "github.com/lin-snow/ech0/internal/service/common"
 	errorUtil "github.com/lin-snow/ech0/internal/util/err"
+	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 )
 
 type CommonHandler struct {
@@ -175,8 +176,9 @@ func (commonHandler *CommonHandler) GetStatus() gin.HandlerFunc {
 //	@Router			/heatmap [get]
 func (commonHandler *CommonHandler) GetHeatMap() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
+		timezone := timezoneUtil.NormalizeTimezone(ctx.GetHeader(timezoneUtil.DefaultTimezoneHeader))
 		// 调用 Service 层获取热力图数据
-		heatMap, err := commonHandler.commonService.GetHeatMap()
+		heatMap, err := commonHandler.commonService.GetHeatMap(timezone)
 		if err != nil {
 			return res.Response{
 				Msg: "",

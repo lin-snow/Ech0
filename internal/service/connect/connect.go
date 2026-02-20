@@ -125,7 +125,7 @@ func (connectService *ConnectService) GetConnect() (model.Connect, error) {
 	}
 
 	// 统计当天发布的数量
-	todayEchos := connectService.echoRepository.GetTodayEchos(true)
+	todayEchos := connectService.echoRepository.GetTodayEchos(true, "UTC")
 
 	// 设置 Connect 信息
 	connect.ServerName = setting.ServerName

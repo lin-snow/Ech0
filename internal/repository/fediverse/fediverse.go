@@ -125,7 +125,7 @@ func (r *FediverseRepository) UpsertInboxStatus(
 		Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if status.CreatedAt.IsZero() {
-			status.CreatedAt = time.Now()
+			status.CreatedAt = time.Now().UTC()
 		}
 		if status.UpdatedAt.IsZero() {
 			status.UpdatedAt = status.CreatedAt
@@ -138,7 +138,7 @@ func (r *FediverseRepository) UpsertInboxStatus(
 
 	status.ID = existing.ID
 	if status.UpdatedAt.IsZero() {
-		status.UpdatedAt = time.Now()
+		status.UpdatedAt = time.Now().UTC()
 	}
 
 	updates := map[string]any{
@@ -209,7 +209,7 @@ func (r *FediverseRepository) UpdateFollowStatusByActivityID(
 
 	updates := map[string]any{
 		"status":     status,
-		"updated_at": time.Now(),
+		"updated_at": time.Now().UTC(),
 	}
 
 	result := r.getDB(ctx).

@@ -599,7 +599,7 @@ func (settingService *SettingService) ListAccessTokens(
 
 	// 处理tokens,过滤并删除过期的token
 	var validTokens []model.AccessTokenSetting
-	currentTime := time.Now()
+	currentTime := time.Now().UTC()
 
 	for _, token := range tokens {
 		if token.Expiry == nil || token.Expiry.After(currentTime) {
@@ -657,7 +657,7 @@ func (settingService *SettingService) CreateAccessToken(
 	if expiry == model.NEVER_EXPIRY {
 		expiryPtr = nil // 永不过期，用 NULL
 	} else {
-		t := time.Now().Add(expiryDuration)
+		t := time.Now().UTC().Add(expiryDuration)
 		expiryPtr = &t
 	}
 
@@ -667,7 +667,7 @@ func (settingService *SettingService) CreateAccessToken(
 		Token:     tokenString,
 		Name:      name,
 		Expiry:    expiryPtr,
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}
 
 	if err := settingService.txManager.Run(func(ctx context.Context) error {
