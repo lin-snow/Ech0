@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/lin-snow/ech0/internal/backup"
+	"github.com/lin-snow/ech0/internal/config"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/ssh"
@@ -21,8 +23,39 @@ import (
 
 var s *server.Server // s 是全局的 Ech0 服务器实例
 
+// isWebPortInUse 检查 Web 端口是否已被占用（通常表示已有实例在运行）
+func isWebPortInUse() bool {
+	port := config.Config.Server.Port
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		return true
+	}
+	_ = ln.Close()
+	return false
+}
+
+// canStartWebServer 检查当前进程或系统端口是否允许启动 Web 服务
+func canStartWebServer() bool {
+	if s != nil {
+		tui.PrintCLIInfo("⚠️ 启动服务", "Web 服务已在当前进程中运行")
+		return false
+	}
+
+	if isWebPortInUse() {
+		port := config.Config.Server.Port
+		tui.PrintCLIInfo("⚠️ 启动服务", "Web 端口 "+port+" 已被占用，可能已有实例在运行")
+		return false
+	}
+
+	return true
+}
+
 // DoServe 启动服务
 func DoServe() {
+	if !canStartWebServer() {
+		return
+	}
+
 	// 创建 Ech0 服务器
 	s = server.New()
 	// 初始化 Ech0
@@ -33,6 +66,10 @@ func DoServe() {
 
 // DoServeWithBlock 阻塞当前线程，直到服务器停止
 func DoServeWithBlock() {
+	if !canStartWebServer() {
+		return
+	}
+
 	// 创建 Ech0 服务器
 	s = server.New()
 	// 初始化 Ech0
@@ -53,7 +90,18 @@ func DoServeWithBlock() {
 		tui.PrintCLIInfo("❌ 服务停止", "服务器强制关闭")
 		os.Exit(1)
 	}
+	s = nil
 	tui.PrintCLIInfo("🎉 停止服务成功", "Ech0 服务器已停止")
+}
+
+// DoServeWithSSHAndBlock 启动 SSH 和 Web，并阻塞当前线程
+func DoServeWithSSHAndBlock() {
+	if !canStartWebServer() {
+		return
+	}
+
+	DoSSH()
+	DoServeWithBlock()
 }
 
 // DoStopServe 停止服务
@@ -152,10 +200,12 @@ func DoTui() {
 		var action string
 		var options []huh.Option[string]
 
-		if s == nil {
-			options = append(options, huh.NewOption("🚀 启动 Web 服务", "serve"))
-		} else {
+		if s != nil {
 			options = append(options, huh.NewOption("🛑 停止 Web 服务", "stopserve"))
+		} else if isWebPortInUse() {
+			options = append(options, huh.NewOption("🙈 服务已在其他进程中运行", "servebusy"))
+		} else {
+			options = append(options, huh.NewOption("🚀 启动 Web 服务", "serve"))
 		}
 
 		if ssh.SSHServer != nil {
@@ -186,6 +236,8 @@ func DoTui() {
 		case "serve":
 			tui.ClearScreen()
 			DoServe()
+		case "servebusy":
+			tui.PrintCLIInfo("ℹ️ Web 服务状态", "当前 Web 服务由其他进程运行，无法在此进程内停止")
 		case "ssh":
 			DoSSH()
 		case "stopserve":

@@ -10,8 +10,7 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "启动 Web 和 SSH 服务",
 	Run: func(cmd *cobra.Command, args []string) {
-		cli.DoSSH()
-		cli.DoServeWithBlock()
+		cli.DoServeWithSSHAndBlock()
 	},
 }
 
