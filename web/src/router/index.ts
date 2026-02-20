@@ -89,6 +89,11 @@ const router = createRouter({
       component: () => import('../views/hub/HubView.vue'),
     },
     {
+      path: '/zone/:echoId?',
+      name: 'zone',
+      component: () => import('../views/zone/ZoneView.vue'),
+    },
+    {
       path: '/echo/:echoId',
       name: 'echo',
       component: () => import('../views/echo/EchoView.vue'),
