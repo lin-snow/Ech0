@@ -229,14 +229,25 @@ onMounted(() => {
 }
 
 .zone-bg {
-  background:
-    radial-gradient(circle at 50% 50%, rgba(235, 238, 243, 0.9), rgba(214, 219, 228, 0.95)),
-    linear-gradient(rgba(255, 255, 255, 0.2) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-color: #cfd6e0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(230, 236, 244, 0.35) 35%,
+      rgba(192, 201, 214, 0.5) 72%,
+      rgba(154, 166, 184, 0.7) 100%
+    );
   background-size:
-    auto,
-    24px 24px,
-    24px 24px;
+    40px 40px,
+    40px 40px,
+    100% 100%;
+  background-position:
+    0 0,
+    0 0,
+    center;
 }
 
 .zone-title {

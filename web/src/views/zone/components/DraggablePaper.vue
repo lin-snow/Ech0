@@ -72,12 +72,12 @@
 
           <div
             v-if="hasMetadataBlock"
-            class="mt-3 pt-2 border-t border-dashed border-gray-400/25 text-[9px] leading-[1.35] text-gray-500 whitespace-pre-wrap break-words font-mono"
+            class="mt-3 pt-2 border-t border-dashed border-gray-300/20 text-[8px] leading-[1.3] text-gray-400 whitespace-pre-wrap break-words font-mono"
           >
             {{ printableMetadataText }}
             <span
               v-if="data.isTyping"
-              class="inline-block w-2 h-3 bg-gray-500 ml-0.5 animate-pulse align-middle opacity-60"
+              class="inline-block w-2 h-3 bg-gray-400 ml-0.5 animate-pulse align-middle opacity-45"
             ></span>
           </div>
 
@@ -116,15 +116,17 @@ const isDragging = ref(false)
 const dragOffset = ref<Coordinates>({ x: 0, y: 0 })
 const displayedText = ref('')
 const textIndex = ref(0)
-const typingTimeout = ref<number | null>(null)
+const typingRaf = ref<number | null>(null)
+const typingProgress = ref(0)
+const typingStartAt = ref(0)
+const typingDuration = ref(1)
 const cardRef = ref<HTMLDivElement | null>(null)
 
-const progress = computed(() => {
-  if (!props.data.text.length) return 0
-  return displayedText.value.length / props.data.text.length
-})
-
-const typingTranslateY = computed(() => 100 - progress.value * 85)
+const HIDDEN_OFFSET_PX = 220
+const HOLD_OFFSET_PX = 32
+const typingTranslateY = computed(
+  () => HIDDEN_OFFSET_PX - typingProgress.value * (HIDDEN_OFFSET_PX - HOLD_OFFSET_PX),
+)
 
 const dateObj = computed(() => new Date(props.data.timestamp))
 const dateStr = computed(() =>
@@ -147,11 +149,11 @@ const containerStyle = computed(() => ({
 }))
 
 const animationWrapperStyle = computed(() => ({
-  transform: props.data.isTyping ? `translateY(${typingTranslateY.value}%)` : undefined,
+  transform: props.data.isTyping ? `translateY(${typingTranslateY.value}px)` : undefined,
   animation: !props.data.isTyping
     ? 'ejecting 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards'
     : 'none',
-  transition: props.data.isTyping ? 'transform 0.1s linear' : 'none',
+  transition: props.data.isTyping ? 'none' : 'none',
   transformOrigin: 'bottom center',
 }))
 
@@ -186,49 +188,65 @@ const printableMetadataText = computed(() => {
 
 const hasMetadataBlock = computed(() => printableMetadataText.value.length > 0)
 
-const clearTypingTimeout = () => {
-  if (typingTimeout.value !== null) {
-    clearTimeout(typingTimeout.value)
-    typingTimeout.value = null
+const clearTypingRaf = () => {
+  if (typingRaf.value !== null) {
+    cancelAnimationFrame(typingRaf.value)
+    typingRaf.value = null
   }
 }
 
-const scheduleTyping = () => {
-  const { text } = props.data
-  if (textIndex.value >= text.length) {
+const getTypingDuration = (length: number) => {
+  if (length > 150) return Math.max(700, length * 10)
+  if (length > 50) return Math.max(900, length * 22)
+  return Math.max(1100, length * 45)
+}
+
+const startTyping = () => {
+  const text = props.data.text
+  if (!text.length) {
+    typingProgress.value = 1
     emit('update', props.data.id, { isTyping: false })
     return
   }
 
-  displayedText.value += text.charAt(textIndex.value)
-  textIndex.value += 1
+  displayedText.value = ''
+  textIndex.value = 0
+  typingProgress.value = 0
+  typingStartAt.value = performance.now()
+  typingDuration.value = getTypingDuration(text.length)
 
-  const length = text.length
-  let minDelay = 30
-  let variance = 50
+  const tick = (now: number) => {
+    const elapsed = now - typingStartAt.value
+    const progress = Math.min(elapsed / typingDuration.value, 1)
+    typingProgress.value = progress
 
-  if (length > 150) {
-    minDelay = 5
-    variance = 15
-  } else if (length > 50) {
-    minDelay = 15
-    variance = 25
+    const nextIndex = Math.min(text.length, Math.floor(progress * text.length))
+    if (nextIndex !== textIndex.value) {
+      textIndex.value = nextIndex
+      displayedText.value = text.slice(0, nextIndex)
+    }
+
+    if (progress >= 1 && nextIndex >= text.length) {
+      emit('update', props.data.id, { isTyping: false })
+      typingRaf.value = null
+      return
+    }
+
+    typingRaf.value = requestAnimationFrame(tick)
   }
 
-  const delay = Math.random() * variance + minDelay
-  typingTimeout.value = window.setTimeout(scheduleTyping, delay)
+  typingRaf.value = requestAnimationFrame(tick)
 }
 
 watch(
   () => [props.data.isTyping, props.data.text, props.data.id],
   ([isTyping]) => {
-    clearTypingTimeout()
+    clearTypingRaf()
     if (isTyping) {
-      displayedText.value = ''
-      textIndex.value = 0
-      typingTimeout.value = window.setTimeout(scheduleTyping, 100)
+      startTyping()
       return
     }
+    typingProgress.value = 1
     displayedText.value = props.data.text
   },
   { immediate: true },
@@ -272,7 +290,7 @@ const handleMouseDown = (e: MouseEvent) => {
 }
 
 onBeforeUnmount(() => {
-  clearTypingTimeout()
+  clearTypingRaf()
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
 })
@@ -281,10 +299,10 @@ onBeforeUnmount(() => {
 <style scoped>
 @keyframes ejecting {
   0% {
-    transform: translateY(15%);
+    transform: translateY(32px);
   }
   50% {
-    transform: translateY(-5%);
+    transform: translateY(-8px);
   }
   100% {
     transform: translateY(0);
