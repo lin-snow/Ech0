@@ -6,6 +6,16 @@ interface ZonePrintPayload {
   text: string
 }
 
+interface PrintableEcho {
+  id: number | string
+  content?: string | null
+  created_at?: string | null
+  tags?: Array<{ name?: string | null }> | null
+  images?: unknown[] | null
+  extension?: string | null
+  extension_type?: string | null
+}
+
 const MAX_PRINT_LENGTH = 2000
 const EXTENSION_LABEL_MAP: Record<string, string> = {
   GITHUBPROJ: 'GitHub',
@@ -14,7 +24,7 @@ const EXTENSION_LABEL_MAP: Record<string, string> = {
   MUSIC: 'Music',
 }
 
-const buildPrintableEchoText = (echo: App.Api.Ech0.Echo): string => {
+const buildPrintableEchoText = (echo: PrintableEcho): string => {
   const content = echo.content?.trim() || ''
   const imageCount = Array.isArray(echo.images) ? echo.images.length : 0
   const hasExtension = Boolean(echo.extension)
@@ -52,7 +62,7 @@ const buildPrintableEchoText = (echo: App.Api.Ech0.Echo): string => {
 export const useZoneStore = defineStore('zoneStore', () => {
   const pendingPrint = ref<ZonePrintPayload | null>(null)
 
-  const setPendingPrintEcho = (echo: App.Api.Ech0.Echo) => {
+  const setPendingPrintEcho = (echo: PrintableEcho) => {
     const text = buildPrintableEchoText(echo)
     const normalized = text.trim()
     if (!normalized) return
