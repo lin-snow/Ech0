@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterView, useRouter } from 'vue-router'
-import { onMounted, ref } from 'vue'
-import { watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { Toaster } from 'vue-sonner'
@@ -10,6 +9,7 @@ import 'vue-sonner/style.css'
 import BaseDialog from './components/common/BaseDialog.vue'
 
 import { useBaseDialog } from '@/composables/useBaseDialog'
+import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
 
 const { register, title, description, handleConfirm } = useBaseDialog()
 const dialogRef = ref()
@@ -17,9 +17,20 @@ const dialogRef = ref()
 // 路由切换动画
 const router = useRouter()
 const transitionName = ref('fade')
+const { isBfCacheRestore } = useBfCacheRestore({
+  debug: true,
+  onRestore: () => {
+    transitionName.value = 'none'
+  },
+})
 
 // 监听路由变化，根据导航方向选择动画
 router.afterEach((to, from) => {
+  if (isBfCacheRestore.value) {
+    transitionName.value = 'none'
+    return
+  }
+
   // Panel 子页面之间切换不使用动画
   const toName = to.name as string
   const fromName = from.name as string
@@ -129,9 +140,9 @@ onMounted(() => {
 
 <template>
   <!-- 路由视图 - 带切换动画 -->
-  <RouterView v-slot="{ Component, route }">
+  <RouterView v-slot="{ Component }">
     <Transition :name="transitionName" mode="out-in">
-      <component :is="Component" :key="route.path" />
+      <component :is="Component" />
     </Transition>
   </RouterView>
   <!-- 通知组件 -->

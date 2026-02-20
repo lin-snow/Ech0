@@ -46,6 +46,7 @@ import { onMounted, ref, onBeforeUnmount } from 'vue'
 import { useUserStore, useTodoStore, useEchoStore, useSettingStore, useInboxStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import TheAudioCard from '@/components/advanced/TheAudioCard.vue'
+import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
 
 const todoStore = useTodoStore()
 const userStore = useUserStore()
@@ -72,13 +73,23 @@ const updatePosition = () => {
   }
 }
 
+const schedulePositionUpdate = () => {
+  runWithBfCacheGuard(updatePosition, 120)
+}
+
+const { runWithBfCacheGuard } = useBfCacheRestore({
+  onRestore: () => {
+    schedulePositionUpdate()
+  },
+})
+
 onMounted(async () => {
   // 监听窗口大小变化
-  updatePosition()
-  window.addEventListener('resize', updatePosition)
+  schedulePositionUpdate()
+  window.addEventListener('resize', schedulePositionUpdate)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', updatePosition)
+  window.removeEventListener('resize', schedulePositionUpdate)
 })
 </script>

@@ -60,6 +60,7 @@ import { onMounted, watch, computed, ref, onBeforeUnmount, nextTick } from 'vue'
 import { useHubStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
+import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
 
 const router = useRouter()
 const route = useRoute()
@@ -100,6 +101,16 @@ const updatePosition = () => {
     }
   }
 }
+
+const schedulePositionUpdate = () => {
+  runWithBfCacheGuard(updatePosition, 120)
+}
+
+const { runWithBfCacheGuard } = useBfCacheRestore({
+  onRestore: () => {
+    schedulePositionUpdate()
+  },
+})
 
 // --- 滚动到底部检测 ---
 let ticking = false
@@ -142,9 +153,9 @@ const ensureScrollable = async () => {
 onMounted(async () => {
   // 监听窗口大小变化
   updateShowBackTop()
-  updatePosition()
+  schedulePositionUpdate()
   window.addEventListener('scroll', onScroll)
-  window.addEventListener('resize', updatePosition)
+  window.addEventListener('resize', schedulePositionUpdate)
 
   // 获取 Hub 数据
   await hubStore.getHubList()
@@ -162,6 +173,6 @@ watch(echoList, () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
-  window.removeEventListener('resize', updatePosition)
+  window.removeEventListener('resize', schedulePositionUpdate)
 })
 </script>
