@@ -35,7 +35,7 @@
             >继续装填</span
           >
         </BaseButton>
-        <TheBackTop class="w-8 h-8 p-1" />
+        <TheBackTop class="w-8 h-8 p-1" :target="scrollTarget" />
       </div>
     </Transition>
     <!-- 没有更多 -->
@@ -71,6 +71,10 @@ import { useEchoStore, useSettingStore } from '@/stores'
 import BaseButton from '@/components/common/BaseButton.vue'
 import TheBackTop from '@/components/advanced/TheBackTop.vue'
 import { storeToRefs } from 'pinia'
+
+defineProps<{
+  scrollTarget?: HTMLElement | null
+}>()
 
 const echoStore = useEchoStore()
 const settingStore = useSettingStore()

@@ -9,15 +9,18 @@
     </div>
     <div
       ref="mainColumn"
-      class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:56px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto"
+      class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:56px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto sm:[overscroll-behavior:contain]"
     >
       <div
         class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-2 bg-[var(--bg-color)]"
       >
         <TheTop class="sm:px-4" />
       </div>
-      <TheEchos v-if="!todoMode && !isFilteringMode && !inboxMode" />
-      <TheFilteredEchos v-else-if="!todoMode && isFilteringMode && !inboxMode" />
+      <TheEchos v-if="!todoMode && !isFilteringMode && !inboxMode" :scroll-target="mainColumn" />
+      <TheFilteredEchos
+        v-else-if="!todoMode && isFilteringMode && !inboxMode"
+        :scroll-target="mainColumn"
+      />
       <TheTodos v-else-if="todoMode && !inboxMode" />
       <TheInbox v-else />
     </div>
@@ -69,6 +72,8 @@ const { inboxMode } = storeToRefs(inboxStore)
 
 const mainColumn = ref<HTMLElement | null>(null)
 const backTopStyle = ref({ right: '100px' }) // 默认 fallback
+const TIMELINE_SCROLL_KEY = 'home:timeline:scrollTop'
+let timelineScrollRaf: number | null = null
 
 const updatePosition = () => {
   if (mainColumn.value) {
@@ -84,6 +89,25 @@ const schedulePositionUpdate = () => {
   runWithBfCacheGuard(updatePosition, 120)
 }
 
+const saveTimelineScrollPosition = () => {
+  if (!mainColumn.value || timelineScrollRaf !== null) return
+
+  timelineScrollRaf = window.requestAnimationFrame(() => {
+    timelineScrollRaf = null
+    if (!mainColumn.value) return
+    sessionStorage.setItem(TIMELINE_SCROLL_KEY, String(mainColumn.value.scrollTop))
+  })
+}
+
+const restoreTimelineScrollPosition = () => {
+  if (!mainColumn.value) return
+  const raw = sessionStorage.getItem(TIMELINE_SCROLL_KEY)
+  if (!raw) return
+  const scrollTop = Number(raw)
+  if (!Number.isFinite(scrollTop) || scrollTop < 0) return
+  mainColumn.value.scrollTop = scrollTop
+}
+
 const { runWithBfCacheGuard } = useBfCacheRestore({
   onRestore: () => {
     schedulePositionUpdate()
@@ -94,9 +118,22 @@ onMounted(async () => {
   // 监听窗口大小变化
   schedulePositionUpdate()
   window.addEventListener('resize', schedulePositionUpdate)
+  if (mainColumn.value) {
+    mainColumn.value.addEventListener('scroll', saveTimelineScrollPosition, { passive: true })
+  }
+  window.requestAnimationFrame(() => {
+    restoreTimelineScrollPosition()
+  })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', schedulePositionUpdate)
+  if (mainColumn.value) {
+    mainColumn.value.removeEventListener('scroll', saveTimelineScrollPosition)
+  }
+  if (timelineScrollRaf !== null) {
+    window.cancelAnimationFrame(timelineScrollRaf)
+    timelineScrollRaf = null
+  }
 })
 </script>

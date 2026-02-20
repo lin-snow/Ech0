@@ -11,7 +11,15 @@
 <script setup lang="ts">
 import Arrowup from '../icons/arrowup.vue'
 
+const props = defineProps<{
+  target?: HTMLElement | null
+}>()
+
 const scrollToTop = () => {
+  if (props.target) {
+    props.target.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 </script>

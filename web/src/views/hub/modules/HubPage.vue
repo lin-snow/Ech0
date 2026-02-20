@@ -1,7 +1,12 @@
 <template>
-  <div class="w-full px-2 pb-4 py-2 mt-4 sm:mt-6 mb-10 mx-auto flex justify-center items-center">
+  <div
+    class="w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex justify-center items-start sm:h-[100dvh] sm:overflow-hidden"
+  >
     <!-- Ech0s Hub -->
-    <div class="mx-auto px-2 text-[var(--text-color-next-200)] w-full">
+    <div
+      ref="mainColumn"
+      class="mx-auto px-2 text-[var(--text-color-next-200)] w-full sm:min-h-0 sm:h-full sm:overflow-y-auto sm:[overscroll-behavior:contain]"
+    >
       <h1
         class="text-4xl md:text-6xl italic font-bold font-serif text-center text-[var(--text-color-next-300)]"
       >
@@ -45,7 +50,7 @@
       :style="backTopStyle"
       class="hidden xl:block fixed bottom-6 z-50 transition-all duration-500 animate-fade-in"
     >
-      <TheBackTop class="w-8 h-8 p-1" />
+      <TheBackTop class="w-8 h-8 p-1" :target="mainColumn" />
     </div>
   </div>
 </template>
@@ -86,11 +91,17 @@ const { echoList, isLoading, isPreparing, hasMore, hasTriedInitialLoad } = store
 
 const mainColumn = ref<HTMLElement | null>(null)
 const backTopStyle = ref({ right: '100px' }) // 默认 fallback
-const showBackTop = ref(true) // 自定义条件
+const showBackTop = ref(false)
+const HUB_SCROLL_KEY = 'hub:timeline:scrollTop'
+let saveScrollTimer: number | null = null
 
 // 监听窗口滚动事件，判断是否显示回到顶部按钮
 const updateShowBackTop = () => {
-  showBackTop.value = window.scrollY > 300
+  if (!mainColumn.value) {
+    showBackTop.value = false
+    return
+  }
+  showBackTop.value = mainColumn.value.scrollTop > 300
 }
 const updatePosition = () => {
   if (mainColumn.value) {
@@ -119,14 +130,23 @@ const onScroll = () => {
   ticking = true
   requestAnimationFrame(() => {
     updateShowBackTop()
+    if (saveScrollTimer !== null) {
+      window.clearTimeout(saveScrollTimer)
+    }
+    saveScrollTimer = window.setTimeout(() => {
+      if (mainColumn.value) {
+        sessionStorage.setItem(HUB_SCROLL_KEY, String(mainColumn.value.scrollTop))
+      }
+      saveScrollTimer = null
+    }, 120)
 
-    if (isLoading.value || !hasMore.value) {
+    if (!mainColumn.value || isLoading.value || !hasMore.value) {
       ticking = false
       return
     }
 
-    const scrollPosition = window.scrollY + window.innerHeight
-    const fullHeight = document.documentElement.scrollHeight
+    const scrollPosition = mainColumn.value.scrollTop + mainColumn.value.clientHeight
+    const fullHeight = mainColumn.value.scrollHeight
     const threshold = 300
 
     if (scrollPosition + threshold >= fullHeight) {
@@ -140,30 +160,43 @@ const onScroll = () => {
 // --- 自动加载补全 ---
 const ensureScrollable = async () => {
   await nextTick()
-  const fullHeight = document.documentElement.scrollHeight
-  const windowHeight = window.innerHeight
+  if (!mainColumn.value) return
+  const fullHeight = mainColumn.value.scrollHeight
+  const containerHeight = mainColumn.value.clientHeight
 
   // 如果内容高度太短，继续加载直到可滚动或无更多数据
-  if (fullHeight <= windowHeight + 10 && hasMore.value && !isLoading.value) {
+  if (fullHeight <= containerHeight + 10 && hasMore.value && !isLoading.value) {
     await hubStore.loadEchoListPage()
     ensureScrollable()
   }
 }
 
+const restoreHubScrollPosition = () => {
+  if (!mainColumn.value) return
+  const raw = sessionStorage.getItem(HUB_SCROLL_KEY)
+  if (!raw) return
+  const scrollTop = Number(raw)
+  if (!Number.isFinite(scrollTop) || scrollTop < 0) return
+  mainColumn.value.scrollTop = scrollTop
+}
+
 onMounted(async () => {
   // 监听窗口大小变化
-  updateShowBackTop()
   schedulePositionUpdate()
-  window.addEventListener('scroll', onScroll)
   window.addEventListener('resize', schedulePositionUpdate)
+  if (mainColumn.value) {
+    mainColumn.value.addEventListener('scroll', onScroll, { passive: true })
+  }
 
   // 获取 Hub 数据
   await hubStore.getHubList()
   await hubStore.getHubInfoList()
-  hubStore.loadEchoListPage()
+  await hubStore.loadEchoListPage()
 
+  restoreHubScrollPosition()
   // 自动填充内容不足的情况
   ensureScrollable()
+  updateShowBackTop()
 })
 
 // 当 echoList 变化时，自动检测是否需要补充加载
@@ -172,7 +205,14 @@ watch(echoList, () => {
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', schedulePositionUpdate)
+  if (mainColumn.value) {
+    mainColumn.value.removeEventListener('scroll', onScroll)
+    sessionStorage.setItem(HUB_SCROLL_KEY, String(mainColumn.value.scrollTop))
+  }
+  if (saveScrollTimer !== null) {
+    window.clearTimeout(saveScrollTimer)
+    saveScrollTimer = null
+  }
 })
 </script>
