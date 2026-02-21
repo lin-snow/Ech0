@@ -216,6 +216,7 @@ export const useHubStore = defineStore('hubStore', () => {
         createdTs: new Date(echo.created_at).getTime(),
         server_name: hubInfoMap.value.get(hubUrl)?.server_name || 'Ech0',
         server_url: hubUrl,
+        virtual_key: `${hubUrl}-${echo.id}`,
         logo: hubInfoMap.value.get(hubUrl)?.logo || '/Ech0.svg',
       }))
 

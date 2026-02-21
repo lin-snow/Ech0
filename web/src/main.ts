@@ -1,5 +1,6 @@
 import 'virtual:uno.css'
 import '@/themes/index.scss'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 import { initStores } from './stores'
 

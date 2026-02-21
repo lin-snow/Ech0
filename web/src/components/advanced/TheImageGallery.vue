@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed, watch } from 'vue'
 import { getImageUrl, getHubImageUrl } from '@/utils/other'
 import { Fancybox } from '@fancyapps/ui'
 import '@fancyapps/ui/dist/fancybox/fancybox.css'
@@ -129,13 +129,20 @@ const props = defineProps<{
   layout?: ImageLayout | string | undefined
 }>()
 
-const baseUrl = props.baseUrl
+const baseUrl = computed(() => props.baseUrl)
 
 // 布局状态（来自 props.layout）
-const layout = props.layout || ImageLayout.WATERFALL
+const layout = computed(() => props.layout || ImageLayout.WATERFALL)
 
 // 轮播索引
 const carouselIndex = ref(0)
+
+watch(
+  () => [props.images, props.layout, props.baseUrl],
+  () => {
+    carouselIndex.value = 0
+  },
+)
 
 // 只显示前 9 张（用于九宫格），第 9 张显示 "+N" 覆盖层
 const displayedImages = computed(() => (props.images ? props.images.slice(0, 9) : []))
@@ -160,9 +167,9 @@ const nextCarousel = () => {
 
 function openFancybox(startIndex: number) {
   const items = (props.images || []).map((src) => ({
-    src: baseUrl ? getHubImageUrl(src, baseUrl) : getImageUrl(src),
+    src: baseUrl.value ? getHubImageUrl(src, baseUrl.value) : getImageUrl(src),
     type: 'image' as const,
-    thumb: baseUrl ? getHubImageUrl(src, baseUrl) : getImageUrl(src),
+    thumb: baseUrl.value ? getHubImageUrl(src, baseUrl.value) : getImageUrl(src),
   }))
 
   Fancybox.show(items, {

@@ -17,10 +17,33 @@
         </BaseButton>
       </div>
 
-      <div v-if="echoList.length > 0 && !isPreparing" class="space-y-6">
-        <div v-for="echo in echoList" :key="echo.id" class="flex justify-center items-center">
-          <TheHubEcho :echo="echo" class="hover:shadow-md" />
-        </div>
+      <div v-if="echoList.length > 0 && !isPreparing">
+        <DynamicScroller
+          class="hub-dynamic-scroller"
+          :items="echoList"
+          key-field="virtual_key"
+          :min-item-size="320"
+          :emit-update="true"
+          :page-mode="true"
+          @update="onScrollerUpdate"
+          v-slot="{ item, index, active }"
+        >
+          <DynamicScrollerItem
+            :item="item"
+            :active="active"
+            :size-dependencies="[
+              item.content?.length ?? 0,
+              item.images?.length ?? 0,
+              item.extension_type ?? '',
+              item.layout ?? '',
+            ]"
+            :data-index="index"
+          >
+            <div class="flex justify-center items-center py-3">
+              <TheHubEcho :key="item.virtual_key" :echo="item" class="hover:shadow-md" />
+            </div>
+          </DynamicScrollerItem>
+        </DynamicScroller>
       </div>
 
       <div v-if="isLoading || isPreparing" class="my-6">
@@ -61,6 +84,7 @@ import { useHubStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
 import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 
 const router = useRouter()
 const route = useRoute()
@@ -152,6 +176,10 @@ const onScroll = () => {
   })
 }
 
+const onScrollerUpdate = () => {
+  onScroll()
+}
+
 // --- 自动加载补全 ---
 const ensureScrollable = async () => {
   if (ensuringScrollable) return
@@ -218,3 +246,9 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+.hub-dynamic-scroller {
+  width: 100%;
+}
+</style>

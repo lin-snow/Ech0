@@ -501,6 +501,7 @@ declare namespace App {
         fav_count: number
         created_at: string
         createdTs: number
+        virtual_key: string
         server_name: string
         server_url: string
         logo: string

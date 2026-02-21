@@ -178,7 +178,7 @@ import TheWebsiteCard from './TheWebsiteCard.vue'
 import TheImageGallery from './TheImageGallery.vue'
 import 'md-editor-v3/lib/preview.css'
 import { MdPreview } from 'md-editor-v3'
-import { onMounted, computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ExtensionType, ImageLayout } from '@/enums/enums'
 import { formatDate } from '@/utils/other'
 import { useThemeStore, useZoneStore } from '@/stores'
@@ -209,11 +209,18 @@ const previewOptions = {
 }
 
 const fav_count = ref<number>(props.echo.fav_count)
-const server_url = props.echo.server_url
-const echo_id = props.echo.id
+const server_url = computed(() => props.echo.server_url)
+const echo_id = computed(() => props.echo.id)
 const isLikeAnimating = ref(false)
 const isPrintAnimating = ref(false)
-const LIKE_LIST_KEY = server_url + '_liked_echo_ids'
+const LIKE_LIST_KEY = computed(() => `${server_url.value}_liked_echo_ids`)
+
+watch(
+  () => props.echo.fav_count,
+  (next) => {
+    fav_count.value = next
+  },
+)
 
 const handleLikeEcho = async () => {
   isLikeAnimating.value = true
@@ -222,15 +229,15 @@ const handleLikeEcho = async () => {
   }, 250)
 
   // 如果已经点赞过，不再重复点赞
-  const likedEchoIds: number[] = localStg.getItem(LIKE_LIST_KEY) || []
-  if (likedEchoIds.includes(echo_id)) {
+  const likedEchoIds: number[] = localStg.getItem(LIKE_LIST_KEY.value) || []
+  if (likedEchoIds.includes(echo_id.value)) {
     theToast.info('你已经点赞过')
     return
   }
 
   // 调用后端接口，点赞
   const { error, data } = await useFetch<App.Api.Response<null>>(
-    `${server_url}/api/echo/like/${echo_id}`,
+    `${server_url.value}/api/echo/like/${echo_id.value}`,
   )
     .put()
     .json()
@@ -239,8 +246,8 @@ const handleLikeEcho = async () => {
     theToast.error('点赞失败')
   } else {
     fav_count.value += 1
-    likedEchoIds.push(echo_id)
-    localStg.setItem(LIKE_LIST_KEY, likedEchoIds)
+    likedEchoIds.push(echo_id.value)
+    localStg.setItem(LIKE_LIST_KEY.value, likedEchoIds)
     theToast.success('点赞成功')
   }
 }
@@ -268,7 +275,6 @@ const handlePrintEcho = () => {
   router.push({ name: 'zone' })
 }
 
-onMounted(() => {})
 </script>
 
 <style scoped lang="css">
