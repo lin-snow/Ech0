@@ -9,8 +9,11 @@
     @pointerdown="handlePointerDown"
   >
     <div :style="animationWrapperStyle">
-      <div class="relative shadow-md" :style="paperStyle">
-        <div class="absolute -top-1.5 left-0 w-full h-3 serrated-top"></div>
+      <div class="relative shadow-md" :class="{ 'paper-ios-safe': useSafeRender }" :style="paperStyle">
+        <div
+          class="absolute -top-1.5 left-0 w-full h-3"
+          :class="useSafeRender ? 'serrated-top-fallback' : 'serrated-top'"
+        ></div>
 
         <div class="px-5 py-6 relative overflow-hidden">
           <div
@@ -28,7 +31,8 @@
 
           <button
             v-if="!data.isTyping"
-            class="absolute top-2 right-2 text-gray-400 hover:text-red-600 transition-colors z-10 mix-blend-multiply"
+            class="absolute top-2 right-2 text-gray-400 hover:text-red-600 transition-colors z-10"
+            :class="useSafeRender ? '' : 'mix-blend-multiply'"
             @mousedown.stop
             @pointerdown.stop
             @click.stop="emit('delete', data.id)"
@@ -85,12 +89,18 @@
           <div
             class="mt-5 pt-3 border-t border-gray-400/30 flex justify-between items-end opacity-50 text-gray-700"
           >
-            <div class="h-3 w-20 bg-current opacity-30 barcode-mask"></div>
+            <div
+              class="h-3 w-20 opacity-30"
+              :class="useSafeRender ? 'barcode-fallback bg-current' : 'bg-current barcode-mask'"
+            ></div>
             <span class="text-[8px] font-mono tracking-wide">END OF TRANSMISSION</span>
           </div>
         </div>
 
-        <div class="absolute -bottom-1.5 left-0 w-full h-3 serrated-bottom"></div>
+        <div
+          class="absolute -bottom-1.5 left-0 w-full h-3"
+          :class="useSafeRender ? 'serrated-bottom-fallback' : 'serrated-bottom'"
+        ></div>
       </div>
     </div>
   </div>
@@ -122,6 +132,35 @@ const typingProgress = ref(0)
 const typingStartAt = ref(0)
 const typingDuration = ref(1)
 const cardRef = ref<HTMLDivElement | null>(null)
+const isIOSWebkit = /iP(ad|hone|od)/.test(navigator.userAgent)
+const dragSettling = ref(false)
+let renderRestoreTimer: number | null = null
+
+const clearRenderRestoreTimer = () => {
+  if (renderRestoreTimer !== null) {
+    window.clearTimeout(renderRestoreTimer)
+    renderRestoreTimer = null
+  }
+}
+
+const setSafeRenderMode = (active: boolean) => {
+  if (!isIOSWebkit) return
+  clearRenderRestoreTimer()
+
+  if (active) {
+    dragSettling.value = false
+    return
+  }
+
+  // 松手后短暂保持安全模式，避免 iOS 合成层闪烁
+  dragSettling.value = true
+  renderRestoreTimer = window.setTimeout(() => {
+    dragSettling.value = false
+    renderRestoreTimer = null
+  }, 120)
+}
+
+const useSafeRender = computed(() => isIOSWebkit && (isDragging.value || dragSettling.value))
 
 const HIDDEN_OFFSET_PX = 220
 const HOLD_OFFSET_PX = 32
@@ -146,8 +185,11 @@ const containerStyle = computed(() => ({
   transform: `rotate(${props.data.rotation}deg) scale(${isDragging.value ? 1.05 : 1})`,
   transition: isDragging.value
     ? 'none'
-    : 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease-out',
-  filter: isDragging.value ? 'drop-shadow(0 10px 25px rgba(0,0,0,0.3))' : 'none',
+    : `transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), ${
+        useSafeRender.value ? 'box-shadow' : 'filter'
+      } 0.2s ease-out`,
+  boxShadow: useSafeRender.value && isDragging.value ? '0 10px 25px rgba(0,0,0,0.3)' : 'none',
+  filter: !useSafeRender.value && isDragging.value ? 'drop-shadow(0 10px 25px rgba(0,0,0,0.3))' : 'none',
 }))
 
 const animationWrapperStyle = computed(() => ({
@@ -159,10 +201,11 @@ const animationWrapperStyle = computed(() => ({
   transformOrigin: 'bottom center',
 }))
 
-const paperStyle = {
+const paperStyle = computed(() => ({
   backgroundColor: PAPER_COLOR,
-  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
-}
+  boxShadow: useSafeRender.value ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+  filter: useSafeRender.value ? 'none' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+}))
 
 const stampStyle = computed(() => ({
   right: `${props.data.stampPosition?.x ?? 0}px`,
@@ -275,6 +318,7 @@ const onPointerMove = (e: PointerEvent) => {
 
 const onPointerUp = () => {
   isDragging.value = false
+  setSafeRenderMode(false)
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('pointercancel', onPointerUp)
@@ -284,6 +328,7 @@ const handlePointerDown = (e: PointerEvent) => {
   if (e.button !== 0) return
   e.stopPropagation()
   emit('focus', true)
+  setSafeRenderMode(true)
   isDragging.value = true
   dragOffset.value = {
     x: e.clientX - props.data.x,
@@ -296,6 +341,7 @@ const handlePointerDown = (e: PointerEvent) => {
 
 onBeforeUnmount(() => {
   clearTypingRaf()
+  clearRenderRestoreTimer()
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('pointercancel', onPointerUp)
@@ -342,5 +388,27 @@ onBeforeUnmount(() => {
 .barcode-mask {
   mask-image: linear-gradient(90deg, black 50%, transparent 50%);
   mask-size: 3px 100%;
+  -webkit-mask-image: linear-gradient(90deg, black 50%, transparent 50%);
+  -webkit-mask-size: 3px 100%;
+}
+
+.serrated-top-fallback,
+.serrated-bottom-fallback {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 7px,
+    rgba(0, 0, 0, 0.08) 7px 10px
+  );
+  opacity: 0.18;
+}
+
+.barcode-fallback {
+  background-image: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 4px);
+}
+
+.paper-ios-safe {
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 </style>
