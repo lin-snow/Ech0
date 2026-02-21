@@ -274,7 +274,6 @@ const handlePrintEcho = () => {
   })
   router.push({ name: 'zone' })
 }
-
 </script>
 
 <style scoped lang="css">

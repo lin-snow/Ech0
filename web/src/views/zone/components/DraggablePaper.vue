@@ -9,7 +9,11 @@
     @pointerdown="handlePointerDown"
   >
     <div :style="animationWrapperStyle">
-      <div class="relative shadow-md" :class="{ 'paper-ios-safe': useSafeRender }" :style="paperStyle">
+      <div
+        class="relative shadow-md"
+        :class="{ 'paper-ios-safe': useSafeRender }"
+        :style="paperStyle"
+      >
         <div
           class="absolute -top-1.5 left-0 w-full h-3"
           :class="useSafeRender ? 'serrated-top-fallback' : 'serrated-top'"
@@ -189,7 +193,8 @@ const containerStyle = computed(() => ({
         useSafeRender.value ? 'box-shadow' : 'filter'
       } 0.2s ease-out`,
   boxShadow: useSafeRender.value && isDragging.value ? '0 10px 25px rgba(0,0,0,0.3)' : 'none',
-  filter: !useSafeRender.value && isDragging.value ? 'drop-shadow(0 10px 25px rgba(0,0,0,0.3))' : 'none',
+  filter:
+    !useSafeRender.value && isDragging.value ? 'drop-shadow(0 10px 25px rgba(0,0,0,0.3))' : 'none',
 }))
 
 const animationWrapperStyle = computed(() => ({

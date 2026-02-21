@@ -1,5 +1,7 @@
 <template>
-  <div class="w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex justify-center items-start">
+  <div
+    class="w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex justify-center items-start"
+  >
     <!-- Ech0s Hub -->
     <div ref="mainColumn" class="mx-auto px-2 text-[var(--text-color-next-200)] w-full">
       <h1
