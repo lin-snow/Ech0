@@ -105,20 +105,21 @@
     </div>
 
     <!-- 日期时间 && 操作按钮 -->
-    <div class="flex justify-between items-center">
-      <!-- 日期时间 -->
-      <div class="flex justify-start items-center h-auto">
-        <div class="flex justify-start text-sm text-slate-500 mr-1">
+    <div class="flex items-center justify-between gap-2">
+      <div class="min-w-0 flex flex-1 items-center overflow-hidden">
+        <div class="min-w-0 truncate whitespace-nowrap text-sm text-slate-500">
           {{ formatDate(props.echo.created_at) }}
         </div>
-        <!-- 标签 -->
-        <div class="text-sm text-[var(--text-color-300)] w-18 truncate text-nowrap">
-          <span>{{ props.echo.tags ? `#${props.echo.tags[0]?.name}` : '' }}</span>
+        <div
+          v-if="props.echo.tags?.[0]?.name"
+          class="hidden min-w-0 flex-shrink truncate whitespace-nowrap text-xs text-[var(--text-color-300)] sm:block sm:ml-1"
+        >
+          #{{ props.echo.tags[0]?.name }}
         </div>
       </div>
 
       <!-- 操作按钮 -->
-      <div ref="menuRef" class="relative flex items-center justify-center gap-2 h-auto">
+      <div ref="menuRef" class="relative flex h-auto flex-none items-center justify-center gap-2">
         <!-- 跳转 -->
         <a :href="`${server_url}/echo/${echo_id}`" target="_blank" title="跳转至该 Echo">
           <LinkTo class="w-4 h-4" />
