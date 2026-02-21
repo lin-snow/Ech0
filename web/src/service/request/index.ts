@@ -27,7 +27,9 @@ const ofetchInstance = ofetch.create({
     if (token && token.length > 0 && !isDirectUrl) {
       options.headers.append('Authorization', token)
     }
-    options.headers.set('X-Timezone', timezone)
+    if (!isDirectUrl) {
+      options.headers.set('X-Timezone', timezone)
+    }
 
     // 清空请求头
     options.headers.delete('X-Direct-URL')

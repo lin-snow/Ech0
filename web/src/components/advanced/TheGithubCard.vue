@@ -42,23 +42,54 @@ import Star from '../icons/star.vue'
 import Fork from '../icons/fork.vue'
 import { fetchGetGithubRepo } from '@/service/api'
 import { onMounted, ref } from 'vue'
+
+const githubRepoCache = new Map<string, App.Api.Ech0.GithubCardData | null>()
+const githubRepoInFlight = new Map<string, Promise<App.Api.Ech0.GithubCardData | null>>()
+
 const props = defineProps<{
   GithubURL: string
 }>()
 
 // 处理GithubURL(提取owner和repo)
-const [ownerRaw, repoRaw] = props.GithubURL.split('/').slice(-2)
+const githubUrlSegments = props.GithubURL.split('/').filter(Boolean)
+const [ownerRaw, repoRaw] = githubUrlSegments.slice(-2)
 const owner = ownerRaw ?? ''
 const repo = repoRaw ?? ''
 const CardData = ref<App.Api.Ech0.GithubCardData>()
+const repoKey = `${owner}/${repo}`
+
+const loadGithubRepo = async () => {
+  if (!owner || !repo) {
+    return
+  }
+
+  if (githubRepoCache.has(repoKey)) {
+    const cachedData = githubRepoCache.get(repoKey)
+    if (cachedData) {
+      CardData.value = cachedData
+    }
+    return
+  }
+
+  if (!githubRepoInFlight.has(repoKey)) {
+    const task = fetchGetGithubRepo({ owner, repo })
+      .then((res) => res ?? null)
+      .catch(() => null)
+      .finally(() => {
+        githubRepoInFlight.delete(repoKey)
+      })
+    githubRepoInFlight.set(repoKey, task)
+  }
+
+  const repoData = await githubRepoInFlight.get(repoKey)
+  githubRepoCache.set(repoKey, repoData ?? null)
+  if (repoData) {
+    CardData.value = repoData
+  }
+}
 
 onMounted(() => {
-  fetchGetGithubRepo({ owner, repo }).then((res) => {
-    if (res) {
-      CardData.value = res
-      // console.log('CardData', CardData.value)
-    }
-  })
+  void loadGithubRepo()
 })
 </script>
 
