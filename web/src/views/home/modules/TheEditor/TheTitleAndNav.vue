@@ -2,14 +2,20 @@
   <div class="flex justify-between items-center py-1 px-3">
     <div class="flex flex-row items-center gap-2 justify-between">
       <!-- <div class="text-xl">👾</div> -->
-      <div>
+      <button
+        type="button"
+        class="inline-flex rounded-full transition-transform duration-200 hover:scale-105 active:scale-95"
+        :title="isZenMode ? '退出 Zen Mode' : '进入 Zen Mode'"
+        :aria-pressed="isZenMode"
+        @click="handleZenModeToggle"
+      >
         <img
           :src="logo"
           alt="logo"
           loading="lazy"
           class="w-6 sm:w-7 h-6 sm:h-7 rounded-full ring-1 ring-[var(--ring-color)] shadow-sm object-cover"
         />
-      </div>
+      </button>
       <h1 class="text-[var(--editor-title-color)] font-bold sm:text-xl">
         {{ SystemSetting.server_name }}
       </h1>
@@ -39,16 +45,18 @@ import Hello from '@/components/icons/hello.vue'
 import { storeToRefs } from 'pinia'
 import { ref } from 'vue'
 import { fetchHelloEch0 } from '@/service/api'
-import { useSettingStore, useThemeStore, useUserStore } from '@/stores'
+import { useSettingStore, useThemeStore, useUserStore, useZenStore } from '@/stores'
 import { getApiUrl } from '@/service/request/shared'
 import { theToast } from '@/utils/toast'
 
 const settingStore = useSettingStore()
 const themeStore = useThemeStore()
 const userStore = useUserStore()
+const zenStore = useZenStore()
 
 const { SystemSetting } = storeToRefs(settingStore)
 const { user, isLogin } = storeToRefs(userStore)
+const { isZenMode } = storeToRefs(zenStore)
 
 const apiUrl = getApiUrl()
 const logo = ref<string>('/Ech0.svg')
@@ -86,6 +94,10 @@ const handleHello = async (event: MouseEvent) => {
       })
     }
   })
+}
+
+const handleZenModeToggle = async () => {
+  await zenStore.toggleZenMode()
 }
 </script>
 

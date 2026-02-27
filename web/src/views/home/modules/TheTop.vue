@@ -23,6 +23,15 @@
           <p class="text-nowrap truncate">{{ filteredTag.name }}</p>
           <Close class="inline w-4 h-4 ml-1" />
         </div>
+        <button
+          v-if="isZenMode"
+          type="button"
+          title="退出 Zen Mode"
+          class="h-8 px-2 text-xs text-[var(--text-color-400)] border border-[var(--border-color-300)] rounded-md hover:line-through hover:text-[var(--text-color-500)] hover:border-[var(--text-color-300)] transition-colors duration-200"
+          @click="handleExitZenMode"
+        >
+          Zen
+        </button>
       </div>
 
       <!-- 右侧图标组 -->
@@ -66,15 +75,17 @@ import Panel from '@/components/icons/panel.vue'
 import Rss from '@/components/icons/rss.vue'
 import HubIcon from '@/components/icons/hub.vue'
 import { RouterLink } from 'vue-router'
-import { useEchoStore } from '@/stores'
+import { useEchoStore, useZenStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { ref } from 'vue'
 import Close from '@/components/icons/close.vue'
 import Filter from '@/components/icons/filter.vue'
 import Widget from '@/components/icons/widget.vue'
 const echoStore = useEchoStore()
+const zenStore = useZenStore()
 const { refreshForSearch, getEchosByPage } = echoStore
 const { searchingMode, filteredTag, isFilteringMode } = storeToRefs(echoStore)
+const { isZenMode } = storeToRefs(zenStore)
 
 const searchContent = ref<string>('')
 
@@ -98,5 +109,9 @@ const handleCancelFilter = () => {
   echoStore.isFilteringMode = false
   echoStore.filteredTag = null
   echoStore.refreshEchosForFilter()
+}
+
+const handleExitZenMode = () => {
+  zenStore.setZenMode(false)
 }
 </script>

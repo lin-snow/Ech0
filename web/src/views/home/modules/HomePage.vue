@@ -2,7 +2,7 @@
   <div
     class="max-w-sm sm:max-w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex flex-col sm:flex-row justify-center items-start sm:items-stretch sm:gap-8 sm:h-[100dvh] sm:overflow-hidden"
   >
-    <div class="sm:max-w-sm w-full sm:min-h-0 sm:h-full sm:overflow-y-auto">
+    <div v-if="!isZenMode" class="sm:max-w-sm w-full sm:min-h-0 sm:h-full sm:overflow-y-auto">
       <TheTop class="sm:hidden" />
       <TheEditor v-if="isLogin" />
       <TheBoard v-else />
@@ -11,9 +11,7 @@
       ref="mainColumn"
       class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:52px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto sm:[overscroll-behavior:contain]"
     >
-      <div
-        class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-1 bg-[var(--bg-color)]"
-      >
+      <div class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-1 bg-[var(--bg-color)]">
         <TheTop class="sm:px-4" />
       </div>
       <TheEchos v-if="!todoMode && !isFilteringMode && !inboxMode" :scroll-target="mainColumn" />
@@ -24,7 +22,7 @@
       <TheTodos v-else-if="todoMode && !inboxMode" />
       <TheInbox v-else />
     </div>
-    <div class="hidden xl:block sm:max-w-sm w-full px-6 sm:min-h-0 sm:h-full sm:overflow-y-auto">
+    <div v-if="!isZenMode" class="hidden xl:block sm:max-w-sm w-full px-6 sm:min-h-0 sm:h-full sm:overflow-y-auto">
       <TheHeatMap class="mb-2" />
       <TheStatusCard v-if="isLogin" class="mb-2" />
       <div v-if="isLogin" class="mb-2 px-11">
@@ -53,7 +51,14 @@ import TheRecentCard from '@/components/advanced/TheRecentCard.vue'
 import TheStatusCard from '@/components/advanced/TheStatusCard.vue'
 import TheHeatMap from '@/components/advanced/TheHeatMap.vue'
 import { onMounted, ref, onBeforeUnmount } from 'vue'
-import { useUserStore, useTodoStore, useEchoStore, useSettingStore, useInboxStore } from '@/stores'
+import {
+  useUserStore,
+  useTodoStore,
+  useEchoStore,
+  useSettingStore,
+  useInboxStore,
+  useZenStore,
+} from '@/stores'
 import { storeToRefs } from 'pinia'
 import TheAudioCard from '@/components/advanced/TheAudioCard.vue'
 import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
@@ -63,12 +68,14 @@ const userStore = useUserStore()
 const echoStore = useEchoStore()
 const settingStore = useSettingStore()
 const inboxStore = useInboxStore()
+const zenStore = useZenStore()
 const { getTodos } = todoStore
 const { todoMode, todos } = storeToRefs(todoStore)
 const { isLogin } = storeToRefs(userStore)
 const { isFilteringMode } = storeToRefs(echoStore)
 const { AgentSetting } = storeToRefs(settingStore)
 const { inboxMode } = storeToRefs(inboxStore)
+const { isZenMode } = storeToRefs(zenStore)
 
 const mainColumn = ref<HTMLElement | null>(null)
 const backTopStyle = ref({ right: '100px' }) // 默认 fallback
