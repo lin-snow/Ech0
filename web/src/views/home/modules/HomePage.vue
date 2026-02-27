@@ -1,8 +1,16 @@
 <template>
   <div
-    class="max-w-sm sm:max-w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex flex-col sm:flex-row justify-center items-start sm:items-stretch sm:gap-8 sm:h-[100dvh] sm:overflow-hidden"
+    class="max-w-sm sm:max-w-full px-2 pb-4 py-2 mt-4 sm:mt-0 mb-10 sm:mb-0 mx-auto flex flex-col sm:flex-row justify-center items-start sm:items-stretch sm:h-[100dvh] sm:overflow-hidden transition-all duration-500"
+    :class="isZenMode ? 'sm:gap-0' : 'sm:gap-8'"
   >
-    <div v-if="!isZenMode" class="sm:max-w-sm w-full sm:min-h-0 sm:h-full sm:overflow-y-auto">
+    <div
+      class="sm:max-w-sm w-full sm:min-h-0 sm:h-full sm:overflow-y-auto transition-opacity duration-900 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      :class="
+        isZenMode
+          ? 'sm:opacity-0 sm:invisible sm:pointer-events-none sm:w-0 sm:max-w-0 sm:overflow-hidden'
+          : 'sm:opacity-100 sm:visible'
+      "
+    >
       <TheTop class="sm:hidden" />
       <TheEditor v-if="isLogin" />
       <TheBoard v-else />
@@ -10,8 +18,11 @@
     <div
       ref="mainColumn"
       class="[--echo-date-sticky-top:0px] sm:[--echo-date-sticky-top:52px] sm:max-w-lg w-full sm:mt-1 sm:min-h-0 sm:h-full sm:overflow-y-auto sm:[overscroll-behavior:contain]"
+      :class="isZenMode ? 'sm:mx-auto sm:shrink-0' : ''"
     >
-      <div class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-1 bg-[var(--bg-color)]">
+      <div
+        class="hidden sm:block sticky top-0 z-20 relative -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 pt-2 pb-1 bg-[var(--bg-color)]"
+      >
         <TheTop class="sm:px-4" />
       </div>
       <TheEchos v-if="!todoMode && !isFilteringMode && !inboxMode" :scroll-target="mainColumn" />
@@ -22,7 +33,14 @@
       <TheTodos v-else-if="todoMode && !inboxMode" />
       <TheInbox v-else />
     </div>
-    <div v-if="!isZenMode" class="hidden xl:block sm:max-w-sm w-full px-6 sm:min-h-0 sm:h-full sm:overflow-y-auto">
+    <div
+      class="hidden xl:block sm:max-w-sm w-full px-6 sm:min-h-0 sm:h-full sm:overflow-y-auto transition-opacity duration-900 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      :class="
+        isZenMode
+          ? 'xl:opacity-0 xl:invisible xl:pointer-events-none xl:w-0 xl:max-w-0 xl:px-0 xl:overflow-hidden'
+          : 'xl:opacity-100 xl:visible'
+      "
+    >
       <TheHeatMap class="mb-2" />
       <TheStatusCard v-if="isLogin" class="mb-2" />
       <div v-if="isLogin" class="mb-2 px-11">
