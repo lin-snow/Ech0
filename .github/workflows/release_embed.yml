@@ -45,7 +45,7 @@ jobs:
       - name: Setup Go Environment
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.6"
+          go-version: "1.26.0"
           cache-dependency-path: "**/go.sum"
       - name: Set Go proxy
         run: go env -w GOPROXY=https://proxy.golang.org,direct
