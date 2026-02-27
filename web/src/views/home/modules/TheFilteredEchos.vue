@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto px-2 sm:px-4 md:px-6 my-4 sm:my-5 md:my-6">
+  <div class="mx-auto px-2 sm:px-4 md:px-6 mt-1 sm:mt-0 mb-4 sm:mb-5 md:mb-6">
     <!-- Echos - 使用 TransitionGroup 实现入场动画 -->
     <TransitionGroup
       v-if="echoStore.filteredEchoList"
