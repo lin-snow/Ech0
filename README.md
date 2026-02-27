@@ -331,6 +331,10 @@ ssh -p 6278 ssh.vaaat.com
 - 在项目根目录下执行`golangci-lint run`进行lint
 - 在项目根目录下执行`golangci-lint fmt`进行格式化
 
+📌 **Air（后端热重载，可选）**
+- 推荐通过 Makefile 安装：`make air-install`
+- 或手动安装：`go install github.com/air-verse/air@latest`
+
 📌 **Swagger**
 安装[Swagger](https://github.com/swaggo/gin-swagger)用于生成和使用符合OpenAPI规范的接口文档
 - 在项目根目录下执行`swag init -g internal/server/server.go -o internal/swagger`后生成或更新swagger文档
@@ -345,7 +349,9 @@ ssh -p 6278 ssh.vaaat.com
 ### 启动前后端联调
 **第一步： 后端（在 Ech0 根目录下）：**
 ```shell
-go run main.go # 编译并启动后端
+make run # 普通启动后端（等价于 go run main.go web）
+
+make dev # 使用 Air 启动后端热重载
 ```
 > 如果依赖注入关系发生了变化先需要在`ech0/internal/di/`下执行`wire`命令生成新的`wire_gen.go`文件
 
@@ -356,6 +362,7 @@ cd web # 进入前端目录
 pnpm install # 如果没有安装依赖则执行
 
 pnpm dev # 启动前端预览
+# 或在项目根目录执行：make web-dev
 ```
 
 **第三步： 前后端启动后访问：**

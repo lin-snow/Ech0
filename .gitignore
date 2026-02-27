@@ -64,6 +64,8 @@ yarn-error.log
 # End of https://www.toptal.com/developers/gitignore/api/go,vue,vuejs,visualstudiocode
 /data/*
 temp
+tmp/
+build-errors.log
 **/node_modules
 template/dist/**
 !template/dist/.keep

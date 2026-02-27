@@ -1,0 +1,32 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ./main.go"
+bin = "./tmp/main web"
+full_bin = "./tmp/main web"
+include_ext = ["go", "yaml", "yml", "toml", "json"]
+exclude_dir = ["tmp", "web", "data", "backup", "template", "node_modules", ".git", ".idea", ".vscode"]
+exclude_file = []
+exclude_regex = ["_test\\.go"]
+exclude_unchanged = true
+follow_symlink = false
+log = "build-errors.log"
+delay = 1000
+stop_on_error = true
+send_interrupt = true
+kill_delay = "500ms"
+rerun = false
+rerun_delay = 500
+
+[log]
+time = true
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true

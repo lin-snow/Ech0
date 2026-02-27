@@ -301,6 +301,7 @@ ssh -p 6278 ssh.vaaat.com
   - Linux: `sudo apt install build-essential`  
 - Google Wire: `go install github.com/google/wire/cmd/wire@latest`  
 - Golangci-Lint: `golangci-lint run` / `golangci-lint fmt`  
+- Air (optional, backend hot reload): `make air-install` or `go install github.com/air-verse/air@latest`  
 - Swagger: `swag init -g internal/server/server.go -o internal/swagger`  
 
 ### Frontend Requirements
@@ -310,12 +311,14 @@ ssh -p 6278 ssh.vaaat.com
 ### Start Backend & Frontend
 ```shell
 # Backend
-go run main.go
+make run # normal backend start (equivalent to go run main.go web)
+make dev # backend hot reload with Air
 
 # Frontend
 cd web
 pnpm install
 pnpm dev
+# or from project root: make web-dev
 ```
 
 Preview: Backend `http://localhost:6277`, Frontend `http://localhost:5173`
