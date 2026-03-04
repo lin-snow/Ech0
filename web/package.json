@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.5",
-    "@types/node": "^24.10.15",
+    "@types/node": "^25.3.3",
     "@unocss/preset-wind4": "66.6.5",
     "@vitejs/plugin-vue": "^6.0.4",
     "@vue/eslint-config-prettier": "^10.2.0",
