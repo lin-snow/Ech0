@@ -1,11 +1,11 @@
 package router
 
 import (
-	"github.com/lin-snow/ech0/internal/di"
+	"github.com/lin-snow/ech0/internal/handler"
 )
 
 // setupTodoRoutes 设置待办事项路由
-func setupTodoRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
+func setupTodoRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	// Public
 
 	// Auth

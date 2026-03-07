@@ -5,19 +5,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// serveCmd 是启动 Web 和 SSH 服务的命令
+// serveCmd 是启动 Web 服务的命令
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "启动 Web 和 SSH 服务",
+	Short: "启动 Web 服务（阻塞）",
 	Run: func(cmd *cobra.Command, args []string) {
-		cli.DoServeWithSSHAndBlock()
+		cli.DoServeWithBlock()
 	},
 }
 
 // webCmd 是仅启动 Web 服务并阻塞的命令
 var webCmd = &cobra.Command{
-	Use:   "web",
-	Short: "仅启动 Web 服务（阻塞）",
+	Use:        "web",
+	Short:      "（兼容别名）仅启动 Web 服务（阻塞）",
+	Deprecated: "请使用 `serve`，`web` 后续版本将移除",
+	Hidden:     true,
 	Run: func(cmd *cobra.Command, args []string) {
 		cli.DoServeWithBlock()
 	},

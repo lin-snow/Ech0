@@ -22,22 +22,22 @@ import (
 )
 
 type ConnectService struct {
-	txManager         transaction.TransactionManager
+	transactor        transaction.Transactor
 	connectRepository repository.ConnectRepositoryInterface
 	echoRepository    echoRepository.EchoRepositoryInterface
-	commonService     commonService.CommonServiceInterface
-	settingService    settingService.SettingServiceInterface
+	commonService     *commonService.CommonService
+	settingService    *settingService.SettingService
 }
 
 func NewConnectService(
-	tm transaction.TransactionManager,
+	tx transaction.Transactor,
 	connectRepository repository.ConnectRepositoryInterface,
 	echoRepository echoRepository.EchoRepositoryInterface,
-	commonService commonService.CommonServiceInterface,
-	settingService settingService.SettingServiceInterface,
-) ConnectServiceInterface {
+	commonService *commonService.CommonService,
+	settingService *settingService.SettingService,
+) *ConnectService {
 	return &ConnectService{
-		txManager:         tm,
+		transactor:        tx,
 		connectRepository: connectRepository,
 		echoRepository:    echoRepository,
 		commonService:     commonService,
@@ -47,8 +47,8 @@ func NewConnectService(
 
 // AddConnect 添加连接
 func (connectService *ConnectService) AddConnect(userid uint, connected model.Connected) error {
-	return connectService.txManager.Run(func(ctx context.Context) error {
-		user, err := connectService.commonService.CommonGetUserByUserId(userid)
+	return connectService.transactor.Run(context.Background(), func(ctx context.Context) error {
+		user, err := connectService.commonService.CommonGetUserByUserId(ctx, userid)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (connectService *ConnectService) AddConnect(userid uint, connected model.Co
 		connected.ConnectURL = httpUtil.TrimURL(connected.ConnectURL)
 
 		// 检查连接地址是否已存在
-		connectedList, err := connectService.connectRepository.GetAllConnects()
+		connectedList, err := connectService.connectRepository.GetAllConnects(ctx)
 		if err != nil {
 			return err
 		}
@@ -89,8 +89,8 @@ func (connectService *ConnectService) AddConnect(userid uint, connected model.Co
 
 // DeleteConnect 删除连接
 func (connectService *ConnectService) DeleteConnect(userid, id uint) error {
-	return connectService.txManager.Run(func(ctx context.Context) error {
-		user, err := connectService.commonService.CommonGetUserByUserId(userid)
+	return connectService.transactor.Run(context.Background(), func(ctx context.Context) error {
+		user, err := connectService.commonService.CommonGetUserByUserId(ctx, userid)
 		if err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (connectService *ConnectService) GetConnectsInfo() ([]model.Connect, error)
 	defer cancel()
 
 	// 获取所有连接地址
-	connects, err := connectService.connectRepository.GetAllConnects()
+	connects, err := connectService.connectRepository.GetAllConnects(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func (connectService *ConnectService) GetConnectsInfo() ([]model.Connect, error)
 // GetConnects 获取当前实例添加的所有连接
 func (connectService *ConnectService) GetConnects() ([]model.Connected, error) {
 	// 获取所有连接地址
-	connects, err := connectService.connectRepository.GetAllConnects()
+	connects, err := connectService.connectRepository.GetAllConnects(context.Background())
 	if err != nil {
 		return nil, err
 	}

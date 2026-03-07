@@ -54,7 +54,7 @@ import Next from '@/components/icons/next.vue'
 import Prev from '@/components/icons/prev.vue'
 import Close from '@/components/icons/close.vue'
 import { getImageToAddUrl } from '@/utils/other'
-import { fetchDeleteImage } from '@/service/api'
+import { fetchDeleteFile } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useEchoStore, useEditorStore } from '@/stores'
 import { Mode } from '@/enums/enums'
@@ -94,14 +94,14 @@ const handleRemoveImage = () => {
     title: '确定要移除图片吗？',
     description: '',
     onConfirm: () => {
-      const imageToDel: App.Api.Ech0.ImageToDelete = {
+      const imageToDel: App.Api.Ech0.FileToDelete = {
         url: String(imagesToAdd.value[index]?.image_url),
         source: String(imagesToAdd.value[index]?.image_source),
         object_key: imagesToAdd.value[index]?.object_key,
       }
 
       if (imageToDel.source === ImageSource.LOCAL || imageToDel.source === ImageSource.S3) {
-        fetchDeleteImage({
+        fetchDeleteFile({
           url: imageToDel.url,
           source: imageToDel.source,
           object_key: imageToDel.object_key,

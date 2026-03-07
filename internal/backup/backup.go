@@ -1,45 +1,84 @@
 package backup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	virefs "github.com/lin-snow/VireFS"
+	vizip "github.com/lin-snow/VireFS/plugin/zip"
 	"github.com/lin-snow/ech0/internal/database"
-	fileUtil "github.com/lin-snow/ech0/internal/util/file"
 	logUtil "github.com/lin-snow/ech0/internal/util/log"
 	"go.uber.org/zap"
 )
 
 const (
-	dataDir        = "data"                // 待备份的数据目录
-	backupDir      = "backup"              // 备份后存储zip的目录
-	backupFileName = "ech0_backup"         // 备份文件名
-	excludeFile    = "*.log"               // 排除的文件名
-	timeLayout     = "2006-01-02_15-04-05" // 时间格式化布局
+	dataDir        = "data"
+	backupDir      = "backup"
+	backupFileName = "ech0_backup"
+	excludePattern = ".log"
+	timeLayout     = "2006-01-02_15-04-05"
 )
 
-// ExecuteBackup 执行备份
+// ExecuteBackup packs the data/ directory into a zip archive using VireFS.
 func ExecuteBackup() (string, string, error) {
 	backupTime := time.Now().UTC().Format(timeLayout)
-	backupFileName := fmt.Sprintf("%s_%s.zip", backupFileName, backupTime) // 暂时不开启多备份，每次只保留最新的一份备份
-	backupPath := fmt.Sprintf("%s/%s", backupDir, backupFileName)
+	fileName := fmt.Sprintf("%s_%s.zip", backupFileName, backupTime)
+	backupPath := filepath.Join(backupDir, fileName)
 
-	return backupPath, backupFileName, fileUtil.ZipDirectoryWithOptions(
-		dataDir,
-		backupPath,
-		fileUtil.ZipOptions{
-			ExcludePatterns: []string{excludeFile},
-		},
-	)
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		return "", "", fmt.Errorf("create backup dir: %w", err)
+	}
+
+	dataFS, err := virefs.NewLocalFS(dataDir)
+	if err != nil {
+		return "", "", fmt.Errorf("open data dir: %w", err)
+	}
+
+	ctx := context.Background()
+	var keys []string
+	if err := virefs.Walk(ctx, dataFS, "", func(key string, info virefs.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir {
+			return nil
+		}
+		if strings.HasSuffix(key, excludePattern) {
+			return nil
+		}
+		keys = append(keys, key)
+		return nil
+	}); err != nil {
+		return "", "", fmt.Errorf("walk data dir: %w", err)
+	}
+
+	f, err := os.Create(backupPath)
+	if err != nil {
+		return "", "", fmt.Errorf("create zip file: %w", err)
+	}
+
+	if err := vizip.Pack(ctx, dataFS, keys, f); err != nil {
+		if closeErr := f.Close(); closeErr != nil {
+			logUtil.GetLogger().Warn("Failed to close backup zip after pack error",
+				zap.String("path", backupPath), zap.String("error", closeErr.Error()))
+		}
+		return "", "", fmt.Errorf("pack zip: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return "", "", fmt.Errorf("close zip file: %w", err)
+	}
+
+	return backupPath, fileName, nil
 }
 
-// ExecuteRestore 执行恢复
+// ExecuteRestore unpacks a backup zip into the data directory.
 func ExecuteRestore(backupFilePath string) error {
-	// 检查备份文件是否存在
-	if !fileUtil.FileExists(backupFilePath) {
+	if _, err := os.Stat(backupFilePath); err != nil {
 		return errors.New("备份文件不存在: " + backupFilePath)
 	}
 
@@ -52,70 +91,93 @@ func ExecuteRestore(backupFilePath string) error {
 	logUtil.CloseLogger()
 	defer logUtil.ReopenLogger()
 
-	// 解压备份文件到数据目录
-	if err := fileUtil.UnzipFile(backupFilePath, dataDir); err != nil {
-		return err
-	}
-
-	return nil
+	return unpackZipToDir(backupFilePath, dataDir)
 }
 
-// ExcuteRestoreOnline 在线恢复备份
+// ExcuteRestoreOnline performs an online restore from an uploaded zip.
 func ExcuteRestoreOnline(filePath string, timeStamp int64) error {
-	// 检查备份文件是否存在
-	if !fileUtil.FileExists(filePath) {
+	if _, err := os.Stat(filePath); err != nil {
 		return errors.New("备份文件不存在: " + filePath)
 	}
 
-	// 启用写锁，阻止新的写操作
 	previousLock := database.IsWriteLocked()
 	if !previousLock {
 		database.EnableWriteLock()
 		defer database.DisableWriteLock()
 	}
 
-	// 关闭 Logger，释放文件句柄
 	logUtil.CloseLogger()
 	defer logUtil.ReopenLogger()
 
-	// 解压备份文件到数据目录 （./temp/snapshot_时间戳）
 	extractPath := fmt.Sprintf("temp/snapshot_%d", timeStamp)
 	defer func() {
 		if err := os.RemoveAll(extractPath); err != nil {
-			logUtil.GetLogger().
-				Warn("Failed to cleanup extracted snapshot temp directory",
-					zap.String("path", extractPath),
-					zap.String("error", err.Error()))
+			logUtil.GetLogger().Warn("Failed to cleanup extracted snapshot temp directory",
+				zap.String("path", extractPath), zap.String("error", err.Error()))
 		}
-		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-			logUtil.GetLogger().
-				Warn("Failed to cleanup uploaded snapshot zip",
-					zap.String("path", filePath),
-					zap.String("error", err.Error()))
+		if err := os.Remove(filePath); err != nil {
+			logUtil.GetLogger().Warn("Failed to cleanup uploaded snapshot zip",
+				zap.String("path", filePath), zap.String("error", err.Error()))
 		}
 	}()
 
-	if err := fileUtil.UnzipFile(filePath, extractPath); err != nil {
+	if err := unpackZipToDir(filePath, extractPath); err != nil {
 		return err
 	}
 
 	tempDbPath := filepath.Join(extractPath, "ech0.db")
-
-	// 热切换到临时数据库
 	if err := database.HotChangeDatabase(tempDbPath); err != nil {
 		return err
 	}
 
-	// 复制备份覆盖到正式数据目录
-	dataPath := "data"
-	if err := fileUtil.CopyDirectory(extractPath, dataPath); err != nil {
+	if err := copyDirViaVireFS(extractPath, dataDir); err != nil {
 		return err
 	}
 
-	// 热切换回正式数据库
 	if err := database.HotChangeDatabase("data/ech0.db"); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func unpackZipToDir(zipPath, destDir string) error {
+	f, err := os.Open(zipPath)
+	if err != nil {
+		return fmt.Errorf("open zip: %w", err)
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			logUtil.GetLogger().Warn("Failed to close backup zip reader",
+				zap.String("path", zipPath), zap.String("error", closeErr.Error()))
+		}
+	}()
+
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("stat zip: %w", err)
+	}
+
+	dstFS, err := virefs.NewLocalFS(destDir, virefs.WithCreateRoot())
+	if err != nil {
+		return fmt.Errorf("open dest dir: %w", err)
+	}
+
+	return vizip.Unpack(context.Background(), f, info.Size(), dstFS, "")
+}
+
+func copyDirViaVireFS(srcDir, dstDir string) error {
+	srcFS, err := virefs.NewLocalFS(srcDir)
+	if err != nil {
+		return fmt.Errorf("open src dir: %w", err)
+	}
+	dstFS, err := virefs.NewLocalFS(dstDir, virefs.WithCreateRoot())
+	if err != nil {
+		return fmt.Errorf("open dst dir: %w", err)
+	}
+
+	_, err = virefs.Migrate(context.Background(), srcFS, "", dstFS, "",
+		virefs.WithConflictPolicy(virefs.ConflictOverwrite),
+	)
+	return err
 }

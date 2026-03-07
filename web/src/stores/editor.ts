@@ -66,12 +66,13 @@ export const useEditorStore = defineStore('editorStore', () => {
   //================================================================
   // 辅助Echo的添加变量（图片板块）
   //================================================================
-  const imageToAdd = ref<App.Api.Ech0.ImageToAdd>({
+  const imageToAdd = ref<App.Api.Ech0.FileToAdd>({
     image_url: '', // 图片地址(依据存储方式不同而不同)
+    access_url: '', // 可直接访问地址（用于前端渲染）
     image_source: ImageSource.LOCAL, // 图片存储方式（本地/直链/S3）
     object_key: '', // 对象存储的Key (如果是本地存储或直链则为空)
   })
-  const imagesToAdd = ref<App.Api.Ech0.ImageToAdd[]>([]) // 最终要添加的图片列表
+  const imagesToAdd = ref<App.Api.Ech0.FileToAdd[]>([]) // 最终要添加的图片列表
   const imageIndex = ref<number>(0) // 当前图片索引（用于编辑图片时定位）
 
   //================================================================
@@ -133,6 +134,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
     imageToAdd.value = {
       image_url: '',
+      access_url: '',
       image_source: rememberedImageSource.value,
       object_key: '',
     }
@@ -169,6 +171,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
     imagesToAdd.value.push({
       image_url: imageToAdd.value.image_url,
+      access_url: imageToAdd.value.access_url,
       image_source: imageToAdd.value.image_source,
       object_key: imageToAdd.value.object_key ? imageToAdd.value.object_key : '',
       width,
@@ -177,6 +180,7 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     imageToAdd.value = {
       image_url: '',
+      access_url: '',
       image_source: imageToAdd.value.image_source
         ? imageToAdd.value.image_source
         : ImageSource.LOCAL, // 记忆存储方式
@@ -184,10 +188,11 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
   }
 
-  const handleUppyUploaded = async (files: App.Api.Ech0.ImageToAdd[]) => {
+  const handleUppyUploaded = async (files: App.Api.Ech0.FileToAdd[]) => {
     for (const file of files) {
       imageToAdd.value = {
         image_url: file.image_url,
+        access_url: file.access_url,
         image_source: file.image_source,
         object_key: file.object_key ? file.object_key : '',
         width: file.width,

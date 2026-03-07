@@ -1,32 +1,35 @@
-import { getApiUrl } from '@/service/request/shared'
-import { ImageSource, MusicProvider } from '@/enums/enums'
-// 获取图片链接
-export const getImageUrl = (image: App.Api.Ech0.Image) => {
-  if (image.image_source === ImageSource.LOCAL) {
-    return getApiUrl() + String(image.image_url)
-  } else if (image.image_source === ImageSource.URL) {
-    return String(image.image_url)
-  } else if (image.image_source === ImageSource.S3) {
-    return String(image.image_url)
-  } else {
-    // 未知的图片来源，按照本地图片处理
-    return getApiUrl() + String(image.image_url)
+import { MusicProvider } from '@/enums/enums'
+
+const ABSOLUTE_URL_REGEX = /^https?:\/\//i
+const joinBaseAndPath = (baseUrl: string, path: string) => `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+
+const normalizeLegacyMediaPath = (path: string) => {
+  if (path.startsWith('/api/')) return path
+  if (path.startsWith('/files/') || path.startsWith('files/')) {
+    return path.startsWith('/') ? `/api${path}` : `/api/${path}`
   }
+  return path
 }
 
-// 获取待添加图片链接
-export const getImageToAddUrl = (image: App.Api.Ech0.ImageToAdd) => {
-  if (image.image_source === ImageSource.LOCAL) {
-    return getApiUrl() + String(image.image_url)
-  } else if (image.image_source === ImageSource.URL) {
-    return String(image.image_url)
-  } else if (image.image_source === ImageSource.S3) {
-    return String(image.image_url)
-  } else {
-    // 未知的图片来源，按照本地图片处理
-    return getApiUrl() + String(image.image_url)
-  }
+const resolveImageUrlByPath = (rawUrl?: string, baseUrl?: string) => {
+  const candidate = String(rawUrl ?? '').trim()
+  if (!candidate) return ''
+  if (ABSOLUTE_URL_REGEX.test(candidate)) return candidate
+  const normalizedPath = normalizeLegacyMediaPath(candidate)
+  if (baseUrl) return joinBaseAndPath(baseUrl, normalizedPath)
+  return normalizedPath
 }
+
+const resolveImageUrl = (
+  image: Pick<App.Api.Ech0.Image, 'access_url' | 'image_url'>,
+  baseUrl?: string,
+) => resolveImageUrlByPath(image.access_url || image.image_url, baseUrl)
+
+// 获取图片链接
+export const getImageUrl = (image: App.Api.Ech0.Image) => resolveImageUrl(image)
+
+// 获取待添加图片链接
+export const getImageToAddUrl = (image: App.Api.Ech0.ImageToAdd) => resolveImageUrl(image)
 
 export const formatDate = (dateInput: string | number) => {
   // 当天则显示（时：分）
@@ -201,16 +204,7 @@ export const extractAndCleanMusicURL = (input: string): string | null => {
 
 // 获取 HubEcho 的图片
 export const getHubImageUrl = (image: App.Api.Ech0.Image, baseurl: string) => {
-  if (image.image_source === ImageSource.LOCAL) {
-    return baseurl + '/api' + String(image.image_url)
-  } else if (image.image_source === ImageSource.URL) {
-    return String(image.image_url)
-  } else if (image.image_source === ImageSource.S3) {
-    return String(image.image_url)
-  } else {
-    // 未知的图片来源，按照本地图片处理
-    return baseurl + '/api' + String(image.image_url)
-  }
+  return resolveImageUrl(image, baseurl)
 }
 
 /**

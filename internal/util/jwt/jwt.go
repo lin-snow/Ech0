@@ -28,11 +28,11 @@ func CreateClaims(user userModel.User) jwt.Claims {
 		Userid:   user.ID,
 		Username: user.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:   config.Config.Auth.Jwt.Issuer,
+			Issuer:   config.Config().Auth.Jwt.Issuer,
 			Subject:  user.Username,
-			Audience: jwt.ClaimStrings{config.Config.Auth.Jwt.Audience},
+			Audience: jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
 			ExpiresAt: jwt.NewNumericDate(
-				time.Now().UTC().Add(time.Duration(config.Config.Auth.Jwt.Expires) * time.Second),
+				time.Now().UTC().Add(time.Duration(config.Config().Auth.Jwt.Expires) * time.Second),
 			),
 			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 			NotBefore: jwt.NewNumericDate(time.Now().UTC().Add(-leeway)),
@@ -49,9 +49,9 @@ func CreateClaimsWithExpiry(user userModel.User, expiry int64) jwt.Claims {
 		Userid:   user.ID,
 		Username: user.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    config.Config.Auth.Jwt.Issuer,
+			Issuer:    config.Config().Auth.Jwt.Issuer,
 			Subject:   user.Username,
-			Audience:  jwt.ClaimStrings{config.Config.Auth.Jwt.Audience},
+			Audience:  jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
 			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 			NotBefore: jwt.NewNumericDate(time.Now().UTC().Add(-leeway)),
 		},
@@ -68,7 +68,7 @@ func CreateClaimsWithExpiry(user userModel.User, expiry int64) jwt.Claims {
 // GenerateToken 生成JWT Token
 func GenerateToken(claim jwt.Claims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
-	return token.SignedString(config.JWT_SECRET)
+	return token.SignedString(config.Config().Security.JWTSecret)
 }
 
 // ParseToken 解析JWT Token
@@ -78,7 +78,7 @@ func ParseToken(tokenString string) (*authModel.MyClaims, error) {
 		tokenString,
 		claims,
 		func(token *jwt.Token) (interface{}, error) {
-			return config.JWT_SECRET, nil
+			return config.Config().Security.JWTSecret, nil
 		},
 	)
 	if err != nil {
@@ -115,7 +115,7 @@ func GenerateOAuthState(
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	state, err := token.SignedString(config.JWT_SECRET)
+	state, err := token.SignedString(config.Config().Security.JWTSecret)
 	if err != nil {
 		return "", "", err
 	}
@@ -128,7 +128,7 @@ func ParseOAuthState(stateStr string) (*authModel.OAuthState, error) {
 	claims := jwt.MapClaims{}
 
 	_, err := jwt.ParseWithClaims(stateStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return config.JWT_SECRET, nil
+		return config.Config().Security.JWTSecret, nil
 	})
 	if err != nil {
 		return nil, err

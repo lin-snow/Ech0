@@ -8,7 +8,7 @@ import (
 
 type SettingRepositoryInterface interface {
 	// ListAccessTokens 列出访问令牌
-	ListAccessTokens(userID uint) ([]model.AccessTokenSetting, error)
+	ListAccessTokens(ctx context.Context, userID uint) ([]model.AccessTokenSetting, error)
 
 	// CreateAccessToken 创建访问令牌
 	CreateAccessToken(ctx context.Context, token *model.AccessTokenSetting) error

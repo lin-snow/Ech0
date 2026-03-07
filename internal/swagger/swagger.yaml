@@ -164,24 +164,6 @@ definitions:
       username:
         type: string
     type: object
-  model.FediverseSetting:
-    properties:
-      enable:
-        description: 是否启用联邦网络功能
-        type: boolean
-      server_url:
-        description: 服务器 URL
-        type: string
-    type: object
-  model.FediverseSettingDto:
-    properties:
-      enable:
-        description: 是否启用联邦网络功能
-        type: boolean
-      server_url:
-        description: 服务器 URL
-        type: string
-    type: object
   model.GetPresignURLDto:
     properties:
       content_type:
@@ -195,6 +177,9 @@ definitions:
     type: object
   model.Image:
     properties:
+      access_url:
+        description: 可直接访问地址（前端渲染应优先使用）
+        type: string
       height:
         description: 图片高度
         type: integer
@@ -206,8 +191,8 @@ definitions:
       image_url:
         description: 图片URL
         type: string
-      message_id:
-        description: '关联的Echo ID(注意⚠️: 该字段名为MessageID, 但实际关联的是Echo表,因为为了兼容旧版Echo用户)'
+      echo_id:
+        description: 关联的 Echo ID
         type: integer
       object_key:
         description: 对象存储的Key (如果是本地存储则为空)
@@ -218,6 +203,9 @@ definitions:
     type: object
   model.ImageDto:
     properties:
+      access_url:
+        description: 可直接访问地址（前端渲染应优先使用）
+        type: string
       height:
         description: 图片高度
         type: integer
@@ -1139,42 +1127,6 @@ paths:
       summary: 获取今天的Echo列表
       tags:
       - Echo
-  /fediverse/settings:
-    get:
-      consumes:
-      - application/json
-      description: 获取系统的联邦网络相关设置
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 获取联邦网络设置失败
-          schema:
-            $ref: '#/definitions/handler.Response'
-      summary: 获取联邦网络设置
-      tags:
-      - 系统设置
-    put:
-      consumes:
-      - application/json
-      description: 更新系统的联邦网络相关设置
-      parameters:
-      - description: 新的联邦网络设置
-        in: body
-        name: fediverseSettings
-        required: true
-        schema:
-          $ref: '#/definitions/model.FediverseSettingDto'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 更新联邦网络设置失败
-          schema:
-            $ref: '#/definitions/handler.Response'
-      summary: 更新联邦网络设置
-      tags:
-      - 系统设置
   /getmusic:
     get:
       consumes:

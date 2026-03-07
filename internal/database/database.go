@@ -12,7 +12,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	connectModel "github.com/lin-snow/ech0/internal/model/connect"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
-	fediverseModel "github.com/lin-snow/ech0/internal/model/fediverse"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	inboxModel "github.com/lin-snow/ech0/internal/model/inbox"
 	queueModel "github.com/lin-snow/ech0/internal/model/queue"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -68,8 +68,8 @@ func IsWriteLocked() bool {
 // InitDatabase 初始化数据库连接
 func InitDatabase() {
 	// 读取数据库类型和保存路径
-	dbType := config.Config.Database.Type
-	dbPath := config.Config.Database.Path
+	dbType := config.Config().Database.Type
+	dbPath := config.Config().Database.Path
 
 	dir := dbPath[:len(dbPath)-len("/ech0.db")] // 提取目录部分
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
@@ -82,7 +82,7 @@ func InitDatabase() {
 	if dbType == "sqlite" {
 		var err error
 		ll := logger.LogLevel(logger.Error)
-		if config.Config.Database.LogMode == "release" {
+		if config.Config().Database.LogMode == "release" {
 			ll = logger.LogLevel(logger.Silent)
 		}
 		SQLiteDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
@@ -104,14 +104,6 @@ func InitDatabase() {
 			Err: err,
 		})
 	}
-
-	// 执行旧数据库迁移和数据修复任务
-	if err := UpdateMigration(); err != nil {
-		util.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.MIGRATE_DB_PANIC,
-			Err: err,
-		})
-	}
 }
 
 // MigrateDB 执行数据库迁移
@@ -119,11 +111,11 @@ func MigrateDB() error {
 	models := []interface{}{
 		&userModel.User{},
 		&echoModel.Echo{},
-		&echoModel.Image{},
+		&fileModel.File{},
+		&fileModel.EchoFile{},
 		&commonModel.KeyValue{},
 		&todoModel.Todo{},
 		&connectModel.Connected{},
-		&commonModel.TempFile{},
 		&userModel.OAuthBinding{},
 		&echoModel.Tag{},
 		&echoModel.EchoTag{},
@@ -132,11 +124,6 @@ func MigrateDB() error {
 		&settingModel.AccessTokenSetting{},
 		&inboxModel.Inbox{},
 		&authModel.Passkey{},
-
-		// Fediverse 相关
-		&fediverseModel.Follow{},
-		&fediverseModel.Follower{},
-		&fediverseModel.InboxStatus{},
 	}
 
 	return GetDB().AutoMigrate(
@@ -158,7 +145,7 @@ func HotChangeDatabase(newDBPath string) error {
 
 	// 打开新连接
 	ll := logger.LogLevel(logger.Error)
-	if config.Config.Database.LogMode == "release" {
+	if config.Config().Database.LogMode == "release" {
 		ll = logger.LogLevel(logger.Silent)
 	}
 

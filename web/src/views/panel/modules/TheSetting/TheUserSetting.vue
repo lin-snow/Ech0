@@ -90,7 +90,7 @@ import Close from '@/components/icons/close.vue'
 
 import Saveupdate from '@/components/icons/saveupdate.vue'
 import { ref, onMounted } from 'vue'
-import { fetchGetCurrentUser, fetchUpdateUser, fetchUploadImage } from '@/service/api'
+import { fetchGetCurrentUser, fetchUpdateUser, fetchUploadFile } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores'
@@ -139,7 +139,7 @@ const handleUploadImage = async (event: Event) => {
   if (!file) return
 
   try {
-    const res = await theToast.promise(fetchUploadImage(file, ImageSource.LOCAL), {
+    const res = await theToast.promise(fetchUploadFile(file, ImageSource.LOCAL, 'image'), {
       loading: '头像上传中...',
       success: '头像上传成功！',
       error: '上传失败，请稍后再试',

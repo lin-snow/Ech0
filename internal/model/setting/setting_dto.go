@@ -67,11 +67,6 @@ type AccessTokenSettingDto struct {
 	Expiry string `json:"expiry"` // 访问令牌过期策略（8_hours/1_month/never）
 }
 
-type FediverseSettingDto struct {
-	Enable    bool   `json:"enable"`     // 是否启用联邦网络功能
-	ServerURL string `json:"server_url"` // 服务器 URL
-}
-
 type BackupScheduleDto struct {
 	Enable         bool   `json:"enable"`          // 是否启用备份计划
 	CronExpression string `json:"cron_expression"` // 备份计划的 Cron 表达式

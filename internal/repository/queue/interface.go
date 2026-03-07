@@ -15,7 +15,7 @@ type QueueRepositoryInterface interface {
 	DeleteDeadLetter(ctx context.Context, id int64) error
 
 	// ListDeadLetters 列出所有可重试的死信任务
-	ListDeadLetters(limit int) ([]model.DeadLetter, error)
+	ListDeadLetters(ctx context.Context, limit int) ([]model.DeadLetter, error)
 
 	// UpdateDeadLetter 更新死信任务
 	UpdateDeadLetter(ctx context.Context, deadLetter *model.DeadLetter) error

@@ -14,13 +14,13 @@ import (
 
 type DashboardService struct {
 	monitor       *monitor.Monitor
-	commonService commonService.CommonServiceInterface
+	commonService *commonService.CommonService
 }
 
 func NewDashboardService(
 	monitor *monitor.Monitor,
-	commonService commonService.CommonServiceInterface,
-) DashboardServiceInterface {
+	commonService *commonService.CommonService,
+) *DashboardService {
 	return &DashboardService{
 		monitor:       monitor,
 		commonService: commonService,

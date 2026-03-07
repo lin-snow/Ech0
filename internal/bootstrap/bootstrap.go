@@ -14,7 +14,8 @@ func setEnvIfExists(key, path string) {
 	}
 }
 
-func init() {
+// Bootstrap 显式执行宿主环境变量初始化。
+func Bootstrap() {
 	// 容错设置宿主机路径
 	setEnvIfExists("HOST_PROC", "/host_proc")
 	setEnvIfExists("HOST_SYS", "/host_sys")

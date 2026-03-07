@@ -907,61 +907,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/fediverse/settings": {
-            "get": {
-                "description": "获取系统的联邦网络相关设置",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "系统设置"
-                ],
-                "summary": "获取联邦网络设置",
-                "responses": {
-                    "200": {
-                        "description": "获取联邦网络设置失败",
-                        "schema": {
-                            "$ref": "#/definitions/handler.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "更新系统的联邦网络相关设置",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "系统设置"
-                ],
-                "summary": "更新联邦网络设置",
-                "parameters": [
-                    {
-                        "description": "新的联邦网络设置",
-                        "name": "fediverseSettings",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.FediverseSettingDto"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "更新联邦网络设置失败",
-                        "schema": {
-                            "$ref": "#/definitions/handler.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/getmusic": {
             "get": {
                 "description": "获取当前可供播放的音乐文件URL",
@@ -2364,32 +2309,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.FediverseSetting": {
-            "type": "object",
-            "properties": {
-                "enable": {
-                    "description": "是否启用联邦网络功能",
-                    "type": "boolean"
-                },
-                "server_url": {
-                    "description": "服务器 URL",
-                    "type": "string"
-                }
-            }
-        },
-        "model.FediverseSettingDto": {
-            "type": "object",
-            "properties": {
-                "enable": {
-                    "description": "是否启用联邦网络功能",
-                    "type": "boolean"
-                },
-                "server_url": {
-                    "description": "服务器 URL",
-                    "type": "string"
-                }
-            }
-        },
         "model.GetPresignURLDto": {
             "type": "object",
             "required": [
@@ -2409,6 +2328,10 @@ const docTemplate = `{
         "model.Image": {
             "type": "object",
             "properties": {
+                "access_url": {
+                    "description": "可直接访问地址（前端渲染应优先使用）",
+                    "type": "string"
+                },
                 "height": {
                     "description": "图片高度",
                     "type": "integer"
@@ -2424,8 +2347,8 @@ const docTemplate = `{
                     "description": "图片URL",
                     "type": "string"
                 },
-                "message_id": {
-                    "description": "关联的Echo ID(注意⚠️: 该字段名为MessageID, 但实际关联的是Echo表,因为为了兼容旧版Echo用户)",
+                "echo_id": {
+                    "description": "关联的 Echo ID",
                     "type": "integer"
                 },
                 "object_key": {
@@ -2445,6 +2368,10 @@ const docTemplate = `{
                 "url"
             ],
             "properties": {
+                "access_url": {
+                    "description": "可直接访问地址（前端渲染应优先使用）",
+                    "type": "string"
+                },
                 "height": {
                     "description": "图片高度",
                     "type": "integer"

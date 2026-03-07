@@ -1,9 +1,9 @@
 package router
 
-import "github.com/lin-snow/ech0/internal/di"
+import "github.com/lin-snow/ech0/internal/handler"
 
 // setupUserRoutes 设置用户路由
-func setupUserRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
+func setupUserRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	// OAuth2
 	appRouterGroup.ResourceGroup.GET("/oauth/github/login", h.UserHandler.GitHubLogin())
 	appRouterGroup.ResourceGroup.GET("/oauth/github/callback", h.UserHandler.GitHubCallback())

@@ -14,7 +14,7 @@ type EchoRepositoryInterface interface {
 	GetEchosByPage(page, pageSize int, search string, showPrivate bool) ([]model.Echo, int64)
 
 	// GetEchosById 根据 ID 获取 Echo
-	GetEchosById(id uint) (*model.Echo, error)
+	GetEchosById(ctx context.Context, id uint) (*model.Echo, error)
 
 	// DeleteEchoById 删除 Echo
 	DeleteEchoById(ctx context.Context, id uint) error
@@ -38,7 +38,7 @@ type EchoRepositoryInterface interface {
 	GetTagByName(name string) (*model.Tag, error)
 
 	// GetTagsByNames 根据名称列表获取标签
-	GetTagsByNames(names []string) ([]*model.Tag, error)
+	GetTagsByNames(ctx context.Context, names []string) ([]*model.Tag, error)
 
 	// CreateTag 创建标签
 	CreateTag(ctx context.Context, tag *model.Tag) error

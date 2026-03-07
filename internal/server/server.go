@@ -10,109 +10,44 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/cache"
 	"github.com/lin-snow/ech0/internal/config"
-	"github.com/lin-snow/ech0/internal/database"
-	"github.com/lin-snow/ech0/internal/di"
-	"github.com/lin-snow/ech0/internal/event"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	"github.com/lin-snow/ech0/internal/router"
-	"github.com/lin-snow/ech0/internal/task"
-	"github.com/lin-snow/ech0/internal/transaction"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
 )
 
-// Server 服务器结构体，包含Gin引擎
+// Server 是纯 HTTP runtime，只负责 gin/http 生命周期。
 type Server struct {
-	GinEngine      *gin.Engine
-	httpServer     *http.Server          // 用于优雅停止服务器
-	tasker         *task.Tasker          // 任务器
-	eventRegistrar *event.EventRegistrar // 事件注册器
+	GinEngine  *gin.Engine
+	httpServer *http.Server // 用于优雅停止服务器
+	listener   net.Listener
 }
 
-// New 创建一个新的服务器实例
-func New() *Server {
-	return &Server{}
+func (s *Server) Name() string {
+	return "server"
 }
 
-// Init 初始化服务器
-func (s *Server) Init() {
-	// Mode
-	if config.Config.Server.Mode == "debug" {
-		gin.SetMode(gin.DebugMode)
-	} else {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	// Gin Engine
-	s.GinEngine = gin.New()
-
-	// Database
-	database.InitDatabase()
-
-	// CacheFactory
-	cacheFactory := cache.NewCacheFactory()
-
-	// TransactionManagerFactory
-	transactionManagerFactory := transaction.NewTransactionManagerFactory(database.GetDB)
-
-	// Event System
-	event.InitEventBus()
-
-	// Handlers
-	handlers, err := di.BuildHandlers(
-		database.GetDB,
-		cacheFactory,
-		transactionManagerFactory,
-		event.GetEventBus,
-	)
-	if err != nil {
-		errUtil.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_HANDLERS_PANIC,
-			Err: err,
-		})
-	}
-
-	// Router
-	router.SetupRouter(s.GinEngine, handlers)
-
-	// Tasker
-	s.tasker, err = di.BuildTasker(
-		database.GetDB,
-		cacheFactory,
-		transactionManagerFactory,
-		event.GetEventBus,
-	)
-	if err != nil {
-		errUtil.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_TASKER_PANIC,
-			Err: err,
-		})
-	}
-
-	// EventRegistrar
-	s.eventRegistrar, err = di.BuildEventRegistrar(
-		database.GetDB,
-		event.GetEventBus,
-		cacheFactory,
-		transactionManagerFactory,
-	)
-	if err != nil {
-		errUtil.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_EVENT_REGISTRAR_PANIC,
-			Err: err,
-		})
+// New 创建一个新的 HTTP server 实例。
+func New(engine *gin.Engine) *Server {
+	return &Server{
+		GinEngine: engine,
 	}
 }
 
-// Start 异步启动服务器
-func (s *Server) Start() {
-	port := config.Config.Server.Port
+// Start 启动服务器，并在返回前确认监听端口已成功绑定。
+func (s *Server) Start(context.Context) error {
+	if s.GinEngine == nil {
+		return errors.New("gin engine is nil")
+	}
+	if s.listener != nil {
+		return errors.New("http server already started")
+	}
+
+	port := config.Config().Server.Port
 	PrintGreetings(port)
 
 	s.httpServer = &http.Server{
@@ -120,9 +55,15 @@ func (s *Server) Start() {
 		Handler: s.GinEngine,
 	}
 
-	// 启动服务器
+	listener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return err
+	}
+	s.listener = listener
+
+	// 监听成功后再异步进入 Serve。
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil &&
+		if err := s.httpServer.Serve(listener); err != nil &&
 			!errors.Is(err, http.ErrServerClosed) {
 			errUtil.HandlePanicError(&commonModel.ServerError{
 				Msg: commonModel.GIN_RUN_FAILED,
@@ -131,16 +72,7 @@ func (s *Server) Start() {
 		}
 	}()
 
-	// 启动任务器
-	go s.tasker.Start()
-
-	// 注册事件
-	if err := s.eventRegistrar.Register(); err != nil {
-		errUtil.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_EVENT_REGISTRAR_PANIC,
-			Err: err,
-		})
-	}
+	return nil
 }
 
 // Stop 优雅停止服务器
@@ -155,19 +87,14 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 
 	if s.httpServer == nil {
-		fmt.Println("⚠️ HTTP 服务器未启动，无需关闭")
 		return nil
+	} else {
+		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
 	}
 
-	if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-		return err
-	}
-
-	// 停止任务器
-	s.tasker.Stop()
-
-	// 等待事件系统任务结束
-	s.eventRegistrar.Wait()
-
+	s.httpServer = nil
+	s.listener = nil
 	return nil
 }

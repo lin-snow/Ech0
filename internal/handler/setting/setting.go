@@ -11,11 +11,11 @@ import (
 )
 
 type SettingHandler struct {
-	settingService service.SettingServiceInterface
+	settingService *service.SettingService
 }
 
 // NewSettingHandler SettingHandler 的构造函数
-func NewSettingHandler(settingService service.SettingServiceInterface) *SettingHandler {
+func NewSettingHandler(settingService *service.SettingService) *SettingHandler {
 	return &SettingHandler{
 		settingService: settingService,
 	}
@@ -575,73 +575,6 @@ func (settingHandler *SettingHandler) DeleteAccessToken() gin.HandlerFunc {
 
 		return res.Response{
 			Msg: commonModel.DELETE_ACCESS_TOKEN_SUCCESS,
-		}
-	})
-}
-
-// GetFediverseSettings 获取联邦网络设置
-//
-//	@Summary		获取联邦网络设置
-//	@Description	获取系统的联邦网络相关设置
-//	@Tags			系统设置
-//	@Accept			json
-//	@Produce		json
-//	@Success		200	{object}	res.Response{data=model.FediverseSetting}	"获取联邦网络设置成功"
-//	@Failure		200	{object}	res.Response								"获取联邦网络设置失败"
-//	@Router			/fediverse/settings [get]
-func (settingHandler *SettingHandler) GetFediverseSettings() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		// 获取当前用户 ID
-		userid := ctx.MustGet("userid").(uint)
-
-		var fediverseSettings model.FediverseSetting
-		if err := settingHandler.settingService.GetFediverseSetting(userid, &fediverseSettings); err != nil {
-			return res.Response{
-				Msg: "",
-				Err: err,
-			}
-		}
-
-		return res.Response{
-			Data: fediverseSettings,
-			Msg:  commonModel.GET_FEDIVERSE_SETTINGS_SUCCESS,
-		}
-	})
-}
-
-// UpdateFediverseSettings 更新联邦网络设置
-//
-//	@Summary		更新联邦网络设置
-//	@Description	更新系统的联邦网络相关设置
-//	@Tags			系统设置
-//	@Accept			json
-//	@Produce		json
-//	@Param			fediverseSettings	body		model.FediverseSettingDto	true	"新的联邦网络设置"
-//	@Success		200					{object}	res.Response				"更新联邦网络设置成功"
-//	@Failure		200					{object}	res.Response				"更新联邦网络设置失败"
-//	@Router			/fediverse/settings [put]
-func (settingHandler *SettingHandler) UpdateFediverseSettings() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		// 获取当前用户 ID
-		userid := ctx.MustGet("userid").(uint)
-		// 解析请求体中的参数
-		var newFediverseSettings model.FediverseSettingDto
-		if err := ctx.ShouldBindJSON(&newFediverseSettings); err != nil {
-			return res.Response{
-				Msg: commonModel.INVALID_REQUEST_BODY,
-				Err: err,
-			}
-		}
-
-		if err := settingHandler.settingService.UpdateFediverseSetting(userid, &newFediverseSettings); err != nil {
-			return res.Response{
-				Msg: "",
-				Err: err,
-			}
-		}
-
-		return res.Response{
-			Msg: commonModel.UPDATE_FEDIVERSE_SETTINGS_SUCCESS,
 		}
 	})
 }

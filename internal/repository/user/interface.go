@@ -10,19 +10,19 @@ import (
 
 type UserRepositoryInterface interface {
 	// GetUserByID 根据用户ID获取用户
-	GetUserByID(id int) (model.User, error)
+	GetUserByID(ctx context.Context, id int) (model.User, error)
 
 	// GetUserByUsername 根据用户名获取用户
-	GetUserByUsername(username string) (model.User, error)
+	GetUserByUsername(ctx context.Context, username string) (model.User, error)
 
 	// GetAllUsers 获取所有用户
-	GetAllUsers() ([]model.User, error)
+	GetAllUsers(ctx context.Context) ([]model.User, error)
 
 	// CreateUser 创建一个新的用户
 	CreateUser(ctx context.Context, newUser *model.User) error
 
 	// GetSysAdmin 获取系统管理员
-	GetSysAdmin() (model.User, error)
+	GetSysAdmin(ctx context.Context) (model.User, error)
 
 	// UpdateUser 更新用户
 	UpdateUser(ctx context.Context, user *model.User) error

@@ -1,9 +1,9 @@
 package router
 
-import "github.com/lin-snow/ech0/internal/di"
+import "github.com/lin-snow/ech0/internal/handler"
 
 // setupSettingRoutes 设置设置路由
-func setupSettingRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
+func setupSettingRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	// Public
 	appRouterGroup.PublicRouterGroup.GET("/settings", h.SettingHandler.GetSettings())
 	appRouterGroup.PublicRouterGroup.GET("/comment/settings", h.SettingHandler.GetCommentSettings())
@@ -34,15 +34,6 @@ func setupSettingRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
 	appRouterGroup.AuthRouterGroup.DELETE(
 		"/access-tokens/:id",
 		h.SettingHandler.DeleteAccessToken(),
-	)
-
-	appRouterGroup.AuthRouterGroup.GET(
-		"/fediverse/settings",
-		h.SettingHandler.GetFediverseSettings(),
-	)
-	appRouterGroup.AuthRouterGroup.PUT(
-		"/fediverse/settings",
-		h.SettingHandler.UpdateFediverseSettings(),
 	)
 
 	appRouterGroup.AuthRouterGroup.GET(

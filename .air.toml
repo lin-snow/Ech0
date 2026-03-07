@@ -2,9 +2,9 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "go build -o ./tmp/main ./main.go"
-bin = "./tmp/main web"
-full_bin = "./tmp/main web"
+cmd = "go build -o ./tmp/main ./cmd/ech0"
+bin = "./tmp/main serve"
+full_bin = "./tmp/main serve"
 include_ext = ["go", "yaml", "yml", "toml", "json"]
 exclude_dir = ["tmp", "web", "data", "backup", "template", "node_modules", ".git", ".idea", ".vscode"]
 exclude_file = []

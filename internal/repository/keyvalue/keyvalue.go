@@ -26,52 +26,54 @@ func NewKeyValueRepository(
 
 // getDB 从上下文中获取事务
 func (keyvalueRepository *KeyValueRepository) getDB(ctx context.Context) *gorm.DB {
-	if tx, ok := ctx.Value(transaction.TxKey).(*gorm.DB); ok {
+	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
 	}
 	return keyvalueRepository.db()
 }
 
 // GetKeyValue 根据键获取值
-func (keyvalueRepository *KeyValueRepository) GetKeyValue(key string) (interface{}, error) {
-	// 先查缓存
-	if cachedValue, err := keyvalueRepository.cache.Get(key); err == nil {
-		// 缓存命中，类型断言
-		if value, ok := cachedValue.(string); ok {
-			return value, nil
-		}
-	}
-
-	// 缓存未命中，查询数据库
-	var kv model.KeyValue
-	if err := keyvalueRepository.db().Where("key = ?", key).First(&kv).Error; err != nil {
-		return nil, err
-	}
-
-	// 将查询到的值放入缓存
-	keyvalueRepository.cache.Set(key, kv.Value, 1)
-
-	return kv.Value, nil
+func (keyvalueRepository *KeyValueRepository) GetKeyValue(ctx context.Context, key string) (string, error) {
+	cacheKey := GetKeyValueCacheKey(key)
+	return cache.ReadThroughTypedUnlessTx[string](
+		ctx,
+		keyvalueRepository.cache,
+		cacheKey,
+		1,
+		func(ctx context.Context) (string, error) {
+			var kv model.KeyValue
+			if err := keyvalueRepository.getDB(ctx).Where("key = ?", key).First(&kv).Error; err != nil {
+				return "", err
+			}
+			return kv.Value, nil
+		},
+		func() (string, error) {
+			var kv model.KeyValue
+			if err := keyvalueRepository.db().Where("key = ?", key).First(&kv).Error; err != nil {
+				return "", err
+			}
+			return kv.Value, nil
+		})
 }
 
 // AddKeyValue 添加键值对
 func (keyvalueRepository *KeyValueRepository) AddKeyValue(
 	ctx context.Context,
 	key string,
-	value interface{},
+	value string,
 ) error {
-	// 清除相关缓存
-	keyvalueRepository.cache.Delete(key) // 删除该键的缓存
+	cacheKey := GetKeyValueCacheKey(key)
+	cache.InvalidateKeys(keyvalueRepository.cache, cacheKey)
 
 	if err := keyvalueRepository.getDB(ctx).Create(&model.KeyValue{
 		Key:   key,
-		Value: value.(string),
+		Value: value,
 	}).Error; err != nil {
 		return err
 	}
 
 	// 添加新的缓存
-	keyvalueRepository.cache.Set(key, value, 1)
+	keyvalueRepository.cache.Set(cacheKey, value, 1)
 
 	return nil
 }
@@ -81,8 +83,7 @@ func (keyvalueRepository *KeyValueRepository) DeleteKeyValue(
 	ctx context.Context,
 	key string,
 ) error {
-	// 删除缓存
-	keyvalueRepository.cache.Delete(key) // 删除该键的缓存
+	cache.InvalidateKeys(keyvalueRepository.cache, GetKeyValueCacheKey(key))
 
 	if err := keyvalueRepository.getDB(ctx).Where("key = ?", key).Delete(&model.KeyValue{}).Error; err != nil {
 		return err
@@ -95,17 +96,17 @@ func (keyvalueRepository *KeyValueRepository) DeleteKeyValue(
 func (keyvalueRepository *KeyValueRepository) UpdateKeyValue(
 	ctx context.Context,
 	key string,
-	value interface{},
+	value string,
 ) error {
-	// 更新缓存
-	keyvalueRepository.cache.Delete(key) // 删除该键的缓存
+	cacheKey := GetKeyValueCacheKey(key)
+	cache.InvalidateKeys(keyvalueRepository.cache, cacheKey)
 
-	if err := keyvalueRepository.getDB(ctx).Model(&model.KeyValue{}).Where("key = ?", key).Update("value", value.(string)).Error; err != nil {
+	if err := keyvalueRepository.getDB(ctx).Model(&model.KeyValue{}).Where("key = ?", key).Update("value", value).Error; err != nil {
 		return err
 	}
 
 	// 添加新的缓存
-	keyvalueRepository.cache.Set(key, value, 1)
+	keyvalueRepository.cache.Set(cacheKey, value, 1)
 
 	return nil
 }
@@ -114,13 +115,13 @@ func (keyvalueRepository *KeyValueRepository) UpdateKeyValue(
 func (keyvalueRepository *KeyValueRepository) AddOrUpdateKeyValue(
 	ctx context.Context,
 	key string,
-	value interface{},
+	value string,
 ) error {
 	// 先尝试更新
 	result := keyvalueRepository.getDB(ctx).
 		Model(&model.KeyValue{}).
 		Where("key = ?", key).
-		Update("value", value.(string))
+		Update("value", value)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -128,15 +129,15 @@ func (keyvalueRepository *KeyValueRepository) AddOrUpdateKeyValue(
 		// 如果没有行被更新，说明该键不存在，执行添加操作
 		if err := keyvalueRepository.getDB(ctx).Create(&model.KeyValue{
 			Key:   key,
-			Value: value.(string),
+			Value: value,
 		}).Error; err != nil {
 			return err
 		}
 	}
 
-	// 更新缓存
-	keyvalueRepository.cache.Delete(key) // 删除该键的缓存
-	keyvalueRepository.cache.Set(key, value, 1)
+	cacheKey := GetKeyValueCacheKey(key)
+	cache.InvalidateKeys(keyvalueRepository.cache, cacheKey)
+	keyvalueRepository.cache.Set(cacheKey, value, 1)
 
 	return nil
 }

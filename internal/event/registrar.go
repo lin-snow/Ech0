@@ -1,10 +1,11 @@
 package event
 
+import "sync/atomic"
+
 // EventHandlers 事件处理器集合
 type EventHandlers struct {
 	wbd *WebhookDispatcher  // webhook 事件处理器
 	dlr *DeadLetterResolver // 死信处理器
-	fa  *FediverseAgent     // 联邦事件处理器
 	bs  *BackupScheduler    // 备份事件调度器
 	ap  *AgentProcessor     // Agent事件处理器
 	id  *InboxDispatcher    // Inbox事件处理器
@@ -14,18 +15,18 @@ type EventHandlers struct {
 func NewEventHandlers(
 	wbd *WebhookDispatcher,
 	dlr *DeadLetterResolver,
-	fa *FediverseAgent,
 	bs *BackupScheduler,
 	ap *AgentProcessor,
 	id *InboxDispatcher,
 ) *EventHandlers {
-	return &EventHandlers{wbd: wbd, dlr: dlr, fa: fa, bs: bs, ap: ap, id: id}
+	return &EventHandlers{wbd: wbd, dlr: dlr, bs: bs, ap: ap, id: id}
 }
 
 // EventRegistrar 事件注册器
 type EventRegistrar struct {
-	eb IEventBus      // 事件总线
-	eh *EventHandlers // 事件处理器集合
+	eb         IEventBus      // 事件总线
+	eh         *EventHandlers // 事件处理器集合
+	registered atomic.Bool
 }
 
 // NewEventRegistry 创建一个新的事件注册表
@@ -35,19 +36,16 @@ func NewEventRegistry(ebp func() IEventBus, eh *EventHandlers) *EventRegistrar {
 
 // Register 注册事件处理函数
 func (er *EventRegistrar) Register() error {
+	if er.registered.Load() {
+		return nil
+	}
+
 	var err error
 	// 订阅死信事件
 	err = er.eb.Subscribe(
 		er.eh.dlr.Handle,
 		EventTypeDeadLetterRetried,
 	) // 订阅死信事件，交给 DeadLetterResolver 处理
-	if err != nil {
-		return err
-	}
-	err = er.eb.Subscribe(
-		er.eh.fa.Handle,
-		EventTypeEchoCreated,
-	) // 订阅 EchoCreated 事件，交给 FediverseAgent 处理
 	if err != nil {
 		return err
 	}
@@ -89,11 +87,15 @@ func (er *EventRegistrar) Register() error {
 		return err
 	}
 
+	er.registered.Store(true)
 	return err
 }
 
-// Wait 等待所有事件处理完成
-func (er *EventRegistrar) Wait() {
+// Stop 等待已投递的异步处理任务完成。
+func (er *EventRegistrar) Stop() error {
+	if !er.registered.Load() {
+		return nil
+	}
 	er.eh.wbd.Wait()
-	er.eh.fa.Wait()
+	return nil
 }

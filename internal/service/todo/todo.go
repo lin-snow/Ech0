@@ -13,18 +13,18 @@ import (
 )
 
 type TodoService struct {
-	txManager      transaction.TransactionManager       // 事务管理器
-	todoRepository repository.TodoRepositoryInterface   // To do数据层接口
-	commonService  commonService.CommonServiceInterface // 公共服务接口
+	transactor     transaction.Transactor             // 事务执行器
+	todoRepository repository.TodoRepositoryInterface // To do数据层接口
+	commonService  *commonService.CommonService       // 公共服务接口
 }
 
 func NewTodoService(
-	tm transaction.TransactionManager,
+	tx transaction.Transactor,
 	todoRepository repository.TodoRepositoryInterface,
-	commonService commonService.CommonServiceInterface,
-) TodoServiceInterface {
+	commonService *commonService.CommonService,
+) *TodoService {
 	return &TodoService{
-		txManager:      tm,
+		transactor:     tx,
 		todoRepository: todoRepository,
 		commonService:  commonService,
 	}
@@ -33,7 +33,7 @@ func NewTodoService(
 // GetTodoList 获取当前用户的 To do列表
 func (todoService *TodoService) GetTodoList(userid uint) ([]model.Todo, error) {
 	// 检查执行操作的用户是否为管理员
-	user, err := todoService.commonService.CommonGetUserByUserId(userid)
+	user, err := todoService.commonService.CommonGetUserByUserId(context.Background(), userid)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (todoService *TodoService) GetTodoList(userid uint) ([]model.Todo, error) {
 		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	todos, err := todoService.todoRepository.GetTodosByUserID(userid)
+	todos, err := todoService.todoRepository.GetTodosByUserID(context.Background(), userid)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +57,9 @@ func (todoService *TodoService) GetTodoList(userid uint) ([]model.Todo, error) {
 
 // AddTodo 创建新的 To do
 func (todoService *TodoService) AddTodo(userid uint, todo *model.Todo) error {
-	return todoService.txManager.Run(func(ctx context.Context) error {
+	return todoService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		// 检查执行操作的用户是否为管理员
-		user, err := todoService.commonService.CommonGetUserByUserId(userid)
+		user, err := todoService.commonService.CommonGetUserByUserId(ctx, userid)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func (todoService *TodoService) AddTodo(userid uint, todo *model.Todo) error {
 			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 
-		todos, err := todoService.todoRepository.GetTodosByUserID(userid)
+		todos, err := todoService.todoRepository.GetTodosByUserID(ctx, userid)
 		if err != nil {
 			return err
 		}
@@ -97,9 +97,9 @@ func (todoService *TodoService) AddTodo(userid uint, todo *model.Todo) error {
 
 // UpdateTodo 更新指定ID的 To do
 func (todoService *TodoService) UpdateTodo(userid uint, id int64) error {
-	return todoService.txManager.Run(func(ctx context.Context) error {
+	return todoService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		// 检查执行操作的用户是否为管理员
-		user, err := todoService.commonService.CommonGetUserByUserId(userid)
+		user, err := todoService.commonService.CommonGetUserByUserId(ctx, userid)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func (todoService *TodoService) UpdateTodo(userid uint, id int64) error {
 		}
 
 		// 获取 To do
-		theTodo, err := todoService.todoRepository.GetTodoByID(id)
+		theTodo, err := todoService.todoRepository.GetTodoByID(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -133,9 +133,9 @@ func (todoService *TodoService) UpdateTodo(userid uint, id int64) error {
 
 // DeleteTodo 删除指定ID的 To do
 func (todoService *TodoService) DeleteTodo(userid uint, id int64) error {
-	return todoService.txManager.Run(func(ctx context.Context) error {
+	return todoService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		// 检查执行操作的用户是否为管理员
-		user, err := todoService.commonService.CommonGetUserByUserId(userid)
+		user, err := todoService.commonService.CommonGetUserByUserId(ctx, userid)
 		if err != nil {
 			return err
 		}
@@ -144,7 +144,7 @@ func (todoService *TodoService) DeleteTodo(userid uint, id int64) error {
 		}
 
 		// 获取 To do
-		theTodo, err := todoService.todoRepository.GetTodoByID(id)
+		theTodo, err := todoService.todoRepository.GetTodoByID(ctx, id)
 		if err != nil {
 			return err
 		}

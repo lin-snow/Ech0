@@ -103,11 +103,6 @@ const router = createRouter({
       name: 'echo',
       component: () => import('../views/echo/EchoView.vue'),
     },
-    // {
-    //   path: '/fediverse',
-    //   name: 'fediverse',
-    //   component: () => import('../views/fediverse/FediverseView.vue'),
-    // },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',

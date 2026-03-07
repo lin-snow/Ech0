@@ -8,10 +8,10 @@ import (
 )
 
 type AgentHandler struct {
-	agentService service.AgentServiceInterface
+	agentService *service.AgentService
 }
 
-func NewAgentHandler(agentService service.AgentServiceInterface) *AgentHandler {
+func NewAgentHandler(agentService *service.AgentService) *AgentHandler {
 	return &AgentHandler{
 		agentService: agentService,
 	}

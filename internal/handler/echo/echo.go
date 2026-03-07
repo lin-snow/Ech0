@@ -13,11 +13,11 @@ import (
 )
 
 type EchoHandler struct {
-	echoService service.EchoServiceInterface
+	echoService *service.EchoService
 }
 
 // NewEchoHandler EchoHandler 的构造函数
-func NewEchoHandler(echoService service.EchoServiceInterface) *EchoHandler {
+func NewEchoHandler(echoService *service.EchoService) *EchoHandler {
 	return &EchoHandler{
 		echoService: echoService,
 	}

@@ -3,6 +3,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -20,15 +21,20 @@ import (
 
 type Tasker struct {
 	scheduler      gocron.Scheduler
-	commonService  commonService.CommonServiceInterface
-	settingService settingService.SettingServiceInterface
+	commonService  *commonService.CommonService
+	settingService *settingService.SettingService
 	eventBus       event.IEventBus
 	queueRepo      queueRepository.QueueRepositoryInterface
+	started        bool
+}
+
+func (t *Tasker) Name() string {
+	return "tasker"
 }
 
 func NewTasker(
-	commonService commonService.CommonServiceInterface,
-	settingService settingService.SettingServiceInterface,
+	commonService *commonService.CommonService,
+	settingService *settingService.SettingService,
 	eventBusProvider func() event.IEventBus,
 	queueRepo queueRepository.QueueRepositoryInterface,
 ) *Tasker {
@@ -49,10 +55,22 @@ func NewTasker(
 	}
 }
 
-func (t *Tasker) Start() {
-	t.CleanupTempFilesTask()  // 启动清理临时文件任务
-	t.DeadLetterConsumeTask() // 启动死信任务消费任务
-	t.InboxTask()             // 启动Inbox任务
+func (t *Tasker) Start(context.Context) error {
+	if t.started {
+		return nil
+	}
+	if t.scheduler == nil {
+		return errors.New("scheduler is nil")
+	}
+	if err := t.CleanupTempFilesTask(); err != nil {
+		return err
+	}
+	if err := t.DeadLetterConsumeTask(); err != nil {
+		return err
+	}
+	if err := t.InboxTask(); err != nil {
+		return err
+	}
 
 	// 读取自动备份cron设置
 	var backupScheduleSetting settingModel.BackupSchedule
@@ -64,26 +82,36 @@ func (t *Tasker) Start() {
 		backupScheduleSetting.CronExpression = "0 2 * * 0" // 每周日2点执行一次
 	}
 	if backupScheduleSetting.Enable {
-		t.ScheduleBackupTask(backupScheduleSetting.CronExpression) // 启动定时备份任务
+		if err := t.ScheduleBackupTask(backupScheduleSetting.CronExpression); err != nil {
+			return err
+		}
 	}
 
 	t.scheduler.Start()
+	t.started = true
+	return nil
 }
 
-func (t *Tasker) Stop() {
+func (t *Tasker) Stop(context.Context) error {
+	if !t.started || t.scheduler == nil {
+		return nil
+	}
 	if err := t.scheduler.Shutdown(); err != nil {
 		logUtil.GetLogger().Error("Failed to shutdown scheduler", zap.String("error", err.Error()))
+		return err
 	}
+	t.started = false
+	return nil
 }
 
 // CleanupTempFilesTask 清理过期的临时文件任务
-func (t *Tasker) CleanupTempFilesTask() {
+func (t *Tasker) CleanupTempFilesTask() error {
 	// 每三天执行一次
 	_, err := t.scheduler.NewJob(
 		gocron.DurationJob(72*time.Hour),
 		gocron.NewTask(
 			func() {
-				if err := t.commonService.CleanupTempFiles(); err != nil {
+				if err := t.commonService.CleanupOrphanFiles(); err != nil {
 					logUtil.GetLogger().
 						Error("Failed to clean up temporary files", zap.String("error", err.Error()))
 				}
@@ -93,11 +121,13 @@ func (t *Tasker) CleanupTempFilesTask() {
 	if err != nil {
 		logUtil.GetLogger().
 			Error("Failed to schedule CleanupTempFilesTask", zap.String("error", err.Error()))
+		return err
 	}
+	return nil
 }
 
 // DeadLetterConsumeTask 死信任务消费任务
-func (t *Tasker) DeadLetterConsumeTask() {
+func (t *Tasker) DeadLetterConsumeTask() error {
 	// 每天12点执行一次, 测试时为每30秒执行一次
 	_, err := t.scheduler.NewJob(
 		gocron.DailyJob(1, gocron.NewAtTimes(gocron.NewAtTime(12, 0, 0))),
@@ -105,7 +135,7 @@ func (t *Tasker) DeadLetterConsumeTask() {
 		gocron.NewTask(
 			func() {
 				// 取出死信队列中的任务，逐个重试
-				deadLetters, err := t.queueRepo.ListDeadLetters(10)
+				deadLetters, err := t.queueRepo.ListDeadLetters(context.Background(), 10)
 				if err != nil {
 					logUtil.GetLogger().
 						Error("Failed To Get DeadLetters!", zap.String("error", err.Error()))
@@ -132,11 +162,13 @@ func (t *Tasker) DeadLetterConsumeTask() {
 	if err != nil {
 		logUtil.GetLogger().
 			Error("Failed to schedule WebhookRetryTask", zap.String("error", err.Error()))
+		return err
 	}
+	return nil
 }
 
 // ScheduleBackupTask 定时备份任务
-func (t *Tasker) ScheduleBackupTask(cronExpression string) {
+func (t *Tasker) ScheduleBackupTask(cronExpression string) error {
 	// 判断 cron 表达式的字段数量来确定是否包含秒字段
 	// 5 位表达式（分 时 日 月 周）：withSeconds = false
 	// 6 位表达式（秒 分 时 日 月 周）：withSeconds = true
@@ -179,11 +211,13 @@ func (t *Tasker) ScheduleBackupTask(cronExpression string) {
 	if err != nil {
 		logUtil.GetLogger().
 			Error("Failed to schedule ScheduleBackupTask", zap.String("error", err.Error()))
+		return err
 	}
+	return nil
 }
 
 // InboxTask 定时处理Inbox任务
-func (t *Tasker) InboxTask() {
+func (t *Tasker) InboxTask() error {
 	// 每天12点执行一次, 测试时为每30秒执行一次
 	_, err := t.scheduler.NewJob(
 		gocron.DailyJob(1, gocron.NewAtTimes(gocron.NewAtTime(12, 0, 0))),
@@ -219,5 +253,7 @@ func (t *Tasker) InboxTask() {
 	if err != nil {
 		logUtil.GetLogger().
 			Error("Failed to schedule InboxTask", zap.String("error", err.Error()))
+		return err
 	}
+	return nil
 }

@@ -68,13 +68,26 @@ declare namespace App {
     }
 
     namespace File {
-      type ImageDto = {
+      type FileMetadata = {
+        image?: { width?: number; height?: number }
+        video?: { width?: number; height?: number; duration_ms?: number }
+        audio?: { duration_ms?: number }
+        pdf?: { pages?: number }
+        markdown?: { word_count?: number }
+      }
+      type FileDto = {
         url: string
+        /** 可直接用于渲染的 URL（优先于 url） */
+        access_url?: string
         source: string
         object_key?: string
+        content_type?: string
+        category?: 'image' | 'video' | 'audio' | 'pdf' | 'markdown' | 'file'
+        metadata?: FileMetadata
         width?: number
         height?: number
       }
+      type ImageDto = FileDto
     }
 
     namespace Ech0 {
@@ -90,7 +103,8 @@ declare namespace App {
         username: string
         image_url: string
         image_source: string
-        images: Image[]
+        images: FileObject[]
+        files?: FileObject[]
         layout?: string
         private: boolean
         user_id: number
@@ -101,15 +115,18 @@ declare namespace App {
         created_at: string
       }
 
-      type Image = {
+      type FileObject = {
         id: number
-        message_id: number
+        echo_id: number
         image_url: string
+        /** 可直接用于渲染的 URL（优先于 image_url） */
+        access_url?: string
         image_source: string
         object_key?: string // 对象存储的Key (如果是本地存储则为空)
         width?: number // 图片宽度
         height?: number // 图片高度
       }
+      type Image = FileObject
 
       type Tag = {
         id: number
@@ -118,13 +135,16 @@ declare namespace App {
         created_at: string
       }
 
-      type ImageToAdd = {
+      type FileToAdd = {
         image_url: string
+        /** 前端预览用的可直接访问地址，提交时仍使用 image_url */
+        access_url?: string
         image_source: string
         object_key?: string // 对象存储的Key (如果是本地存储则为空)
         width?: number // 图片宽度
         height?: number // 图片高度
       }
+      type ImageToAdd = FileToAdd
 
       type TagToAdd = {
         id?: number
@@ -135,7 +155,8 @@ declare namespace App {
 
       type EchoToAdd = {
         content: string
-        images?: ImageToAdd[] | null
+        images?: FileToAdd[] | null
+        files?: FileToAdd[] | null
         tags?: TagToAdd[] | null
         layout?: string | null
         extension?: string | null
@@ -147,7 +168,8 @@ declare namespace App {
         id: number
         content: string
         username: string
-        images?: ImageToAdd[] | null
+        images?: FileToAdd[] | null
+        files?: FileToAdd[] | null
         tags?: TagToAdd[] | null
         layout?: string | null
         private: boolean
@@ -175,11 +197,12 @@ declare namespace App {
         count: number
       }[]
 
-      type ImageToDelete = {
+      type FileToDelete = {
         url: string
         source: string
         object_key?: string // 对象存储的 Key, 用于删除 S3/R2 上的图片
       }
+      type ImageToDelete = FileToDelete
 
       type GithubCardData = {
         name: string
@@ -268,11 +291,6 @@ declare namespace App {
         auth_type: string
       }
 
-      type FediverseSetting = {
-        enable: boolean
-        server_url: string
-      }
-
       type Webhook = {
         id: number
         name: string
@@ -348,64 +366,6 @@ declare namespace App {
       type Connected = {
         id: number
         connect_url: string
-      }
-    }
-
-    namespace Fediverse {
-      type Actor = Record<string, unknown>
-
-      type FollowActionRequest = {
-        targetActor: string
-      }
-
-      type FollowResponse = {
-        activityId: string
-      }
-
-      // type LikeActionRequest = {
-      //   targetActor: string
-      //   object: string
-      //   objectType?: string
-      // }
-
-      type UnfollowResponse = {
-        activityId: string
-        followActivityId?: string
-      }
-
-      // type LikeResponse = {
-      //   activityId: string
-      // }
-
-      // type UndoLikeResponse = {
-      //   activityId: string
-      //   likeActivityId?: string
-      // }
-
-      type TimelineItem = {
-        id: number
-        activityId: string
-        actorId: string
-        actorPreferredUsername: string
-        actorDisplayName: string
-        actorAvatar: string
-        objectId: string
-        objectType: string
-        objectAttributedTo: string
-        summary: string
-        content: string
-        to: string[]
-        cc: string[]
-        rawActivity?: unknown
-        rawObject?: unknown
-        publishedAt: string
-        createdAt: string
-        updatedAt: string
-      }
-
-      type TimelineResult = {
-        total: number
-        items: TimelineItem[]
       }
     }
 

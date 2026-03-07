@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"errors"
 	"time"
 
 	"github.com/dgraph-io/ristretto/v2"
@@ -39,15 +38,15 @@ func (r *RistrettoCache[K, V]) SetWithTTL(key K, value V, cost int64, ttl time.D
 	return r.cache.SetWithTTL(key, value, cost, ttl)
 }
 
-// Get 从缓存中获取值，如果不存在则返回错误
-func (r *RistrettoCache[K, V]) Get(key K) (V, error) {
+// Get 从缓存中获取值
+func (r *RistrettoCache[K, V]) Get(key K) (V, bool, error) {
 	value, found := r.cache.Get(key)
 	if !found {
 		var zeroValue V
-		return zeroValue, errors.New("key not found")
+		return zeroValue, false, nil
 	}
 
-	return value, nil
+	return value, true, nil
 }
 
 // Delete 从缓存中删除指定的键
@@ -55,18 +54,8 @@ func (r *RistrettoCache[K, V]) Delete(key K) {
 	r.cache.Del(key)
 }
 
-// GetOrSet 尝试从缓存中获取值，如果不存在则调用提供的函数获取值并存入缓存
-func (r *RistrettoCache[K, V]) GetOrSet(key K, cost int64, fn func() (V, error)) (V, error) {
-	value, found := r.cache.Get(key)
-	if found {
-		return value, nil
-	}
-
-	value, err := fn()
-	if err != nil {
-		return value, err
-	}
-
-	r.cache.Set(key, value, cost)
-	return value, nil
+// Close 关闭底层缓存资源
+func (r *RistrettoCache[K, V]) Close() error {
+	r.cache.Close()
+	return nil
 }

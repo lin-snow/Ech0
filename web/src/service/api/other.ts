@@ -4,8 +4,10 @@ import { request, downloadFile } from '../request'
 export function fetchUploadMusic(file: File) {
   const formData = new FormData()
   formData.append('file', file)
-  return request<string>({
-    url: `/audios/upload`,
+  formData.append('category', 'audio')
+  formData.append('source', 'local')
+  return request<App.Api.File.FileDto>({
+    url: `/files/upload`,
     method: 'POST',
     data: formData,
   })

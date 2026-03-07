@@ -26,17 +26,17 @@ func NewTodoRepository(
 
 // getDB 从上下文中获取事务
 func (todoRepository *TodoRepository) getDB(ctx context.Context) *gorm.DB {
-	if tx, ok := ctx.Value(transaction.TxKey).(*gorm.DB); ok {
+	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
 	}
 	return todoRepository.db()
 }
 
 // GetTodosByUserID 根据用户ID获取待办事项
-func (todoRepository *TodoRepository) GetTodosByUserID(userid uint) ([]model.Todo, error) {
+func (todoRepository *TodoRepository) GetTodosByUserID(ctx context.Context, userid uint) ([]model.Todo, error) {
 	var todos []model.Todo
 	// 查询数据库(按创建时间，最新的在前)
-	if err := todoRepository.db().Where("user_id = ?", userid).Order("created_at DESC").Find(&todos).Error; err != nil {
+	if err := todoRepository.getDB(ctx).Where("user_id = ?", userid).Order("created_at DESC").Find(&todos).Error; err != nil {
 		return nil, err
 	}
 	// 如果没有找到，返回空切片
@@ -58,10 +58,10 @@ func (todoRepository *TodoRepository) CreateTodo(ctx context.Context, todo *mode
 }
 
 // GetTodoByID 根据ID获取待办事项
-func (todoRepository *TodoRepository) GetTodoByID(todoID int64) (*model.Todo, error) {
+func (todoRepository *TodoRepository) GetTodoByID(ctx context.Context, todoID int64) (*model.Todo, error) {
 	var todo model.Todo
 	// 根据 ID 查找 To do
-	if err := todoRepository.db().Where("id = ?", todoID).First(&todo).Error; err != nil {
+	if err := todoRepository.getDB(ctx).Where("id = ?", todoID).First(&todo).Error; err != nil {
 		return nil, err
 	}
 

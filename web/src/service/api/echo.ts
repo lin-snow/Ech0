@@ -79,7 +79,7 @@ export function fetchGetGithubRepo(githubRepo: { owner: string; repo: string }) 
 // 获取预签名URL
 export function fetchGetPresignedUrl(fileName: string, contentType?: string) {
   return request<App.Api.Ech0.PresignResult>({
-    url: `/s3/presign`,
+    url: `/files/presign`,
     method: 'PUT',
     data: {
       file_name: fileName,

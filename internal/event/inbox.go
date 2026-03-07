@@ -48,7 +48,7 @@ func (id *InboxDispatcher) handleEch0UpdateCheck(ctx context.Context) error {
 	}
 
 	// 检查是否已发送过更新通知
-	releaseVersion, err := id.keyvalueRepo.GetKeyValue(commonModel.ReleaseVersionKey)
+	releaseVersion, err := id.keyvalueRepo.GetKeyValue(ctx, commonModel.ReleaseVersionKey)
 	if err != nil {
 		// 首次运行时该 key 可能不存在，视为“未通知过”
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -56,8 +56,7 @@ func (id *InboxDispatcher) handleEch0UpdateCheck(ctx context.Context) error {
 		}
 	}
 
-	releaseVersionStr, _ := releaseVersion.(string)
-	if releaseVersionStr != "" && releaseVersionStr == latestVersion {
+	if releaseVersion != "" && releaseVersion == latestVersion {
 		return nil
 	}
 

@@ -41,8 +41,8 @@ func NewAgentProcessor(
 func (ap *AgentProcessor) Handle(ctx context.Context, e *Event) error {
 	// 获取 Agent 设置
 	var agentSetting settingModel.AgentSetting
-	if agentSettingStr, err := ap.keyvalueRepo.GetKeyValue(commonModel.AgentSettingKey); err == nil {
-		if err := json.Unmarshal([]byte(agentSettingStr.(string)), &agentSetting); err != nil {
+	if agentSettingStr, err := ap.keyvalueRepo.GetKeyValue(ctx, commonModel.AgentSettingKey); err == nil {
+		if err := json.Unmarshal([]byte(agentSettingStr), &agentSetting); err != nil {
 			return err
 		}
 	}

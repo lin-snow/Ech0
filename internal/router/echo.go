@@ -1,9 +1,9 @@
 package router
 
-import "github.com/lin-snow/ech0/internal/di"
+import "github.com/lin-snow/ech0/internal/handler"
 
 // setupEchoRoutes 设置Echo路由
-func setupEchoRoutes(appRouterGroup *AppRouterGroup, h *di.Handlers) {
+func setupEchoRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	// Public
 	appRouterGroup.PublicRouterGroup.PUT("/echo/like/:id", h.EchoHandler.LikeEcho())
 	appRouterGroup.PublicRouterGroup.GET("/tags", h.EchoHandler.GetAllTags())

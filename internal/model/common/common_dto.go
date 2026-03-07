@@ -4,45 +4,55 @@ package model
 //
 // swagger:model PageQueryDto
 type PageQueryDto struct {
-	Page     int    `json:"page"     form:"page"`     // 页码，从1开始
-	PageSize int    `json:"pageSize" form:"pageSize"` // 每页大小
-	Search   string `json:"search"   form:"search"`   // 用于搜索的关键字
+	Page     int    `json:"page"     form:"page"`
+	PageSize int    `json:"pageSize" form:"pageSize"`
+	Search   string `json:"search"   form:"search"`
 }
 
-// ImageDto 用于图片相关的请求数据传输对象
+// FileDto is the unified response for file operations.
+// The Key field is the single source of truth — URLs are resolved at runtime.
 //
-// swagger:model ImageDto
-type ImageDto struct {
-	// 图片的 URL 地址
-	URL       string `json:"url"        binding:"required"`
-	SOURCE    string `json:"source"     binding:"required"`
-	ObjectKey string `json:"object_key"` // 对象存储的 Key, 用于删除 S3/R2 上的图片
-	Width     int    `json:"width"`      // 图片宽度
-	Height    int    `json:"height"`     // 图片高度
+// swagger:model FileDto
+type FileDto struct {
+	ID          uint   `json:"id"`
+	Key         string `json:"key"`
+	URL         string `json:"url"`
+	ContentType string `json:"content_type,omitempty"`
+	Category    string `json:"category,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	Width       int    `json:"width,omitempty"`
+	Height      int    `json:"height,omitempty"`
+}
+
+// FileDeleteDto is the request body for deleting a file.
+//
+// swagger:model FileDeleteDto
+type FileDeleteDto struct {
+	Key string `json:"key" binding:"required"`
 }
 
 // PresignDto 用于响应 S3 预签名 URL 的请求数据传输对象
 //
 // swagger:model PresignDto
 type PresignDto struct {
-	FileName    string `json:"file_name"` // 原始文件名
+	FileName    string `json:"file_name"`
 	ContentType string `json:"content_type"`
-	ObjectKey   string `json:"object_key"`  // 预签名的对象存储 Key
-	PresignURL  string `json:"presign_url"` // 预签名 URL
-	FileURL     string `json:"file_url"`    // 文件访问 URL,用于回显
+	Key         string `json:"key"`
+	PresignURL  string `json:"presign_url"`
+	FileURL     string `json:"file_url"`
 }
 
 // GetPresignURLDto 用于请求 S3 预签名 URL 的请求数据传输对象
 //
 // swagger:model GetPresignURLDto
 type GetPresignURLDto struct {
-	FileName    string `json:"file_name"    binding:"required"` // 原始文件名
-	ContentType string `json:"content_type"`                    // 文件的 MIME 类型
+	FileName    string `json:"file_name"    binding:"required"`
+	ContentType string `json:"content_type"`
 }
 
 // GetWebsiteTitleDto 用于请求网站标题的请求数据传输对象
 //
 // swagger:model GetWebsiteTitleDto
 type GetWebsiteTitleDto struct {
-	WebSiteURL string `json:"website_url" form:"website_url" binding:"required"` // 网站URL
+	WebSiteURL string `json:"website_url" form:"website_url" binding:"required"`
 }

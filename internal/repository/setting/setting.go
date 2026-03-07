@@ -19,7 +19,7 @@ func NewSettingRepository(dbProvider func() *gorm.DB) SettingRepositoryInterface
 }
 
 func (settingRepository *SettingRepository) getDB(ctx context.Context) *gorm.DB {
-	if tx, ok := ctx.Value(transaction.TxKey).(*gorm.DB); ok {
+	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
 	}
 	return settingRepository.db()
@@ -27,11 +27,12 @@ func (settingRepository *SettingRepository) getDB(ctx context.Context) *gorm.DB 
 
 // ListAccessTokens 列出访问令牌
 func (settingRepository *SettingRepository) ListAccessTokens(
+	ctx context.Context,
 	userID uint,
 ) ([]model.AccessTokenSetting, error) {
 	var tokens []model.AccessTokenSetting
 	// 查询所有访问令牌
-	if err := settingRepository.db().Where("user_id = ?", userID).Find(&tokens).Error; err != nil {
+	if err := settingRepository.getDB(ctx).Where("user_id = ?", userID).Find(&tokens).Error; err != nil {
 		return nil, err
 	}
 	return tokens, nil

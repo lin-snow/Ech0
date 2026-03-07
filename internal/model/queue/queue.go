@@ -7,8 +7,6 @@ import (
 const (
 	// DeadLetterTypeWebhook webhook 类型的死信任务
 	DeadLetterTypeWebhook = "webhook"
-	// DeadLetterTypePushEchoFediverse 联邦宇宙相关的 push 类型的死信任务
-	DeadLetterTypePushEchoFediverse = "push_echo_fediverse"
 )
 
 const (

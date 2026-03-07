@@ -10,9 +10,9 @@ import (
 type ICache[K ristretto.Key, V any] interface {
 	Set(key K, value V, cost int64) bool
 	SetWithTTL(key K, value V, cost int64, ttl time.Duration) bool
-	Get(key K) (V, error)
+	Get(key K) (V, bool, error)
 	Delete(key K)
-	GetOrSet(key K, cost int64, fn func() (V, error)) (V, error)
+	Close() error
 }
 
 // NewCache 创建一个新的缓存实例，使用 Ristretto 作为缓存实现

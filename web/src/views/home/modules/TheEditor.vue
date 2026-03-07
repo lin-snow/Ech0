@@ -121,6 +121,7 @@ watch(
       if (echoToUpdate.value?.images && echoToUpdate.value.images.length > 0) {
         imagesToAdd.value = echoToUpdate.value.images.map((img) => ({
           image_url: img.image_url || '',
+          access_url: img.access_url || '',
           image_source: img.image_source || '',
           object_key: img.object_key || '',
         }))

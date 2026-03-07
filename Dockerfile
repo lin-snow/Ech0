@@ -61,4 +61,4 @@ EXPOSE 6277
 
 ENTRYPOINT ["/app/ech0"]
 
-CMD ["web"]
+CMD ["serve"]

@@ -1,19 +1,13 @@
 package util
 
 import (
-	"crypto"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/lin-snow/ech0/internal/config"
 )
 
 // TrimURL 去除 URL 前后的空格和斜杠
@@ -150,82 +144,4 @@ func GetMIMETypeFromFilenameOrURL(filenameOrURL string) string {
 	default:
 		return "application/octet-stream" // 默认二进制流
 	}
-}
-
-// PostActivity 发送 POST 请求
-func PostActivity(activity []byte, inboxURL string, actorID string) error {
-	priv := config.RSA_PRIVATE
-	if priv == nil {
-		return fmt.Errorf("private key is not initialized")
-	}
-
-	// 构造请求
-	req, err := http.NewRequest("POST", inboxURL, strings.NewReader(string(activity)))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/activity+json")
-
-	// 调用 SignRequest 进行签名
-	if err := SignRequest(req, priv, actorID+"#main-key", activity); err != nil {
-		return fmt.Errorf("failed to sign request: %w", err)
-	}
-
-	// 发送请求
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	// 检查响应
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("received non-2xx response: %d - %s", resp.StatusCode, string(body))
-	}
-
-	return nil
-}
-
-// SignRequest 对请求进行签名
-func SignRequest(req *http.Request, priv *rsa.PrivateKey, keyID string, body []byte) error {
-	// 1. Digest
-	digest := sha256.Sum256(body)
-	digestBase64 := base64.StdEncoding.EncodeToString(digest[:])
-	req.Header.Set("Digest", "SHA-256="+digestBase64)
-
-	// 2. Date
-	date := time.Now().UTC().Format(http.TimeFormat)
-	req.Header.Set("Date", date)
-
-	// 3. Signature
-	signingString := fmt.Sprintf("(request-target): %s %s\ndate: %s\ndigest: SHA-256=%s",
-		strings.ToLower(req.Method),
-		req.URL.RequestURI(),
-		date,
-		digestBase64,
-	)
-
-	// 4. 签名
-	hashed := sha256.Sum256([]byte(signingString))
-	sig, err := rsa.SignPKCS1v15(nil, priv, crypto.SHA256, hashed[:])
-	if err != nil {
-		return fmt.Errorf("failed to sign request: %w", err)
-	}
-	sigBase64 := base64.StdEncoding.EncodeToString(sig)
-
-	// 5. 构建 Signature 头
-	signatureHeader := fmt.Sprintf(
-		`keyId="%s",algorithm="rsa-sha256",headers="(request-target) date digest",signature="%s"`,
-		keyID,
-		sigBase64,
-	)
-	req.Header.Set("Signature", signatureHeader)
-
-	return nil
 }

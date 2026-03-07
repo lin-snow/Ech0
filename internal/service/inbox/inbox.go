@@ -15,18 +15,18 @@ import (
 )
 
 type InboxService struct {
-	txManager       transaction.TransactionManager
-	commonService   commonService.CommonServiceInterface
+	transactor      transaction.Transactor
+	commonService   *commonService.CommonService
 	inboxRepository inboxRepository.InboxRepositoryInterface
 }
 
 func NewInboxService(
-	tm transaction.TransactionManager,
-	commonSvc commonService.CommonServiceInterface,
+	tx transaction.Transactor,
+	commonSvc *commonService.CommonService,
 	inboxRepo inboxRepository.InboxRepositoryInterface,
-) InboxServiceInterface {
+) *InboxService {
 	return &InboxService{
-		txManager:       tm,
+		transactor:      tx,
 		commonService:   commonSvc,
 		inboxRepository: inboxRepo,
 	}
@@ -37,7 +37,7 @@ func (inboxService *InboxService) GetInboxList(
 	userid uint,
 	pageQueryDto commonModel.PageQueryDto,
 ) (commonModel.PageQueryResult[[]*inboxModel.Inbox], error) {
-	if err := inboxService.ensureAdmin(userid); err != nil {
+	if err := inboxService.ensureAdmin(context.Background(), userid); err != nil {
 		return commonModel.PageQueryResult[[]*inboxModel.Inbox]{}, err
 	}
 
@@ -69,7 +69,7 @@ func (inboxService *InboxService) GetInboxList(
 
 // GetUnreadInbox 获取所有未读消息
 func (inboxService *InboxService) GetUnreadInbox(userid uint) ([]*inboxModel.Inbox, error) {
-	if err := inboxService.ensureAdmin(userid); err != nil {
+	if err := inboxService.ensureAdmin(context.Background(), userid); err != nil {
 		return nil, err
 	}
 
@@ -78,26 +78,25 @@ func (inboxService *InboxService) GetUnreadInbox(userid uint) ([]*inboxModel.Inb
 
 // MarkAsRead 将消息标记为已读
 func (inboxService *InboxService) MarkAsRead(userid, inboxID uint) error {
-	if err := inboxService.ensureAdmin(userid); err != nil {
+	if err := inboxService.ensureAdmin(context.Background(), userid); err != nil {
 		return err
 	}
 
-	// 获取消息
-	inbox, err := inboxService.inboxRepository.GetInboxById(context.Background(), inboxID)
-	if err != nil {
-		return inboxService.handleRepoError(err)
-	}
+	return inboxService.transactor.Run(context.Background(), func(ctx context.Context) error {
+		inbox, err := inboxService.inboxRepository.GetInboxById(ctx, inboxID)
+		if err != nil {
+			return inboxService.handleRepoError(err)
+		}
 
-	// 如果消息未读，则增加已读次数和已读时间
-	if !inbox.Read {
-		inbox.ReadCount++
-		inbox.ReadAt = time.Now().UTC().Unix()
-	} else {
-		// 如果消息已读，则增加已读次数
-		inbox.ReadCount++
-	}
+		// 如果消息未读，则增加已读次数和已读时间
+		if !inbox.Read {
+			inbox.ReadCount++
+			inbox.ReadAt = time.Now().UTC().Unix()
+		} else {
+			// 如果消息已读，则增加已读次数
+			inbox.ReadCount++
+		}
 
-	return inboxService.txManager.Run(func(ctx context.Context) error {
 		if err := inboxService.inboxRepository.UpdateInbox(ctx, inbox); err != nil {
 			return inboxService.handleRepoError(err)
 		}
@@ -107,11 +106,11 @@ func (inboxService *InboxService) MarkAsRead(userid, inboxID uint) error {
 
 // DeleteInbox 删除指定的收件箱消息
 func (inboxService *InboxService) DeleteInbox(userid, inboxID uint) error {
-	if err := inboxService.ensureAdmin(userid); err != nil {
+	if err := inboxService.ensureAdmin(context.Background(), userid); err != nil {
 		return err
 	}
 
-	return inboxService.txManager.Run(func(ctx context.Context) error {
+	return inboxService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		if err := inboxService.inboxRepository.DeleteInbox(ctx, inboxID); err != nil {
 			return inboxService.handleRepoError(err)
 		}
@@ -121,17 +120,17 @@ func (inboxService *InboxService) DeleteInbox(userid, inboxID uint) error {
 
 // ClearInbox 清空收件箱
 func (inboxService *InboxService) ClearInbox(userid uint) error {
-	if err := inboxService.ensureAdmin(userid); err != nil {
+	if err := inboxService.ensureAdmin(context.Background(), userid); err != nil {
 		return err
 	}
 
-	return inboxService.txManager.Run(func(ctx context.Context) error {
+	return inboxService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		return inboxService.inboxRepository.ClearInbox(ctx)
 	})
 }
 
-func (inboxService *InboxService) ensureAdmin(userid uint) error {
-	user, err := inboxService.commonService.CommonGetUserByUserId(userid)
+func (inboxService *InboxService) ensureAdmin(ctx context.Context, userid uint) error {
+	user, err := inboxService.commonService.CommonGetUserByUserId(ctx, userid)
 	if err != nil {
 		return err
 	}

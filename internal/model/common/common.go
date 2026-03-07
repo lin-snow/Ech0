@@ -16,19 +16,6 @@ type Status struct {
 	TotalEchos int          `json:"total_echos"`  // 总共发布数量
 }
 
-// TempFile 使用延迟删除机制处理S3和本地存储的孤儿文件
-type TempFile struct {
-	ID             uint   `json:"id"               gorm:"primaryKey"` // 主键ID
-	FileName       string `json:"file_name"`                          // 文件名
-	Storage        string `json:"storage"`                            // 存储类型 local/s3/r2
-	FileType       string `json:"file_type"`                          // 文件类型 image/audio
-	Bucket         string `json:"bucket"`                             // 存储桶
-	ObjectKey      string `json:"object_key"`                         // 对象键
-	Deleted        bool   `json:"deleted"`                            // 是否已删除
-	CreatedAt      int64  `json:"created_at"`                         // 创建时间（Unix时间戳）
-	LastAccessedAt int64  `json:"last_accessed_at"`                   // 最后访问时间（Unix时间戳）
-}
-
 // Heatmap 用于存储热力图数据
 type Heatmap struct {
 	Date  string `json:"date"`  // 日期
@@ -38,6 +25,7 @@ type Heatmap struct {
 type (
 	UploadFileType  string
 	FileStorageType string
+	FileCategory    string
 	CommentProvider string
 	S3Provider      string
 	OAuth2Provider  string
@@ -51,6 +39,13 @@ const (
 	ImageType UploadFileType = "image"
 	// AudioType  音频类型
 	AudioType UploadFileType = "audio"
+)
+
+const (
+	// FileCategoryImage 统一文件类别：图片
+	FileCategoryImage FileCategory = "image"
+	// FileCategoryAudio 统一文件类别：音频
+	FileCategoryAudio FileCategory = "audio"
 )
 
 const (
@@ -126,8 +121,6 @@ const (
 	OAuth2SettingKey = "oauth2_setting"
 	// ServerURLKey 是服务器URL设置的键
 	ServerURLKey = "server_url"
-	// FediverseSettingKey 是联邦网络设置的键
-	FediverseSettingKey = "fediverse_setting"
 	// BackupScheduleKey 是备份计划设置的键
 	BackupScheduleKey = "backup_schedule"
 	// AgentSettingKey 是 Agent 设置的键

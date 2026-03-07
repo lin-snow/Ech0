@@ -19,7 +19,7 @@ func NewWebhookRepository(dbProvider func() *gorm.DB) WebhookRepositoryInterface
 }
 
 func (webhookRepository *WebhookRepository) getDB(ctx context.Context) *gorm.DB {
-	if tx, ok := ctx.Value(transaction.TxKey).(*gorm.DB); ok {
+	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
 	}
 	return webhookRepository.db()
@@ -38,9 +38,9 @@ func (webhookRepository *WebhookRepository) CreateWebhook(
 }
 
 // GetAllWebhooks 获取所有webhooks
-func (webhookRepository *WebhookRepository) GetAllWebhooks() ([]model.Webhook, error) {
+func (webhookRepository *WebhookRepository) GetAllWebhooks(ctx context.Context) ([]model.Webhook, error) {
 	var webhooks []model.Webhook
-	if err := webhookRepository.db().Find(&webhooks).Error; err != nil {
+	if err := webhookRepository.getDB(ctx).Find(&webhooks).Error; err != nil {
 		return nil, err
 	}
 
@@ -57,9 +57,9 @@ func (webhookRepository *WebhookRepository) DeleteWebhookByID(ctx context.Contex
 }
 
 // ListActiveWebhooks 列出所有激活的 webhook
-func (webhookRepository *WebhookRepository) ListActiveWebhooks() ([]model.Webhook, error) {
+func (webhookRepository *WebhookRepository) ListActiveWebhooks(ctx context.Context) ([]model.Webhook, error) {
 	var webhooks []model.Webhook
-	if err := webhookRepository.db().Where("is_active = ?", true).Find(&webhooks).Error; err != nil {
+	if err := webhookRepository.getDB(ctx).Where("is_active = ?", true).Find(&webhooks).Error; err != nil {
 		return nil, err
 	}
 

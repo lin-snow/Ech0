@@ -20,17 +20,17 @@ func NewConnectRepository(dbProvider func() *gorm.DB) ConnectRepositoryInterface
 
 // getDB 从上下文中获取事务
 func (connectRepository *ConnectRepository) getDB(ctx context.Context) *gorm.DB {
-	if tx, ok := ctx.Value(transaction.TxKey).(*gorm.DB); ok {
+	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
 	}
 	return connectRepository.db()
 }
 
 // GetAllConnects 获取所有连接
-func (connectRepository *ConnectRepository) GetAllConnects() ([]model.Connected, error) {
+func (connectRepository *ConnectRepository) GetAllConnects(ctx context.Context) ([]model.Connected, error) {
 	var connects []model.Connected
 	// 查询数据库
-	if err := connectRepository.db().Find(&connects).Error; err != nil {
+	if err := connectRepository.getDB(ctx).Find(&connects).Error; err != nil {
 		return nil, err
 	}
 	// 如果没有找到，返回空切片

@@ -25,6 +25,12 @@ export enum ImageSource {
   S3 = 's3',
 }
 
+export enum FileSource {
+  LOCAL = 'local',
+  URL = 'url',
+  S3 = 's3',
+}
+
 // 图片布局
 export enum ImageLayout {
   WATERFALL = 'waterfall', // 瀑布流布局

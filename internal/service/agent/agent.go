@@ -20,19 +20,19 @@ import (
 )
 
 type AgentService struct {
-	settingService settingService.SettingServiceInterface
-	echoService    echoService.EchoServiceInterface
-	todoService    todoService.TodoServiceInterface
+	settingService *settingService.SettingService
+	echoService    *echoService.EchoService
+	todoService    *todoService.TodoService
 	kvRepository   keyvalueRepository.KeyValueRepositoryInterface
 	recentGenGroup singleflight.Group
 }
 
 func NewAgentService(
-	settingService settingService.SettingServiceInterface,
-	echoService echoService.EchoServiceInterface,
-	todoService todoService.TodoServiceInterface,
+	settingService *settingService.SettingService,
+	echoService *echoService.EchoService,
+	todoService *todoService.TodoService,
 	kvRepository keyvalueRepository.KeyValueRepositoryInterface,
-) AgentServiceInterface {
+) *AgentService {
 	return &AgentService{
 		settingService: settingService,
 		echoService:    echoService,
@@ -78,13 +78,11 @@ func (agentService *AgentService) GetRecent(ctx context.Context) (string, error)
 }
 
 func (agentService *AgentService) getRecentFromCache(cacheKey string) (string, bool) {
-	cachedValue, err := agentService.kvRepository.GetKeyValue(cacheKey)
+	cachedValue, err := agentService.kvRepository.GetKeyValue(context.Background(), cacheKey)
 	if err != nil {
 		return "", false
 	}
-
-	value, ok := cachedValue.(string)
-	return value, ok
+	return cachedValue, true
 }
 
 func (agentService *AgentService) buildRecentSummary(ctx context.Context) (string, error) {

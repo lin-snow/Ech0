@@ -35,10 +35,10 @@ import (
 
 // UserService 用户服务结构体，提供用户相关的业务逻辑处理
 type UserService struct {
-	txManager      transaction.TransactionManager         // 事务管理器
-	userRepository repository.UserRepositoryInterface     // 用户数据层接口
-	settingService settingService.SettingServiceInterface // 系统设置数据层接口
-	eventBus       event.IEventBus                        // 事件总线
+	transactor     transaction.Transactor             // 事务执行器
+	userRepository repository.UserRepositoryInterface // 用户数据层接口
+	settingService *settingService.SettingService     // 系统设置数据层接口
+	eventBus       event.IEventBus                    // 事件总线
 }
 
 // NewUserService 创建并返回新的用户服务实例
@@ -48,15 +48,15 @@ type UserService struct {
 //   - settingService: 系统设置数据层接口实现
 //
 // 返回:
-//   - UserServiceInterface: 用户服务接口实现
+//   - *UserService: 用户服务实现
 func NewUserService(
-	tm transaction.TransactionManager,
+	tx transaction.Transactor,
 	userRepository repository.UserRepositoryInterface,
-	settingService settingService.SettingServiceInterface,
+	settingService *settingService.SettingService,
 	eventBusProvider func() event.IEventBus,
-) UserServiceInterface {
+) *UserService {
 	return &UserService{
-		txManager:      tm,
+		transactor:     tx,
 		userRepository: userRepository,
 		settingService: settingService,
 		eventBus:       eventBusProvider(),
@@ -82,7 +82,7 @@ func (userService *UserService) Login(loginDto *authModel.LoginDto) (string, err
 	loginDto.Password = cryptoUtil.MD5Encrypt(loginDto.Password)
 
 	// 检查用户是否存在
-	user, err := userService.userRepository.GetUserByUsername(loginDto.Username)
+	user, err := userService.userRepository.GetUserByUsername(context.Background(), loginDto.Username)
 	if err != nil {
 		return "", errors.New(commonModel.USER_NOTFOUND)
 	}
@@ -112,7 +112,7 @@ func (userService *UserService) Login(loginDto *authModel.LoginDto) (string, err
 //   - error: 注册过程中的错误信息
 func (userService *UserService) Register(registerDto *authModel.RegisterDto) error {
 	// 检查用户数量是否超过限制
-	users, err := userService.userRepository.GetAllUsers()
+	users, err := userService.userRepository.GetAllUsers(context.Background())
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	}
 
 	// 检查用户是否已经存在
-	user, err := userService.userRepository.GetUserByUsername(newUser.Username)
+	user, err := userService.userRepository.GetUserByUsername(context.Background(), newUser.Username)
 	if err == nil && user.ID != model.USER_NOT_EXISTS_ID {
 		return errors.New(commonModel.USERNAME_HAS_EXISTS)
 	}
@@ -149,7 +149,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	if len(users) != 0 && !setting.AllowRegister {
 		return errors.New(commonModel.USER_REGISTER_NOT_ALLOW)
 	}
-	if err := userService.txManager.Run(func(ctx context.Context) error {
+	if err := userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		if err := userService.userRepository.CreateUser(ctx, &newUser); err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 //   - error: 更新过程中的错误信息
 func (userService *UserService) UpdateUser(userid uint, userdto model.UserInfoDto) error {
 	// 检查执行操作的用户是否为管理员
-	user, err := userService.userRepository.GetUserByID(int(userid))
+	user, err := userService.userRepository.GetUserByID(context.Background(), int(userid))
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (userService *UserService) UpdateUser(userid uint, userdto model.UserInfoDt
 	// 检查是否需要更新用户名
 	if userdto.Username != "" && userdto.Username != user.Username {
 		// 检查用户名是否已存在
-		existingUser, _ := userService.userRepository.GetUserByUsername(userdto.Username)
+		existingUser, _ := userService.userRepository.GetUserByUsername(context.Background(), userdto.Username)
 		if existingUser.ID != model.USER_NOT_EXISTS_ID {
 			return errors.New(commonModel.USERNAME_ALREADY_EXISTS)
 		}
@@ -221,7 +221,7 @@ func (userService *UserService) UpdateUser(userid uint, userdto model.UserInfoDt
 		// 更新头像
 		user.Avatar = userdto.Avatar
 	}
-	if err := userService.txManager.Run(func(ctx context.Context) error {
+	if err := userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		// 更新用户信息
 		return userService.userRepository.UpdateUser(ctx, &user)
 	}); err != nil {
@@ -257,7 +257,7 @@ func (userService *UserService) UpdateUser(userid uint, userdto model.UserInfoDt
 //   - error: 更新过程中的错误信息
 func (userService *UserService) UpdateUserAdmin(userid uint, id uint) error {
 	// 检查执行操作的用户是否为管理员
-	user, err := userService.userRepository.GetUserByID(int(userid))
+	user, err := userService.userRepository.GetUserByID(context.Background(), int(userid))
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func (userService *UserService) UpdateUserAdmin(userid uint, id uint) error {
 	}
 
 	// 检查要修改权限的用户是否存在
-	user, err = userService.userRepository.GetUserByID(int(id))
+	user, err = userService.userRepository.GetUserByID(context.Background(), int(id))
 	if err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ func (userService *UserService) UpdateUserAdmin(userid uint, id uint) error {
 
 	user.IsAdmin = !user.IsAdmin
 
-	if err := userService.txManager.Run(func(ctx context.Context) error {
+	if err := userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		// 更新用户信息
 		return userService.userRepository.UpdateUser(ctx, &user)
 	}); err != nil {
@@ -316,7 +316,7 @@ func (userService *UserService) UpdateUserAdmin(userid uint, id uint) error {
 //   - []model.User: 用户列表（不包含密码信息）
 //   - error: 获取过程中的错误信息
 func (userService *UserService) GetAllUsers() ([]model.User, error) {
-	allures, err := userService.userRepository.GetAllUsers()
+	allures, err := userService.userRepository.GetAllUsers(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func (userService *UserService) GetAllUsers() ([]model.User, error) {
 //   - model.User: 系统管理员用户信息
 //   - error: 获取过程中的错误信息
 func (userService *UserService) GetSysAdmin() (model.User, error) {
-	sysadmin, err := userService.userRepository.GetSysAdmin()
+	sysadmin, err := userService.userRepository.GetSysAdmin(context.Background())
 	if err != nil {
 		return model.User{}, err
 	}
@@ -366,9 +366,9 @@ func (userService *UserService) GetSysAdmin() (model.User, error) {
 // 返回:
 //   - error: 删除过程中的错误信息
 func (userService *UserService) DeleteUser(userid, id uint) error {
-	return userService.txManager.Run(func(ctx context.Context) error {
+	return userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		// 检查执行操作的用户是否为管理员
-		user, err := userService.userRepository.GetUserByID(int(userid))
+		user, err := userService.userRepository.GetUserByID(ctx, int(userid))
 		if err != nil {
 			return err
 		}
@@ -377,12 +377,12 @@ func (userService *UserService) DeleteUser(userid, id uint) error {
 		}
 
 		// 检查要删除的用户是否存在
-		user, err = userService.userRepository.GetUserByID(int(id))
+		user, err = userService.userRepository.GetUserByID(ctx, int(id))
 		if err != nil {
 			return err
 		}
 
-		sysadmin, err := userService.GetSysAdmin()
+		sysadmin, err := userService.userRepository.GetSysAdmin(ctx)
 		if err != nil {
 			return err
 		}
@@ -408,7 +408,7 @@ func (userService *UserService) DeleteUser(userid, id uint) error {
 //   - model.User: 用户信息
 //   - error: 获取过程中的错误信息
 func (userService *UserService) GetUserByID(userId int) (model.User, error) {
-	return userService.userRepository.GetUserByID(userId)
+	return userService.userRepository.GetUserByID(context.Background(), userId)
 }
 
 // BindOAuth 绑定 OAuth2 账号(支持 OAuth2 和 OIDC)
@@ -417,7 +417,7 @@ func (userService *UserService) BindOAuth(
 	provider string,
 	redirectURI string,
 ) (string, error) {
-	user, err := userService.userRepository.GetUserByID(int(userID))
+	user, err := userService.userRepository.GetUserByID(context.Background(), int(userID))
 	if err != nil {
 		return "", err
 	}
@@ -762,7 +762,7 @@ func (userService *UserService) resolveOAuthCallback(
 			return ""
 		}
 
-		_ = userService.txManager.Run(func(ctx context.Context) error {
+		_ = userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 			return userService.userRepository.BindOAuth(
 				ctx,
 				oauthState.UserID,
@@ -1109,7 +1109,7 @@ func (userService *UserService) GetOAuthInfo(
 	var oauthInfo model.OAuthInfoDto
 
 	// 检查当前用户是否存在
-	user, err := userService.userRepository.GetUserByID(int(userId))
+	user, err := userService.userRepository.GetUserByID(context.Background(), int(userId))
 	if err != nil {
 		return oauthInfo, err
 	}
@@ -1226,7 +1226,7 @@ func (userService *UserService) newWebAuthn(rpID, origin string) (*webauthn.WebA
 func (userService *UserService) getWebauthnUserByID(
 	userID uint,
 ) (*webauthnUser, model.User, error) {
-	u, err := userService.userRepository.GetUserByID(int(userID))
+	u, err := userService.userRepository.GetUserByID(context.Background(), int(userID))
 	if err != nil {
 		return nil, model.User{}, err
 	}
@@ -1368,7 +1368,7 @@ func (userService *UserService) PasskeyRegisterFinish(
 		AAGUID:         aaguid,
 	}
 
-	return userService.txManager.Run(func(ctx context.Context) error {
+	return userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		return userService.userRepository.CreatePasskey(ctx, &passkey)
 	})
 }
@@ -1480,7 +1480,7 @@ func (userService *UserService) PasskeyLoginFinish(
 	credID := base64.RawURLEncoding.EncodeToString(credentialObj.ID)
 	pk, err := userService.userRepository.GetPasskeyByCredentialID(credID)
 	if err == nil {
-		_ = userService.txManager.Run(func(ctx context.Context) error {
+		_ = userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 			return userService.userRepository.UpdatePasskeyUsage(
 				ctx,
 				pk.ID,
@@ -1490,7 +1490,7 @@ func (userService *UserService) PasskeyLoginFinish(
 		})
 	}
 
-	u, err := userService.userRepository.GetUserByID(int(uid))
+	u, err := userService.userRepository.GetUserByID(context.Background(), int(uid))
 	if err != nil {
 		return "", err
 	}
@@ -1523,7 +1523,7 @@ func (userService *UserService) ListPasskeys(userID uint) ([]authModel.PasskeyDe
 }
 
 func (userService *UserService) DeletePasskey(userID, passkeyID uint) error {
-	return userService.txManager.Run(func(ctx context.Context) error {
+	return userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		return userService.userRepository.DeletePasskeyByID(ctx, userID, passkeyID)
 	})
 }
@@ -1535,7 +1535,7 @@ func (userService *UserService) UpdatePasskeyDeviceName(
 	if strings.TrimSpace(deviceName) == "" {
 		return errors.New(commonModel.INVALID_PARAMS_BODY)
 	}
-	return userService.txManager.Run(func(ctx context.Context) error {
+	return userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		return userService.userRepository.UpdatePasskeyDeviceName(
 			ctx,
 			userID,

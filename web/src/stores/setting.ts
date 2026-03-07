@@ -8,7 +8,6 @@ import {
   fetchGetOAuth2Settings,
   fetchGetAllWebhooks,
   fetchListAccessTokens,
-  fetchGetFediverseSettings,
   fetchGetBackupScheduleSetting,
   fetchGetAgentSettings,
   fetchGetAgentInfo,
@@ -70,10 +69,6 @@ export const useSettingStore = defineStore('settingStore', () => {
   })
   const Webhooks = ref<App.Api.Setting.Webhook[]>([])
   const AccessTokens = ref<App.Api.Setting.AccessToken[]>([])
-  const FediverseSetting = ref<App.Api.Setting.FediverseSetting>({
-    enable: false,
-    server_url: '',
-  })
   const BackupSchedule = ref<App.Api.Setting.BackupSchedule>({
     enable: false,
     cron_expression: '0 2 * * 0',
@@ -177,13 +172,6 @@ export const useSettingStore = defineStore('settingStore', () => {
     }
   }
 
-  const getFediverseSetting = async () => {
-    const res = await fetchGetFediverseSettings()
-    if (res.code === 1) {
-      FediverseSetting.value = res.data
-    }
-  }
-
   const getBackupSchedule = async () => {
     const res = await fetchGetBackupScheduleSetting()
     if (res.code === 1) {
@@ -237,7 +225,6 @@ export const useSettingStore = defineStore('settingStore', () => {
     OAuth2Setting,
     Webhooks,
     AccessTokens,
-    FediverseSetting,
     BackupSchedule,
     AgentSetting,
     hello,
@@ -250,7 +237,6 @@ export const useSettingStore = defineStore('settingStore', () => {
     getS3Setting,
     getOAuth2Setting,
     getAllWebhooks,
-    getFediverseSetting,
     setSystemReady,
     getHelloEch0,
     getBackupSchedule,

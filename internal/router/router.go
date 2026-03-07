@@ -2,7 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/di"
+	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
 )
 
@@ -14,61 +14,18 @@ type AppRouterGroup struct {
 }
 
 // SetupRouter 配置路由
-func SetupRouter(r *gin.Engine, h *di.Handlers) {
-	// === 使用本地目录提供前端 ===)
-	// // Setup Frontend
-	// r.Use(static.Serve("/", static.LocalFile("./template", false)))
-	// // 由于Vue3 和SPA模式，所以处理匹配不到的路由(重定向到index.html)
-	// r.NoRoute(func(c *gin.Context) {
-	// 	c.File("./template/index.html")
-	// })
+func SetupRouter(r *gin.Engine, h *handler.Bundle) {
+	ctx := &RouterContext{
+		Engine:   r,
+		Handlers: h,
+	}
 
-	// === 使用 embed 提供前端 ===)
-	setupTemplateRoutes(r, h)
-
-	// ===     静态资源映射     ===
-	r.Static("api/images", "./data/images")
-
-	// ===        中间件        ===
-	// Setup Middleware
-	setupMiddleware(r)
-
-	// ===  路由组与各模块路由  ===
-	// Setup Router Groups
-	appRouterGroup := setupRouterGroup(r)
-
-	// Setup Resource Routes
-	setupResourceRoutes(appRouterGroup, h)
-
-	// Setup User Routes
-	setupUserRoutes(appRouterGroup, h)
-
-	// Setup Echo Routes
-	setupEchoRoutes(appRouterGroup, h)
-
-	// Setup Common Routes
-	setupCommonRoutes(appRouterGroup, h)
-
-	// Setup Setting Routes
-	setupSettingRoutes(appRouterGroup, h)
-
-	// Setup To Do Routes
-	setupTodoRoutes(appRouterGroup, h)
-
-	// Setup Connect Routes
-	setupConnectRoutes(appRouterGroup, h)
-
-	// Setup Fediverse Routes
-	setupFediverseRoutes(appRouterGroup, h)
-
-	// Setup Dashboard Routes
-	setupDashboardRoutes(appRouterGroup, h)
-
-	// Setup Agent Routes
-	setupAgentRoutes(appRouterGroup, h)
-
-	// Setup Inbox Routes
-	setupInboxRoutes(appRouterGroup, h)
+	for _, module := range coreRouteModules() {
+		module.Register(ctx)
+	}
+	for _, module := range featureRouteModules() {
+		module.Register(ctx)
+	}
 }
 
 // setupRouterGroup 初始化路由组

@@ -74,3 +74,8 @@ quality-report.md
 
 .idea
 .VSCodeCounter
+
+# dotenv
+.env
+
+.cursor-go
