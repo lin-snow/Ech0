@@ -14,7 +14,8 @@
     "actions": "Actions",
     "none": "N/A",
     "localeZhCN": "Simplified Chinese",
-    "localeEnUS": "English"
+    "localeEnUS": "English",
+    "localeDeDe": "German"
   },
   "editor": {
     "tagPlaceholder": "Tag",
@@ -424,6 +425,7 @@
     "locale": "Language",
     "localeZhShort": "简中",
     "localeEnShort": "EN",
+    "localeDeShort": "DE",
     "usernamePlaceholder": "Enter username",
     "passwordPlaceholder": "Enter password",
     "avatarUploading": "Uploading avatar...",

@@ -1,0 +1,13 @@
+[
+  { "id": "common.success", "translation": "Anfrage erfolgreich" },
+  { "id": "common.request_failed", "translation": "Anfrage fehlgeschlagen" },
+  { "id": "common.invalid_query_params", "translation": "Ungültige Abfrageparameter" },
+  { "id": "auth.token_missing", "translation": "Kein Token vorhanden. Bitte zuerst anmelden." },
+  { "id": "auth.token_invalid", "translation": "Ungültiges Token. Bitte erneut anmelden." },
+  { "id": "auth.token_parse_error", "translation": "Token konnte nicht gelesen werden. Bitte erneut anmelden." },
+  { "id": "comment_manager.title", "translation": "Kommentarsystem-Einstellungen" },
+  { "id": "comment_manager.subtitle", "translation": "Kommentarfunktion, Moderationsregeln und Captcha zentral verwalten." },
+  { "id": "dashboard.logs.success", "translation": "Systemlogs erfolgreich abgerufen" },
+  { "id": "dashboard.logs.tail_invalid", "translation": "tail muss eine positive Zahl sein" },
+  { "id": "inbox.new_version_available", "translation": "Neue Version verfügbar: {{.LatestVersion}}" }
+]

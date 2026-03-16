@@ -27,6 +27,7 @@ var (
 	supportedLocales = []language.Tag{
 		language.MustParse("zh-CN"),
 		language.MustParse("en-US"),
+		language.MustParse("de-DE"),
 	}
 	matcher = language.NewMatcher(supportedLocales)
 	bundle  = newBundle()
@@ -35,7 +36,7 @@ var (
 func newBundle() *goi18n.Bundle {
 	b := goi18n.NewBundle(language.MustParse("zh-CN"))
 	b.RegisterUnmarshalFunc("json", unmarshalJSON)
-	for _, path := range []string{"locales/zh-CN.json", "locales/en-US.json"} {
+	for _, path := range []string{"locales/zh-CN.json", "locales/en-US.json", "locales/de-DE.json"} {
 		_, err := b.LoadMessageFileFS(localeFS, path)
 		if err != nil {
 			panic(fmt.Sprintf("load i18n message file failed: %s: %v", path, err))

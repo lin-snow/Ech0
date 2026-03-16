@@ -14,7 +14,8 @@
     "actions": "操作",
     "none": "暂无",
     "localeZhCN": "简体中文",
-    "localeEnUS": "English"
+    "localeEnUS": "English",
+    "localeDeDe": "Deutsch"
   },
   "editor": {
     "tagPlaceholder": "标签",
@@ -424,6 +425,7 @@
     "locale": "语言",
     "localeZhShort": "简中",
     "localeEnShort": "EN",
+    "localeDeShort": "DE",
     "usernamePlaceholder": "请输入用户名",
     "passwordPlaceholder": "请输入密码",
     "avatarUploading": "头像上传中...",

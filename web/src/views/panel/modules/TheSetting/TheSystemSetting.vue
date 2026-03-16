@@ -228,7 +228,9 @@
           {{
             SystemSetting.default_locale === 'en-US'
               ? t('commonUi.localeEnUS')
-              : t('commonUi.localeZhCN')
+              : SystemSetting.default_locale === 'de-DE'
+                ? t('commonUi.localeDeDe')
+                : t('commonUi.localeZhCN')
           }}
         </span>
         <BaseSelect
@@ -277,6 +279,7 @@ const systemLogoSrc = computed(() => resolveAvatarUrl(SystemSetting.value?.serve
 const localeOptions = computed(() => [
   { label: String(t('commonUi.localeZhCN')), value: 'zh-CN' },
   { label: String(t('commonUi.localeEnUS')), value: 'en-US' },
+  { label: String(t('commonUi.localeDeDe')), value: 'de-DE' },
 ])
 const { enqueueUpload, waitForTask, clearFinishedUploads } = useFileQueue()
 

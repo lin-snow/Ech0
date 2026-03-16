@@ -131,12 +131,14 @@ const avatarSrc = computed(() => resolveAvatarUrl(user.value?.avatar))
 const localeOptions = computed(() => [
   { label: String(t('userSetting.localeZhShort')), value: 'zh-CN' },
   { label: String(t('userSetting.localeEnShort')), value: 'en-US' },
+  { label: String(t('userSetting.localeDeShort')), value: 'de-DE' },
 ])
-const localeLabel = computed(() =>
-  userInfo.value.locale === 'en-US'
-    ? t('userSetting.localeEnShort')
-    : t('userSetting.localeZhShort'),
-)
+const localeLabel = computed(() => {
+  const locale = userInfo.value.locale
+  if (locale === 'en-US') return t('userSetting.localeEnShort')
+  if (locale === 'de-DE') return t('userSetting.localeDeShort')
+  return t('userSetting.localeZhShort')
+})
 const { enqueueUpload, waitForTask, clearFinishedUploads } = useFileQueue()
 
 const handleUpdateUser = async () => {

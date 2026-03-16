@@ -63,6 +63,7 @@ const (
 const (
 	LocaleZhCN     Locale = "zh-CN"
 	LocaleEnUS     Locale = "en-US"
+	LocaleDeDE     Locale = "de-DE"
 	DefaultLocale         = LocaleZhCN
 	FallbackLocale        = LocaleEnUS
 )

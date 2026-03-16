@@ -22,28 +22,39 @@ const readLocale = (name) => {
 }
 
 const base = readLocale('zh-CN.json')
-const target = readLocale('en-US.json')
+const targets = [
+  { name: 'en-US', data: readLocale('en-US.json') },
+  { name: 'de-DE', data: readLocale('de-DE.json') },
+]
 
-const missingInTarget = []
-for (const key of base.keys()) {
-  if (!target.has(key)) missingInTarget.push(key)
+let hasError = false
+
+for (const { name, data } of targets) {
+  const missingInTarget = []
+  for (const key of base.keys()) {
+    if (!data.has(key)) missingInTarget.push(key)
+  }
+
+  const missingInBase = []
+  for (const key of data.keys()) {
+    if (!base.has(key)) missingInBase.push(key)
+  }
+
+  if (missingInTarget.length > 0 || missingInBase.length > 0) {
+    hasError = true
+    console.error(`i18n key mismatch detected for ${name}:`)
+    if (missingInTarget.length > 0) {
+      console.error(`- Missing in ${name} (${missingInTarget.length})`)
+      missingInTarget.forEach((k) => console.error(`  - ${k}`))
+    }
+    if (missingInBase.length > 0) {
+      console.error(`- Missing in zh-CN (${missingInBase.length})`)
+      missingInBase.forEach((k) => console.error(`  - ${k}`))
+    }
+  }
 }
 
-const missingInBase = []
-for (const key of target.keys()) {
-  if (!base.has(key)) missingInBase.push(key)
-}
-
-if (missingInTarget.length > 0 || missingInBase.length > 0) {
-  console.error('i18n key mismatch detected:')
-  if (missingInTarget.length > 0) {
-    console.error(`- Missing in en-US (${missingInTarget.length})`)
-    missingInTarget.forEach((k) => console.error(`  - ${k}`))
-  }
-  if (missingInBase.length > 0) {
-    console.error(`- Missing in zh-CN (${missingInBase.length})`)
-    missingInBase.forEach((k) => console.error(`  - ${k}`))
-  }
+if (hasError) {
   process.exit(1)
 }
 
