@@ -6,6 +6,7 @@ import (
 	"time"
 
 	model "github.com/lin-snow/ech0/internal/model/comment"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
@@ -211,4 +212,10 @@ func (r *CommentRepository) ExistsRecentDuplicate(
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *CommentRepository) GetEchoByID(ctx context.Context, id string) (echoModel.Echo, error) {
+	var echo echoModel.Echo
+	err := r.getDB(ctx).Where("id = ?", id).First(&echo).Error
+	return echo, err
 }

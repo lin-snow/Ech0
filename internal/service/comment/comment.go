@@ -21,9 +21,13 @@ import (
 	contracts "github.com/lin-snow/ech0/internal/event/contracts"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
+	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	mailUtil "github.com/lin-snow/ech0/internal/util/mail"
 	"github.com/lin-snow/ech0/pkg/viewer"
+	"go.uber.org/zap"
 )
 
 const (
@@ -187,6 +191,14 @@ func (s *CommentService) CreateComment(
 		return model.CreateCommentResult{}, err
 	}
 	s.emitCommentCreated(ctx, comment)
+
+	if setting.EnableEmailNotification {
+		go func() {
+			if err := s.sendEmailNotification(context.Background(), comment, setting); err != nil {
+				logUtil.GetLogger().Error("send email notification failed", zap.Error(err))
+			}
+		}()
+	}
 	return model.CreateCommentResult{
 		ID:     comment.ID,
 		Status: comment.Status,
@@ -531,6 +543,96 @@ func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel
 		return user, false, nil
 	}
 	return u, true, nil
+}
+
+func (s *CommentService) sendEmailNotification(ctx context.Context, comment model.Comment, commentSetting model.SystemSetting) error {
+	client, err := mailUtil.GetSMTPClient(
+		commentSetting.SMTPHost,
+		commentSetting.SMTPPort,
+		commentSetting.SMTPUser,
+		commentSetting.SMTPPassword,
+	)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	logUtil.GetLogger().Info("Successfully connected to SMTP server", zap.String("host", commentSetting.SMTPHost), zap.Int("port", commentSetting.SMTPPort))
+
+	// 获取系统设置
+	raw, err := s.keyvalueRepository.GetKeyValue(ctx, commonModel.SystemSettingsKey)
+	if err != nil {
+		return err
+	}
+	var systemSetting settingModel.SystemSetting
+	if err := sonic.Unmarshal([]byte(raw), &systemSetting); err != nil {
+		return err
+	}
+
+	// 获取评论所属的echo信息
+	echo, err := s.repo.GetEchoByID(ctx, comment.EchoID)
+	if err != nil {
+		return err
+	}
+
+	serverName := systemSetting.ServerName
+	if serverName == "" {
+		serverName = "Ech0"
+	}
+	serverLogo := systemSetting.ServerLogo
+	if serverLogo == "" {
+		serverLogo = "/Ech0.svg"
+	}
+	serverURL := systemSetting.ServerURL
+	if serverURL == "" {
+		serverURL = "https://ech0.example.com"
+	}
+	serverLogo = fmt.Sprintf("%s%s", serverURL, serverLogo)
+	data := mailUtil.CommentEmailNotificationData{
+		Title:     serverName,
+		Logo:      serverLogo,
+		Host:      serverURL,
+		Poster:    echo.Username,
+		Commenter: comment.Nickname,
+		CommentAt: comment.CreatedAt,
+		Content:   comment.Content,
+		EchoID:    comment.EchoID,
+	}
+	// 生成邮件内容
+	emailBody, err := mailUtil.GenerateCommentEmailNotification(data)
+	if err != nil {
+		return err
+	}
+
+	getDomain := func(email string) string {
+		index := strings.LastIndex(email, "@")
+		domain := strings.ToLower(email[index+1:])
+		return domain
+	}
+
+	// 附加头部字段
+	from := commentSetting.SMTPUser
+	to := []string{commentSetting.SMTPUser}
+	subject := systemSetting.ServerName
+	domain := getDomain(commentSetting.SMTPUser)
+	email := fmt.Sprintf(
+		"From: %s\r\n"+
+			"To: %s\r\n"+
+			"Subject: %s\r\n"+
+			"Date: "+time.Now().Format(time.RFC1123Z)+"\r\n"+
+			"Message-ID: <"+time.Now().Format("20060102150405")+"@%s>\r\n"+
+			"MIME-Version: 1.0\r\n"+
+			"Content-Type: text/html; charset=utf-8\r\n"+
+			"\r\n"+
+			"%s",
+		from, to, subject, domain, emailBody)
+
+	// 发送邮件
+	if err := client.SendMail(from, to, strings.NewReader(email)); err != nil {
+		return err
+	}
+	logUtil.GetLogger().Info("Successfully sent email notification", zap.String("from", from), zap.String("to", strings.Join(to, ",")), zap.String("subject", subject))
+
+	return nil
 }
 
 func ParseOptionalUserIDFromAuthHeader(authHeader string) string {

@@ -5,6 +5,7 @@ import (
 
 	contracts "github.com/lin-snow/ech0/internal/event/contracts"
 	model "github.com/lin-snow/ech0/internal/model/comment"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 )
@@ -48,6 +49,7 @@ type Repository interface {
 		echoID, content, email, ipHash, userID string,
 		seconds int64,
 	) (bool, error)
+	GetEchoByID(ctx context.Context, id string) (echoModel.Echo, error)
 }
 
 type CommonService = commonService.Service
