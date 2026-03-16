@@ -43,6 +43,13 @@
           </div>
           <BaseSwitch v-model="setting.captcha_enabled" :disabled="!setting.enable_comment" />
         </div>
+        <div class="setting-row">
+          <div>
+            <h3 class="setting-title">{{ t('commentManager.enableEmailNotificationTitle') }}</h3>
+            <p class="setting-desc">{{ t('commentManager.enableEmailNotificationDesc') }}</p>
+          </div>
+          <BaseSwitch v-model="setting.enable_email_notification" :disabled="!setting.enable_comment" />
+        </div>
       </div>
 
       <div v-if="setting.captcha_enabled" class="mt-3 grid gap-2">
@@ -73,6 +80,35 @@
           cap
         </a>
         {{ t('commentManager.captchaDisabledSuffix') }}
+      </div>
+
+      <div v-if="setting.enable_email_notification" class="mt-3 grid gap-2">
+        <BaseInput
+          v-model.trim="setting.smtp_host"
+          type="text"
+          :disabled="!setting.enable_comment"
+          :placeholder="t('commentManager.smtpHostPlaceholder')"
+        />
+        <BaseInput
+          v-model.number="setting.smtp_port"
+          type="number"
+          min="1"
+          max="65535"
+          :disabled="!setting.enable_comment"
+          :placeholder="t('commentManager.smtpPortPlaceholder')"
+        />
+        <BaseInput
+          v-model.trim="setting.smtp_user"
+          type="text"
+          :disabled="!setting.enable_comment"
+          :placeholder="t('commentManager.smtpUserPlaceholder')"
+        />
+        <BaseInput
+          v-model.trim="setting.smtp_password"
+          type="password"
+          :disabled="!setting.enable_comment"
+          :placeholder="t('commentManager.smtpPasswordPlaceholder')"
+        />
       </div>
     </PanelCard>
 
@@ -321,6 +357,11 @@ const setting = reactive<App.Api.Comment.SystemSetting>({
   captcha_enabled: false,
   captcha_verify_url: '',
   captcha_secret: '',
+  enable_email_notification: false,
+  smtp_host: '',
+  smtp_port: 465,
+  smtp_user: '',
+  smtp_password: '',
 })
 const settingSaving = ref(false)
 

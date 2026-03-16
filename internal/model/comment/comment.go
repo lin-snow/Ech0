@@ -102,9 +102,14 @@ type FormMeta struct {
 }
 
 type SystemSetting struct {
-	EnableComment   bool   `json:"enable_comment"`
-	RequireApproval bool   `json:"require_approval"`
-	CaptchaEnabled  bool   `json:"captcha_enabled"`
-	CaptchaVerify   string `json:"captcha_verify_url"`
-	CaptchaSecret   string `json:"captcha_secret"`
+	EnableComment           bool   `json:"enable_comment"`
+	RequireApproval         bool   `json:"require_approval"`
+	CaptchaEnabled          bool   `json:"captcha_enabled"`
+	CaptchaVerify           string `json:"captcha_verify_url"`
+	CaptchaSecret           string `json:"captcha_secret"`
+	EnableEmailNotification bool   `json:"enable_email_notification"`
+	SMTPHost                string `json:"smtp_host"`
+	SMTPPort                int    `json:"smtp_port"`
+	SMTPUser                string `json:"smtp_user"`
+	SMTPPassword            string `json:"smtp_password"`
 }

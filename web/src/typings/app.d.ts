@@ -494,6 +494,11 @@ declare namespace App {
         captcha_enabled: boolean
         captcha_verify_url: string
         captcha_secret: string
+        enable_email_notification: boolean
+        smtp_host: string
+        smtp_port: number
+        smtp_user: string
+        smtp_password: string
       }
     }
 

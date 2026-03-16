@@ -353,11 +353,16 @@ func (s *CommentService) GetSystemSetting(ctx context.Context) (model.SystemSett
 	raw, err := s.keyvalueRepository.GetKeyValue(ctx, model.CommentSystemSettingKey)
 	if err != nil {
 		defaultSetting := model.SystemSetting{
-			EnableComment:   true,
-			RequireApproval: true,
-			CaptchaEnabled:  false,
-			CaptchaVerify:   "",
-			CaptchaSecret:   "",
+			EnableComment:           true,
+			RequireApproval:         true,
+			CaptchaEnabled:          false,
+			CaptchaVerify:           "",
+			CaptchaSecret:           "",
+			EnableEmailNotification: false,
+			SMTPHost:                "smtp.example.com",
+			SMTPPort:                465,
+			SMTPUser:                "",
+			SMTPPassword:            "",
 		}
 		buf, _ := sonic.Marshal(defaultSetting)
 		_ = s.keyvalueRepository.AddKeyValue(ctx, model.CommentSystemSettingKey, string(buf))
@@ -376,6 +381,9 @@ func (s *CommentService) UpdateSystemSetting(ctx context.Context, setting model.
 	}
 	setting.CaptchaVerify = strings.TrimSpace(setting.CaptchaVerify)
 	setting.CaptchaSecret = strings.TrimSpace(setting.CaptchaSecret)
+	setting.SMTPHost = strings.TrimSpace(setting.SMTPHost)
+	setting.SMTPUser = strings.TrimSpace(setting.SMTPUser)
+	setting.SMTPPassword = strings.TrimSpace(setting.SMTPPassword)
 	buf, err := sonic.Marshal(setting)
 	if err != nil {
 		return err
