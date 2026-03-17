@@ -226,11 +226,11 @@
         </h2>
         <span v-if="!editMode" class="flex-1 min-w-0 truncate">
           {{
-            SystemSetting.default_locale === 'en-US'
-              ? t('commonUi.localeEnUS')
-              : SystemSetting.default_locale === 'de-DE'
-                ? t('commonUi.localeDeDe')
-                : t('commonUi.localeZhCN')
+            ({
+              'en-US': t('commonUi.localeEnUS'),
+              'de-DE': t('commonUi.localeDeDe'),
+              'zh-CN': t('commonUi.localeZhCN'),
+            }[SystemSetting.default_locale] || t('commonUi.localeZhCN'))
           }}
         </span>
         <BaseSelect
