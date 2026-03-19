@@ -1109,6 +1109,22 @@ func normalizeObjectKeyForV4(objectKey string, pathPrefix string) string {
 	return cleanMigratedFileKey(clean)
 }
 
+// ensureProtocol ensures the URL has a protocol prefix (http:// or https://).
+// If the URL already has a protocol, it returns as-is.
+// If no protocol, it adds https:// or http:// based on useSSL.
+func ensureProtocol(url string, useSSL bool) string {
+	url = strings.TrimSpace(url)
+	lower := strings.ToLower(url)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return url
+	}
+	scheme := "https"
+	if !useSSL {
+		scheme = "http"
+	}
+	return scheme + "://" + url
+}
+
 func buildObjectURLFromSetting(setting settingModel.S3Setting, key string) string {
 	resolvedKey := buildObjectStoragePath(setting, key)
 	if resolvedKey == "" {
@@ -1116,19 +1132,14 @@ func buildObjectURLFromSetting(setting settingModel.S3Setting, key string) strin
 	}
 	cdn := strings.TrimRight(strings.TrimSpace(setting.CDNURL), "/")
 	if cdn != "" {
+		cdn = ensureProtocol(cdn, setting.UseSSL)
 		return cdn + "/" + resolvedKey
 	}
 	endpoint := strings.TrimSpace(setting.Endpoint)
 	if endpoint == "" {
 		return ""
 	}
-	if !strings.HasPrefix(strings.ToLower(endpoint), "http://") && !strings.HasPrefix(strings.ToLower(endpoint), "https://") {
-		scheme := "https"
-		if !setting.UseSSL {
-			scheme = "http"
-		}
-		endpoint = scheme + "://" + endpoint
-	}
+	endpoint = ensureProtocol(endpoint, setting.UseSSL)
 	endpoint = strings.TrimRight(endpoint, "/")
 	bucket := strings.Trim(strings.TrimSpace(setting.BucketName), "/")
 	if bucket == "" {

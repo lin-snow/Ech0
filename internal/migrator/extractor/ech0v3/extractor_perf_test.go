@@ -173,6 +173,68 @@ func TestBuildObjectURLFromSetting(t *testing.T) {
 	}
 }
 
+func TestBuildObjectURLFromSetting_WithCDN(t *testing.T) {
+	// Test CDN with SSL enabled
+	setting := &settingModel.S3Setting{
+		Enable:     true,
+		Endpoint:   "s3.example.com",
+		BucketName: "legacy-bucket",
+		PathPrefix: "upload",
+		UseSSL:     true,
+		CDNURL:     "cdn.example.com",
+	}
+	url := buildObjectURLFromSetting(*setting, "a.png")
+	if url != "https://cdn.example.com/upload/images/a.png" {
+		t.Fatalf("unexpected s3 migrated url with CDN: %s", url)
+	}
+
+	// Test CDN without protocol prefix and SSL disabled
+	setting.UseSSL = false
+	url = buildObjectURLFromSetting(*setting, "a.png")
+	if url != "http://cdn.example.com/upload/images/a.png" {
+		t.Fatalf("unexpected s3 migrated url with CDN and no SSL: %s", url)
+	}
+
+	// Test CDN that already has https:// prefix
+	setting.CDNURL = "https://cdn2.example.com"
+	setting.UseSSL = true
+	url = buildObjectURLFromSetting(*setting, "a.png")
+	if url != "https://cdn2.example.com/upload/images/a.png" {
+		t.Fatalf("unexpected s3 migrated url with CDN already having protocol: %s", url)
+	}
+
+	// Test CDN that already has http:// prefix (should keep http)
+	setting.CDNURL = "http://cdn3.example.com"
+	setting.UseSSL = true
+	url = buildObjectURLFromSetting(*setting, "a.png")
+	if url != "http://cdn3.example.com/upload/images/a.png" {
+		t.Fatalf("unexpected s3 migrated url with CDN having http: %s", url)
+	}
+}
+
+func TestEnsureProtocol(t *testing.T) {
+	tests := []struct {
+		url    string
+		useSSL bool
+		want   string
+	}{
+		{"cdn.example.com", true, "https://cdn.example.com"},
+		{"cdn.example.com", false, "http://cdn.example.com"},
+		{"https://cdn.example.com", true, "https://cdn.example.com"},
+		{"https://cdn.example.com", false, "https://cdn.example.com"},
+		{"http://cdn.example.com", true, "http://cdn.example.com"},
+		{"http://cdn.example.com", false, "http://cdn.example.com"},
+		{"  cdn.example.com  ", true, "https://cdn.example.com"},
+	}
+
+	for _, tt := range tests {
+		got := ensureProtocol(tt.url, tt.useSSL)
+		if got != tt.want {
+			t.Errorf("ensureProtocol(%q, %v) = %q, want %q", tt.url, tt.useSSL, got, tt.want)
+		}
+	}
+}
+
 func TestMapSourceS3SettingToV4_Invalid(t *testing.T) {
 	_, ok := mapSourceS3SettingToV4(&settingModel.S3Setting{
 		Enable:     true,
