@@ -12,7 +12,35 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 )
+
+func TestCreateClaimsWithScopeAndExpiry_RoundTrip(t *testing.T) {
+	user := userModel.User{
+		ID:       "u1",
+		Username: "alice",
+	}
+
+	token, err := GenerateToken(CreateClaimsWithScopeAndExpiry(user, authModel.TokenScopeIntegration, 3600))
+	if err != nil {
+		t.Fatalf("GenerateToken failed: %v", err)
+	}
+
+	claims, err := ParseToken(token)
+	if err != nil {
+		t.Fatalf("ParseToken failed: %v", err)
+	}
+	if claims.Userid != user.ID {
+		t.Fatalf("unexpected user id: %s", claims.Userid)
+	}
+	if claims.Scope != authModel.TokenScopeIntegration {
+		t.Fatalf("unexpected scope: %s", claims.Scope)
+	}
+	if claims.ExpiresAt == nil {
+		t.Fatalf("expected expires_at to be set")
+	}
+}
 
 func TestParseOAuthState_RoundTrip(t *testing.T) {
 	state, nonce, err := GenerateOAuthState("login", "u1", "https://example.com/auth", "custom")

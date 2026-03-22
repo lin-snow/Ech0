@@ -396,6 +396,7 @@ declare namespace App {
         user_id: string
         token: string
         name: string
+        scope: string
         expiry: string | null
         created_at: string
       }
@@ -403,6 +404,7 @@ declare namespace App {
       type AccessTokenDto = {
         name: string
         expiry: string
+        scope: string
       }
 
       type BackupSchedule = {

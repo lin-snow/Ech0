@@ -25,13 +25,13 @@ func setupCommentRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.PublicRouterGroup.POST("/comments", h.CommentHandler.CreateComment())
 
 	// Admin Panel
-	appRouterGroup.AuthRouterGroup.GET("/panel/comments", h.CommentHandler.ListPanelComments())
-	appRouterGroup.AuthRouterGroup.GET("/panel/comments/:id", h.CommentHandler.GetCommentByID())
-	appRouterGroup.AuthRouterGroup.PATCH("/panel/comments/:id/status", h.CommentHandler.UpdateCommentStatus())
-	appRouterGroup.AuthRouterGroup.PATCH("/panel/comments/:id/hot", h.CommentHandler.UpdateCommentHot())
-	appRouterGroup.AuthRouterGroup.DELETE("/panel/comments/:id", h.CommentHandler.DeleteComment())
-	appRouterGroup.AuthRouterGroup.POST("/panel/comments/batch", h.CommentHandler.BatchAction())
-	appRouterGroup.AuthRouterGroup.GET("/panel/comments/settings", h.CommentHandler.GetCommentSetting())
-	appRouterGroup.AuthRouterGroup.PUT("/panel/comments/settings", h.CommentHandler.UpdateCommentSetting())
-	appRouterGroup.AuthRouterGroup.POST("/panel/comments/settings/test-email", h.CommentHandler.TestCommentEmail())
+	appRouterGroup.FullAuthRouterGroup.GET("/panel/comments", h.CommentHandler.ListPanelComments())
+	appRouterGroup.FullAuthRouterGroup.GET("/panel/comments/:id", h.CommentHandler.GetCommentByID())
+	appRouterGroup.FullAuthRouterGroup.PATCH("/panel/comments/:id/status", h.CommentHandler.UpdateCommentStatus())
+	appRouterGroup.FullAuthRouterGroup.PATCH("/panel/comments/:id/hot", h.CommentHandler.UpdateCommentHot())
+	appRouterGroup.FullAuthRouterGroup.DELETE("/panel/comments/:id", h.CommentHandler.DeleteComment())
+	appRouterGroup.FullAuthRouterGroup.POST("/panel/comments/batch", h.CommentHandler.BatchAction())
+	appRouterGroup.FullAuthRouterGroup.GET("/panel/comments/settings", h.CommentHandler.GetCommentSetting())
+	appRouterGroup.FullAuthRouterGroup.PUT("/panel/comments/settings", h.CommentHandler.UpdateCommentSetting())
+	appRouterGroup.FullAuthRouterGroup.POST("/panel/comments/settings/test-email", h.CommentHandler.TestCommentEmail())
 }

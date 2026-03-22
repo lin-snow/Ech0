@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
@@ -79,8 +81,15 @@ func (settingService *SettingService) CreateAccessToken(
 		expiryDuration = 8 * time.Hour
 	}
 
+	scope := strings.TrimSpace(newToken.Scope)
+	switch scope {
+	case "", authModel.TokenScopeIntegration:
+	default:
+		return "", commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "无效的 token scope")
+	}
+
 	// 生成jwt令牌
-	claims := jwtUtil.CreateClaimsWithExpiry(user, int64(expiryDuration))
+	claims := jwtUtil.CreateClaimsWithScopeAndExpiry(user, scope, int64(expiryDuration))
 	tokenString, err := jwtUtil.GenerateToken(claims)
 	if err != nil {
 		return "", err
@@ -100,6 +109,7 @@ func (settingService *SettingService) CreateAccessToken(
 		UserID:    user.ID,
 		Token:     tokenString,
 		Name:      name,
+		Scope:     scope,
 		Expiry:    expiryPtr,
 		CreatedAt: time.Now().UTC(),
 	}

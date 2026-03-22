@@ -78,8 +78,9 @@ type AccessTokenSetting struct {
 	UserID    string     `gorm:"type:char(36);index" json:"user_id"`         // 创建该访问令牌的用户 ID
 	Token     string     `gorm:"type:varchar(255);uniqueIndex" json:"token"` // 访问令牌
 	Name      string     `json:"name"`                                       // 访问令牌名称
-	Expiry    *time.Time `json:"expiry"`                                     // 指针类型，NULL 表示永不过期
-	CreatedAt time.Time  `json:"created_at"`                                 // 访问令牌创建时间，RFC3339 时间字符串
+	Scope     string     `gorm:"type:varchar(32);default:'';index" json:"scope"`
+	Expiry    *time.Time `json:"expiry"`     // 指针类型，NULL 表示永不过期
+	CreatedAt time.Time  `json:"created_at"` // 访问令牌创建时间，RFC3339 时间字符串
 }
 
 func (a *AccessTokenSetting) BeforeCreate(_ *gorm.DB) error {

@@ -8,7 +8,7 @@ import (
 
 func TestWithAndFromContext(t *testing.T) {
 	ctx := context.Background()
-	v := NewUserViewer("u1")
+	v := NewScopedUserViewer("u1", "integration")
 	ctx = WithContext(ctx, v)
 
 	got, ok := FromContext(ctx)
@@ -18,12 +18,18 @@ func TestWithAndFromContext(t *testing.T) {
 	if got.UserID() != "u1" {
 		t.Fatalf("unexpected user id: %s", got.UserID())
 	}
+	if got.TokenScope() != "integration" {
+		t.Fatalf("unexpected token scope: %s", got.TokenScope())
+	}
 }
 
 func TestMustFromContextFallback(t *testing.T) {
 	got := MustFromContext(context.Background())
 	if got.UserID() != "" {
 		t.Fatalf("expected empty user id fallback viewer")
+	}
+	if got.TokenScope() != "" {
+		t.Fatalf("expected empty token scope fallback viewer")
 	}
 }
 
