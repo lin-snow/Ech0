@@ -45,6 +45,29 @@ func CreateClaims(user userModel.User) jwt.Claims {
 	return claims
 }
 
+// CreateClaimsWithScopeAndExpiry 创建Claims，支持显式 scope 与过期时间。
+func CreateClaimsWithScopeAndExpiry(user userModel.User, scope string, expiry int64) jwt.Claims {
+	leeway := time.Second * 60 // 允许的时间偏差
+	claims := authModel.MyClaims{
+		Userid:   user.ID,
+		Username: user.Username,
+		Scope:    scope,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    config.Config().Auth.Jwt.Issuer,
+			Subject:   user.Username,
+			Audience:  jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			NotBefore: jwt.NewNumericDate(time.Now().UTC().Add(-leeway)),
+		},
+	}
+
+	if expiry > 0 {
+		claims.ExpiresAt = jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(expiry) * time.Second))
+	}
+
+	return claims
+}
+
 // CreateClaims 创建Claims 带过期时间
 func CreateClaimsWithExpiry(user userModel.User, expiry int64) jwt.Claims {
 	leeway := time.Second * 60 // 允许的时间偏差

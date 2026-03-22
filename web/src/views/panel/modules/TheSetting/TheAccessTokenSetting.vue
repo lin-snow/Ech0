@@ -27,12 +27,15 @@
         v-else
         class="mt-2 x-scrollbar overflow-x-auto border border-[var(--color-border-subtle)] rounded-lg"
       >
-        <table class="w-full min-w-[760px] table-fixed text-sm">
+        <table class="w-full min-w-[860px] table-fixed text-sm">
           <thead>
             <tr class="bg-[var(--color-bg-muted)]/70 text-left text-[var(--color-text-muted)]">
               <th class="w-[170px] px-2 py-2 whitespace-nowrap">Token</th>
               <th class="w-[100px] px-2 py-2 whitespace-nowrap">
                 {{ t('accessTokenSetting.name') }}
+              </th>
+              <th class="w-[120px] px-2 py-2 whitespace-nowrap">
+                {{ t('accessTokenSetting.scope') }}
               </th>
               <th class="w-[156px] px-2 py-2 whitespace-nowrap">
                 {{ t('accessTokenSetting.createdAt') }}
@@ -65,6 +68,9 @@
                 <span :title="tokenItem.name" class="truncate block max-w-xs">{{
                   tokenItem.name
                 }}</span>
+              </td>
+              <td class="px-2 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
+                {{ formatTokenScope(tokenItem.scope) }}
               </td>
               <td class="px-1 py-2 text-[var(--color-text-secondary)] whitespace-nowrap">
                 {{ new Date(tokenItem.created_at).toLocaleString() }}
@@ -107,6 +113,15 @@
           v-model="accessTokenToAdd.expiry"
           :options="ExpirationOptions"
           class="w-34 h-8 bg-[var(--color-bg-surface)]! bg-op-80 mt-2 mb-4"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <span>{{ t('accessTokenSetting.scope') }}：</span>
+        <BaseSelect
+          v-model="accessTokenToAdd.scope"
+          :options="ScopeOptions"
+          class="w-48 h-8 bg-[var(--color-bg-surface)]! bg-op-80 mt-2 mb-4"
         />
       </div>
 
@@ -160,11 +175,16 @@ const { AccessTokens } = storeToRefs(useSetting)
 const accessTokenToAdd = ref<App.Api.Setting.AccessTokenDto>({
   name: '',
   expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY,
+  scope: '',
 })
 const ExpirationOptions = [
   { label: '8 Hours', value: AccessTokenExpiration.EIGHT_HOUR_EXPIRY },
   { label: '1 Month', value: AccessTokenExpiration.ONE_MONTH_EXPIRY },
   { label: 'Never', value: AccessTokenExpiration.NEVER_EXPIRY },
+]
+const ScopeOptions = [
+  { label: String(t('accessTokenSetting.scopeFull')), value: '' },
+  { label: String(t('accessTokenSetting.scopeIntegration')), value: 'integration' },
 ]
 
 const isSubmitting = ref<boolean>(false)
@@ -179,12 +199,14 @@ const handleAddAccessToken = async () => {
   const res = await fetchCreateAccessToken({
     name: accessTokenToAdd.value.name,
     expiry: accessTokenToAdd.value.expiry || AccessTokenExpiration.NEVER_EXPIRY,
+    scope: accessTokenToAdd.value.scope || '',
   })
   if (res.code === 1) {
     theToast.success(String(t('accessTokenSetting.createSuccess')))
     accessTokenToAdd.value = {
       name: '',
       expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY,
+      scope: '',
     }
     await useSetting.getAllAccessTokens()
     accessTokenEdit.value = false
@@ -193,8 +215,14 @@ const handleAddAccessToken = async () => {
 }
 
 const handleCancelAddAccessToken = () => {
-  accessTokenToAdd.value = { name: '', expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY }
+  accessTokenToAdd.value = { name: '', expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY, scope: '' }
   accessTokenEdit.value = false
+}
+
+const formatTokenScope = (scope: string) => {
+  return scope === 'integration'
+    ? String(t('accessTokenSetting.scopeIntegration'))
+    : String(t('accessTokenSetting.scopeFull'))
 }
 
 const maskToken = (token: string) => {

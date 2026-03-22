@@ -7,10 +7,11 @@ import (
 )
 
 type AppRouterGroup struct {
-	ResourceGroup     *gin.RouterGroup
-	PublicRouterGroup *gin.RouterGroup
-	AuthRouterGroup   *gin.RouterGroup
-	WSRouterGroup     *gin.RouterGroup
+	ResourceGroup       *gin.RouterGroup
+	PublicRouterGroup   *gin.RouterGroup
+	AuthRouterGroup     *gin.RouterGroup
+	FullAuthRouterGroup *gin.RouterGroup
+	WSRouterGroup       *gin.RouterGroup
 }
 
 // SetupRouter 配置路由
@@ -34,11 +35,14 @@ func setupRouterGroup(r *gin.Engine) *AppRouterGroup {
 	public := r.Group("/api")
 	auth := r.Group("/api")
 	auth.Use(middleware.NoCache(), middleware.JWTAuthMiddleware())
+	fullAuth := r.Group("/api")
+	fullAuth.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(), middleware.FullAccessOnly())
 	ws := r.Group("/ws")
 	return &AppRouterGroup{
-		ResourceGroup:     resource,
-		PublicRouterGroup: public,
-		AuthRouterGroup:   auth,
-		WSRouterGroup:     ws,
+		ResourceGroup:       resource,
+		PublicRouterGroup:   public,
+		AuthRouterGroup:     auth,
+		FullAuthRouterGroup: fullAuth,
+		WSRouterGroup:       ws,
 	}
 }

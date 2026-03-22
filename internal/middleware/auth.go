@@ -128,7 +128,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		}
 
 		// 如果 token 解析成功，则将 viewer 写入 request context
-		viewer.AttachToRequest(&ctx.Request, viewer.NewUserViewer(mc.Userid))
+		viewer.AttachToRequest(&ctx.Request, viewer.NewScopedUserViewer(mc.Userid, mc.Scope))
 		// 鉴权成功后，若请求未显式指定语言，则按用户偏好覆盖语言上下文
 		i18nUtil.ApplyUserLocaleFromUserID(ctx, mc.Userid)
 		ctx.Next()

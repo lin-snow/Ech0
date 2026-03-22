@@ -28,20 +28,20 @@ func setupUserRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	// Auth
 	appRouterGroup.AuthRouterGroup.GET("/allusers", h.UserHandler.GetAllUsers())
 	appRouterGroup.AuthRouterGroup.GET("/user", h.UserHandler.GetUserInfo())
-	appRouterGroup.AuthRouterGroup.PUT("/user", h.UserHandler.UpdateUser())
-	appRouterGroup.AuthRouterGroup.DELETE("/user/:id", h.UserHandler.DeleteUser())
-	appRouterGroup.AuthRouterGroup.PUT("/user/admin/:id", h.UserHandler.UpdateUserAdmin())
-	appRouterGroup.AuthRouterGroup.POST("/oauth/:provider/bind", h.UserHandler.OAuthBind())
-	appRouterGroup.AuthRouterGroup.GET("/oauth/info", h.UserHandler.GetOAuthInfo())
-	appRouterGroup.AuthRouterGroup.POST(
+	appRouterGroup.FullAuthRouterGroup.PUT("/user", h.UserHandler.UpdateUser())
+	appRouterGroup.FullAuthRouterGroup.DELETE("/user/:id", h.UserHandler.DeleteUser())
+	appRouterGroup.FullAuthRouterGroup.PUT("/user/admin/:id", h.UserHandler.UpdateUserAdmin())
+	appRouterGroup.FullAuthRouterGroup.POST("/oauth/:provider/bind", h.UserHandler.OAuthBind())
+	appRouterGroup.FullAuthRouterGroup.GET("/oauth/info", h.UserHandler.GetOAuthInfo())
+	appRouterGroup.FullAuthRouterGroup.POST(
 		"/passkey/register/begin",
 		h.UserHandler.PasskeyRegisterBeginV2(),
 	)
-	appRouterGroup.AuthRouterGroup.POST(
+	appRouterGroup.FullAuthRouterGroup.POST(
 		"/passkey/register/finish",
 		h.UserHandler.PasskeyRegisterFinishV2(),
 	)
-	appRouterGroup.AuthRouterGroup.GET("/passkeys", h.UserHandler.ListPasskeys())
-	appRouterGroup.AuthRouterGroup.DELETE("/passkeys/:id", h.UserHandler.DeletePasskey())
-	appRouterGroup.AuthRouterGroup.PUT("/passkeys/:id", h.UserHandler.UpdatePasskeyDeviceName())
+	appRouterGroup.FullAuthRouterGroup.GET("/passkeys", h.UserHandler.ListPasskeys())
+	appRouterGroup.FullAuthRouterGroup.DELETE("/passkeys/:id", h.UserHandler.DeletePasskey())
+	appRouterGroup.FullAuthRouterGroup.PUT("/passkeys/:id", h.UserHandler.UpdatePasskeyDeviceName())
 }

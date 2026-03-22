@@ -11,38 +11,38 @@ func setupSettingRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.PublicRouterGroup.GET("/agent/info", h.SettingHandler.GetAgentInfo())
 
 	// Auth
-	appRouterGroup.AuthRouterGroup.PUT("/settings", h.SettingHandler.UpdateSettings())
+	appRouterGroup.FullAuthRouterGroup.PUT("/settings", h.SettingHandler.UpdateSettings())
 
-	appRouterGroup.AuthRouterGroup.GET("/s3/settings", h.SettingHandler.GetS3Settings())
-	appRouterGroup.AuthRouterGroup.PUT("/s3/settings", h.SettingHandler.UpdateS3Settings())
+	appRouterGroup.FullAuthRouterGroup.GET("/s3/settings", h.SettingHandler.GetS3Settings())
+	appRouterGroup.FullAuthRouterGroup.PUT("/s3/settings", h.SettingHandler.UpdateS3Settings())
 
-	appRouterGroup.AuthRouterGroup.GET("/oauth2/settings", h.SettingHandler.GetOAuth2Settings())
-	appRouterGroup.AuthRouterGroup.PUT("/oauth2/settings", h.SettingHandler.UpdateOAuth2Settings())
-	appRouterGroup.AuthRouterGroup.GET("/passkey/settings", h.SettingHandler.GetPasskeySettings())
-	appRouterGroup.AuthRouterGroup.PUT("/passkey/settings", h.SettingHandler.UpdatePasskeySettings())
+	appRouterGroup.FullAuthRouterGroup.GET("/oauth2/settings", h.SettingHandler.GetOAuth2Settings())
+	appRouterGroup.FullAuthRouterGroup.PUT("/oauth2/settings", h.SettingHandler.UpdateOAuth2Settings())
+	appRouterGroup.FullAuthRouterGroup.GET("/passkey/settings", h.SettingHandler.GetPasskeySettings())
+	appRouterGroup.FullAuthRouterGroup.PUT("/passkey/settings", h.SettingHandler.UpdatePasskeySettings())
 
-	appRouterGroup.AuthRouterGroup.GET("/webhook", h.SettingHandler.GetWebhook())
-	appRouterGroup.AuthRouterGroup.POST("/webhook", h.SettingHandler.CreateWebhook())
-	appRouterGroup.AuthRouterGroup.PUT("/webhook/:id", h.SettingHandler.UpdateWebhook())
-	appRouterGroup.AuthRouterGroup.DELETE("/webhook/:id", h.SettingHandler.DeleteWebhook())
-	appRouterGroup.AuthRouterGroup.POST("/webhook/:id/test", h.SettingHandler.TestWebhook())
+	appRouterGroup.FullAuthRouterGroup.GET("/webhook", h.SettingHandler.GetWebhook())
+	appRouterGroup.FullAuthRouterGroup.POST("/webhook", h.SettingHandler.CreateWebhook())
+	appRouterGroup.FullAuthRouterGroup.PUT("/webhook/:id", h.SettingHandler.UpdateWebhook())
+	appRouterGroup.FullAuthRouterGroup.DELETE("/webhook/:id", h.SettingHandler.DeleteWebhook())
+	appRouterGroup.FullAuthRouterGroup.POST("/webhook/:id/test", h.SettingHandler.TestWebhook())
 
-	appRouterGroup.AuthRouterGroup.GET("/access-tokens", h.SettingHandler.ListAccessTokens())
-	appRouterGroup.AuthRouterGroup.POST("/access-tokens", h.SettingHandler.CreateAccessToken())
-	appRouterGroup.AuthRouterGroup.DELETE(
+	appRouterGroup.FullAuthRouterGroup.GET("/access-tokens", h.SettingHandler.ListAccessTokens())
+	appRouterGroup.FullAuthRouterGroup.POST("/access-tokens", h.SettingHandler.CreateAccessToken())
+	appRouterGroup.FullAuthRouterGroup.DELETE(
 		"/access-tokens/:id",
 		h.SettingHandler.DeleteAccessToken(),
 	)
 
-	appRouterGroup.AuthRouterGroup.GET(
+	appRouterGroup.FullAuthRouterGroup.GET(
 		"/backup/schedule",
 		h.SettingHandler.GetBackupScheduleSetting(),
 	)
-	appRouterGroup.AuthRouterGroup.POST(
+	appRouterGroup.FullAuthRouterGroup.POST(
 		"/backup/schedule",
 		h.SettingHandler.UpdateBackupScheduleSetting(),
 	)
 
-	appRouterGroup.AuthRouterGroup.GET("/agent/settings", h.SettingHandler.GetAgentSettings())
-	appRouterGroup.AuthRouterGroup.PUT("/agent/settings", h.SettingHandler.UpdateAgentSettings())
+	appRouterGroup.FullAuthRouterGroup.GET("/agent/settings", h.SettingHandler.GetAgentSettings())
+	appRouterGroup.FullAuthRouterGroup.PUT("/agent/settings", h.SettingHandler.UpdateAgentSettings())
 }

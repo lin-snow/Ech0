@@ -20,6 +20,7 @@ import (
 	captchaCfg "github.com/lin-snow/ech0/internal/captcha"
 	"github.com/lin-snow/ech0/internal/config"
 	contracts "github.com/lin-snow/ech0/internal/event/contracts"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -736,6 +737,9 @@ func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel
 	if v == nil || strings.TrimSpace(v.UserID()) == "" {
 		return user, false, nil
 	}
+	if v.TokenScope() == authModel.TokenScopeIntegration {
+		return user, false, nil
+	}
 	u, err := s.commonService.CommonGetUserByUserId(ctx, v.UserID())
 	if err != nil {
 		return user, false, nil
@@ -743,16 +747,16 @@ func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel
 	return u, true, nil
 }
 
-func ParseOptionalUserIDFromAuthHeader(authHeader string) string {
+func ParseOptionalViewerFromAuthHeader(authHeader string) viewer.Context {
 	parts := strings.SplitN(strings.TrimSpace(authHeader), " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return ""
+		return nil
 	}
 	claims, err := jwtUtil.ParseToken(strings.TrimSpace(parts[1]))
 	if err != nil {
-		return ""
+		return nil
 	}
-	return claims.Userid
+	return viewer.NewScopedUserViewer(claims.Userid, claims.Scope)
 }
 
 func hashClientIP(ip string) string {

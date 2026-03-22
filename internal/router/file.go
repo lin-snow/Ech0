@@ -4,14 +4,14 @@ import "github.com/lin-snow/ech0/internal/handler"
 
 func setupFileRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	// Auth
-	appRouterGroup.AuthRouterGroup.POST("/files/upload", h.FileHandler.UploadFile())
-	appRouterGroup.AuthRouterGroup.GET("/files", h.FileHandler.ListFiles())
-	appRouterGroup.AuthRouterGroup.GET("/file/tree", h.FileHandler.ListFileTree())
-	appRouterGroup.AuthRouterGroup.GET("/file/stream", h.FileHandler.StreamFileByPath)
-	appRouterGroup.AuthRouterGroup.GET("/file/:id", h.FileHandler.GetFileByID())
-	appRouterGroup.AuthRouterGroup.GET("/file/:id/stream", h.FileHandler.StreamFileByID)
-	appRouterGroup.AuthRouterGroup.PUT("/file/:id/meta", h.FileHandler.UpdateFileMeta())
-	appRouterGroup.AuthRouterGroup.POST("/files/external", h.FileHandler.CreateExternalFile())
-	appRouterGroup.AuthRouterGroup.DELETE("/file/:id", h.FileHandler.DeleteFile())
-	appRouterGroup.AuthRouterGroup.PUT("/files/presign", h.FileHandler.GetFilePresignURL())
+	appRouterGroup.FullAuthRouterGroup.POST("/files/upload", h.FileHandler.UploadFile())
+	appRouterGroup.FullAuthRouterGroup.GET("/files", h.FileHandler.ListFiles())
+	appRouterGroup.FullAuthRouterGroup.GET("/file/tree", h.FileHandler.ListFileTree())
+	appRouterGroup.FullAuthRouterGroup.GET("/file/stream", h.FileHandler.StreamFileByPath)
+	appRouterGroup.FullAuthRouterGroup.GET("/file/:id", h.FileHandler.GetFileByID())
+	appRouterGroup.FullAuthRouterGroup.GET("/file/:id/stream", h.FileHandler.StreamFileByID)
+	appRouterGroup.FullAuthRouterGroup.PUT("/file/:id/meta", h.FileHandler.UpdateFileMeta())
+	appRouterGroup.FullAuthRouterGroup.POST("/files/external", h.FileHandler.CreateExternalFile())
+	appRouterGroup.FullAuthRouterGroup.DELETE("/file/:id", h.FileHandler.DeleteFile())
+	appRouterGroup.FullAuthRouterGroup.PUT("/files/presign", h.FileHandler.GetFilePresignURL())
 }

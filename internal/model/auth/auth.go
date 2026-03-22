@@ -14,6 +14,7 @@ import (
 type MyClaims struct {
 	Userid   string `json:"user_id"`
 	Username string `json:"username"`
+	Scope    string `json:"scope,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -22,6 +23,8 @@ const (
 	MAX_USER_COUNT = 5
 	// AnonymousUserID 定义匿名（未登录）用户 ID。
 	AnonymousUserID = ""
+	// TokenScopeIntegration 定义第三方集成使用的受限 token scope。
+	TokenScopeIntegration = "integration"
 )
 
 type (

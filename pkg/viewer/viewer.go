@@ -4,4 +4,5 @@ package viewer
 // Context defines the current viewer identity.
 type Context interface {
 	UserID() string
+	TokenScope() string
 }
