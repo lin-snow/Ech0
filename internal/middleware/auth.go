@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
@@ -21,10 +22,12 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 
 		// 获取 Authorization 头部信息，若缺失则回退到 query token（用于 <audio>/<video> 直链等场景）
 		auth := strings.TrimSpace(ctx.Request.Header.Get("Authorization"))
+		tokenFromQuery := false
 		if auth == "" {
 			queryToken := strings.TrimSpace(ctx.Query("token"))
 			if queryToken != "" && queryToken != "null" && queryToken != "undefined" {
 				auth = "Bearer " + queryToken
+				tokenFromQuery = true
 			}
 		}
 
@@ -127,8 +130,29 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// 高危 scope token 禁止通过 query 参数传递，避免在 URL 链路中泄露。
+		if tokenFromQuery && authModel.HasAdminScope(mc.Scopes) {
+			ctx.JSON(
+				http.StatusForbidden,
+				commonModel.FailWithLocalized[any](
+					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
+						Msg: commonModel.NO_PERMISSION_DENIED,
+						Err: nil,
+					}), nil),
+					commonModel.ErrCodePermissionDenied,
+					commonModel.MsgKeyCommonRequestFailed,
+					nil,
+				),
+			)
+			ctx.Abort()
+			return
+		}
+
 		// 如果 token 解析成功，则将 viewer 写入 request context
-		viewer.AttachToRequest(&ctx.Request, viewer.NewUserViewer(mc.Userid))
+		viewer.AttachToRequest(
+			&ctx.Request,
+			viewer.NewUserViewerWithToken(mc.Userid, mc.Type, mc.Scopes, []string(mc.Audience), mc.ID),
+		)
 		// 鉴权成功后，若请求未显式指定语言，则按用户偏好覆盖语言上下文
 		i18nUtil.ApplyUserLocaleFromUserID(ctx, mc.Userid)
 		ctx.Next()
