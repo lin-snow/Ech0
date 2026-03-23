@@ -45,6 +45,23 @@ func TestJWTAuthMiddleware_RejectsTokenWithoutType(t *testing.T) {
 	}
 }
 
+func TestJWTAuthMiddleware_AllowsAnonymousPublicEchoEvenWithInvalidToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(JWTAuthMiddleware())
+	r.GET("/api/echo/page", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/echo/page", nil)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
 func TestJWTAuthMiddleware_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

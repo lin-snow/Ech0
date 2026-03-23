@@ -13,31 +13,12 @@ func setupEchoRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.PublicRouterGroup.GET("/tags", h.EchoHandler.GetAllTags())
 
 	// Auth
-	appRouterGroup.AuthRouterGroup.GET(
-		"/echo/page",
-		middleware.RequireScopes(authModel.ScopeEchoRead),
-		h.EchoHandler.GetEchosByPage(),
-	)
-	appRouterGroup.AuthRouterGroup.POST(
-		"/echo/page",
-		middleware.RequireScopes(authModel.ScopeEchoRead),
-		h.EchoHandler.GetEchosByPage(),
-	)
-	appRouterGroup.AuthRouterGroup.GET(
-		"/echo/today",
-		middleware.RequireScopes(authModel.ScopeEchoRead),
-		h.EchoHandler.GetTodayEchos(),
-	)
-	appRouterGroup.AuthRouterGroup.GET(
-		"/echo/:id",
-		middleware.RequireScopes(authModel.ScopeEchoRead),
-		h.EchoHandler.GetEchoById(),
-	)
-	appRouterGroup.AuthRouterGroup.GET(
-		"/echo/tag/:tagid",
-		middleware.RequireScopes(authModel.ScopeEchoRead),
-		h.EchoHandler.GetEchosByTagId(),
-	)
+	// 读接口保留“可匿名降级”行为：无 token 或无效 token 时由 JWT 中间件降级为匿名用户继续访问。
+	appRouterGroup.AuthRouterGroup.GET("/echo/page", h.EchoHandler.GetEchosByPage())
+	appRouterGroup.AuthRouterGroup.POST("/echo/page", h.EchoHandler.GetEchosByPage())
+	appRouterGroup.AuthRouterGroup.GET("/echo/today", h.EchoHandler.GetTodayEchos())
+	appRouterGroup.AuthRouterGroup.GET("/echo/:id", h.EchoHandler.GetEchoById())
+	appRouterGroup.AuthRouterGroup.GET("/echo/tag/:tagid", h.EchoHandler.GetEchosByTagId())
 	appRouterGroup.AuthRouterGroup.POST(
 		"/echo",
 		middleware.RequireScopes(authModel.ScopeEchoWrite),
