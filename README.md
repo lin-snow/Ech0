@@ -150,7 +150,8 @@ See [Quick Deployment](#quick-deployment) for Docker Compose and Helm options.
 
 - 🔑 **OAuth2 / OIDC Authentication**: Supports OAuth2 and OIDC for third-party login integration.  
 - 🙈 **Passkey Passwordless Login**: Supports biometric or hardware security key sign-in.  
-- 🔑 **Access Token Management**: Supports generating and revoking tokens for API calls and third-party integration.  
+- 🔑 **Access Token Management**: Supports generating and revoking scoped tokens for API calls and third-party integration.
+- ⚠️ **JWT Upgrade Notice**: After upgrading to scoped-token enforcement, legacy JWTs (including old login sessions and old access tokens) are invalidated. Re-login and regenerate access tokens are required.
 - 👤 **Multi-Account Permission Management**: Supports multi-user collaboration and permission control.  
 
 ### System & Developer
