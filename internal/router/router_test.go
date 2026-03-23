@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/database"
@@ -22,6 +23,10 @@ import (
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
+	"github.com/lin-snow/ech0/internal/middleware"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
+	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -82,6 +87,80 @@ func TestSetupRouter_AllUsersRouteProtected(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestSetupRouter_AccessTokenWithoutRequiredScopeGetsForbidden(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+
+	api := engine.Group("/api")
+	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware())
+	api.PUT(
+		"/settings",
+		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		func(ctx *gin.Context) { ctx.Status(http.StatusOK) },
+	)
+
+	user := userModel.User{ID: "u-1", Username: "scope-user"}
+	token, err := jwtUtil.GenerateToken(
+		jwtUtil.CreateAccessClaimsWithExpiry(
+			user,
+			int64(time.Hour),
+			[]string{authModel.ScopeEchoRead},
+			authModel.AudiencePublic,
+			"jti-read-only",
+		),
+	)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+}
+
+func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+
+	api := engine.Group("/api")
+	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware())
+	api.PUT(
+		"/settings",
+		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		func(ctx *gin.Context) { ctx.Status(http.StatusOK) },
+	)
+
+	user := userModel.User{ID: "u-2", Username: "scope-admin"}
+	token, err := jwtUtil.GenerateToken(
+		jwtUtil.CreateAccessClaimsWithExpiry(
+			user,
+			int64(time.Hour),
+			[]string{authModel.ScopeAdminSettings},
+			authModel.AudiencePublic,
+			"jti-admin",
+		),
+	)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
 	}
 }
 

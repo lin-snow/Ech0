@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 )
 
 // setupUserRoutes 设置用户路由
@@ -26,22 +27,64 @@ func setupUserRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	)
 
 	// Auth
-	appRouterGroup.AuthRouterGroup.GET("/allusers", h.UserHandler.GetAllUsers())
-	appRouterGroup.AuthRouterGroup.GET("/user", h.UserHandler.GetUserInfo())
-	appRouterGroup.AuthRouterGroup.PUT("/user", h.UserHandler.UpdateUser())
-	appRouterGroup.AuthRouterGroup.DELETE("/user/:id", h.UserHandler.DeleteUser())
-	appRouterGroup.AuthRouterGroup.PUT("/user/admin/:id", h.UserHandler.UpdateUserAdmin())
-	appRouterGroup.AuthRouterGroup.POST("/oauth/:provider/bind", h.UserHandler.OAuthBind())
-	appRouterGroup.AuthRouterGroup.GET("/oauth/info", h.UserHandler.GetOAuthInfo())
+	appRouterGroup.AuthRouterGroup.GET(
+		"/allusers",
+		middleware.RequireScopes(authModel.ScopeAdminUser),
+		h.UserHandler.GetAllUsers(),
+	)
+	appRouterGroup.AuthRouterGroup.GET(
+		"/user",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.GetUserInfo(),
+	)
+	appRouterGroup.AuthRouterGroup.PUT(
+		"/user",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.UpdateUser(),
+	)
+	appRouterGroup.AuthRouterGroup.DELETE(
+		"/user/:id",
+		middleware.RequireScopes(authModel.ScopeAdminUser),
+		h.UserHandler.DeleteUser(),
+	)
+	appRouterGroup.AuthRouterGroup.PUT(
+		"/user/admin/:id",
+		middleware.RequireScopes(authModel.ScopeAdminUser),
+		h.UserHandler.UpdateUserAdmin(),
+	)
+	appRouterGroup.AuthRouterGroup.POST(
+		"/oauth/:provider/bind",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.OAuthBind(),
+	)
+	appRouterGroup.AuthRouterGroup.GET(
+		"/oauth/info",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.GetOAuthInfo(),
+	)
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/begin",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
 		h.UserHandler.PasskeyRegisterBeginV2(),
 	)
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/finish",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
 		h.UserHandler.PasskeyRegisterFinishV2(),
 	)
-	appRouterGroup.AuthRouterGroup.GET("/passkeys", h.UserHandler.ListPasskeys())
-	appRouterGroup.AuthRouterGroup.DELETE("/passkeys/:id", h.UserHandler.DeletePasskey())
-	appRouterGroup.AuthRouterGroup.PUT("/passkeys/:id", h.UserHandler.UpdatePasskeyDeviceName())
+	appRouterGroup.AuthRouterGroup.GET(
+		"/passkeys",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.ListPasskeys(),
+	)
+	appRouterGroup.AuthRouterGroup.DELETE(
+		"/passkeys/:id",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.DeletePasskey(),
+	)
+	appRouterGroup.AuthRouterGroup.PUT(
+		"/passkeys/:id",
+		middleware.RequireScopes(authModel.ScopeProfileRead),
+		h.UserHandler.UpdatePasskeyDeviceName(),
+	)
 }
