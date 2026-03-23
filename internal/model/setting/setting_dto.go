@@ -72,8 +72,10 @@ type WebhookDto struct {
 }
 
 type AccessTokenSettingDto struct {
-	Name   string `json:"name"`   // 访问令牌名称
-	Expiry string `json:"expiry"` // 访问令牌过期策略（8_hours/1_month/never）
+	Name     string   `json:"name"`     // 访问令牌名称
+	Expiry   string   `json:"expiry"`   // 访问令牌过期策略（8_hours/1_month/never）
+	Scopes   []string `json:"scopes"`   // 访问令牌权限范围
+	Audience string   `json:"audience"` // 访问令牌受众（public-client/cli/integration）
 }
 
 type BackupScheduleDto struct {

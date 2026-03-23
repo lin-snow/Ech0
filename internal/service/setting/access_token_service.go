@@ -2,12 +2,17 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
+	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -63,9 +68,19 @@ func (settingService *SettingService) CreateAccessToken(
 	if !user.IsAdmin {
 		return "", errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
+	if err := validateAccessTokenRequest(user, newToken); err != nil {
+		return "", err
+	}
 
 	name := newToken.Name
 	expiry := newToken.Expiry
+	audience := newToken.Audience
+	scopes := normalizeScopes(newToken.Scopes)
+	scopeJSON, err := json.Marshal(scopes)
+	if err != nil {
+		return "", err
+	}
+	jti := uuidUtil.MustNewV7()
 	var expiryDuration time.Duration
 
 	switch expiry {
@@ -80,7 +95,7 @@ func (settingService *SettingService) CreateAccessToken(
 	}
 
 	// 生成jwt令牌
-	claims := jwtUtil.CreateClaimsWithExpiry(user, int64(expiryDuration))
+	claims := jwtUtil.CreateAccessClaimsWithExpiry(user, int64(expiryDuration), scopes, audience, jti)
 	tokenString, err := jwtUtil.GenerateToken(claims)
 	if err != nil {
 		return "", err
@@ -100,6 +115,10 @@ func (settingService *SettingService) CreateAccessToken(
 		UserID:    user.ID,
 		Token:     tokenString,
 		Name:      name,
+		TokenType: authModel.TokenTypeAccess,
+		Scopes:    string(scopeJSON),
+		Audience:  audience,
+		JTI:       jti,
 		Expiry:    expiryPtr,
 		CreatedAt: time.Now().UTC(),
 	}
@@ -111,6 +130,43 @@ func (settingService *SettingService) CreateAccessToken(
 	}
 
 	return tokenString, nil
+}
+
+func validateAccessTokenRequest(user userModel.User, dto *model.AccessTokenSettingDto) error {
+	if dto == nil {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+	if strings.TrimSpace(dto.Name) == "" {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+	if !authModel.IsValidAudience(dto.Audience) {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+	if len(dto.Scopes) == 0 {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+	for _, scope := range dto.Scopes {
+		if !authModel.IsValidScope(scope) {
+			return errors.New(commonModel.INVALID_PARAMS_BODY)
+		}
+	}
+	if authModel.HasAdminScope(dto.Scopes) && !user.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+	return nil
+}
+
+func normalizeScopes(scopes []string) []string {
+	seen := make(map[string]struct{}, len(scopes))
+	result := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		if _, ok := seen[scope]; ok {
+			continue
+		}
+		seen[scope] = struct{}{}
+		result = append(result, scope)
+	}
+	return result
 }
 
 // DeleteAccessToken 删除访问令牌

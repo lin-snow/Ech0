@@ -74,12 +74,17 @@ type PasskeySetting struct {
 
 // AccessTokenSetting 定义访问令牌设置实体
 type AccessTokenSetting struct {
-	ID        string     `gorm:"type:char(36);primaryKey" json:"id"`         // 访问令牌 ID
-	UserID    string     `gorm:"type:char(36);index" json:"user_id"`         // 创建该访问令牌的用户 ID
-	Token     string     `gorm:"type:varchar(255);uniqueIndex" json:"token"` // 访问令牌
-	Name      string     `json:"name"`                                       // 访问令牌名称
-	Expiry    *time.Time `json:"expiry"`                                     // 指针类型，NULL 表示永不过期
-	CreatedAt time.Time  `json:"created_at"`                                 // 访问令牌创建时间，RFC3339 时间字符串
+	ID         string     `gorm:"type:char(36);primaryKey" json:"id"`         // 访问令牌 ID
+	UserID     string     `gorm:"type:char(36);index" json:"user_id"`         // 创建该访问令牌的用户 ID
+	Token      string     `gorm:"type:varchar(255);uniqueIndex" json:"token"` // 访问令牌
+	Name       string     `json:"name"`                                       // 访问令牌名称
+	TokenType  string     `gorm:"size:32;index" json:"token_type"`            // 访问令牌类型（access）
+	Scopes     string     `gorm:"type:text" json:"scopes"`                    // scopes 的 JSON 字符串
+	Audience   string     `gorm:"size:64;index" json:"audience"`              // token audience
+	JTI        string     `gorm:"size:64;uniqueIndex" json:"jti"`             // JWT ID
+	Expiry     *time.Time `json:"expiry"`                                     // 指针类型，NULL 表示永不过期
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`                     // 最后一次使用时间
+	CreatedAt  time.Time  `json:"created_at"`                                 // 访问令牌创建时间，RFC3339 时间字符串
 }
 
 func (a *AccessTokenSetting) BeforeCreate(_ *gorm.DB) error {
