@@ -403,6 +403,8 @@ declare namespace App {
       type AccessTokenDto = {
         name: string
         expiry: string
+        scopes: string[]
+        audience: 'public-client' | 'cli' | 'integration'
       }
 
       type BackupSchedule = {

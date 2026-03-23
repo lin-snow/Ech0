@@ -30,7 +30,9 @@
         <table class="w-full min-w-[760px] table-fixed text-sm">
           <thead>
             <tr class="bg-[var(--color-bg-muted)]/70 text-left text-[var(--color-text-muted)]">
-              <th class="w-[170px] px-2 py-2 whitespace-nowrap">Token</th>
+              <th class="w-[170px] px-2 py-2 whitespace-nowrap">
+                {{ t('accessTokenSetting.token') }}
+              </th>
               <th class="w-[100px] px-2 py-2 whitespace-nowrap">
                 {{ t('accessTokenSetting.name') }}
               </th>
@@ -90,31 +92,82 @@
       </div>
     </div>
     <div v-else class="text-[var(--color-text-secondary)]">
-      <!-- 添加 AccessToken -->
+      <div class="rounded-lg border border-[var(--color-border-subtle)] p-4 space-y-4">
+        <div class="space-y-2">
+          <span class="text-[var(--color-text-primary)]">{{ t('accessTokenSetting.name') }}：</span>
+          <BaseInput
+            class="w-full"
+            v-model="accessTokenToAdd.name"
+            :placeholder="t('accessTokenSetting.namePlaceholder')"
+          />
+          <span v-if="nameError" class="text-xs text-[var(--color-danger)]">{{ nameError }}</span>
+        </div>
 
-      <div class="flex flex-col gap-2 mb-2">
-        <span>{{ t('accessTokenSetting.name') }}：</span>
-        <BaseInput
-          class="w-full"
-          v-model="accessTokenToAdd.name"
-          :placeholder="t('accessTokenSetting.namePlaceholder')"
-        />
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <span class="text-[var(--color-text-primary)]">{{ t('accessTokenSetting.expiry') }}：</span>
+            <BaseSelect
+              v-model="accessTokenToAdd.expiry"
+              :options="expirationOptions"
+              class="w-full h-9 bg-[var(--color-bg-surface)]! bg-op-80"
+            />
+          </div>
+          <div class="space-y-2">
+            <span class="text-[var(--color-text-primary)]"
+              >{{ t('accessTokenSetting.audience') }}：</span
+            >
+            <BaseSelect
+              v-model="accessTokenToAdd.audience"
+              :options="audienceOptions"
+              class="w-full h-9 bg-[var(--color-bg-surface)]! bg-op-80"
+              :placeholder="t('accessTokenSetting.audiencePlaceholder')"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <span class="text-[var(--color-text-primary)]">{{ t('accessTokenSetting.scopes') }}：</span>
+          <p class="text-xs text-[var(--color-text-muted)]">
+            {{ t('accessTokenSetting.scopesHint') }}
+          </p>
+          <div
+            v-for="group in scopeGroups"
+            :key="group.labelKey"
+            class="rounded-md border border-[var(--color-border-subtle)] p-3"
+          >
+            <div class="text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              {{ t(group.labelKey) }}
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="scope in group.items"
+                :key="scope.value"
+                type="button"
+                class="px-2.5 py-1.5 rounded-md border text-xs transition"
+                :class="
+                  hasScope(scope.value)
+                    ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-bg-muted)]'
+                    : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]'
+                "
+                @click="toggleScope(scope.value)"
+              >
+                {{ t(scope.labelKey) }}
+              </button>
+            </div>
+          </div>
+          <span v-if="scopesError" class="text-xs text-[var(--color-danger)]">{{ scopesError }}</span>
+        </div>
+
+        <p class="text-xs text-[var(--color-text-muted)]">
+          {{ t('accessTokenSetting.securityHint') }}
+        </p>
       </div>
 
-      <div class="flex flex-col gap-2">
-        <span>{{ t('accessTokenSetting.expiry') }}：</span>
-        <BaseSelect
-          v-model="accessTokenToAdd.expiry"
-          :options="ExpirationOptions"
-          class="w-34 h-8 bg-[var(--color-bg-surface)]! bg-op-80 mt-2 mb-4"
-        />
-      </div>
-
-      <div class="flex items-center justify-center my-2">
+      <div class="flex items-center justify-center gap-2 mt-4">
         <BaseButton
           :disabled="isSubmitting"
           @click="handleCancelAddAccessToken"
-          class="w-1/4 h-8 rounded-md flex justify-center mr-2 bg-[var(--color-bg-surface)]! bg-op-80"
+          class="h-9 rounded-md px-4 bg-[var(--color-bg-surface)]! bg-op-80"
           :title="t('accessTokenSetting.cancelAdd')"
         >
           <span>{{ t('commonUi.cancel') }}</span>
@@ -123,7 +176,7 @@
         <BaseButton
           :loading="isSubmitting"
           @click="handleAddAccessToken"
-          class="w-1/4 h-8 rounded-md flex justify-center bg-[var(--color-bg-surface)]! bg-op-80"
+          class="h-9 rounded-md px-4 bg-[var(--color-bg-surface)]! bg-op-80"
           :title="t('accessTokenSetting.addToken')"
         >
           <span class="text-[var(--color-text-primary)]">{{ t('commonUi.add') }}</span>
@@ -141,7 +194,7 @@ import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseEditCapsule from '@/components/common/BaseEditCapsule.vue'
 import Clipboard from '@/components/icons/clipboard.vue'
 import Trashbin from '@/components/icons/trashbin.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
@@ -157,43 +210,144 @@ const accessTokenEdit = ref<boolean>(false)
 const useSetting = useSettingStore()
 const { AccessTokens } = storeToRefs(useSetting)
 
+const scopeGroups = [
+  {
+    labelKey: 'accessTokenSetting.scopeGroupContent',
+    items: [
+      { value: 'echo:read', labelKey: 'accessTokenSetting.scopeEchoRead' },
+      { value: 'echo:write', labelKey: 'accessTokenSetting.scopeEchoWrite' },
+      { value: 'comment:read', labelKey: 'accessTokenSetting.scopeCommentRead' },
+      { value: 'comment:write', labelKey: 'accessTokenSetting.scopeCommentWrite' },
+      { value: 'comment:moderate', labelKey: 'accessTokenSetting.scopeCommentModerate' },
+    ],
+  },
+  {
+    labelKey: 'accessTokenSetting.scopeGroupFile',
+    items: [
+      { value: 'file:read', labelKey: 'accessTokenSetting.scopeFileRead' },
+      { value: 'file:write', labelKey: 'accessTokenSetting.scopeFileWrite' },
+    ],
+  },
+  {
+    labelKey: 'accessTokenSetting.scopeGroupProfile',
+    items: [{ value: 'profile:read', labelKey: 'accessTokenSetting.scopeProfileRead' }],
+  },
+  {
+    labelKey: 'accessTokenSetting.scopeGroupAdmin',
+    items: [
+      { value: 'admin:settings', labelKey: 'accessTokenSetting.scopeAdminSettings' },
+      { value: 'admin:user', labelKey: 'accessTokenSetting.scopeAdminUser' },
+      { value: 'admin:token', labelKey: 'accessTokenSetting.scopeAdminToken' },
+    ],
+  },
+] as const
+
+const audienceOptions = computed(() => [
+  {
+    label: t('accessTokenSetting.audiencePublicClient'),
+    value: 'public-client' as const,
+  },
+  {
+    label: t('accessTokenSetting.audienceCli'),
+    value: 'cli' as const,
+  },
+  {
+    label: t('accessTokenSetting.audienceIntegration'),
+    value: 'integration' as const,
+  },
+])
+
+const expirationOptions = computed(() => [
+  {
+    label: t('accessTokenSetting.expiryOption8Hours'),
+    value: AccessTokenExpiration.EIGHT_HOUR_EXPIRY,
+  },
+  {
+    label: t('accessTokenSetting.expiryOption1Month'),
+    value: AccessTokenExpiration.ONE_MONTH_EXPIRY,
+  },
+  {
+    label: t('accessTokenSetting.expiryOptionNever'),
+    value: AccessTokenExpiration.NEVER_EXPIRY,
+  },
+])
+
 const accessTokenToAdd = ref<App.Api.Setting.AccessTokenDto>({
   name: '',
   expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY,
+  scopes: [],
+  audience: 'public-client',
 })
-const ExpirationOptions = [
-  { label: '8 Hours', value: AccessTokenExpiration.EIGHT_HOUR_EXPIRY },
-  { label: '1 Month', value: AccessTokenExpiration.ONE_MONTH_EXPIRY },
-  { label: 'Never', value: AccessTokenExpiration.NEVER_EXPIRY },
-]
+const nameError = ref('')
+const scopesError = ref('')
 
 const isSubmitting = ref<boolean>(false)
+
+function hasScope(scope: string) {
+  return accessTokenToAdd.value.scopes.includes(scope)
+}
+
+function toggleScope(scope: string) {
+  const scopes = accessTokenToAdd.value.scopes
+  if (scopes.includes(scope)) {
+    accessTokenToAdd.value.scopes = scopes.filter((item) => item !== scope)
+    return
+  }
+  accessTokenToAdd.value.scopes = [...scopes, scope]
+}
+
+function resetAccessTokenForm() {
+  accessTokenToAdd.value = {
+    name: '',
+    expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY,
+    scopes: [],
+    audience: 'public-client',
+  }
+  nameError.value = ''
+  scopesError.value = ''
+}
+
 const handleAddAccessToken = async () => {
-  if (!accessTokenToAdd.value?.name) {
-    theToast.error(String(t('accessTokenSetting.fillName')))
+  nameError.value = ''
+  scopesError.value = ''
+  const normalizedName = accessTokenToAdd.value.name.trim()
+  if (!normalizedName) {
+    nameError.value = String(t('accessTokenSetting.fillName'))
+    theToast.error(nameError.value)
+    return
+  }
+  if (accessTokenToAdd.value.scopes.length === 0) {
+    scopesError.value = String(t('accessTokenSetting.selectScopes'))
+    theToast.error(scopesError.value)
     return
   }
 
   isSubmitting.value = true
-
-  const res = await fetchCreateAccessToken({
-    name: accessTokenToAdd.value.name,
-    expiry: accessTokenToAdd.value.expiry || AccessTokenExpiration.NEVER_EXPIRY,
-  })
-  if (res.code === 1) {
-    theToast.success(String(t('accessTokenSetting.createSuccess')))
-    accessTokenToAdd.value = {
-      name: '',
-      expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY,
+  try {
+    const res = await fetchCreateAccessToken({
+      name: normalizedName,
+      expiry: accessTokenToAdd.value.expiry || AccessTokenExpiration.NEVER_EXPIRY,
+      scopes: accessTokenToAdd.value.scopes,
+      audience: accessTokenToAdd.value.audience,
+    })
+    if (res.code === 1) {
+      theToast.success(String(t('accessTokenSetting.createSuccess')))
+      resetAccessTokenForm()
+      await useSetting.getAllAccessTokens()
+      accessTokenEdit.value = false
+    } else {
+      theToast.error(res.msg || String(t('accessTokenSetting.createFailed')))
     }
-    await useSetting.getAllAccessTokens()
-    accessTokenEdit.value = false
+  } catch (error) {
+    console.error(error)
+    theToast.error(String(t('accessTokenSetting.createFailed')))
+  } finally {
+    isSubmitting.value = false
   }
-  isSubmitting.value = false
 }
 
 const handleCancelAddAccessToken = () => {
-  accessTokenToAdd.value = { name: '', expiry: AccessTokenExpiration.EIGHT_HOUR_EXPIRY }
+  resetAccessTokenForm()
   accessTokenEdit.value = false
 }
 
