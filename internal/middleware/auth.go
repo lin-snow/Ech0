@@ -135,12 +135,12 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			ctx.JSON(
 				http.StatusForbidden,
 				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
+					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthTokenTransportForbidden, errUtil.HandleError(&commonModel.ServerError{
 						Msg: commonModel.NO_PERMISSION_DENIED,
 						Err: nil,
 					}), nil),
-					commonModel.ErrCodePermissionDenied,
-					commonModel.MsgKeyCommonRequestFailed,
+					commonModel.ErrCodeTokenTransportForbidden,
+					commonModel.MsgKeyAuthTokenTransportForbidden,
 					nil,
 				),
 			)

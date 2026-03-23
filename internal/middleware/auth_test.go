@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -71,6 +72,9 @@ func TestJWTAuthMiddleware_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
+	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "TOKEN_TRANSPORT_FORBIDDEN" {
+		t.Fatalf("expected error code TOKEN_TRANSPORT_FORBIDDEN, got %s", got)
+	}
 }
 
 func TestJWTAuthMiddleware_AllowsSessionType(t *testing.T) {
@@ -105,4 +109,12 @@ func initMiddlewareTestDB(t *testing.T) {
 		t.Fatalf("init test db failed: %v", err)
 	}
 	database.SetDB(db)
+}
+
+func parseAuthErrorCode(body []byte) string {
+	var payload struct {
+		ErrorCode string `json:"error_code"`
+	}
+	_ = json.Unmarshal(body, &payload)
+	return payload.ErrorCode
 }

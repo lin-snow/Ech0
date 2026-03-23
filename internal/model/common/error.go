@@ -50,15 +50,18 @@ const (
 
 // 业务错误码
 const (
-	ErrCodeInvalidRequest   = "INVALID_REQUEST"
-	ErrCodePermissionDenied = "PERMISSION_DENIED"
-	ErrCodeInitAlreadyDone  = "INIT_ALREADY_DONE"
-	ErrCodeInitOwnerExists  = "INIT_OWNER_EXISTS"
-	ErrCodeInitInvalidState = "INIT_INVALID_STATE"
-	ErrCodeInvalidQuery     = "INVALID_QUERY"
-	ErrCodeTokenMissing     = "TOKEN_MISSING"
-	ErrCodeTokenInvalid     = "TOKEN_INVALID"
-	ErrCodeTokenParse       = "TOKEN_PARSE_ERROR"
+	ErrCodeInvalidRequest          = "INVALID_REQUEST"
+	ErrCodePermissionDenied        = "PERMISSION_DENIED"
+	ErrCodeInitAlreadyDone         = "INIT_ALREADY_DONE"
+	ErrCodeInitOwnerExists         = "INIT_OWNER_EXISTS"
+	ErrCodeInitInvalidState        = "INIT_INVALID_STATE"
+	ErrCodeInvalidQuery            = "INVALID_QUERY"
+	ErrCodeTokenMissing            = "TOKEN_MISSING"
+	ErrCodeTokenInvalid            = "TOKEN_INVALID"
+	ErrCodeTokenParse              = "TOKEN_PARSE_ERROR"
+	ErrCodeScopeForbidden          = "SCOPE_FORBIDDEN"
+	ErrCodeAudienceForbidden       = "AUDIENCE_FORBIDDEN"
+	ErrCodeTokenTransportForbidden = "TOKEN_TRANSPORT_FORBIDDEN"
 )
 
 // Auth 错误相关常量

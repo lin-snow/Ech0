@@ -1,17 +1,20 @@
 package model
 
 const (
-	MsgKeyCommonSuccess       = "common.success"
-	MsgKeyCommonRequestFailed = "common.request_failed"
-	MsgKeyInvalidQueryParams  = "common.invalid_query_params"
-	MsgKeySettingUpdateOK     = "setting.update_success"
-	MsgKeyAgentModelMissing   = "agent.model_missing"
-	MsgKeyAuthTokenMissing    = "auth.token_missing"
-	MsgKeyAuthTokenInvalid    = "auth.token_invalid"
-	MsgKeyAuthTokenParse      = "auth.token_parse_error"
-	MsgKeyDashboardLogsOk     = "dashboard.logs.success"
-	MsgKeyDashboardTailBad    = "dashboard.logs.tail_invalid"
-	MsgKeyInboxNewVersion     = "inbox.new_version_available"
+	MsgKeyCommonSuccess               = "common.success"
+	MsgKeyCommonRequestFailed         = "common.request_failed"
+	MsgKeyInvalidQueryParams          = "common.invalid_query_params"
+	MsgKeySettingUpdateOK             = "setting.update_success"
+	MsgKeyAgentModelMissing           = "agent.model_missing"
+	MsgKeyAuthTokenMissing            = "auth.token_missing"
+	MsgKeyAuthTokenInvalid            = "auth.token_invalid"
+	MsgKeyAuthTokenParse              = "auth.token_parse_error"
+	MsgKeyAuthScopeForbidden          = "auth.scope_forbidden"
+	MsgKeyAuthAudienceForbidden       = "auth.audience_forbidden"
+	MsgKeyAuthTokenTransportForbidden = "auth.token_transport_forbidden"
+	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
+	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
+	MsgKeyInboxNewVersion             = "inbox.new_version_available"
 )
 
 func MessageKeyFromErrorCode(code string) string {
@@ -24,6 +27,12 @@ func MessageKeyFromErrorCode(code string) string {
 		return MsgKeyAuthTokenInvalid
 	case ErrCodeTokenParse:
 		return MsgKeyAuthTokenParse
+	case ErrCodeScopeForbidden:
+		return MsgKeyAuthScopeForbidden
+	case ErrCodeAudienceForbidden:
+		return MsgKeyAuthAudienceForbidden
+	case ErrCodeTokenTransportForbidden:
+		return MsgKeyAuthTokenTransportForbidden
 	default:
 		return ""
 	}

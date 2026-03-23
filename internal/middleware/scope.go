@@ -34,16 +34,32 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
+		if !containsValidAudience(v.Audience()) {
+			ctx.JSON(
+				http.StatusForbidden,
+				commonModel.FailWithLocalized[any](
+					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthAudienceForbidden, errUtil.HandleError(&commonModel.ServerError{
+						Msg: commonModel.NO_PERMISSION_DENIED,
+						Err: nil,
+					}), nil),
+					commonModel.ErrCodeAudienceForbidden,
+					commonModel.MsgKeyAuthAudienceForbidden,
+					nil,
+				),
+			)
+			ctx.Abort()
+			return
+		}
 		if !containsAllScopes(v.Scopes(), scopes) {
 			ctx.JSON(
 				http.StatusForbidden,
 				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
+					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthScopeForbidden, errUtil.HandleError(&commonModel.ServerError{
 						Msg: commonModel.NO_PERMISSION_DENIED,
 						Err: nil,
 					}), nil),
-					commonModel.ErrCodePermissionDenied,
-					commonModel.MsgKeyCommonRequestFailed,
+					commonModel.ErrCodeScopeForbidden,
+					commonModel.MsgKeyAuthScopeForbidden,
 					nil,
 				),
 			)
@@ -52,6 +68,18 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 		}
 		ctx.Next()
 	}
+}
+
+func containsValidAudience(audiences []string) bool {
+	if len(audiences) == 0 {
+		return false
+	}
+	for _, audience := range audiences {
+		if authModel.IsValidAudience(audience) {
+			return true
+		}
+	}
+	return false
 }
 
 func containsAllScopes(actual, required []string) bool {
