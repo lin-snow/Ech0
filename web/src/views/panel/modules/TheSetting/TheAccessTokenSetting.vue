@@ -27,7 +27,7 @@
         v-else
         class="mt-2 x-scrollbar overflow-x-auto border border-[var(--color-border-subtle)] rounded-lg"
       >
-        <table class="w-full min-w-[760px] table-fixed text-sm">
+        <table class="w-full min-w-[820px] table-fixed text-sm">
           <thead>
             <tr class="bg-[var(--color-bg-muted)]/70 text-left text-[var(--color-text-muted)]">
               <th class="w-[170px] px-2 py-2 whitespace-nowrap">
@@ -42,7 +42,7 @@
               <th class="w-[156px] px-2 py-2 whitespace-nowrap">
                 {{ t('accessTokenSetting.expiry') }}
               </th>
-              <th class="w-[56px] px-2 py-2 text-right whitespace-nowrap">
+              <th class="w-[120px] px-2 py-2 text-right whitespace-nowrap">
                 {{ t('commonUi.actions') }}
               </th>
             </tr>
@@ -78,13 +78,22 @@
                     : t('accessTokenSetting.neverExpire')
                 }}
               </td>
-              <td class="px-1 py-2 text-right">
-                <BaseButton
-                  class="h-8 w-8 !p-1.5"
-                  :icon="Trashbin"
-                  @click="handleDeleteAccessToken(tokenItem)"
-                  :title="t('accessTokenSetting.deleteToken')"
-                />
+              <td class="px-1 py-2">
+                <div class="flex items-center justify-end gap-1">
+                  <BaseButton
+                    class="h-8 rounded-md px-2 text-xs whitespace-nowrap"
+                    @click="openTokenDetail(tokenItem)"
+                    :title="t('accessTokenSetting.viewDetail')"
+                  >
+                    <span>{{ t('accessTokenSetting.detail') }}</span>
+                  </BaseButton>
+                  <BaseButton
+                    class="h-8 w-8 !p-1.5"
+                    :icon="Trashbin"
+                    @click="handleDeleteAccessToken(tokenItem)"
+                    :title="t('accessTokenSetting.deleteToken')"
+                  />
+                </div>
               </td>
             </tr>
           </tbody>
@@ -183,6 +192,79 @@
         </BaseButton>
       </div>
     </div>
+
+    <div
+      v-if="detailModalOpen && selectedToken"
+      class="fixed inset-0 z-5000 flex items-center justify-center bg-black/30 p-4"
+      @click.self="closeTokenDetail"
+    >
+      <div
+        class="w-full max-w-lg rounded-[var(--radius-lg)] bg-[var(--dialog-bg-color)] p-5 shadow-[var(--shadow-md)] ring-1 ring-inset ring-[var(--color-border-subtle)]"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-[var(--color-text-primary)]">
+              {{ t('accessTokenSetting.detailTitle') }}
+            </h3>
+            <p class="mt-1 text-sm text-[var(--color-text-muted)]">{{ selectedToken.name }}</p>
+          </div>
+        </div>
+
+        <div class="mt-4 space-y-3 text-sm">
+          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
+            <div class="text-xs text-[var(--color-text-muted)]">
+              {{ t('accessTokenSetting.audience') }}
+            </div>
+            <div class="mt-1 text-[var(--color-text-primary)]">
+              {{ getAudienceLabel(selectedToken.audience) }}
+            </div>
+          </div>
+          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
+            <div class="text-xs text-[var(--color-text-muted)]">
+              {{ t('accessTokenSetting.expiry') }}
+            </div>
+            <div class="mt-1 text-[var(--color-text-primary)]">
+              {{
+                selectedToken.expiry
+                  ? new Date(selectedToken.expiry).toLocaleString()
+                  : t('accessTokenSetting.neverExpire')
+              }}
+            </div>
+          </div>
+          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
+            <div class="text-xs text-[var(--color-text-muted)]">
+              {{ t('accessTokenSetting.createdAt') }}
+            </div>
+            <div class="mt-1 text-[var(--color-text-primary)]">
+              {{ new Date(selectedToken.created_at).toLocaleString() }}
+            </div>
+          </div>
+          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
+            <div class="text-xs text-[var(--color-text-muted)]">
+              {{ t('accessTokenSetting.scopes') }}
+            </div>
+            <div v-if="selectedTokenScopes.length > 0" class="mt-2 flex flex-wrap gap-2">
+              <span
+                v-for="scope in selectedTokenScopes"
+                :key="scope"
+                class="rounded-md border border-[var(--color-border-subtle)] px-2 py-1 text-xs text-[var(--color-text-secondary)]"
+              >
+                {{ getScopeLabel(scope) }}
+              </span>
+            </div>
+            <div v-else class="mt-1 text-[var(--color-text-muted)]">
+              {{ t('accessTokenSetting.scopeEmpty') }}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 flex justify-end">
+          <BaseButton class="h-9 rounded-md px-4" @click="closeTokenDetail">
+            {{ t('accessTokenSetting.closeDetail') }}
+          </BaseButton>
+        </div>
+      </div>
+    </div>
   </PanelCard>
 </template>
 
@@ -209,6 +291,8 @@ const { t } = useI18n()
 const accessTokenEdit = ref<boolean>(false)
 const useSetting = useSettingStore()
 const { AccessTokens } = storeToRefs(useSetting)
+const detailModalOpen = ref(false)
+const selectedToken = ref<App.Api.Setting.AccessToken | null>(null)
 
 const scopeGroups = [
   {
@@ -282,6 +366,61 @@ const nameError = ref('')
 const scopesError = ref('')
 
 const isSubmitting = ref<boolean>(false)
+const scopeLabelMap: Record<string, string> = {
+  'echo:read': 'accessTokenSetting.scopeEchoRead',
+  'echo:write': 'accessTokenSetting.scopeEchoWrite',
+  'comment:read': 'accessTokenSetting.scopeCommentRead',
+  'comment:write': 'accessTokenSetting.scopeCommentWrite',
+  'comment:moderate': 'accessTokenSetting.scopeCommentModerate',
+  'file:read': 'accessTokenSetting.scopeFileRead',
+  'file:write': 'accessTokenSetting.scopeFileWrite',
+  'profile:read': 'accessTokenSetting.scopeProfileRead',
+  'admin:settings': 'accessTokenSetting.scopeAdminSettings',
+  'admin:user': 'accessTokenSetting.scopeAdminUser',
+  'admin:token': 'accessTokenSetting.scopeAdminToken',
+}
+
+const selectedTokenScopes = computed(() => parseTokenScopes(selectedToken.value?.scopes))
+
+function parseTokenScopes(rawScopes: App.Api.Setting.AccessToken['scopes']) {
+  if (Array.isArray(rawScopes)) {
+    return rawScopes
+  }
+  if (typeof rawScopes !== 'string' || rawScopes.trim() === '') {
+    return []
+  }
+  try {
+    const parsed = JSON.parse(rawScopes)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function getScopeLabel(scope: string) {
+  const key = scopeLabelMap[scope]
+  return key ? String(t(key)) : scope
+}
+
+function getAudienceLabel(audience?: App.Api.Setting.AccessToken['audience']) {
+  if (audience === 'cli') {
+    return String(t('accessTokenSetting.audienceCli'))
+  }
+  if (audience === 'integration') {
+    return String(t('accessTokenSetting.audienceIntegration'))
+  }
+  return String(t('accessTokenSetting.audiencePublicClient'))
+}
+
+function openTokenDetail(item: App.Api.Setting.AccessToken) {
+  selectedToken.value = item
+  detailModalOpen.value = true
+}
+
+function closeTokenDetail() {
+  detailModalOpen.value = false
+  selectedToken.value = null
+}
 
 function hasScope(scope: string) {
   return accessTokenToAdd.value.scopes.includes(scope)
