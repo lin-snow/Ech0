@@ -30,6 +30,7 @@ func CreateClaims(user userModel.User) jwt.Claims {
 	claims := authModel.MyClaims{
 		Userid:   user.ID,
 		Username: user.Username,
+		Type:     authModel.TokenTypeSession,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:   config.Config().Auth.Jwt.Issuer,
 			Subject:  user.Username,
@@ -51,6 +52,7 @@ func CreateClaimsWithExpiry(user userModel.User, expiry int64) jwt.Claims {
 	claims := authModel.MyClaims{
 		Userid:   user.ID,
 		Username: user.Username,
+		Type:     authModel.TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    config.Config().Auth.Jwt.Issuer,
 			Subject:   user.Username,
@@ -89,6 +91,9 @@ func ParseToken(tokenString string) (*authModel.MyClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(*authModel.MyClaims); ok {
+		if claims.Type != authModel.TokenTypeSession && claims.Type != authModel.TokenTypeAccess {
+			return nil, errors.New("invalid token typ")
+		}
 		return claims, nil
 	}
 

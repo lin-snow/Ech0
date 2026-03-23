@@ -12,8 +12,10 @@ import (
 
 // MyClaims 是自定义的 JWT 声明结构体
 type MyClaims struct {
-	Userid   string `json:"user_id"`
-	Username string `json:"username"`
+	Userid   string   `json:"user_id"`
+	Username string   `json:"username"`
+	Type     string   `json:"typ"`
+	Scopes   []string `json:"scope,omitempty"`
 	jwt.RegisteredClaims
 }
 

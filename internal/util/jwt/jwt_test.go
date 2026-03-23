@@ -12,7 +12,43 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/config"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 )
+
+func TestCreateClaims_WithSessionType(t *testing.T) {
+	user := userModel.User{
+		ID:       "u-1",
+		Username: "alice",
+	}
+	claimsAny := CreateClaims(user)
+	claims, ok := claimsAny.(authModel.MyClaims)
+	if !ok {
+		t.Fatalf("unexpected claims type %T", claimsAny)
+	}
+	if claims.Type != authModel.TokenTypeSession {
+		t.Fatalf("expected typ=%s, got %s", authModel.TokenTypeSession, claims.Type)
+	}
+}
+
+func TestParseToken_RejectsTokenWithoutType(t *testing.T) {
+	legacyToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":  "u-legacy",
+		"username": "legacy",
+		"exp":      time.Now().UTC().Add(10 * time.Minute).Unix(),
+		"iat":      time.Now().UTC().Unix(),
+		"nbf":      time.Now().UTC().Add(-1 * time.Minute).Unix(),
+	})
+	tokenString, err := legacyToken.SignedString(config.Config().Security.JWTSecret)
+	if err != nil {
+		t.Fatalf("failed to sign legacy token: %v", err)
+	}
+
+	if _, err := ParseToken(tokenString); err == nil {
+		t.Fatal("expected ParseToken to reject token without typ")
+	}
+}
 
 func TestParseOAuthState_RoundTrip(t *testing.T) {
 	state, nonce, err := GenerateOAuthState("login", "u1", "https://example.com/auth", "custom")
