@@ -9,6 +9,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	"github.com/lin-snow/ech0/internal/storage"
 )
 
@@ -33,8 +34,13 @@ type Service interface {
 	DeleteStoredFile(storageType string, key string) error
 }
 
+type (
+	SettingService = settingService.Service
+)
+
 type CommonRepository interface {
 	GetUserByUserId(ctx context.Context, id string) (userModel.User, error)
+	GetAllUsers(ctx context.Context) ([]userModel.User, error)
 }
 
 type KeyValueRepository interface {

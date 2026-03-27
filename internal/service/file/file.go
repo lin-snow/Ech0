@@ -21,6 +21,7 @@ import (
 	publisher "github.com/lin-snow/ech0/internal/event/publisher"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
 	httpUtil "github.com/lin-snow/ech0/internal/util/http"
@@ -46,6 +47,7 @@ type FileService struct {
 	fileRepository     FileRepository
 	publisher          *publisher.Publisher
 	keyGen             storage.KeyGenerator
+	settingService     SettingService
 }
 
 func NewFileService(
@@ -55,6 +57,7 @@ func NewFileService(
 	fileRepo FileRepository,
 	storageManager *storage.Manager,
 	publisher *publisher.Publisher,
+	settingService SettingService,
 ) *FileService {
 	return &FileService{
 		transactor:         tx,
@@ -64,6 +67,7 @@ func NewFileService(
 		storageManager:     storageManager,
 		publisher:          publisher,
 		keyGen:             storage.NewRandomKeyGenerator(),
+		settingService:     settingService,
 	}
 }
 
@@ -802,8 +806,27 @@ func (s *FileService) CleanupOrphanFiles() error {
 		return err
 	}
 
+	var systemSetting settingModel.SystemSetting
+	if err := s.settingService.GetSetting(&systemSetting); err != nil {
+		return err
+	}
+
+	users, err := s.commonRepository.GetAllUsers(ctx)
+	if err != nil {
+		return err
+	}
+	isUserAvatar := make(map[string]bool)
+	for _, user := range users {
+		if user.Avatar != "" {
+			isUserAvatar[user.Avatar] = true
+		}
+	}
+
 	for _, file := range files {
-		if file.Key != "" && storage.NormalizeStorageType(file.StorageType) != storage.StorageTypeExternal {
+		if file.Key != "" &&
+			file.URL != systemSetting.ServerLogo &&
+			!isUserAvatar[file.URL] &&
+			storage.NormalizeStorageType(file.StorageType) != storage.StorageTypeExternal {
 			_ = s.DeleteStoredFile(file.StorageType, file.Key)
 		}
 		_ = s.fileRepository.Delete(ctx, file.ID)
