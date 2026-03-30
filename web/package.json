@@ -19,7 +19,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "@cap.js/widget": "^0.1.42",
+    "@cap.js/widget": "^0.1.43",
     "@dicebear/core": "^9.4.2",
     "@dicebear/micah": "^9.4.2",
     "@headlessui/vue": "^1.7.23",

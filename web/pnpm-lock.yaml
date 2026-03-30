@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@cap.js/widget':
-        specifier: ^0.1.42
-        version: 0.1.42
+        specifier: ^0.1.43
+        version: 0.1.43
       '@dicebear/core':
         specifier: ^9.4.2
         version: 9.4.2
@@ -326,8 +326,8 @@ packages:
   '@bufbuild/protobuf@2.11.0':
     resolution: {integrity: sha512-sBXGT13cpmPR5BMgHE6UEEfEaShh5Ror6rfN3yEK5si7QVrtZg8LEPQb0VVhiLRUslD2yLnXtnRzG035J/mZXQ==}
 
-  '@cap.js/widget@0.1.42':
-    resolution: {integrity: sha512-1LZiUYSQS7aGZK7ccLVleaPZmiR6fTohLSwGXaAvlymNROCWlmfH75CXACcxFUkNhRVaFFy2F29hNzwJK35R2Q==}
+  '@cap.js/widget@0.1.43':
+    resolution: {integrity: sha512-VYfYIbsLH49UPhwKr4W2oW+Vu358gZJencWQ9PLlWzMw6/QlYi2GpVaSYndHOvb3Z7fK3OrQa9L65FrM4esdoA==}
 
   '@csstools/color-helpers@6.0.2':
     resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
@@ -3266,7 +3266,7 @@ snapshots:
 
   '@bufbuild/protobuf@2.11.0': {}
 
-  '@cap.js/widget@0.1.42': {}
+  '@cap.js/widget@0.1.43': {}
 
   '@csstools/color-helpers@6.0.2': {}
 
