@@ -151,19 +151,33 @@ const handlePaste = async (e: ClipboardEvent) => {
     if (item.type.startsWith('image/')) {
       const file = item.getAsFile()
       if (file) {
-        const uniqueFile = new File([file], file.name, {
+        // 保留原始文件的 lastModified，避免同一图片因时间戳不同被当作不同文件
+        const pasteFile = new File([file], file.name, {
           type: file.type,
-          lastModified: Date.now(),
+          lastModified: file.lastModified,
         })
+
+        // 检查是否可能是重复文件：同一 Uppy 实例中是否存在 name、type、size 都相同的文件
+        const existingFile = uppy?.getFiles().find(
+          (f) =>
+            f.name === pasteFile.name &&
+            f.type === pasteFile.type &&
+            f.size === pasteFile.size,
+        )
+        if (existingFile) {
+          // 检测到重复文件，静默跳过，继续处理下一个
+          continue
+        }
 
         uppy?.addFile({
           id: `pasted-image-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-          name: uniqueFile.name,
-          type: uniqueFile.type,
-          data: uniqueFile,
+          name: pasteFile.name,
+          type: pasteFile.type,
+          data: pasteFile,
           source: 'PastedImage',
         })
-        uppy?.upload()
+        // 注意：不再手动调用 upload()
+        // 因为 Uppy 配置了 autoProceed: true，会自动开始上传
       }
     }
   }
