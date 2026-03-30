@@ -287,13 +287,16 @@ const initUppy = () => {
   document.addEventListener('paste', handlePaste, { capture: true })
 
   // 添加文件时
-  uppy.on('files-added', () => {
+  uppy.on('files-added', (files) => {
     if (!isLogin.value) {
       theToast.error(String(t('uppy.loginRequired')))
       return
     }
-    isUploading.value = true
-    editorStore.fileUploading = true
+    // 只有当实际有文件时才设置上传状态，避免空粘贴触发状态
+    if (files && files.length > 0) {
+      isUploading.value = true
+      editorStore.fileUploading = true
+    }
   })
   // 上传开始前，检查是否登录
   uppy.on('upload', () => {
@@ -304,6 +307,11 @@ const initUppy = () => {
     theToast.info(String(t('uppy.uploadingImageWait')), { duration: 500 })
     isUploading.value = true
     editorStore.fileUploading = true
+  })
+  // 文件被限制拒绝时（如重复文件），重置上传状态
+  uppy.on('restriction-failed', () => {
+    isUploading.value = false
+    editorStore.fileUploading = false
   })
   // 单个文件上传失败后，显示错误信息
   uppy.on('upload-error', (file, error, response) => {
