@@ -1,6 +1,10 @@
 {
   "instances": [
     {
+      "id": "airtouch",
+      "url": "https://mm.airtouch.top"
+    },
+    {
       "id": "ciraos",
       "url": "https://ech0.ciraos.top"
     },
