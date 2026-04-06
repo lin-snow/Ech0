@@ -1,11 +1,36 @@
 {
   "instances": [
-    { "id": "ciraos", "url": "https://ech0.ciraos.top" },
-    { "id": "jinvic", "url": "https://mblog.jinvic.top" },
-    { "id": "l1nsn0w", "url": "https://memo.vaaat.com" },
-    { "id": "liushen", "url": "https://mm.liushen.fun" },
-    { "id": "qixz", "url": "https://mm.qixz.cn" },
-    { "id": "rookiezoe", "url": "https://rookiezoe.com" },
-    { "id": "sean", "url": "https://echo.ssean.cn" }
+    {
+      "id": "ciraos",
+      "url": "https://ech0.ciraos.top"
+    },
+    {
+      "id": "jinvic",
+      "url": "https://mblog.jinvic.top"
+    },
+    {
+      "id": "l1nsn0w",
+      "url": "https://memo.vaaat.com"
+    },
+    {
+      "id": "liushen",
+      "url": "https://mm.liushen.fun"
+    },
+    {
+      "id": "qixz",
+      "url": "https://mm.qixz.cn"
+    },
+    {
+      "id": "rookiezoe",
+      "url": "https://rookiezoe.com"
+    },
+    {
+      "id": "sean",
+      "url": "https://echo.ssean.cn"
+    },
+    {
+      "id": "xiaoten",
+      "url": "https://echo.xiaoten.com"
+    }
   ]
 }
