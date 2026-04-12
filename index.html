@@ -223,10 +223,13 @@
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
   -e JWT_SECRET="Hello Echos" \
+  -e TZ=Asia/Shanghai \
   sn0wl1n/ech0:latest</code></pre>
+        <p class="muted">Set <code>TZ</code> to your local timezone (for example <code>Asia/Shanghai</code>, <code>America/New_York</code>) so date-based visitor statistics stay correct.</p>
 
         <h3>Docker Compose</h3>
         <pre><code>docker-compose up -d</code></pre>
+        <p class="muted">In <code>docker-compose.yml</code>, set <code>JWT_SECRET</code> and optionally <code>TZ</code> under <code>environment</code> (see the repository root <code>docker-compose.yml</code> for commented examples).</p>
 
         <details>
           <summary>More install options</summary>
