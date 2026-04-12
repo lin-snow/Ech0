@@ -7,23 +7,25 @@
     <style>
       :root {
         color-scheme: light dark;
-        --bg: #0b1020;
-        --panel: #101a34;
-        --text: #eaf0ff;
-        --muted: #95a4cc;
-        --line: #25345f;
-        --accent: #4ea1ff;
-        --accent-2: #7cb9ff;
+        /* Align with repo/web semantic.dark tokens */
+        --bg: #333333;
+        --panel: oklch(23.2% 0.006 52.1);
+        --text: oklch(93.8% 0.015 77.2);
+        --muted: oklch(70.1% 0.009 70.2);
+        --line: oklch(35.8% 0.005 67.8);
+        --accent: oklch(79.2% 0.114 74.3);
+        --accent-2: oklch(71.8% 0.094 74.8);
       }
       @media (prefers-color-scheme: light) {
         :root {
-          --bg: #f2f6ff;
+          /* Align with repo/web semantic.light tokens */
+          --bg: #f4f1ec;
           --panel: #ffffff;
-          --text: #162447;
-          --muted: #4c5f8a;
-          --line: #d7e0f8;
-          --accent: #1f7bff;
-          --accent-2: #155fcb;
+          --text: oklch(27.8% 0.026 52.1);
+          --muted: oklch(61.9% 0.016 57.7);
+          --line: oklch(90.7% 0.008 63.5);
+          --accent: oklch(0.64 0.19 43.78);
+          --accent-2: oklch(55% 0.16 43.78);
         }
       }
       * {
