@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ech0 Releases</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b1020;
+        --panel: #141b33;
+        --text: #e9edff;
+        --muted: #9ba8d5;
+        --line: #2d3760;
+        --accent: #84a1ff;
+        --accent-2: #b7c8ff;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f4f6ff;
+          --panel: #ffffff;
+          --text: #1f2a4d;
+          --muted: #53618f;
+          --line: #d7def8;
+          --accent: #355eea;
+          --accent-2: #2a4dc7;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+      .header img {
+        width: 44px;
+        height: 44px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 16px;
+      }
+      h2 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+      ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+      li {
+        margin: 8px 0;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+      pre {
+        margin: 10px 0 0;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        overflow-x: auto;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        color: var(--accent-2);
+        text-decoration: underline;
+      }
+      footer {
+        margin-top: 26px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <img src="./logo.svg" alt="Ech0 logo" />
+        <div>
+          <h1>Ech0 Releases</h1>
+          <div class="muted">Download binaries, install with Helm, and track versions.</div>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Release List (v4.4.0+)</h2>
+        <ul>
+          <li><strong>v4.4.4</strong> <span class="muted">(2026-04-12)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.4/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.4/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.4">Release Notes</a></li>
+          <li><strong>v4.4.3</strong> <span class="muted">(2026-04-09)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.3/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.3/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.3">Release Notes</a></li>
+          <li><strong>v4.4.2</strong> <span class="muted">(2026-04-05)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.2/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.2/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.2">Release Notes</a></li>
+          <li><strong>v4.4.1</strong> <span class="muted">(2026-04-04)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.1/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.1/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.1">Release Notes</a></li>
+          <li><strong>v4.4.0</strong> <span class="muted">(2026-04-04)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.0/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.0/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.0">Release Notes</a></li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Helm Install</h2>
+        <pre><code>helm repo add ech0 https://lin-snow.github.io/Ech0
+helm repo update
+helm install ech0 ech0/ech0</code></pre>
+      </section>
+
+      <section class="card">
+        <h2>Docker</h2>
+        <pre><code>docker pull ghcr.io/lin-snow/ech0:latest
+docker pull docker.io/&lt;your-dockerhub-username&gt;/ech0:latest</code></pre>
+      </section>
+
+      <footer>
+        Source repository:
+        <a href="https://github.com/lin-snow/Ech0">github.com/lin-snow/Ech0</a>
+      </footer>
+    </main>
+  </body>
+</html>
