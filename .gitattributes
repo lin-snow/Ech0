@@ -1,7 +1,0 @@
-# 忽略文档
-*.md linguist-documentation
-docs/** linguist-documentation
-
-# 忽略前端资源
-*.js linguist-language=Vue
-*.css linguist-language=Vue

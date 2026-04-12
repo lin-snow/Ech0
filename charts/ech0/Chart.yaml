@@ -1,9 +1,0 @@
-apiVersion: v2
-name: ech0
-description: A Helm chart for Ech0
-type: application
-# Helm chart package version. Bump this before creating a new `v*` release tag.
-version: 0.1.0
-# Application version shown by Helm. Keep aligned with app release strategy.
-appVersion: "latest"
-icon: "https://github.com/lin-snow/Ech0/blob/main/docs/imgs/logo.svg"
