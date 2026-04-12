@@ -4,6 +4,49 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ech0 Releases</title>
+    <meta
+      name="description"
+      content="Ech0 release center: latest versions, binary downloads, Docker deployment, and Helm installation for self-hosted Ech0."
+    />
+    <meta
+      name="keywords"
+      content="Ech0, release, self-hosted, docker, helm, changelog, binary download, timeline"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#f4f1ec" />
+    <link rel="canonical" href="https://lin-snow.github.io/Ech0/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Ech0" />
+    <meta property="og:title" content="Ech0 Releases" />
+    <meta
+      property="og:description"
+      content="Self-host your timeline. Browse latest Ech0 releases and deploy with Docker or Helm."
+    />
+    <meta property="og:url" content="https://lin-snow.github.io/Ech0/" />
+    <meta property="og:image" content="https://lin-snow.github.io/Ech0/logo.svg" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Ech0 Releases" />
+    <meta
+      name="twitter:description"
+      content="Browse latest Ech0 releases and deploy in minutes with Docker or Helm."
+    />
+    <meta name="twitter:image" content="https://lin-snow.github.io/Ech0/logo.svg" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Ech0 Releases",
+        "url": "https://lin-snow.github.io/Ech0/",
+        "description": "Release center for Ech0 with downloads and deployment guides.",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Ech0"
+        }
+      }
+    </script>
     <style>
       :root {
         color-scheme: light dark;
@@ -45,13 +88,14 @@
       }
       .header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 14px;
         margin-bottom: 20px;
       }
       .header img {
-        width: 44px;
-        height: 44px;
+        width: 72px;
+        height: 72px;
+        flex: 0 0 auto;
       }
       .header h1 {
         margin: 0;
@@ -81,6 +125,32 @@
       h3 {
         margin: 16px 0 8px;
         font-size: 16px;
+      }
+      details {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 10px 12px;
+        background: color-mix(in oklab, var(--panel) 88%, var(--bg));
+      }
+      summary {
+        cursor: pointer;
+        color: var(--text);
+        font-weight: 600;
+        list-style: none;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 8px;
+        color: var(--muted);
+        transition: transform 0.15s ease;
+      }
+      details[open] summary::before {
+        transform: rotate(90deg);
       }
       ul {
         margin: 8px 0 0;
@@ -157,20 +227,24 @@
         <h3>Docker Compose</h3>
         <pre><code>docker-compose up -d</code></pre>
 
-        <h3>Script Deployment</h3>
-        <pre><code>curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh" -o ech0.sh && bash ech0.sh
+        <details>
+          <summary>More install options</summary>
+
+          <h3>Script Deployment</h3>
+          <pre><code>curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh" -o ech0.sh && bash ech0.sh
 # Custom install path:
 bash ech0.sh install /your/path/ech0</code></pre>
 
-        <h3>Kubernetes (Helm)</h3>
-        <pre><code>helm repo add ech0 https://lin-snow.github.io/Ech0
+          <h3>Kubernetes (Helm)</h3>
+          <pre><code>helm repo add ech0 https://lin-snow.github.io/Ech0
 helm repo update
 helm install ech0 ech0/ech0</code></pre>
 
-        <pre><code># Local install from source
+          <pre><code># Local install from source
 git clone https://github.com/lin-snow/Ech0.git
 cd Ech0
 helm install ech0 ./charts/ech0</code></pre>
+        </details>
       </section>
 
       <footer>
