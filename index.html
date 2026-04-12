@@ -8,22 +8,22 @@
       :root {
         color-scheme: light dark;
         --bg: #0b1020;
-        --panel: #141b33;
-        --text: #e9edff;
-        --muted: #9ba8d5;
-        --line: #2d3760;
-        --accent: #84a1ff;
-        --accent-2: #b7c8ff;
+        --panel: #101a34;
+        --text: #eaf0ff;
+        --muted: #95a4cc;
+        --line: #25345f;
+        --accent: #4ea1ff;
+        --accent-2: #7cb9ff;
       }
       @media (prefers-color-scheme: light) {
         :root {
-          --bg: #f4f6ff;
+          --bg: #f2f6ff;
           --panel: #ffffff;
-          --text: #1f2a4d;
-          --muted: #53618f;
-          --line: #d7def8;
-          --accent: #355eea;
-          --accent-2: #2a4dc7;
+          --text: #162447;
+          --muted: #4c5f8a;
+          --line: #d7e0f8;
+          --accent: #1f7bff;
+          --accent-2: #155fcb;
         }
       }
       * {
@@ -61,13 +61,17 @@
       .card {
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 18px;
         margin-bottom: 16px;
       }
       h2 {
         margin: 0 0 10px;
         font-size: 20px;
+      }
+      h3 {
+        margin: 16px 0 8px;
+        font-size: 16px;
       }
       ul {
         margin: 8px 0 0;
@@ -83,8 +87,9 @@
       pre {
         margin: 10px 0 0;
         padding: 12px;
-        border-radius: 10px;
+        border-radius: 6px;
         border: 1px solid var(--line);
+        background: color-mix(in oklab, var(--panel) 84%, var(--bg));
         overflow-x: auto;
       }
       a {
@@ -124,16 +129,35 @@
       </section>
 
       <section class="card">
-        <h2>Helm Install</h2>
+        <h2>Install Methods</h2>
+        <p class="muted">Synced with README quick deployment options.</p>
+
+        <h3>Docker Deployment (Recommended)</h3>
+        <pre><code>docker run -d \
+  --name ech0 \
+  -p 6277:6277 \
+  -v /opt/ech0/data:/app/data \
+  -e JWT_SECRET="Hello Echos" \
+  sn0wl1n/ech0:latest</code></pre>
+
+        <h3>Docker Compose</h3>
+        <pre><code># Create your own docker-compose.yml first
+docker-compose up -d</code></pre>
+
+        <h3>Script Deployment</h3>
+        <pre><code>curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh" -o ech0.sh && bash ech0.sh
+# custom install path:
+bash ech0.sh install /your/path/ech0</code></pre>
+
+        <h3>Kubernetes (Helm)</h3>
         <pre><code>helm repo add ech0 https://lin-snow.github.io/Ech0
 helm repo update
 helm install ech0 ech0/ech0</code></pre>
-      </section>
 
-      <section class="card">
-        <h2>Docker</h2>
-        <pre><code>docker pull ghcr.io/lin-snow/ech0:latest
-docker pull docker.io/&lt;your-dockerhub-username&gt;/ech0:latest</code></pre>
+        <pre><code># Local install from source
+git clone https://github.com/lin-snow/Ech0.git
+cd Ech0
+helm install ech0 ./charts/ech0</code></pre>
       </section>
 
       <footer>
