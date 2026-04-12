@@ -57,6 +57,13 @@
         margin: 0;
         font-size: 28px;
       }
+      .quick-links {
+        margin-top: 8px;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 14px;
+      }
       .muted {
         color: var(--muted);
       }
@@ -115,12 +122,17 @@
         <img src="./logo.svg" alt="Ech0 logo" />
         <div>
           <h1>Ech0 Releases</h1>
-          <div class="muted">Download binaries, install with Helm, and track versions.</div>
+          <div class="muted">Self-host your timeline. Own your data. Ship fast.</div>
+          <nav class="quick-links">
+            <a href="https://www.ech0.app" target="_blank" rel="noopener noreferrer">Official Website</a>
+            <a href="https://docs.ech0.app" target="_blank" rel="noopener noreferrer">Documentation</a>
+          </nav>
         </div>
       </header>
 
       <section class="card">
-        <h2>Release List (v4.4.0+)</h2>
+        <h2>Latest Releases</h2>
+        <p class="muted">Stable versions from v4.4.0 and newer.</p>
         <ul>
           <li><strong>v4.4.4</strong> <span class="muted">(2026-04-12)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.4/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.4/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.4">Release Notes</a></li>
           <li><strong>v4.4.3</strong> <span class="muted">(2026-04-09)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.3/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.3/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.3">Release Notes</a></li>
@@ -131,8 +143,8 @@
       </section>
 
       <section class="card">
-        <h2>Install Methods</h2>
-        <p class="muted">Synced with README quick deployment options.</p>
+        <h2>Deploy Ech0 Your Way</h2>
+        <p class="muted">Choose the path that fits your stack.</p>
 
         <h3>Docker Deployment (Recommended)</h3>
         <pre><code>docker run -d \
@@ -143,12 +155,11 @@
   sn0wl1n/ech0:latest</code></pre>
 
         <h3>Docker Compose</h3>
-        <pre><code># Create your own docker-compose.yml first
-docker-compose up -d</code></pre>
+        <pre><code>docker-compose up -d</code></pre>
 
         <h3>Script Deployment</h3>
         <pre><code>curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh" -o ech0.sh && bash ech0.sh
-# custom install path:
+# Custom install path:
 bash ech0.sh install /your/path/ech0</code></pre>
 
         <h3>Kubernetes (Helm)</h3>
