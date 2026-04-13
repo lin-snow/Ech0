@@ -72,7 +72,7 @@ jobs:
 
       # charts_dir must be the parent of chart folders (each subdir contains Chart.yaml), not the chart path itself.
       - name: Run Chart Releaser
-        uses: helm/chart-releaser-action@v1.6.0
+        uses: helm/chart-releaser-action@v1.7.0
         with:
           charts_dir: ./charts
           skip_existing: true

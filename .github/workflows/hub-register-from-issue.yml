@@ -26,7 +26,7 @@ jobs:
 
       - name: Parse issue and update hub.json
         id: hub
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -160,7 +160,7 @@ jobs:
         env:
           PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
           ISSUE_NUMBER: ${{ steps.hub.outputs.issue_number }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.issues.createComment({

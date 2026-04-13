@@ -37,7 +37,7 @@ jobs:
 
       # --- Frontend Build Steps ---
       - name: Setup Node.js Environment
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         with:
           version: 10
       - uses: actions/setup-node@v6
@@ -157,7 +157,7 @@ jobs:
       # ✅ 创建 GitHub Release
       # 暂时忽略 ./backend-artifacts/*.exe
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ./backend-artifacts/*.tar.gz
