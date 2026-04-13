@@ -204,6 +204,7 @@
         <h2>Latest Releases</h2>
         <p class="muted">Stable versions from v4.4.0 and newer.</p>
         <ul>
+          <li><strong>v4.5.0</strong> <span class="muted">(2026-04-13)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.5.0/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.5.0/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.5.0">Release Notes</a></li>
           <li><strong>v4.4.6</strong> <span class="muted">(2026-04-13)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.6/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.6/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.6">Release Notes</a></li>
           <li><strong>v4.4.5</strong> <span class="muted">(2026-04-12)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.5/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.5/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.5">Release Notes</a></li>
           <li><strong>v4.4.4</strong> <span class="muted">(2026-04-12)</span> - <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.4/ech0-linux-amd64.tar.gz">linux/amd64</a> | <a href="https://github.com/lin-snow/Ech0/releases/download/v4.4.4/ech0-linux-arm64.tar.gz">linux/arm64</a> | <a href="https://github.com/lin-snow/Ech0/releases/tag/v4.4.4">Release Notes</a></li>
@@ -224,13 +225,11 @@
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
   -e JWT_SECRET="Hello Echos" \
-  -e TZ=Asia/Shanghai \
   sn0wl1n/ech0:latest</code></pre>
-        <p class="muted">Set <code>TZ</code> to your local timezone (for example <code>Asia/Shanghai</code>, <code>America/New_York</code>) — local time offset.</p>
 
         <h3>Docker Compose</h3>
         <pre><code>docker-compose up -d</code></pre>
-        <p class="muted">In <code>docker-compose.yml</code>, set <code>JWT_SECRET</code> and optionally <code>TZ</code> under <code>environment</code> (see the repository root <code>docker-compose.yml</code> for commented examples).</p>
+        <p class="muted">In <code>docker-compose.yml</code>, set <code>JWT_SECRET</code> under <code>environment</code>.</p>
 
         <details>
           <summary>More install options</summary>
