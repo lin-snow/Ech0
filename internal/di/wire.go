@@ -15,6 +15,7 @@ import (
 	eventregistry "github.com/lin-snow/ech0/internal/event/registry"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
 	"github.com/lin-snow/ech0/internal/handler"
+	"github.com/lin-snow/ech0/internal/middleware"
 	"github.com/lin-snow/ech0/internal/migrator"
 	"github.com/lin-snow/ech0/internal/repository"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
@@ -33,6 +34,7 @@ var AppSet = app.ProviderSet
 
 var DomainSet = wire.NewSet(
 	BuildHandlers,
+	BuildMiddlewares,
 	BuildTasker,
 	BuildMigrator,
 	ProvideBackupScheduleApplier,
@@ -128,6 +130,11 @@ var HandlerGraphSet = wire.NewSet(
 	handler.NewBundle,
 )
 
+var MiddlewareGraphSet = wire.NewSet(
+	repository.AuthSet,
+	middleware.ProviderSet,
+)
+
 var TaskerGraphSet = wire.NewSet(
 	eventpublisher.New,
 	storage.ProviderSet,
@@ -187,11 +194,21 @@ func BuildHandlers(
 	return &handler.Bundle{}, nil
 }
 
+// BuildMiddlewares 构建中间件依赖。
+func BuildMiddlewares(
+	dbProvider func() *gorm.DB,
+	appCache cache.ICache[string, any],
+) (*middleware.Deps, error) {
+	wire.Build(MiddlewareGraphSet)
+	return &middleware.Deps{}, nil
+}
+
 // BuildServer 构建 HTTP server
 func BuildServer() (*server.Server, error) {
 	wire.Build(
 		InfraSet,
 		BuildHandlers,
+		BuildMiddlewares,
 		server.ProviderSet,
 	)
 	return &server.Server{}, nil

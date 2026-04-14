@@ -14,15 +14,6 @@ import (
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
-// tokenBlacklist 模块级黑名单引用，由 DI 层在启动时通过 SetTokenBlacklist 注入。
-// 中间件在解析 JWT 成功后会检查其 JTI 是否已被吊销。
-var tokenBlacklist authService.TokenRevoker
-
-// SetTokenBlacklist 注入黑名单实例，必须在路由注册前调用（由 wire_gen.go 中的 BuildHandlers 触发）。
-func SetTokenBlacklist(bl authService.TokenRevoker) {
-	tokenBlacklist = bl
-}
-
 // JWTAuthMiddleware 是核心鉴权中间件，处理流程：
 //  1. 从 Authorization header 或 query ?token= 中提取 JWT
 //  2. ParseToken() 验证签名与过期（仅接受 typ=session / typ=access）
@@ -30,7 +21,7 @@ func SetTokenBlacklist(bl authService.TokenRevoker) {
 //  4. 校验通过后，将 viewer (用户身份) 写入 request context
 //
 // 部分公开路由（echo 查询等）允许匿名降级：即使 token 无效也不阻断请求。
-func JWTAuthMiddleware() gin.HandlerFunc {
+func JWTAuthMiddleware(tokenBlacklist authService.TokenRevoker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		setAnonymous := func() {
 			viewer.AttachToRequest(&ctx.Request, viewer.NewNoopViewer())

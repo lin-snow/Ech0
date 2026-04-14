@@ -13,6 +13,7 @@ import (
 type RouterContext struct {
 	Engine   *gin.Engine
 	Handlers *handler.Bundle
+	MWDeps   *middleware.Deps
 	Groups   *AppRouterGroup
 }
 
@@ -64,7 +65,7 @@ func coreRouteModules() []RouteModule {
 		routeModule{
 			name: "router-groups",
 			register: func(ctx *RouterContext) {
-				ctx.Groups = setupRouterGroup(ctx.Engine)
+				ctx.Groups = setupRouterGroup(ctx.Engine, ctx.MWDeps)
 			},
 		},
 	}

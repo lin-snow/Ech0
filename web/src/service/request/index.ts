@@ -27,7 +27,7 @@ const ofetchInstance = ofetch.create({
 
     const isDirectUrl = options.headers.get('X-Direct-URL')
     if (authStore.authHeader && !isDirectUrl) {
-      options.headers.append('Authorization', authStore.authHeader)
+      options.headers.set('Authorization', authStore.authHeader)
     }
     if (!isDirectUrl) {
       options.headers.set('X-Timezone', timezone)

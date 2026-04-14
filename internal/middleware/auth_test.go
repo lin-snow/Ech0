@@ -21,7 +21,7 @@ import (
 func TestJWTAuthMiddleware_RejectsTokenWithoutType(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware())
+	r.Use(JWTAuthMiddleware(nil))
 	r.GET("/api/user", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -48,7 +48,7 @@ func TestJWTAuthMiddleware_RejectsTokenWithoutType(t *testing.T) {
 func TestJWTAuthMiddleware_AllowsAnonymousPublicEchoEvenWithInvalidToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware())
+	r.Use(JWTAuthMiddleware(nil))
 	r.GET("/api/echo/page", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -65,7 +65,7 @@ func TestJWTAuthMiddleware_AllowsAnonymousPublicEchoEvenWithInvalidToken(t *test
 func TestJWTAuthMiddleware_RejectsAnonymousS3Settings(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware())
+	r.Use(JWTAuthMiddleware(nil))
 	r.GET("/api/s3/settings", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -81,7 +81,7 @@ func TestJWTAuthMiddleware_RejectsAnonymousS3Settings(t *testing.T) {
 func TestJWTAuthMiddleware_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware())
+	r.Use(JWTAuthMiddleware(nil))
 	r.GET("/api/settings", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -115,7 +115,7 @@ func TestJWTAuthMiddleware_AllowsSessionType(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware())
+	r.Use(JWTAuthMiddleware(nil))
 	r.GET("/api/user", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})

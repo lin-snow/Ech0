@@ -5,6 +5,7 @@ import (
 	"github.com/google/wire"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
+	"github.com/lin-snow/ech0/internal/middleware"
 	"github.com/lin-snow/ech0/internal/router"
 )
 
@@ -17,8 +18,8 @@ func ProvideGinEngine() *gin.Engine {
 	return gin.New()
 }
 
-func ProvideHTTPServer(engine *gin.Engine, handlers *handler.Bundle) *Server {
-	router.SetupRouter(engine, handlers)
+func ProvideHTTPServer(engine *gin.Engine, handlers *handler.Bundle, mwDeps *middleware.Deps) *Server {
+	router.SetupRouter(engine, handlers, mwDeps)
 	return New(engine)
 }
 

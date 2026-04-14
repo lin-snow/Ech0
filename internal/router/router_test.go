@@ -37,7 +37,7 @@ func TestSetupRouter_RegistersKeyRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	expectRoutes := []struct {
 		method string
@@ -69,7 +69,7 @@ func TestSetupRouter_AuthGroupProtected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/user", nil)
 	rec := httptest.NewRecorder()
@@ -84,7 +84,7 @@ func TestSetupRouter_AllUsersRouteProtected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
 	rec := httptest.NewRecorder()
@@ -101,7 +101,7 @@ func TestSetupRouter_AccessTokenWithoutRequiredScopeGetsForbidden(t *testing.T) 
 	engine := gin.New()
 
 	api := engine.Group("/api")
-	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware())
+	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(nil))
 	api.PUT(
 		"/settings",
 		middleware.RequireScopes(authModel.ScopeAdminSettings),
@@ -138,7 +138,7 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 	engine := gin.New()
 
 	api := engine.Group("/api")
-	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware())
+	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(nil))
 	api.PUT(
 		"/settings",
 		middleware.RequireScopes(authModel.ScopeAdminSettings),
@@ -173,7 +173,7 @@ func TestSetupRouter_IntegrationCommentRouteExists(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	if !containsRoute(engine.Routes(), http.MethodPost, "/api/comments/integration") {
 		t.Fatal("expected route POST /api/comments/integration to be registered")
@@ -184,7 +184,7 @@ func TestSetupRouter_IntegrationCommentRejectsNoToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	req := httptest.NewRequest(http.MethodPost, "/api/comments/integration", nil)
 	rec := httptest.NewRecorder()
@@ -199,7 +199,7 @@ func TestSetupRouter_IntegrationCommentRejectsWrongScope(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	user := userModel.User{ID: "u-integ-1", Username: "integ-user"}
 	token, err := jwtUtil.GenerateToken(
@@ -229,7 +229,7 @@ func TestSetupRouter_IntegrationCommentRejectsWrongAudience(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers())
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
 
 	user := userModel.User{ID: "u-integ-2", Username: "integ-user-2"}
 	token, err := jwtUtil.GenerateToken(
@@ -263,6 +263,10 @@ func containsRoute(routes []gin.RouteInfo, method, path string) bool {
 	}
 
 	return false
+}
+
+func buildTestMWDeps() *middleware.Deps {
+	return middleware.NewDeps(nil)
 }
 
 func buildTestHandlers() *handler.Bundle {

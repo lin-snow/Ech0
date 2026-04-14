@@ -32,6 +32,7 @@ import (
 	handler3 "github.com/lin-snow/ech0/internal/handler/user"
 	handler2 "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/mcp"
+	"github.com/lin-snow/ech0/internal/middleware"
 	"github.com/lin-snow/ech0/internal/migrator"
 	repository12 "github.com/lin-snow/ech0/internal/repository"
 	repository7 "github.com/lin-snow/ech0/internal/repository/auth"
@@ -99,7 +100,11 @@ func BuildApp() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	serverServer := server.ProvideHTTPServer(engine, bundle)
+	deps, err := BuildMiddlewares(v, iCache)
+	if err != nil {
+		return nil, err
+	}
+	serverServer := server.ProvideHTTPServer(engine, bundle, deps)
 	v3 := app.ProvideOptions(eventRegistrar, eventBus, tasker, worker, serverServer)
 	appApp := app.NewApp(v3)
 	return appApp, nil
@@ -167,6 +172,13 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache cache.ICache[string, any
 	return bundle, nil
 }
 
+// BuildMiddlewares 构建中间件依赖。
+func BuildMiddlewares(dbProvider func() *gorm.DB, appCache cache.ICache[string, any]) (*middleware.Deps, error) {
+	authRepository := repository7.NewAuthRepository(dbProvider, appCache)
+	deps := middleware.NewDeps(authRepository)
+	return deps, nil
+}
+
 // BuildServer 构建 HTTP server
 func BuildServer() (*server.Server, error) {
 	engine := server.ProvideGinEngine()
@@ -181,7 +193,11 @@ func BuildServer() (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	serverServer := server.ProvideHTTPServer(engine, bundle)
+	deps, err := BuildMiddlewares(v, iCache)
+	if err != nil {
+		return nil, err
+	}
+	serverServer := server.ProvideHTTPServer(engine, bundle, deps)
 	return serverServer, nil
 }
 
@@ -212,6 +228,7 @@ var AppSet = app.ProviderSet
 
 var DomainSet = wire.NewSet(
 	BuildHandlers,
+	BuildMiddlewares,
 	BuildTasker,
 	BuildMigrator,
 	ProvideBackupScheduleApplier,
@@ -225,6 +242,8 @@ var RuntimeSet = server.ProviderSet
 var EventGraphSet = wire.NewSet(repository12.EchoSet, repository12.UserSet, repository12.KeyValueSet, repository12.QueueSet, repository12.WebhookSet, wire.Bind(new(registry.WebhookObserver), new(*webhook.Dispatcher)), wire.Bind(new(subscriber.DeadLetterProcessor), new(*webhook.Dispatcher)), webhook.NewDispatcher, subscriber.NewBackupScheduler, subscriber.NewDeadLetterResolver, subscriber.NewAgentProcessor, ProvideSubscriptionProviders, registry.NewEventRegistry)
 
 var HandlerGraphSet = wire.NewSet(publisher.New, wire.Bind(new(service6.EventPublisher), new(*publisher.Publisher)), storage.ProviderSet, wire.Bind(new(storage.S3SettingStore), new(*keyvalue.KeyValueRepository)), repository12.FileSet, visitor.NewTracker, handler.WebSet, repository12.UserSet, repository12.AuthSet, service13.UserSet, service13.AuthSet, handler.UserSet, handler.AuthSet, repository12.EchoSet, service13.EchoSet, handler.EchoSet, repository12.CommentSet, service13.CommentSet, handler.CommentSet, repository12.CommonSet, service13.FileSet, handler.FileSet, repository12.InitSet, service13.InitSet, handler.InitSet, service13.CommonSet, handler.CommonSet, repository12.WebhookSet, repository12.KeyValueSet, repository12.SettingSet, service13.SettingSet, handler.SettingSet, repository12.ConnectSet, service13.ConnectSet, handler.ConnectSet, service13.DashboardSet, handler.DashboardSet, service13.AgentSet, handler.AgentSet, service13.BackupSet, handler.BackupSet, repository12.MigrationSet, service13.MigratorSet, handler.MigrationSet, handler.MCPSet, handler.NewBundle)
+
+var MiddlewareGraphSet = wire.NewSet(repository12.AuthSet, middleware.ProviderSet)
 
 var TaskerGraphSet = wire.NewSet(publisher.New, storage.ProviderSet, wire.Bind(new(storage.S3SettingStore), new(*keyvalue.KeyValueRepository)), repository12.FileSet, repository12.KeyValueSet, repository12.WebhookSet, repository12.SettingSet, service13.SettingSet, repository12.EchoSet, service13.EchoSet, repository12.CommonSet, service13.FileSet, service13.CommonSet, repository12.QueueSet, task.ProviderSet)
 
