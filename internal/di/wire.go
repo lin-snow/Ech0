@@ -50,7 +50,7 @@ var InfraSet = wire.NewSet(
 
 var RuntimeSet = server.ProviderSet
 
-var EventGraphSet = wire.NewSet(
+var EventSet = wire.NewSet(
 	repository.EchoSet,
 
 	repository.UserSet,
@@ -70,7 +70,7 @@ var EventGraphSet = wire.NewSet(
 	eventregistry.NewEventRegistry,
 )
 
-var HandlerGraphSet = wire.NewSet(
+var HandlerSet = wire.NewSet(
 	eventpublisher.New,
 	wire.Bind(new(commentService.EventPublisher), new(*eventpublisher.Publisher)),
 	storage.ProviderSet,
@@ -130,12 +130,12 @@ var HandlerGraphSet = wire.NewSet(
 	handler.NewBundle,
 )
 
-var MiddlewareGraphSet = wire.NewSet(
+var MiddlewareSet = wire.NewSet(
 	repository.AuthSet,
 	middleware.ProviderSet,
 )
 
-var TaskerGraphSet = wire.NewSet(
+var TaskerSet = wire.NewSet(
 	eventpublisher.New,
 	storage.ProviderSet,
 	wire.Bind(new(storage.S3SettingStore), new(*keyvalueRepository.KeyValueRepository)),
@@ -157,7 +157,7 @@ var TaskerGraphSet = wire.NewSet(
 	task.ProviderSet,
 )
 
-var MigratorGraphSet = wire.NewSet(
+var MigratorSet = wire.NewSet(
 	migrator.ProviderSet,
 )
 
@@ -179,7 +179,7 @@ func BuildEventRegistrar(
 	tx transaction.Transactor,
 	backupScheduleApplier eventsubscriber.BackupScheduleApplier,
 ) (*eventregistry.EventRegistrar, error) {
-	wire.Build(EventGraphSet)
+	wire.Build(EventSet)
 	return &eventregistry.EventRegistrar{}, nil
 }
 
@@ -190,7 +190,7 @@ func BuildHandlers(
 	tx transaction.Transactor,
 	ebProvider func() *busen.Bus,
 ) (*handler.Bundle, error) {
-	wire.Build(HandlerGraphSet)
+	wire.Build(HandlerSet)
 	return &handler.Bundle{}, nil
 }
 
@@ -199,7 +199,7 @@ func BuildMiddlewares(
 	dbProvider func() *gorm.DB,
 	appCache cache.ICache[string, any],
 ) (*middleware.Deps, error) {
-	wire.Build(MiddlewareGraphSet)
+	wire.Build(MiddlewareSet)
 	return &middleware.Deps{}, nil
 }
 
@@ -220,7 +220,7 @@ func BuildTasker(
 	tx transaction.Transactor,
 	ebProvider func() *busen.Bus,
 ) (*task.Tasker, error) {
-	wire.Build(TaskerGraphSet)
+	wire.Build(TaskerSet)
 	return &task.Tasker{}, nil
 }
 
@@ -229,7 +229,7 @@ func BuildMigrator(
 	appCache cache.ICache[string, any],
 	tx transaction.Transactor,
 ) (*migrator.Worker, error) {
-	wire.Build(MigratorGraphSet)
+	wire.Build(MigratorSet)
 	return &migrator.Worker{}, nil
 }
 
