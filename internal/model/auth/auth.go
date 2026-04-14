@@ -42,6 +42,22 @@ const (
 	AuthTypeOIDC   AuthType = "oidc"
 )
 
+// TokenPair 是 issueUserToken() 的返回值，包含双 token 签发结果。
+//
+// RefreshToken 标记为 json:"-"，确保它不会出现在 HTTP 响应 body 中。
+// Handler 层负责将 RefreshToken 通过 Set-Cookie 传递给浏览器。
+type TokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"-"`
+	ExpiresIn    int    `json:"expires_in"`
+}
+
+// ExchangeCodeReq 是 POST /api/auth/exchange 的请求体。
+// Code 为 OAuth 回调时后端生成的一次性随机字符串（32 位），存储在 Ristretto 缓存中，TTL=60s。
+type ExchangeCodeReq struct {
+	Code string `json:"code" binding:"required"`
+}
+
 type OAuthState struct {
 	Action   string `json:"action"`
 	UserID   string `json:"user_id,omitempty"`

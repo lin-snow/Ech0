@@ -1,5 +1,6 @@
 export * from './store-init'
 export * from './theme'
+export * from './auth'
 export * from './user'
 export * from './setting'
 export * from './echo'

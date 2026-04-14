@@ -16,9 +16,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// CreateClaims 创建Claims
+// CreateClaims 创建浏览器会话的 access token claims。
+// typ=session, 有效期由 ECH0_JWT_EXPIRES 控制（默认 900s = 15 分钟），
+// 每个 token 带唯一 JTI 以支持黑名单吊销。
 func CreateClaims(user userModel.User) jwt.Claims {
-	leeway := time.Second * 60 // 允许的时间偏差
+	leeway := time.Second * 60
+	now := time.Now().UTC()
 	claims := authModel.MyClaims{
 		Userid:   user.ID,
 		Username: user.Username,
@@ -28,10 +31,37 @@ func CreateClaims(user userModel.User) jwt.Claims {
 			Subject:  user.Username,
 			Audience: jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
 			ExpiresAt: jwt.NewNumericDate(
-				time.Now().UTC().Add(time.Duration(config.Config().Auth.Jwt.Expires) * time.Second),
+				now.Add(time.Duration(config.Config().Auth.Jwt.Expires) * time.Second),
 			),
-			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-			NotBefore: jwt.NewNumericDate(time.Now().UTC().Add(-leeway)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-leeway)),
+			ID:        cryptoUtil.GenerateRandomString(16),
+		},
+	}
+
+	return claims
+}
+
+// CreateRefreshClaims 创建静默刷新专用的 refresh token claims。
+// typ=refresh, 有效期由 ECH0_JWT_REFRESH_EXPIRES 控制（默认 604800s = 7 天），
+// 通过 HttpOnly Cookie 传递给浏览器，JS 无法读取。
+func CreateRefreshClaims(user userModel.User) jwt.Claims {
+	leeway := time.Second * 60
+	now := time.Now().UTC()
+	claims := authModel.MyClaims{
+		Userid:   user.ID,
+		Username: user.Username,
+		Type:     authModel.TokenTypeRefresh,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:   config.Config().Auth.Jwt.Issuer,
+			Subject:  user.Username,
+			Audience: jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
+			ExpiresAt: jwt.NewNumericDate(
+				now.Add(time.Duration(config.Config().Auth.Jwt.RefreshExpires) * time.Second),
+			),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-leeway)),
+			ID:        cryptoUtil.GenerateRandomString(16),
 		},
 	}
 
@@ -84,8 +114,38 @@ func GenerateToken(claim jwt.Claims) (string, error) {
 	return token.SignedString(config.Config().Security.JWTSecret)
 }
 
-// ParseToken 解析JWT Token
+// ParseToken 解析 JWT（仅接受 typ=session / typ=access）。
+// 用于 JWTAuthMiddleware 鉴权和 AuthHandler.Logout 吊销 access_token。
+// 不接受 typ=refresh，防止 refresh_token 被当作 access_token 使用。
 func ParseToken(tokenString string) (*authModel.MyClaims, error) {
+	claims, err := parseTokenRaw(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.Type != authModel.TokenTypeSession && claims.Type != authModel.TokenTypeAccess {
+		return nil, errors.New("invalid token typ")
+	}
+	return claims, nil
+}
+
+// ParseRefreshToken 解析 refresh token（仅接受 typ=refresh）。
+// 用于 AuthHandler.Refresh 和 AuthHandler.Logout。
+// 不接受 session/access 类型，防止 access_token 被用于刷新。
+func ParseRefreshToken(tokenString string) (*authModel.MyClaims, error) {
+	claims, err := parseTokenRaw(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.Type != authModel.TokenTypeRefresh {
+		return nil, errors.New("invalid token typ: expected refresh")
+	}
+	return claims, nil
+}
+
+// parseTokenRaw 是 ParseToken 和 ParseRefreshToken 的公共底层：
+// 验证 JWT 签名和标准 claims（exp/iat/nbf），但不检查 typ 字段。
+// typ 检查由上层调用方负责，确保 token 类型不被混用。
+func parseTokenRaw(tokenString string) (*authModel.MyClaims, error) {
 	claims := &authModel.MyClaims{}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
@@ -99,9 +159,6 @@ func ParseToken(tokenString string) (*authModel.MyClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(*authModel.MyClaims); ok {
-		if claims.Type != authModel.TokenTypeSession && claims.Type != authModel.TokenTypeAccess {
-			return nil, errors.New("invalid token typ")
-		}
 		return claims, nil
 	}
 

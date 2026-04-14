@@ -10,6 +10,7 @@ import (
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/handler"
 	agentHandler "github.com/lin-snow/ech0/internal/handler/agent"
+	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
 	backupHandler "github.com/lin-snow/ech0/internal/handler/backup"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
@@ -268,6 +269,7 @@ func buildTestHandlers() *handler.Bundle {
 	return handler.NewBundle(
 		webHandler.NewWebHandler(visitor.NewTracker()),
 		userHandler.NewUserHandler(nil),
+		authHandler.NewAuthHandler(nil, nil),
 		echoHandler.NewEchoHandler(nil),
 		fileHandler.NewFileHandler(nil),
 		commentHandler.NewCommentHandler(nil),

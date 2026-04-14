@@ -1,7 +1,6 @@
-// 封装ofetch
-
 import { ofetch } from 'ofetch'
-import { getAuthToken, getInitReadyStatus } from './shared'
+import { getInitReadyStatus } from './shared'
+import { useAuthStore } from '@/stores/auth'
 import { theToast } from '@/utils/toast'
 import { i18n } from '@/locales'
 
@@ -19,26 +18,24 @@ interface RequestOptions {
 const ofetchInstance = ofetch.create({
   baseURL: import.meta.env.VITE_SERVICE_BASE_URL,
   timeout: 20000,
-  ignoreResponseError: true, // 忽略响应错误，让响应拦截器处理
+  credentials: 'include',
+  ignoreResponseError: true,
 
-  // 请求拦截器
   onRequest({ options }) {
-    const token = getAuthToken()
+    const authStore = useAuthStore()
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
     const isDirectUrl = options.headers.get('X-Direct-URL')
-    if (token && token.length > 0 && !isDirectUrl) {
-      options.headers.append('Authorization', token)
+    if (authStore.authHeader && !isDirectUrl) {
+      options.headers.append('Authorization', authStore.authHeader)
     }
     if (!isDirectUrl) {
       options.headers.set('X-Timezone', timezone)
       options.headers.set('X-Locale', i18n.global.locale.value)
     }
 
-    // 清空请求头
     options.headers.delete('X-Direct-URL')
   },
-  // 响应拦截器
   onResponseError: async ({ response }) => {
     let data
     try {
@@ -49,16 +46,13 @@ const ofetchInstance = ofetch.create({
 
     response._data = data
 
-    // 不再 throw，让后续 then() 也能拿到
     return data
   },
 })
 
 export const request = async <T>(requestOptions: RequestOptions): Promise<App.Api.Response<T>> => {
-  // 检查系统是否已经准备好
   const isSystemReady = getInitReadyStatus()
 
-  // 检查是否使用正向代理
   if (import.meta.env.VITE_PROXY === 'YES') {
     const proxyUrl = import.meta.env.VITE_PROXY_URL
     if (!proxyUrl) {
@@ -67,32 +61,46 @@ export const request = async <T>(requestOptions: RequestOptions): Promise<App.Ap
     requestOptions.url = `${proxyUrl}${requestOptions.url}`
   }
 
-  return ofetchInstance<App.Api.Response<T>>(requestOptions.url, {
-    method: requestOptions.method,
-    body: requestOptions.data,
-    timeout: requestOptions.timeout,
-  }).then((res) => {
-    if (res.code !== 1 && !requestOptions.silentError) {
-      if (isSystemReady) {
-        const translated =
-          res.message_key && i18n.global.te(res.message_key)
-            ? i18n.global.t(res.message_key, (res.message_params || {}) as Record<string, unknown>)
-            : res.msg
-        theToast.error(
-          translated ? String(translated) : String(i18n.global.t('common.requestFailed')),
-        )
-      }
-    }
+  const doRequest = () =>
+    ofetchInstance<App.Api.Response<T>>(requestOptions.url, {
+      method: requestOptions.method,
+      body: requestOptions.data,
+      timeout: requestOptions.timeout,
+    })
 
-    return res
-  })
+  let res = await doRequest()
+
+  const isTokenError =
+    res.error_code === 'TOKEN_MISSING' ||
+    res.error_code === 'TOKEN_INVALID' ||
+    res.error_code === 'TOKEN_PARSE_ERROR' ||
+    res.error_code === 'TOKEN_REVOKED'
+
+  if (isTokenError) {
+    const refreshed = await useAuthStore().silentRefresh()
+    if (refreshed) {
+      res = await doRequest()
+    }
+  }
+
+  if (res.code !== 1 && !requestOptions.silentError) {
+    if (isSystemReady) {
+      const translated =
+        res.message_key && i18n.global.te(res.message_key)
+          ? i18n.global.t(res.message_key, (res.message_params || {}) as Record<string, unknown>)
+          : res.msg
+      theToast.error(
+        translated ? String(translated) : String(i18n.global.t('common.requestFailed')),
+      )
+    }
+  }
+
+  return res
 }
 
-// 直接请求
 export const requestWithDirectUrl = async <T>(
   requestOptions: RequestOptions,
 ): Promise<App.Api.Response<T>> => {
-  // 检查系统是否已经准备好
   const isSystemReady = getInitReadyStatus()
 
   return ofetchInstance<App.Api.Response<T>>(
@@ -119,7 +127,6 @@ export const requestWithDirectUrl = async <T>(
   })
 }
 
-// 直接请求 && 直接传递数据
 export const requestWithDirectUrlAndData = async <T>(
   requestOptions: RequestOptions,
 ): Promise<T> => {
@@ -139,7 +146,6 @@ export const requestWithDirectUrlAndData = async <T>(
 }
 
 export const downloadFile = async (requestOptions: RequestOptions): Promise<Blob> => {
-  // 检查是否使用正向代理
   if (import.meta.env.VITE_PROXY === 'YES') {
     const proxyUrl = import.meta.env.VITE_PROXY_URL
     if (!proxyUrl) {

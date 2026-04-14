@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/google/wire"
 	agentHandler "github.com/lin-snow/ech0/internal/handler/agent"
+	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
 	backupHandler "github.com/lin-snow/ech0/internal/handler/backup"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
@@ -21,6 +22,7 @@ import (
 var (
 	WebSet       = wire.NewSet(webHandler.NewWebHandler)
 	UserSet      = wire.NewSet(userHandler.NewUserHandler)
+	AuthSet      = wire.NewSet(authHandler.NewAuthHandler)
 	EchoSet      = wire.NewSet(echoHandler.NewEchoHandler)
 	FileSet      = wire.NewSet(fileHandler.NewFileHandler)
 	CommentSet   = wire.NewSet(commentHandler.NewCommentHandler)

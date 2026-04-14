@@ -8,12 +8,28 @@ import (
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	authService "github.com/lin-snow/ech0/internal/service/auth"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
-// JWTAuthMiddleware JWT 拦截器中间件
+// tokenBlacklist 模块级黑名单引用，由 DI 层在启动时通过 SetTokenBlacklist 注入。
+// 中间件在解析 JWT 成功后会检查其 JTI 是否已被吊销。
+var tokenBlacklist authService.TokenRevoker
+
+// SetTokenBlacklist 注入黑名单实例，必须在路由注册前调用（由 wire_gen.go 中的 BuildHandlers 触发）。
+func SetTokenBlacklist(bl authService.TokenRevoker) {
+	tokenBlacklist = bl
+}
+
+// JWTAuthMiddleware 是核心鉴权中间件，处理流程：
+//  1. 从 Authorization header 或 query ?token= 中提取 JWT
+//  2. ParseToken() 验证签名与过期（仅接受 typ=session / typ=access）
+//  3. 检查 JTI 是否在黑名单中（已登出/已吊销的 token）
+//  4. 校验通过后，将 viewer (用户身份) 写入 request context
+//
+// 部分公开路由（echo 查询等）允许匿名降级：即使 token 无效也不阻断请求。
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		setAnonymous := func() {
@@ -135,7 +151,30 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 高危 scope token 禁止通过 query 参数传递，避免在 URL 链路中泄露。
+		// 黑名单检查：已登出或已吊销的 token 即使签名有效也应拒绝。
+		// mc.ID 即 JWT 的 jti claim，登出时由 AuthHandler.Logout() 写入黑名单。
+		if tokenBlacklist != nil && mc.ID != "" && tokenBlacklist.IsTokenRevoked(mc.ID) {
+			if allowAnonymousForCurrentRoute() {
+				setAnonymous()
+				ctx.Next()
+				return
+			}
+			ctx.JSON(
+				http.StatusUnauthorized,
+				commonModel.FailWithLocalized[any](
+					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthTokenRevoked, errUtil.HandleError(&commonModel.ServerError{
+						Msg: commonModel.TOKEN_REVOKED,
+						Err: nil,
+					}), nil),
+					commonModel.ErrCodeTokenRevoked,
+					commonModel.MsgKeyAuthTokenRevoked,
+					nil,
+				),
+			)
+			ctx.Abort()
+			return
+		}
+
 		if tokenFromQuery && authModel.HasAdminScope(mc.Scopes) {
 			ctx.JSON(
 				http.StatusForbidden,

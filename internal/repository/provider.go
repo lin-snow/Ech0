@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/google/wire"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
+	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
 	commentRepository "github.com/lin-snow/ech0/internal/repository/comment"
 	commonRepository "github.com/lin-snow/ech0/internal/repository/common"
 	connectRepository "github.com/lin-snow/ech0/internal/repository/connect"
@@ -16,6 +17,7 @@ import (
 	userRepository "github.com/lin-snow/ech0/internal/repository/user"
 	webhookRepository "github.com/lin-snow/ech0/internal/repository/webhook"
 	agentService "github.com/lin-snow/ech0/internal/service/agent"
+	authService "github.com/lin-snow/ech0/internal/service/auth"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
@@ -28,6 +30,12 @@ import (
 )
 
 var (
+	AuthSet = wire.NewSet(
+		authRepository.NewAuthRepository,
+		wire.Bind(new(authService.AuthRepo), new(*authRepository.AuthRepository)),
+		wire.Bind(new(authService.TokenRevoker), new(*authRepository.AuthRepository)),
+		wire.Bind(new(authService.Repository), new(*authRepository.AuthRepository)),
+	)
 	UserSet = wire.NewSet(
 		userRepository.NewUserRepository,
 		wire.Bind(new(userService.Repository), new(*userRepository.UserRepository)),

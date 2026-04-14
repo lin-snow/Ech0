@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/google/wire"
 	agentService "github.com/lin-snow/ech0/internal/service/agent"
+	authService "github.com/lin-snow/ech0/internal/service/auth"
 	backupService "github.com/lin-snow/ech0/internal/service/backup"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
@@ -17,6 +18,7 @@ import (
 )
 
 var (
+	AuthSet = authService.ProviderSet
 	UserSet = wire.NewSet(
 		userService.NewUserService,
 		wire.Bind(new(userService.Service), new(*userService.UserService)),

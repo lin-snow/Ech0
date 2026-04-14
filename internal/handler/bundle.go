@@ -2,6 +2,7 @@ package handler
 
 import (
 	agentHandler "github.com/lin-snow/ech0/internal/handler/agent"
+	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
 	backupHandler "github.com/lin-snow/ech0/internal/handler/backup"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
@@ -21,6 +22,7 @@ import (
 type Bundle struct {
 	WebHandler       *webHandler.WebHandler
 	UserHandler      *userHandler.UserHandler
+	AuthHandler      *authHandler.AuthHandler
 	EchoHandler      *echoHandler.EchoHandler
 	FileHandler      *fileHandler.FileHandler
 	CommentHandler   *commentHandler.CommentHandler
@@ -39,6 +41,7 @@ type Bundle struct {
 func NewBundle(
 	webHandler *webHandler.WebHandler,
 	userHandler *userHandler.UserHandler,
+	authHandler *authHandler.AuthHandler,
 	echoHandler *echoHandler.EchoHandler,
 	fileHandler *fileHandler.FileHandler,
 	commentHandler *commentHandler.CommentHandler,
@@ -55,6 +58,7 @@ func NewBundle(
 	return &Bundle{
 		WebHandler:       webHandler,
 		UserHandler:      userHandler,
+		AuthHandler:      authHandler,
 		EchoHandler:      echoHandler,
 		FileHandler:      fileHandler,
 		CommentHandler:   commentHandler,

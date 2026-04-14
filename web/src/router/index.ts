@@ -178,16 +178,13 @@ router.beforeEach(async (to) => {
     await userStore.init()
   }
 
-  const token = localStorage.getItem('token')
   const needRedirect = localStorage.getItem('needLoginRedirect')
 
-  //  强制鉴权页面或 token 无效
   if (
-    (to.meta.requiresAuth && !userStore.isLogin) || // 需要鉴权但未登录
-    (to.meta.optionalAuth && token && !userStore.isLogin && needRedirect === 'true') // 可选鉴权且有token但未登录且需要重定向
+    (to.meta.requiresAuth && !userStore.isLogin) ||
+    (to.meta.optionalAuth && !userStore.isLogin && needRedirect === 'true')
   ) {
     localStorage.removeItem('needLoginRedirect')
-    localStorage.removeItem('token')
     return { name: 'auth' }
   }
 

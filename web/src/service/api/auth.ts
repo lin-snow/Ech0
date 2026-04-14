@@ -18,6 +18,24 @@ export function fetchSignup(signupParams: App.Api.Auth.SignupParams) {
   })
 }
 
+// 登出（best-effort，错误静默处理）
+export function fetchLogout() {
+  return request<null>({
+    url: '/auth/logout',
+    method: 'POST',
+    silentError: true,
+  })
+}
+
+// 一次性 code 交换 token（OAuth 回调专用）
+export function fetchExchangeCode(code: string) {
+  return request<App.Api.Auth.TokenPairResponse>({
+    url: '/auth/exchange',
+    method: 'POST',
+    data: { code },
+  })
+}
+
 // Passkey / WebAuthn
 export function fetchPasskeyRegisterBegin(deviceName: string) {
   return request<App.Api.Auth.PasskeyRegisterBeginResp>({
@@ -44,7 +62,7 @@ export function fetchPasskeyLoginBegin() {
 }
 
 export function fetchPasskeyLoginFinish(nonce: string, credential: unknown) {
-  return request<string>({
+  return request<App.Api.Auth.TokenPairResponse>({
     url: '/passkey/login/finish',
     method: 'POST',
     data: { nonce, credential },

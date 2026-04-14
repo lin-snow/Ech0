@@ -82,9 +82,10 @@ type AuthConfig struct {
 }
 
 type JWTConfig struct {
-	Expires  int    // JWT的过期时间，单位为秒
-	Issuer   string // JWT的发行者
-	Audience string // JWT的受众
+	Expires        int    // Access Token 过期时间，单位为秒
+	RefreshExpires int    // Refresh Token 过期时间，单位为秒
+	Issuer         string // JWT的发行者
+	Audience       string // JWT的受众
 }
 
 type RedirectConfig struct {
@@ -211,9 +212,10 @@ func defaultConfig() *AppConfig {
 		},
 		Auth: AuthConfig{
 			Jwt: JWTConfig{
-				Expires:  2592000,
-				Issuer:   "ech0",
-				Audience: "ech0",
+				Expires:        900,
+				RefreshExpires: 604800,
+				Issuer:         "ech0",
+				Audience:       "ech0",
 			},
 			Redirect: RedirectConfig{
 				AllowedReturnURLs: []string{},
@@ -329,6 +331,7 @@ func applyEnvOverrides(cfg *AppConfig) {
 
 	// Auth / JWT
 	setIntEnv("ECH0_JWT_EXPIRES", &cfg.Auth.Jwt.Expires)
+	setIntEnv("ECH0_JWT_REFRESH_EXPIRES", &cfg.Auth.Jwt.RefreshExpires)
 	setStringEnv("ECH0_JWT_ISSUER", &cfg.Auth.Jwt.Issuer)
 	setStringEnv("ECH0_JWT_AUDIENCE", &cfg.Auth.Jwt.Audience)
 	setStringSliceEnv("ECH0_AUTH_REDIRECT_ALLOWED_RETURN_URLS", &cfg.Auth.Redirect.AllowedReturnURLs)

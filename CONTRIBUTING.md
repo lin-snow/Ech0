@@ -22,7 +22,8 @@ Common commands (repository root):
 ```bash
 make run
 make dev
-make check   # full local verification before a PR (fmt/lint + web + i18n); required — see below
+make check     # full local verification before a PR (delegates to dec-lint)
+make dev-lint  # backend fmt/lint + web format/lint + i18n
 ```
 
 ### Frontend
@@ -43,14 +44,14 @@ pnpm lint
 
 1. Fork this repository and create a feature branch (e.g. `feat/xxx`, `fix/xxx`).
 2. Keep changes focused: one PR should ideally address one kind of change.
-3. **Before opening a PR, run `make check` from the repository root** (required; see “Pre-submission checks”).
+3. **Before opening a PR, run `make check` (or `make dec-lint`) from the repository root** (required; see “Pre-submission checks”).
 4. Open a Pull Request with a clear description of context, approach, and verification.
 
 ## Pre-submission checks
 
 Before opening a PR:
 
-- **Run `make check` once from the repository root** (backend `golangci-lint` fmt/lint, `web` format/lint, and i18n guardrails). This is **mandatory**; fix any reported issues before you submit.
+- **Run `make check` (or `make dec-lint`) once from the repository root** (backend `golangci-lint` fmt/lint, `web` format/lint, and i18n guardrails). This is **mandatory**; fix any reported issues before you submit.
 - Ensure the backend still builds (`go build ./...`).
 - Ensure the frontend still builds (`pnpm build` from the `web` directory).
 - Add or update tests when behavior changes (when applicable).

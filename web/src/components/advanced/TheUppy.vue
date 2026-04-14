@@ -5,8 +5,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { getAuthToken } from '@/service/request/shared'
-import { useUserStore, useEditorStore } from '@/stores'
+import { useAuthStore, useUserStore, useEditorStore } from '@/stores'
 import { theToast } from '@/utils/toast'
 import { storeToRefs } from 'pinia'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
@@ -44,6 +43,7 @@ const tempFiles = ref<Map<string, { id: string; url: string; key: string }>>(new
 const pendingUploadTasks = ref<Set<Promise<void>>>(new Set()) // 跟踪 upload-success 异步任务，避免 complete 抢跑
 
 const userStore = useUserStore()
+const authStore = useAuthStore()
 const editorStore = useEditorStore()
 const { isLogin } = storeToRefs(userStore)
 const envURL = import.meta.env.VITE_SERVICE_BASE_URL as string
@@ -277,7 +277,7 @@ const initUppy = () => {
       fieldName: 'file',
       formData: true,
       headers: {
-        Authorization: `${getAuthToken()}`,
+        Authorization: authStore.authHeader,
       },
     })
   } else if (memorySource.value == FILE_STORAGE_TYPE.OBJECT) {

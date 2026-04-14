@@ -62,6 +62,9 @@ const (
 	ErrCodeScopeForbidden          = "SCOPE_FORBIDDEN"
 	ErrCodeAudienceForbidden       = "AUDIENCE_FORBIDDEN"
 	ErrCodeTokenTransportForbidden = "TOKEN_TRANSPORT_FORBIDDEN"
+	ErrCodeTokenRevoked            = "TOKEN_REVOKED"
+	ErrCodeRefreshTokenInvalid     = "REFRESH_TOKEN_INVALID"
+	ErrCodeExchangeCodeInvalid     = "EXCHANGE_CODE_INVALID"
 )
 
 // Auth 错误相关常量
@@ -74,6 +77,9 @@ const (
 	TOKEN_NOT_FOUND                   = "未找到令牌,请点击右上角登录"
 	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
 	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
+	TOKEN_REVOKED                     = "令牌已被吊销，请重新登录"
+	REFRESH_TOKEN_INVALID             = "刷新令牌无效或已过期"
+	EXCHANGE_CODE_INVALID             = "授权码无效或已过期"
 	USER_REGISTER_NOT_ALLOW           = "当前系统禁止注册新用户"
 )
 

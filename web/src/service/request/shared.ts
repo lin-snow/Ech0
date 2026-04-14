@@ -1,16 +1,5 @@
 import { localStg } from '@/utils/storage'
 
-export const getAuthToken = () => {
-  const token = localStg.getItem<string>('token')
-  return token ? `Bearer ${token}` : ''
-}
-
-export const saveAuthToken = (token: string) => {
-  if (token) {
-    localStg.setItem('token', token)
-  }
-}
-
 export const getApiUrl = () => {
   const baseUrl = import.meta.env.VITE_SERVICE_BASE_URL
   const resolvedBaseUrl = baseUrl.replace(/\/+$/, '') // 正则去除末尾的斜杠

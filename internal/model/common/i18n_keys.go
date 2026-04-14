@@ -12,6 +12,9 @@ const (
 	MsgKeyAuthScopeForbidden          = "auth.scope_forbidden"
 	MsgKeyAuthAudienceForbidden       = "auth.audience_forbidden"
 	MsgKeyAuthTokenTransportForbidden = "auth.token_transport_forbidden"
+	MsgKeyAuthTokenRevoked            = "auth.token_revoked"
+	MsgKeyAuthRefreshTokenInvalid     = "auth.refresh_token_invalid"
+	MsgKeyAuthExchangeCodeInvalid     = "auth.exchange_code_invalid"
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
 )
@@ -32,6 +35,12 @@ func MessageKeyFromErrorCode(code string) string {
 		return MsgKeyAuthAudienceForbidden
 	case ErrCodeTokenTransportForbidden:
 		return MsgKeyAuthTokenTransportForbidden
+	case ErrCodeTokenRevoked:
+		return MsgKeyAuthTokenRevoked
+	case ErrCodeRefreshTokenInvalid:
+		return MsgKeyAuthRefreshTokenInvalid
+	case ErrCodeExchangeCodeInvalid:
+		return MsgKeyAuthExchangeCodeInvalid
 	default:
 		return ""
 	}

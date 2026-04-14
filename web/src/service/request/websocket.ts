@@ -1,6 +1,7 @@
 import { useWebSocket } from '@vueuse/core'
 import { reactive, watch } from 'vue'
 import { i18n } from '@/locales'
+import { useAuthStore } from '@/stores/auth'
 
 type ReconnectOptions = {
   retries?: number
@@ -28,8 +29,7 @@ type Callback<T> = (payload: T) => void
 export function useOWebSocket<T = unknown>(options: WSOptions) {
   const { url, autoReconnect = true, heartbeat = true, protocols } = options
 
-  // 获取 JWT token
-  const token = localStorage.getItem('token')?.replace(/^"|"$/g, '')
+  const token = useAuthStore().accessToken
 
   // WebSocket URL 支持携带 token，常用方式是 query
   const wsUrl = token ? `${url}?token=${token}` : url

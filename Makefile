@@ -13,7 +13,7 @@ IMAGE_TAG?=latest
 OS?=$(if $(GOHOSTOS),$(GOHOSTOS),linux)
 ARCH?=$(if $(GOHOSTARCH),$(GOHOSTARCH),amd64)
 
-.PHONY: help air-install run dev web-dev check lint fmt test wire wire-check build-image push-image
+.PHONY: help air-install run dev web-dev check dec-lint lint fmt test wire wire-check build-image push-image
 
 AIR_BIN := $(shell command -v air 2>/dev/null || echo "$(GOPATH)/bin/air")
 
@@ -23,7 +23,8 @@ help:
 	@echo "  make dev         - Run backend with Air hot reload"
 	@echo "  make air-install - Install Air to GOPATH/bin"
 	@echo "  make web-dev     - Run frontend dev server"
-	@echo "  make check       - Backend fmt/lint + web format/lint + i18n (scripts/dev_check.sh)"
+	@echo "  make check       - Backend fmt/lint + web format/lint + i18n checks"
+	@echo "  make dev-lint    - Backend fmt/lint + web format/lint + i18n checks"
 	@echo "  make lint        - Run golangci-lint checks"
 	@echo "  make fmt         - Run golangci-lint formatters"
 	@echo "  make test        - Run Go tests"
@@ -49,7 +50,20 @@ web-dev:
 	cd web && pnpm dev
 
 check:
-	bash scripts/dev_check.sh
+	$(MAKE) dec-lint
+
+dec-lint:
+	@echo "=== 后端：格式化 (golangci-lint fmt，同 make fmt) ==="
+	$(MAKE) fmt
+	@echo "=== 后端：Lint (golangci-lint run，同 make lint) ==="
+	$(MAKE) lint
+	@echo "=== 前端 web：格式化 (prettier --write src/) ==="
+	pnpm -C web format
+	@echo "=== 前端 web：Lint (eslint . --fix) ==="
+	pnpm -C web lint
+	@echo "=== 前端 web：i18n 校验 (key / unused / hardcoded / pseudo-smoke) ==="
+	pnpm -C web run i18n:check
+	@echo "=== dec-lint 全部完成 ==="
 
 lint:
 	golangci-lint run

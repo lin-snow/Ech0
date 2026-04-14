@@ -19,7 +19,13 @@ declare namespace App {
       }
 
       type LoginResponse = {
-        token: string
+        access_token: string
+        expires_in: number
+      }
+
+      type TokenPairResponse = {
+        access_token: string
+        expires_in: number
       }
 
       type SignupParams = {

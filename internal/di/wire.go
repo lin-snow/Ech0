@@ -78,8 +78,11 @@ var HandlerGraphSet = wire.NewSet(
 	handler.WebSet,
 
 	repository.UserSet,
+	repository.AuthSet,
 	service.UserSet,
+	service.AuthSet,
 	handler.UserSet,
+	handler.AuthSet,
 
 	repository.EchoSet,
 	service.EchoSet,

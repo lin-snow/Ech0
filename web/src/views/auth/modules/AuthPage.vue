@@ -266,9 +266,9 @@ const handlePasskeyLogin = async () => {
     const cred = got as PublicKeyCredential
 
     const finish = await fetchPasskeyLoginFinish(begin.data.nonce, credentialToJSON(cred))
-    if (finish.code !== 1) return
+    if (finish.code !== 1 || !finish.data?.access_token) return
 
-    await userStore.loginWithToken(finish.data)
+    await userStore.loginWithTokenPair(finish.data)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(t('authPage.passkeyLoginFailed'))
     theToast.error(msg)
@@ -290,10 +290,9 @@ const handleRegister = async () => {
 
 onMounted(async () => {
   const url = new URL(window.location.href)
-  const token = url.searchParams.get('token')
-  if (token) {
-    // 有 token，直接登录
-    await userStore.loginWithToken(token)
+  const code = url.searchParams.get('code')
+  if (code) {
+    await userStore.loginWithCode(code)
     return
   }
   await Promise.all([getOAuth2Status(), getPasskeyStatus()])

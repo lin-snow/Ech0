@@ -84,6 +84,7 @@ import { useI18n } from 'vue-i18n'
 import { fetchSystemLogs } from '@/service/api'
 import { useOWebSocket } from '@/service/request/websocket'
 import { getApiUrl, getWsUrl } from '@/service/request/shared'
+import { useAuthStore } from '@/stores/auth'
 import { theToast } from '@/utils/toast'
 
 const logs = ref<App.Api.SystemLog.Entry[]>([])
@@ -95,6 +96,7 @@ const logContainer = ref<HTMLElement>()
 const transport = ref<'ws' | 'sse'>('ws')
 let es: EventSource | null = null
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 const { onMessage, open, close, status } = useOWebSocket<App.Api.Response<App.Api.SystemLog.Entry>>(
   {
@@ -181,7 +183,7 @@ const clearLogs = () => {
 }
 
 const buildSSEUrl = () => {
-  const token = localStorage.getItem('token')?.replace(/^"|"$/g, '') || ''
+  const token = authStore.accessToken
   const query = new URLSearchParams()
   query.set('token', token)
   if (level.value !== 'all') {
