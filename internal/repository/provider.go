@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/google/wire"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
+	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
 	commentRepository "github.com/lin-snow/ech0/internal/repository/comment"
 	commonRepository "github.com/lin-snow/ech0/internal/repository/common"
 	connectRepository "github.com/lin-snow/ech0/internal/repository/connect"
@@ -30,10 +31,10 @@ import (
 
 var (
 	AuthSet = wire.NewSet(
-		NewAuthRepository,
-		wire.Bind(new(authService.AuthRepo), new(*AuthRepository)),
-		wire.Bind(new(authService.TokenRevoker), new(*AuthRepository)),
-		wire.Bind(new(authService.Repository), new(*AuthRepository)),
+		authRepository.NewAuthRepository,
+		wire.Bind(new(authService.AuthRepo), new(*authRepository.AuthRepository)),
+		wire.Bind(new(authService.TokenRevoker), new(*authRepository.AuthRepository)),
+		wire.Bind(new(authService.Repository), new(*authRepository.AuthRepository)),
 	)
 	UserSet = wire.NewSet(
 		userRepository.NewUserRepository,
