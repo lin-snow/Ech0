@@ -23,6 +23,16 @@ func normalizeOAuthProvider(provider string) (string, bool) {
 	}
 }
 
+// OAuthLogin 发起 OAuth2 登录重定向
+//
+//	@Summary		OAuth2 登录
+//	@Description	根据 provider 发起 OAuth2 授权重定向，支持 github / google / qq / custom
+//	@Tags			认证 - OAuth2
+//	@Param			provider		path	string	true	"OAuth2 提供商 (github/google/qq/custom)"
+//	@Param			redirect_uri	query	string	false	"登录成功后的前端回调地址"
+//	@Success		302				"重定向到 OAuth2 提供商授权页"
+//	@Failure		200				{object}	handler.Response	"参数无效"
+//	@Router			/oauth/{provider}/login [get]
 func (h *AuthHandler) OAuthLogin() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		provider, ok := normalizeOAuthProvider(ctx.Param("provider"))
@@ -40,6 +50,17 @@ func (h *AuthHandler) OAuthLogin() gin.HandlerFunc {
 	})
 }
 
+// OAuthCallback 处理 OAuth2 回调
+//
+//	@Summary		OAuth2 回调
+//	@Description	接收 OAuth2 提供商回调，验证 code 和 state，生成一次性 exchange code 并重定向到前端
+//	@Tags			认证 - OAuth2
+//	@Param			provider	path	string	true	"OAuth2 提供商 (github/google/qq/custom)"
+//	@Param			code		query	string	true	"OAuth2 授权码"
+//	@Param			state		query	string	true	"OAuth2 状态参数"
+//	@Success		302			"重定向到前端 /auth?code=xxx"
+//	@Failure		200			{object}	handler.Response	"参数无效或回调处理失败"
+//	@Router			/oauth/{provider}/callback [get]
 func (h *AuthHandler) OAuthCallback() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		provider, ok := normalizeOAuthProvider(ctx.Param("provider"))
@@ -61,6 +82,18 @@ func (h *AuthHandler) OAuthCallback() gin.HandlerFunc {
 	})
 }
 
+// OAuthBind 绑定 OAuth2 账号到当前用户
+//
+//	@Summary		绑定 OAuth2 账号
+//	@Description	为当前已认证用户绑定指定 OAuth2 提供商的账号，返回授权重定向 URL
+//	@Tags			认证 - OAuth2
+//	@Accept			json
+//	@Produce		json
+//	@Param			provider	path		string						true	"OAuth2 提供商 (github/google/qq/custom)"
+//	@Param			body		body		object{redirect_uri=string}	true	"回调地址"
+//	@Success		200			{object}	handler.Response			"绑定 URL"
+//	@Failure		200			{object}	handler.Response			"参数无效或绑定失败"
+//	@Router			/oauth/{provider}/bind [post]
 func (h *AuthHandler) OAuthBind() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		provider, ok := normalizeOAuthProvider(ctx.Param("provider"))
@@ -83,6 +116,15 @@ func (h *AuthHandler) OAuthBind() gin.HandlerFunc {
 	})
 }
 
+// GetOAuthInfo 获取当前用户的 OAuth2 绑定信息
+//
+//	@Summary		获取 OAuth2 绑定信息
+//	@Description	获取当前已认证用户指定 provider 的 OAuth2 绑定状态
+//	@Tags			认证 - OAuth2
+//	@Produce		json
+//	@Param			provider	query		string				false	"OAuth2 提供商，默认 github"
+//	@Success		200			{object}	handler.Response	"OAuth2 绑定信息"
+//	@Router			/oauth/info [get]
 func (h *AuthHandler) GetOAuthInfo() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		provider := ctx.Query("provider")

@@ -42,6 +42,15 @@ func NewAuthHandler(authService authService.Service, userService userService.Ser
 //
 // 前端在页面加载和 401 响应时自动调用此端点，使用 credentials:'include'
 // 让浏览器自动携带 HttpOnly Cookie。
+//
+//	@Summary		刷新访问令牌
+//	@Description	通过 HttpOnly Cookie 中的 refresh_token 静默刷新 access_token，返回新的 access_token
+//	@Tags			认证
+//	@Produce		json
+//	@Success		200	"包含 access_token 和 expires_in"
+//	@Failure		401	"refresh_token 无效或已吊销"
+//	@Failure		500	"生成 token 失败"
+//	@Router			/auth/refresh [post]
 func (h *AuthHandler) Refresh() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		localizer := i18nUtil.LocalizerFromGin(ctx)
@@ -128,6 +137,14 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 //  2. 如果请求携带了 Authorization header，也将 access_token JTI 加入黑名单
 //
 // 最后清除 Cookie 并返回 200。即使没有有效 Cookie 也不报错（best-effort）。
+//
+//	@Summary		登出
+//	@Description	吊销当前会话的 refresh_token 和 access_token，清除 Cookie
+//	@Tags			认证
+//	@Produce		json
+//	@Param			Authorization	header	string	false	"Bearer <access_token>"
+//	@Success		200				"登出成功"
+//	@Router			/auth/logout [post]
 func (h *AuthHandler) Logout() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// 吊销 refresh_token
@@ -159,6 +176,16 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 // → 302 重定向到前端 /auth?code=xxx → 前端调用本端点用 code 换取 token。
 //
 // code 为一次性使用：取出后立即从缓存中删除，过期也会自动淘汰。
+//
+//	@Summary		OAuth Code 换取令牌
+//	@Description	用 OAuth 回调生成的一次性 code 换取 access_token，同时通过 Set-Cookie 下发 refresh_token。请求体：{"code":"<一次性code>"}
+//	@Tags			认证
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body	object{code=string}	true	"一次性 code"
+//	@Success		200		"包含 access_token 和 expires_in"
+//	@Failure		400		"code 无效或已过期"
+//	@Router			/auth/exchange [post]
 func (h *AuthHandler) Exchange() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		localizer := i18nUtil.LocalizerFromGin(ctx)

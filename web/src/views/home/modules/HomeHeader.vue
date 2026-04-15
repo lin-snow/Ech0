@@ -58,6 +58,17 @@
         >
           <Auth class="block w-4 h-4" />
         </button>
+        <button
+          v-else
+          type="button"
+          v-tooltip="t('panelPage.logout')"
+          :title="t('panelPage.logout')"
+          :aria-label="t('panelPage.logout')"
+          class="home-header__link-icon"
+          @click="handleLogout"
+        >
+          <Signoff class="block w-4 h-4" />
+        </button>
       </div>
     </div>
   </div>
@@ -71,12 +82,15 @@ import Zen from '@/components/icons/zen.vue'
 import Github from '@/components/icons/github.vue'
 import Rss from '@/components/icons/rss.vue'
 import Auth from '@/components/icons/auth.vue'
+import Signoff from '@/components/icons/signoff.vue'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingStore, useUserStore, useThemeStore, useZenStore } from '@/stores'
 import { resolveAvatarUrl } from '@/service/request/shared'
 import { useRouter } from 'vue-router'
+import { theToast } from '@/utils/toast'
+import { useBaseDialog } from '@/composables/useBaseDialog'
 
 const settingStore = useSettingStore()
 const userStore = useUserStore()
@@ -88,6 +102,7 @@ const { user, isLogin } = storeToRefs(userStore)
 const { isZenMode } = storeToRefs(zenStore)
 const { t } = useI18n()
 const router = useRouter()
+const { openConfirm } = useBaseDialog()
 
 const logo = computed(() => {
   if (isLogin.value && user.value?.avatar) {
@@ -180,6 +195,19 @@ const handleGoExplore = async () => {
 
 const handleGoLogin = async () => {
   await router.push({ name: 'auth' })
+}
+
+const handleLogout = () => {
+  if (!isLogin.value) return
+  openConfirm({
+    title: String(t('panelPage.logoutConfirmTitle')),
+    description: '',
+    onConfirm: async () => {
+      await userStore.logout()
+      await router.push({ name: 'home' })
+      theToast.success(String(t('panelPage.logoutSuccess')))
+    },
+  })
 }
 
 watch(fullTitle, (nextTitle, prevTitle) => {

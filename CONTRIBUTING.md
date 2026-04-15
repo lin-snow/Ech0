@@ -56,6 +56,7 @@ Before opening a PR:
 - Ensure the frontend still builds (`pnpm build` from the `web` directory).
 - Add or update tests when behavior changes (when applicable).
 - Update documentation when changes affect users or deployment.
+- **Regenerate Swagger/OpenAPI** when HTTP routes, request/response shapes, or `swag` annotations change: from the repository root run `swag init -g internal/server/server.go -o internal/swagger`, then commit the updated files under `internal/swagger/`.
 
 ## Pull Request guidelines
 

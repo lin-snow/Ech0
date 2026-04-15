@@ -177,8 +177,8 @@ func (connectHandler *ConnectHandler) GetConnects() gin.HandlerFunc {
 //	@Tags			连接管理
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	handler.Response{data=[]connectModel.ConnectedHealth}	"成功"
-//	@Failure		200	{object}	handler.Response										"失败"
+//	@Success		200	{object}	handler.Response{data=[]model.ConnectedHealth}	"成功"
+//	@Failure		200	{object}	handler.Response								"失败"
 //	@Router			/connects/health [get]
 func (connectHandler *ConnectHandler) GetConnectsHealth() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {

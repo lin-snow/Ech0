@@ -13,7 +13,7 @@ IMAGE_TAG?=latest
 OS?=$(if $(GOHOSTOS),$(GOHOSTOS),linux)
 ARCH?=$(if $(GOHOSTARCH),$(GOHOSTARCH),amd64)
 
-.PHONY: help air-install run dev web-dev check dev-lint lint fmt test wire wire-check build-image push-image
+.PHONY: help air-install run dev web-dev check dev-lint lint fmt test wire wire-check swagger build-image push-image
 
 AIR_BIN := $(shell command -v air 2>/dev/null || echo "$(GOPATH)/bin/air")
 
@@ -30,6 +30,7 @@ help:
 	@echo "  make test        - Run Go tests"
 	@echo "  make wire        - Generate DI code via Wire"
 	@echo "  make wire-check  - Verify Wire code is up-to-date"
+	@echo "  make swagger     - Regenerate Swagger docs"
 	@echo "  make build-image - Build Docker image"
 	@echo "  make push-image  - Push Docker image"
 
@@ -53,17 +54,19 @@ check:
 	$(MAKE) dev-lint
 
 dev-lint:
-	@echo "=== 后端：格式化 (golangci-lint fmt，同 make fmt) ==="
+	@echo "\033[1;34m=== 后端：格式化 (golangci-lint fmt，同 make fmt) ===\033[0m"
 	$(MAKE) fmt
-	@echo "=== 后端：Lint (golangci-lint run，同 make lint) ==="
+	@echo "\033[1;34m=== 后端：Lint (golangci-lint run，同 make lint) ===\033[0m"
 	$(MAKE) lint
-	@echo "=== 前端 web：格式化 (prettier --write src/) ==="
+	@echo "\033[1;34m=== 后端：Swagger 文档生成 (swag init，同 make swagger) ===\033[0m"
+	$(MAKE) swagger
+	@echo "\033[1;35m=== 前端 web：格式化 (prettier --write src/) ===\033[0m"
 	pnpm -C web format
-	@echo "=== 前端 web：Lint (eslint . --fix) ==="
+	@echo "\033[1;35m=== 前端 web：Lint (eslint . --fix) ===\033[0m"
 	pnpm -C web lint
-	@echo "=== 前端 web：i18n 校验 (key / unused / hardcoded / pseudo-smoke) ==="
+	@echo "\033[1;35m=== 前端 web：i18n 校验 (key / unused / hardcoded / pseudo-smoke) ===\033[0m"
 	pnpm -C web run i18n:check
-	@echo "=== dev-lint 全部完成 ==="
+	@echo "\033[1;32m=== dev-lint 全部完成 ===\033[0m"
 
 lint:
 	golangci-lint run
@@ -79,6 +82,10 @@ wire:
 
 wire-check: wire
 	git diff --exit-code -- internal/di/wire_gen.go
+
+swagger:
+	swag init -g internal/server/server.go -o internal/swagger --parseInternal
+
 build-image:
 	@echo "Building image for platform: $(OS)/$(ARCH)"
 	docker build --platform $(OS)/$(ARCH) \

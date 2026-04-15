@@ -76,6 +76,18 @@ definitions:
       id:
         type: string
     type: object
+  model.ConnectedHealth:
+    properties:
+      connect_url:
+        type: string
+      id:
+        type: string
+      status:
+        description: online | offline
+        type: string
+      version:
+        type: string
+    type: object
   model.EchoExtensionDto:
     properties:
       payload:
@@ -181,6 +193,26 @@ definitions:
       search:
         type: string
     type: object
+  model.PasskeyDeviceDto:
+    properties:
+      aaguid:
+        type: string
+      created_at:
+        type: integer
+      device_name:
+        type: string
+      id:
+        type: string
+      last_used_at:
+        type: integer
+    type: object
+  model.PasskeyFinishReq:
+    type: object
+  model.PasskeyRegisterBeginReq:
+    properties:
+      device_name:
+        type: string
+    type: object
   model.PasskeySettingDto:
     properties:
       webauthn_allowed_origins:
@@ -189,6 +221,13 @@ definitions:
         type: array
       webauthn_rp_id:
         type: string
+    type: object
+  model.PasskeyUpdateDeviceNameReq:
+    properties:
+      device_name:
+        type: string
+    required:
+    - device_name
     type: object
   model.RegisterDto:
     properties:
@@ -291,6 +330,13 @@ definitions:
       usage_count:
         type: integer
     type: object
+  model.TokenPair:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+    type: object
   model.UpdateFileMetaDto:
     properties:
       content_type:
@@ -304,6 +350,23 @@ definitions:
         type: integer
     required:
     - size
+    type: object
+  model.User:
+    properties:
+      avatar:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_admin:
+        type: boolean
+      is_owner:
+        type: boolean
+      locale:
+        type: string
+      username:
+        type: string
     type: object
   model.UserInfoDto:
     properties:
@@ -492,6 +555,62 @@ paths:
       summary: 更新 Agent 设置
       tags:
       - 系统设置
+  /auth/exchange:
+    post:
+      consumes:
+      - application/json
+      description: 用 OAuth 回调生成的一次性 code 换取 access_token，同时通过 Set-Cookie 下发 refresh_token。请求体：{"code":"<一次性code>"}
+      parameters:
+      - description: 一次性 code
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            code:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 包含 access_token 和 expires_in
+        "400":
+          description: code 无效或已过期
+      summary: OAuth Code 换取令牌
+      tags:
+      - 认证
+  /auth/logout:
+    post:
+      description: 吊销当前会话的 refresh_token 和 access_token，清除 Cookie
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登出成功
+      summary: 登出
+      tags:
+      - 认证
+  /auth/refresh:
+    post:
+      description: 通过 HttpOnly Cookie 中的 refresh_token 静默刷新 access_token，返回新的 access_token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 包含 access_token 和 expires_in
+        "401":
+          description: refresh_token 无效或已吊销
+        "500":
+          description: 生成 token 失败
+      summary: 刷新访问令牌
+      tags:
+      - 认证
   /backup/export:
     get:
       consumes:
@@ -740,6 +859,21 @@ paths:
           schema:
             $ref: '#/definitions/handler.Response'
       summary: 删除连接
+      tags:
+      - 连接管理
+  /connects/health:
+    get:
+      consumes:
+      - application/json
+      description: 由服务端请求各远端 /api/connect，返回每个已保存连接的状态与版本
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取互联健康状态
       tags:
       - 连接管理
   /connects/info:
@@ -1221,11 +1355,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: 用户通过用户名和密码登录，返回 JWT Token
+      description: 使用用户名和密码登录，返回 access_token 并通过 Set-Cookie 下发 refresh_token
       parameters:
-      - description: 登录请求体
+      - description: 登录凭证
         in: body
-        name: login
+        name: body
         required: true
         schema:
           $ref: '#/definitions/model.LoginDto'
@@ -1233,12 +1367,12 @@ paths:
       - application/json
       responses:
         "200":
-          description: 登录失败，返回错误信息
+          description: 登录失败
           schema:
             $ref: '#/definitions/handler.Response'
-      summary: 用户登录接口
+      summary: 用户登录
       tags:
-      - 用户认证
+      - 认证
   /migration/cancel:
     post:
       consumes:
@@ -1317,6 +1451,106 @@ paths:
       summary: 上传迁移包
       tags:
       - 迁移
+  /oauth/{provider}/bind:
+    post:
+      consumes:
+      - application/json
+      description: 为当前已认证用户绑定指定 OAuth2 提供商的账号，返回授权重定向 URL
+      parameters:
+      - description: OAuth2 提供商 (github/google/qq/custom)
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: 回调地址
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            redirect_uri:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数无效或绑定失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 绑定 OAuth2 账号
+      tags:
+      - 认证 - OAuth2
+  /oauth/{provider}/callback:
+    get:
+      description: 接收 OAuth2 提供商回调，验证 code 和 state，生成一次性 exchange code 并重定向到前端
+      parameters:
+      - description: OAuth2 提供商 (github/google/qq/custom)
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: OAuth2 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth2 状态参数
+        in: query
+        name: state
+        required: true
+        type: string
+      responses:
+        "200":
+          description: 参数无效或回调处理失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "302":
+          description: 重定向到前端 /auth?code=xxx
+      summary: OAuth2 回调
+      tags:
+      - 认证 - OAuth2
+  /oauth/{provider}/login:
+    get:
+      description: 根据 provider 发起 OAuth2 授权重定向，支持 github / google / qq / custom
+      parameters:
+      - description: OAuth2 提供商 (github/google/qq/custom)
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: 登录成功后的前端回调地址
+        in: query
+        name: redirect_uri
+        type: string
+      responses:
+        "200":
+          description: 参数无效
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "302":
+          description: 重定向到 OAuth2 提供商授权页
+      summary: OAuth2 登录
+      tags:
+      - 认证 - OAuth2
+  /oauth/info:
+    get:
+      description: 获取当前已认证用户指定 provider 的 OAuth2 绑定状态
+      parameters:
+      - description: OAuth2 提供商，默认 github
+        in: query
+        name: provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OAuth2 绑定信息
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取 OAuth2 绑定信息
+      tags:
+      - 认证 - OAuth2
   /oauth2/settings:
     get:
       consumes:
@@ -1498,6 +1732,86 @@ paths:
       summary: 测试评论邮件
       tags:
       - 评论管理
+  /passkey/login/begin:
+    post:
+      description: 生成 WebAuthn 登录挑战（discoverable credential），返回 publicKey 选项供前端调用
+        navigator.credentials.get
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数无效
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: Passkey 登录 - 开始
+      tags:
+      - 认证 - Passkey
+  /passkey/login/finish:
+    post:
+      consumes:
+      - application/json
+      description: 验证 WebAuthn 登录断言，成功后返回 access_token 并通过 Set-Cookie 下发 refresh_token
+      parameters:
+      - description: 包含 nonce 和 credential 的请求体
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.PasskeyFinishReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 验证失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: Passkey 登录 - 完成
+      tags:
+      - 认证 - Passkey
+  /passkey/register/begin:
+    post:
+      consumes:
+      - application/json
+      description: 为当前已认证用户生成 WebAuthn 注册挑战，返回 publicKey 选项供前端调用 navigator.credentials.create
+      parameters:
+      - description: 可选的设备名称
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.PasskeyRegisterBeginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数无效
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: Passkey 注册 - 开始
+      tags:
+      - 认证 - Passkey
+  /passkey/register/finish:
+    post:
+      consumes:
+      - application/json
+      description: 验证 WebAuthn 注册凭据并保存，完成 Passkey 绑定
+      parameters:
+      - description: 包含 nonce 和 credential 的请求体
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.PasskeyFinishReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 验证失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: Passkey 注册 - 完成
+      tags:
+      - 认证 - Passkey
   /passkey/settings:
     get:
       consumes:
@@ -1549,15 +1863,73 @@ paths:
       summary: 获取 Passkey 状态
       tags:
       - 系统设置
+  /passkeys:
+    get:
+      description: 获取当前已认证用户绑定的所有 Passkey 设备列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 列出 Passkey 设备
+      tags:
+      - 认证 - Passkey
+  /passkeys/{id}:
+    delete:
+      description: 根据 ID 删除当前用户绑定的指定 Passkey 设备
+      parameters:
+      - description: Passkey 设备 ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 删除 Passkey 设备
+      tags:
+      - 认证 - Passkey
+    put:
+      consumes:
+      - application/json
+      description: 根据 ID 更新当前用户绑定的指定 Passkey 设备的显示名称
+      parameters:
+      - description: Passkey 设备 ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 新的设备名称
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.PasskeyUpdateDeviceNameReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新失败
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 更新 Passkey 设备名称
+      tags:
+      - 认证 - Passkey
   /register:
     post:
       consumes:
       - application/json
-      description: 通过提交用户名、密码等信息完成注册
+      description: 注册新用户账号
       parameters:
-      - description: 注册请求体
+      - description: 注册信息
         in: body
-        name: register
+        name: body
         required: true
         schema:
           $ref: '#/definitions/model.RegisterDto'
@@ -1565,12 +1937,12 @@ paths:
       - application/json
       responses:
         "200":
-          description: 请求参数错误或注册失败，code=0，msg错误描述
+          description: 注册失败
           schema:
             $ref: '#/definitions/handler.Response'
       summary: 用户注册
       tags:
-      - 用户认证
+      - 用户
   /rss:
     get:
       description: 获取 RSS/Atom 订阅源
@@ -1735,29 +2107,25 @@ paths:
       - Tag
   /user:
     get:
-      consumes:
-      - application/json
-      description: 获取当前认证用户的详细信息，密码字段不会返回
+      description: 获取当前已认证用户的详细信息
       produces:
       - application/json
       responses:
         "200":
-          description: 获取失败，code=0，msg错误描述
+          description: 获取失败
           schema:
             $ref: '#/definitions/handler.Response'
-      security:
-      - ApiKeyAuth: []
       summary: 获取当前用户信息
       tags:
-      - 用户管理
+      - 用户
     put:
       consumes:
       - application/json
-      description: 接口会根据请求体更新用户相关字段，需携带有效的用户身份（如 JWT）
+      description: 更新当前已认证用户的个人信息
       parameters:
-      - description: 用户更新信息
+      - description: 用户信息
         in: body
-        name: user
+        name: body
         required: true
         schema:
           $ref: '#/definitions/model.UserInfoDto'
@@ -1765,77 +2133,63 @@ paths:
       - application/json
       responses:
         "200":
-          description: 请求参数错误或更新失败，code=0，msg错误描述
+          description: 更新失败
           schema:
             $ref: '#/definitions/handler.Response'
-      security:
-      - ApiKeyAuth: []
-      summary: 更新当前用户的信息
+      summary: 更新用户信息
       tags:
-      - 用户管理
+      - 用户
   /user/{id}:
     delete:
-      consumes:
-      - application/json
-      description: 根据用户ID删除用户，调用者需具备相应权限
+      description: 管理员根据 ID 删除指定用户
       parameters:
-      - description: 用户ID
+      - description: 用户 ID (UUID)
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: 参数错误或删除失败，code=0，msg错误描述
+          description: 删除失败
           schema:
             $ref: '#/definitions/handler.Response'
-      security:
-      - ApiKeyAuth: []
       summary: 删除用户
       tags:
-      - 用户管理
+      - 用户
   /user/admin/{id}:
     put:
-      consumes:
-      - application/json
-      description: 通过用户ID更新其管理员权限，接口调用者需拥有相应权限
+      description: 由管理员切换指定用户的管理员状态
       parameters:
-      - description: 用户ID
+      - description: 用户 ID (UUID)
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: 参数错误或更新失败，code=0，msg错误描述
+          description: 更新失败
           schema:
             $ref: '#/definitions/handler.Response'
-      security:
-      - ApiKeyAuth: []
-      summary: 更新用户权限（管理员权限）
+      summary: 切换用户管理员权限
       tags:
-      - 用户管理
+      - 用户
   /users:
     get:
-      consumes:
-      - application/json
-      description: 获取系统中所有用户的详细信息，接口需要认证
+      description: 管理员获取系统中所有用户的列表
       produces:
       - application/json
       responses:
         "200":
-          description: 获取失败，code=0，msg错误描述
+          description: 获取失败
           schema:
             $ref: '#/definitions/handler.Response'
-      security:
-      - ApiKeyAuth: []
       summary: 获取所有用户
       tags:
-      - 用户管理
+      - 用户
   /webhook:
     get:
       consumes:
