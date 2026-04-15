@@ -51,6 +51,7 @@ func (echoRepository *EchoRepository) CreateEcho(ctx context.Context, echo *mode
 func (echoRepository *EchoRepository) InvalidateEchoCaches(echoIDs ...string) {
 	ClearEchoPageCache(echoRepository.cache)
 	ClearTodayEchosCache(echoRepository.cache)
+	ClearRSSCache(echoRepository.cache)
 	for _, id := range echoIDs {
 		echoRepository.cache.Delete(GetEchoByIDCacheKey(id))
 	}

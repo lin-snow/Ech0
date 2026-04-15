@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/feeds"
+	"github.com/lin-snow/ech0/internal/cache"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	httpUtil "github.com/lin-snow/ech0/internal/util/http"
@@ -19,11 +20,16 @@ import (
 
 type CommonService struct {
 	commonRepository CommonRepository
+	cache            cache.ICache[string, any]
 }
 
-func NewCommonService(commonRepository CommonRepository) *CommonService {
+func NewCommonService(
+	commonRepository CommonRepository,
+	cache cache.ICache[string, any],
+) *CommonService {
 	return &CommonService{
 		commonRepository: commonRepository,
+		cache:            cache,
 	}
 }
 
@@ -66,58 +72,73 @@ func (s *CommonService) GetHeatMap(timezone string) ([]commonModel.Heatmap, erro
 }
 
 func (s *CommonService) GenerateRSS(ctx *gin.Context) (string, error) {
-	echos, err := s.commonRepository.GetAllEchos(ctx.Request.Context(), false)
-	if err != nil {
-		return "", err
-	}
-
 	schema := "http"
 	if ctx.Request.TLS != nil {
 		schema = "https"
 	}
 	host := ctx.Request.Host
-	feed := &feeds.Feed{
-		Title:       "Ech0",
-		Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/", schema, host)},
-		Image:       &feeds.Image{Url: fmt.Sprintf("%s://%s/Ech0.svg", schema, host)},
-		Description: "Ech0",
-		Author:      &feeds.Author{Name: "Ech0"},
-		Updated:     time.Now().UTC(),
-	}
+	cacheKey := "rss:" + schema + ":" + host
 
-	for _, msg := range echos {
-		renderedContent := mdUtil.MdToHTML([]byte(msg.Content))
-		createdAt := time.Unix(msg.CreatedAt, 0).UTC()
-		title := msg.Username + " - " + createdAt.Format("2006-01-02")
-
-		if len(msg.EchoFiles) > 0 {
-			var imageContent []byte
-			for _, ef := range msg.EchoFiles {
-				imageContent = fmt.Appendf(
-					imageContent,
-					"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
-					ef.File.URL,
-				)
+	return cache.ReadThroughTyped[string](
+		s.cache,
+		cacheKey,
+		1,
+		func() (string, error) {
+			echos, err := s.commonRepository.GetAllEchos(ctx.Request.Context(), false)
+			if err != nil {
+				return "", err
 			}
-			renderedContent = append(imageContent, renderedContent...)
-		}
 
-		if len(msg.Tags) > 0 {
-			for _, tag := range msg.Tags {
-				renderedContent = fmt.Appendf(renderedContent, "<br /><span class=\"tag\">#%s</span>", tag.Name)
+			feed := &feeds.Feed{
+				Title:       "Ech0",
+				Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/", schema, host)},
+				Image:       &feeds.Image{Url: fmt.Sprintf("%s://%s/Ech0.svg", schema, host)},
+				Description: "Ech0",
+				Author:      &feeds.Author{Name: "Ech0"},
+				Updated:     time.Now().UTC(),
 			}
-		}
 
-		feed.Items = append(feed.Items, &feeds.Item{
-			Title:       title,
-			Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/echo/%s", schema, host, msg.ID)},
-			Description: string(renderedContent),
-			Author:      &feeds.Author{Name: msg.Username},
-			Created:     createdAt,
-		})
-	}
+			for _, msg := range echos {
+				renderedContent := mdUtil.MdToHTML([]byte(msg.Content))
+				createdAt := time.Unix(msg.CreatedAt, 0).UTC()
+				title := msg.Username + " - " + createdAt.Format("2006-01-02")
 
-	return feed.ToAtom()
+				if len(msg.EchoFiles) > 0 {
+					var imageContent []byte
+					for _, ef := range msg.EchoFiles {
+						imageContent = fmt.Appendf(
+							imageContent,
+							"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
+							ef.File.URL,
+						)
+					}
+					renderedContent = append(imageContent, renderedContent...)
+				}
+
+				if len(msg.Tags) > 0 {
+					for _, tag := range msg.Tags {
+						renderedContent = fmt.Appendf(renderedContent, "<br /><span class=\"tag\">#%s</span>", tag.Name)
+					}
+				}
+
+				feed.Items = append(feed.Items, &feeds.Item{
+					Title:       title,
+					Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/echo/%s", schema, host, msg.ID)},
+					Description: string(renderedContent),
+					Author:      &feeds.Author{Name: msg.Username},
+					Created:     createdAt,
+				})
+			}
+
+			atom, err := feed.ToAtom()
+			if err != nil {
+				return "", err
+			}
+
+			s.commonRepository.TrackRSSCacheKey(cacheKey)
+			return atom, nil
+		},
+	)
 }
 
 func (s *CommonService) GetWebsiteTitle(websiteURL string) (string, error) {

@@ -22,4 +22,5 @@ type CommonRepository interface {
 	GetOwner(ctx context.Context) (userModel.User, error)
 	GetAllEchos(ctx context.Context, showPrivate bool) ([]echoModel.Echo, error)
 	GetHeatMap(ctx context.Context, startTime, endTime int64) ([]int64, error)
+	TrackRSSCacheKey(cacheKey string)
 }

@@ -39,6 +39,7 @@ func (t *cacheKeyTracker) SnapshotAndReset() []string {
 var (
 	echoPageCacheKeys  = newCacheKeyTracker()
 	todayEchoCacheKeys = newCacheKeyTracker()
+	rssCacheKeys       = newCacheKeyTracker()
 )
 
 const (
@@ -75,6 +76,20 @@ func TrackTodayEchosCacheKey(cacheKey string) {
 
 func ClearTodayEchosCache(cache cache.ICache[string, any]) {
 	for _, key := range todayEchoCacheKeys.SnapshotAndReset() {
+		cache.Delete(key)
+	}
+}
+
+func GetRSSCacheKey(schema, host string) string {
+	return "rss:" + schema + ":" + host
+}
+
+func TrackRSSCacheKey(cacheKey string) {
+	rssCacheKeys.Track(cacheKey)
+}
+
+func ClearRSSCache(cache cache.ICache[string, any]) {
+	for _, key := range rssCacheKeys.SnapshotAndReset() {
 		cache.Delete(key)
 	}
 }

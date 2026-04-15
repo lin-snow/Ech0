@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
+	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 type AppRouterGroup struct {
@@ -32,13 +33,18 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 
 // setupRouterGroup 初始化路由组
 func setupRouterGroup(r *gin.Engine, mwDeps *middleware.Deps) *AppRouterGroup {
+	var revoker authService.TokenRevoker
+	if mwDeps != nil {
+		revoker = mwDeps.TokenRevoker
+	}
+
 	resource := r.Group("/")
 	public := r.Group("/api")
 	auth := r.Group("/api")
-	auth.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(mwDeps.TokenRevoker))
+	auth.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(revoker))
 	ws := r.Group("/ws")
 	mcpGroup := r.Group("/mcp")
-	mcpGroup.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(mwDeps.TokenRevoker))
+	mcpGroup.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(revoker))
 	return &AppRouterGroup{
 		ResourceGroup:     resource,
 		PublicRouterGroup: public,
