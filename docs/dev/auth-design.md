@@ -238,9 +238,11 @@ Set-Cookie: ech0_refresh_token=<jwt>;
             Max-Age=604800   ← 7 天
 ```
 
-> **Secure 标志说明**：固定为 `false`。自托管场景下大多数部署通过反代（Nginx/Caddy）做 TLS 终止，
-> 内部链路为 HTTP，强制 `Secure` 会导致 Cookie 无法送达。`HttpOnly` + `SameSite=Lax` + `Path`
-> 已覆盖核心安全面（防 XSS + 防 CSRF + 最小暴露），零配置即可工作。
+> **Secure 标志说明**：根据请求来源自动判断——当检测到 HTTPS（TLS 直连 / `X-Forwarded-Proto: https` /
+> Origin / Referer 为 `https://`）时自动开启 `Secure`，否则关闭。自托管场景下若反代（Nginx/Caddy）
+> 做 TLS 终止并转发 `X-Forwarded-Proto` 头，Cookie 会自动标记为 `Secure`；纯 HTTP 内网部署则不设置，
+> 确保 Cookie 可正常送达。`HttpOnly` + `SameSite=Lax` + `Path` + 自适应 `Secure` 覆盖核心安全面
+>（防 XSS + 防 CSRF + 最小暴露 + HTTPS 防窃听），零配置即可工作。
 
 ## 7. 配置项
 
