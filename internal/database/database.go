@@ -19,6 +19,7 @@ import (
 	queueModel "github.com/lin-snow/ech0/internal/model/queue"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
 	util "github.com/lin-snow/ech0/internal/util/err"
 	"gorm.io/driver/sqlite"
@@ -147,6 +148,7 @@ func MigrateDB() error {
 		&migrationModel.MigrationJob{},
 		&settingModel.AccessTokenSetting{},
 		&authModel.Passkey{},
+		&visitorModel.DailyStat{},
 	}
 
 	return GetDB().AutoMigrate(

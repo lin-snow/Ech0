@@ -15,6 +15,7 @@ import (
 	queueRepository "github.com/lin-snow/ech0/internal/repository/queue"
 	settingRepository "github.com/lin-snow/ech0/internal/repository/setting"
 	userRepository "github.com/lin-snow/ech0/internal/repository/user"
+	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	webhookRepository "github.com/lin-snow/ech0/internal/repository/webhook"
 	agentService "github.com/lin-snow/ech0/internal/service/agent"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
@@ -89,5 +90,8 @@ var (
 	)
 	MigrationSet = wire.NewSet(
 		migrationRepository.NewMigrationRepository,
+	)
+	VisitorSet = wire.NewSet(
+		visitorRepository.NewVisitorRepository,
 	)
 )

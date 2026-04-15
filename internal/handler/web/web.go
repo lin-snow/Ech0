@@ -13,6 +13,13 @@ import (
 	"github.com/lin-snow/ech0/template"
 )
 
+var spaBypassPrefixes = []string{
+	"/api",
+	"/ws",
+	"/mcp",
+	"/swagger",
+}
+
 type WebHandler struct {
 	visitorTracker *visitor.Tracker
 }
@@ -30,6 +37,11 @@ func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 
 	return func(ctx *gin.Context) {
 		requestPath := ctx.Request.URL.Path
+		if shouldBypassSPAFallback(requestPath) {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+
 		if requestPath == "/" {
 			requestPath = "/index.html"
 		}
@@ -52,7 +64,7 @@ func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 			fallbackStat, _ := fallback.Stat()
 			webHandler.visitorTracker.Record(ctx.Request, ctx.ClientIP())
 			ctx.Header("Content-Type", "text/html; charset=utf-8")
-			ctx.Header("Cache-Control", "no-cache")
+			setCacheControlHeader(ctx, "/index.html")
 			http.ServeContent(
 				ctx.Writer,
 				ctx.Request,
@@ -98,8 +110,25 @@ func setCacheControlHeader(ctx *gin.Context, requestPath string) {
 		return
 	}
 	if requestPath == "/index.html" || requestPath == "/" {
-		ctx.Header("Cache-Control", "no-cache")
+		setNoStoreHeaders(ctx)
+		return
 	}
+	ctx.Header("Cache-Control", "public, max-age=3600")
+}
+
+func setNoStoreHeaders(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	ctx.Header("Pragma", "no-cache")
+	ctx.Header("Expires", "0")
+}
+
+func shouldBypassSPAFallback(requestPath string) bool {
+	for _, prefix := range spaBypassPrefixes {
+		if requestPath == prefix || strings.HasPrefix(requestPath, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // getMimeType 根据文件扩展名返回 MIME 类型，带默认值

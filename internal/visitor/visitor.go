@@ -23,12 +23,16 @@ type DayStat struct {
 type Tracker struct {
 	recordCh chan recordEvent
 	queryCh  chan chan []DayStat
+	todayCh  chan chan DayStat
+	loadCh   chan loadRequest
 }
 
 func NewTracker() *Tracker {
 	s := &Tracker{
 		recordCh: make(chan recordEvent, recordBuf),
 		queryCh:  make(chan chan []DayStat),
+		todayCh:  make(chan chan DayStat),
+		loadCh:   make(chan loadRequest),
 	}
 	go s.run()
 	return s
@@ -55,9 +59,29 @@ func (s *Tracker) Last7Days() []DayStat {
 	return <-resp
 }
 
+func (s *Tracker) TodayStat() DayStat {
+	resp := make(chan DayStat, 1)
+	s.todayCh <- resp
+	return <-resp
+}
+
+func (s *Tracker) LoadHistory(history []DayStat) {
+	done := make(chan struct{}, 1)
+	s.loadCh <- loadRequest{
+		history: history,
+		done:    done,
+	}
+	<-done
+}
+
 type recordEvent struct {
 	ipHash string
 	at     time.Time
+}
+
+type loadRequest struct {
+	history []DayStat
+	done    chan struct{}
 }
 
 type runtimeState struct {
@@ -82,6 +106,35 @@ func (s *Tracker) run() {
 			rotateDay(&state, now.Format(dateLayout))
 			gc(&state, now)
 			resp <- snapshotLast7Days(state.byDay, now)
+		case resp := <-s.todayCh:
+			now := time.Now().UTC()
+			today := now.Format(dateLayout)
+			rotateDay(&state, today)
+			gc(&state, now)
+			stat, ok := state.byDay[today]
+			if !ok {
+				stat = DayStat{Date: today}
+			}
+			resp <- stat
+		case req := <-s.loadCh:
+			now := time.Now().UTC()
+			rotateDay(&state, now.Format(dateLayout))
+			gc(&state, now)
+			loadHistory(&state, req.history, now.Format(dateLayout))
+			req.done <- struct{}{}
+		}
+	}
+}
+
+func loadHistory(state *runtimeState, history []DayStat, today string) {
+	for _, stat := range history {
+		if stat.Date == "" || stat.Date == today {
+			continue
+		}
+		state.byDay[stat.Date] = DayStat{
+			Date: stat.Date,
+			PV:   stat.PV,
+			UV:   stat.UV,
 		}
 	}
 }

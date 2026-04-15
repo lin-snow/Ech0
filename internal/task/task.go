@@ -13,11 +13,14 @@ import (
 	contracts "github.com/lin-snow/ech0/internal/event/contracts"
 	publisher "github.com/lin-snow/ech0/internal/event/publisher"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
+	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
 	queueRepository "github.com/lin-snow/ech0/internal/repository/queue"
+	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	fileService "github.com/lin-snow/ech0/internal/service/file"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	"github.com/lin-snow/ech0/internal/storage"
 	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	"github.com/lin-snow/ech0/internal/visitor"
 	"go.uber.org/zap"
 )
 
@@ -28,11 +31,16 @@ type Tasker struct {
 	publisher      *publisher.Publisher
 	queueRepo      *queueRepository.QueueRepository
 	storageManager *storage.Manager
+	visitorTracker *visitor.Tracker
+	visitorRepo    *visitorRepository.VisitorRepository
 	started        bool
 	mu             sync.Mutex
 }
 
-const backupScheduleTag = "BackupSchedule"
+const (
+	backupScheduleTag  = "BackupSchedule"
+	visitorSnapshotTag = "VisitorSnapshotSchedule"
+)
 
 func (t *Tasker) Name() string {
 	return "tasker"
@@ -44,6 +52,8 @@ func NewTasker(
 	publisher *publisher.Publisher,
 	queueRepo *queueRepository.QueueRepository,
 	storageManager *storage.Manager,
+	visitorTracker *visitor.Tracker,
+	visitorRepo *visitorRepository.VisitorRepository,
 ) *Tasker {
 	scheduler, err := gocron.NewScheduler()
 	if err != nil {
@@ -57,6 +67,8 @@ func NewTasker(
 		publisher:      publisher,
 		queueRepo:      queueRepo,
 		storageManager: storageManager,
+		visitorTracker: visitorTracker,
+		visitorRepo:    visitorRepo,
 	}
 }
 
@@ -89,6 +101,12 @@ func (t *Tasker) Start(context.Context) error {
 		if err := t.ScheduleBackupTask(backupScheduleSetting.CronExpression); err != nil {
 			return err
 		}
+	}
+	if err := t.restoreVisitorStats(context.Background()); err != nil {
+		return err
+	}
+	if err := t.VisitorSnapshotTask(); err != nil {
+		return err
 	}
 
 	t.scheduler.Start()
@@ -215,6 +233,74 @@ func (t *Tasker) ScheduleBackupTask(cronExpression string) error {
 		return err
 	}
 	return nil
+}
+
+// VisitorSnapshotTask 定时保存 PV/UV 快照并清理历史数据。
+func (t *Tasker) VisitorSnapshotTask() error {
+	_, err := t.scheduler.NewJob(
+		gocron.CronJob("59 23 * * *", false),
+		gocron.NewTask(func() {
+			if t.visitorTracker == nil || t.visitorRepo == nil {
+				return
+			}
+			todayStat := t.visitorTracker.TodayStat()
+			if err := t.visitorRepo.UpsertDailyStat(context.Background(), buildVisitorDailyStat(todayStat)); err != nil {
+				logUtil.GetLogger().Error("Failed to upsert visitor daily stat", zap.Error(err))
+				return
+			}
+			// 保留最近 6 天（包括当天快照）。
+			cutoff := visitorCutoffDate(time.Now().UTC())
+			if err := t.visitorRepo.DeleteOlderThan(context.Background(), cutoff); err != nil {
+				logUtil.GetLogger().Error("Failed to cleanup visitor stats", zap.Error(err))
+			}
+		}),
+		gocron.WithTags(visitorSnapshotTag),
+	)
+	if err != nil {
+		logUtil.GetLogger().Error("Failed to schedule VisitorSnapshotTask", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (t *Tasker) restoreVisitorStats(ctx context.Context) error {
+	if t.visitorTracker == nil || t.visitorRepo == nil {
+		return nil
+	}
+	stats, err := t.visitorRepo.GetRecentDays(ctx, 6)
+	if err != nil {
+		logUtil.GetLogger().Error("Failed to load visitor stats", zap.Error(err))
+		return err
+	}
+	if len(stats) == 0 {
+		return nil
+	}
+	t.visitorTracker.LoadHistory(convertVisitorHistory(stats))
+	return nil
+}
+
+func buildVisitorDailyStat(stat visitor.DayStat) visitorModel.DailyStat {
+	return visitorModel.DailyStat{
+		Date: stat.Date,
+		PV:   stat.PV,
+		UV:   stat.UV,
+	}
+}
+
+func convertVisitorHistory(stats []visitorModel.DailyStat) []visitor.DayStat {
+	history := make([]visitor.DayStat, 0, len(stats))
+	for _, stat := range stats {
+		history = append(history, visitor.DayStat{
+			Date: stat.Date,
+			PV:   stat.PV,
+			UV:   stat.UV,
+		})
+	}
+	return history
+}
+
+func visitorCutoffDate(now time.Time) string {
+	return now.UTC().AddDate(0, 0, -5).Format("2006-01-02")
 }
 
 // ApplyBackupSchedule 在运行期动态更新备份任务。

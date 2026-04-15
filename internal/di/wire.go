@@ -154,6 +154,8 @@ var TaskerSet = wire.NewSet(
 	service.CommonSet,
 
 	repository.QueueSet,
+	repository.VisitorSet,
+	visitor.NewTracker,
 	task.ProviderSet,
 )
 

@@ -34,3 +34,33 @@ func TestRecordIP_UsesUTCDayBoundary(t *testing.T) {
 		t.Fatalf("expected pv=1 uv=1, got pv=%d uv=%d", stat.PV, stat.UV)
 	}
 }
+
+func TestTrackerLoadHistory_LoadsPastDaysWithoutOverwritingToday(t *testing.T) {
+	tracker := NewTracker()
+	now := time.Now().UTC()
+	today := now.Format(dateLayout)
+	yesterday := now.AddDate(0, 0, -1).Format(dateLayout)
+
+	tracker.LoadHistory([]DayStat{
+		{Date: today, PV: 999, UV: 999},
+		{Date: yesterday, PV: 12, UV: 8},
+	})
+
+	todayStat := tracker.TodayStat()
+	if todayStat.Date != today {
+		t.Fatalf("expected today date %s, got %s", today, todayStat.Date)
+	}
+	if todayStat.PV != 0 || todayStat.UV != 0 {
+		t.Fatalf("expected today stat to stay zero, got pv=%d uv=%d", todayStat.PV, todayStat.UV)
+	}
+
+	stats := tracker.Last7Days()
+	byDate := make(map[string]DayStat, len(stats))
+	for _, stat := range stats {
+		byDate[stat.Date] = stat
+	}
+	loaded := byDate[yesterday]
+	if loaded.PV != 12 || loaded.UV != 8 {
+		t.Fatalf("expected yesterday stat pv=12 uv=8, got pv=%d uv=%d", loaded.PV, loaded.UV)
+	}
+}
