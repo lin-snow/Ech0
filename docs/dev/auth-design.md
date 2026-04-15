@@ -293,10 +293,11 @@ Set-Cookie: ech0_refresh_token=<jwt>;
 
 | 文件 | 职责 |
 |---|---|
-| `web/src/service/request/shared.ts` | access_token 内存存取（getAccessToken / setAccessToken / clearAccessToken） |
+| `web/src/stores/auth.ts` | Pinia 认证状态管理；access_token 内存存取 |
+| `web/src/service/request/shared.ts` | 请求相关共享工具（URL helpers、初始化状态） |
 | `web/src/service/request/index.ts` | 请求封装、401 拦截 + 静默刷新（tryRefresh / silentRefresh） |
 | `web/src/service/api/auth.ts` | 登录 / 登出 / code 交换 / Passkey API |
-| `web/src/stores/user.ts` | 用户状态管理（login / logout / autoLogin / loginWithCode） |
+| `web/src/stores/user.ts` | 用户信息状态管理 |
 | `web/src/views/auth/modules/AuthPage.vue` | 登录页（密码 / OAuth code 检测 / Passkey） |
 
 ## 10. 认证流程时序图
