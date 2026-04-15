@@ -93,9 +93,9 @@ export async function updateFileMeta(input: UpdateFileMetaInput): Promise<FileEn
   return normalizeFileEntity(data)
 }
 
-export function buildStreamUrl(fileId: string, t = Date.now()): string {
-  const token = useAuthStore().accessToken
-  const tokenQuery = token ? `&token=${encodeURIComponent(token)}` : ''
+export function buildStreamUrl(fileId: string, t = Date.now(), token?: string): string {
+  const resolved = token ?? useAuthStore().accessToken
+  const tokenQuery = resolved ? `&token=${encodeURIComponent(resolved)}` : ''
   return `${getApiUrl()}/file/${fileId}/stream?t=${t}${tokenQuery}`
 }
 

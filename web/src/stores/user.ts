@@ -74,6 +74,12 @@ export const useUserStore = defineStore('userStore', () => {
   }
 
   async function autoLogin() {
+    // OAuth 回调带有 code 参数，将由 loginWithCode 独立完成登录，
+    // 跳过 silentRefresh 避免用已清除的 cookie 触发无意义的 401。
+    const url = new URL(window.location.href)
+    if (url.pathname.endsWith('/auth') && url.searchParams.has('code')) {
+      return
+    }
     const ok = await authStore.silentRefresh()
     if (ok) {
       await refreshCurrentUser()

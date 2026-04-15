@@ -18,7 +18,6 @@ interface RequestOptions {
 const ofetchInstance = ofetch.create({
   baseURL: import.meta.env.VITE_SERVICE_BASE_URL,
   timeout: 20000,
-  credentials: 'include',
   ignoreResponseError: true,
 
   onRequest({ options }) {
@@ -66,6 +65,7 @@ export const request = async <T>(requestOptions: RequestOptions): Promise<App.Ap
       method: requestOptions.method,
       body: requestOptions.data,
       timeout: requestOptions.timeout,
+      credentials: 'include',
     })
 
   let res = await doRequest()
@@ -109,6 +109,7 @@ export const requestWithDirectUrl = async <T>(
       method: requestOptions.method,
       body: requestOptions.data,
       timeout: requestOptions.timeout,
+      credentials: 'omit',
     },
   ).then((res) => {
     if (res.code !== 1 && !requestOptions.silentError) {
@@ -136,6 +137,7 @@ export const requestWithDirectUrlAndData = async <T>(
       method: requestOptions.method,
       body: requestOptions.data,
       timeout: requestOptions.timeout,
+      credentials: 'omit',
       headers: {
         'X-Direct-URL': requestOptions.dirrectUrlAndData ? requestOptions.dirrectUrlAndData : '',
       },
@@ -158,6 +160,7 @@ export const downloadFile = async (requestOptions: RequestOptions): Promise<Blob
     method: requestOptions.method,
     body: requestOptions.data,
     timeout: requestOptions.timeout,
+    credentials: 'include',
   }).then((res) => {
     if (res instanceof Blob) {
       return res
