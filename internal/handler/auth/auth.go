@@ -61,6 +61,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr)
 		if err != nil {
+			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
 					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
@@ -73,6 +74,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 		}
 
 		if h.authService.IsTokenRevoked(claims.ID) {
+			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenRevoked, errUtil.HandleError(&commonModel.ServerError{
 					Msg: commonModel.TOKEN_REVOKED, Err: nil,
@@ -86,6 +88,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		user, err := h.userService.GetUserByID(claims.Userid)
 		if err != nil {
+			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
 					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,

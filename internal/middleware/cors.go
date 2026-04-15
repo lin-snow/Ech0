@@ -22,12 +22,12 @@ func Cors() gin.HandlerFunc {
 
 		c.Header(
 			"Access-Control-Allow-Headers",
-			"Content-Type, Authorization, Accept-Language, X-Timezone, X-Locale, X-Direct-URL",
+			"Content-Type, Authorization, Accept-Language, Range, X-Timezone, X-Locale, X-Direct-URL",
 		)
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PATCH, PUT")
 		c.Header(
 			"Access-Control-Expose-Headers",
-			"Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type",
+			"Content-Length, Content-Range, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type",
 		)
 		if method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
