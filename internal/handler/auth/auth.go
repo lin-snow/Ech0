@@ -12,11 +12,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
+	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
+	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 )
 
@@ -42,37 +44,55 @@ func NewAuthHandler(authService authService.Service, userService userService.Ser
 // 让浏览器自动携带 HttpOnly Cookie。
 func (h *AuthHandler) Refresh() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		localizer := i18nUtil.LocalizerFromGin(ctx)
+
 		refreshTokenStr, err := cookieUtil.GetRefreshTokenFromCookie(ctx)
 		if err != nil || refreshTokenStr == "" {
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithErrorCode[any](
-				commonModel.REFRESH_TOKEN_INVALID,
+			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
+				}), nil),
 				commonModel.ErrCodeRefreshTokenInvalid,
+				commonModel.MsgKeyAuthRefreshTokenInvalid,
+				nil,
 			))
 			return
 		}
 
 		claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr)
 		if err != nil {
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithErrorCode[any](
-				commonModel.REFRESH_TOKEN_INVALID,
+			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
+				}), nil),
 				commonModel.ErrCodeRefreshTokenInvalid,
+				commonModel.MsgKeyAuthRefreshTokenInvalid,
+				nil,
 			))
 			return
 		}
 
 		if h.authService.IsTokenRevoked(claims.ID) {
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithErrorCode[any](
-				commonModel.TOKEN_REVOKED,
+			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenRevoked, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.TOKEN_REVOKED, Err: nil,
+				}), nil),
 				commonModel.ErrCodeTokenRevoked,
+				commonModel.MsgKeyAuthTokenRevoked,
+				nil,
 			))
 			return
 		}
 
 		user, err := h.userService.GetUserByID(claims.Userid)
 		if err != nil {
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithErrorCode[any](
-				commonModel.USER_NOTFOUND,
+			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
+				}), nil),
 				commonModel.ErrCodeRefreshTokenInvalid,
+				commonModel.MsgKeyAuthRefreshTokenInvalid,
+				nil,
 			))
 			return
 		}
@@ -80,7 +100,14 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 		accessClaims := jwtUtil.CreateClaims(user)
 		accessToken, err := jwtUtil.GenerateToken(accessClaims)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, commonModel.Fail[any]("failed to generate access token"))
+			ctx.JSON(http.StatusInternalServerError, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenGenerateFailed, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.TOKEN_GENERATE_FAILED, Err: err,
+				}), nil),
+				commonModel.ErrCodeTokenGenerateFailed,
+				commonModel.MsgKeyAuthTokenGenerateFailed,
+				nil,
+			))
 			return
 		}
 
@@ -131,20 +158,30 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 // code 为一次性使用：取出后立即从缓存中删除，过期也会自动淘汰。
 func (h *AuthHandler) Exchange() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		localizer := i18nUtil.LocalizerFromGin(ctx)
+
 		var req authModel.ExchangeCodeReq
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			ctx.JSON(http.StatusBadRequest, commonModel.FailWithErrorCode[any](
-				commonModel.INVALID_REQUEST_BODY,
+			ctx.JSON(http.StatusBadRequest, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.INVALID_REQUEST_BODY, Err: err,
+				}), nil),
 				commonModel.ErrCodeInvalidRequest,
+				commonModel.MsgKeyCommonRequestFailed,
+				nil,
 			))
 			return
 		}
 
 		tokenPair, err := h.authService.ExchangeOAuthCode(req.Code)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, commonModel.FailWithErrorCode[any](
-				commonModel.EXCHANGE_CODE_INVALID,
+			ctx.JSON(http.StatusBadRequest, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthExchangeCodeInvalid, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.EXCHANGE_CODE_INVALID, Err: err,
+				}), nil),
 				commonModel.ErrCodeExchangeCodeInvalid,
+				commonModel.MsgKeyAuthExchangeCodeInvalid,
+				nil,
 			))
 			return
 		}

@@ -15,6 +15,7 @@ const (
 	MsgKeyAuthTokenRevoked            = "auth.token_revoked"
 	MsgKeyAuthRefreshTokenInvalid     = "auth.refresh_token_invalid"
 	MsgKeyAuthExchangeCodeInvalid     = "auth.exchange_code_invalid"
+	MsgKeyAuthTokenGenerateFailed     = "auth.token_generate_failed"
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
 )
@@ -41,6 +42,8 @@ func MessageKeyFromErrorCode(code string) string {
 		return MsgKeyAuthRefreshTokenInvalid
 	case ErrCodeExchangeCodeInvalid:
 		return MsgKeyAuthExchangeCodeInvalid
+	case ErrCodeTokenGenerateFailed:
+		return MsgKeyAuthTokenGenerateFailed
 	default:
 		return ""
 	}
