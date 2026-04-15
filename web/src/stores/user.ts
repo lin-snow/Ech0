@@ -68,7 +68,7 @@ export const useUserStore = defineStore('userStore', () => {
     user.value = null
 
     const echoStore = useEchoStore()
-    echoStore.clearEchos()
+    echoStore.refreshEchos()
 
     localStg.setItem('needLoginRedirect', true)
   }
