@@ -18,7 +18,7 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-co-op/gocron/v2 v2.21.0
-	github.com/go-webauthn/webauthn v0.16.4
+	github.com/go-webauthn/webauthn v0.16.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gomarkdown/markdown v0.0.0-20260417124207-7d523f7318df
 	github.com/google/go-github/v80 v80.0.0
@@ -167,7 +167,7 @@ require (
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/tinylib/msgp v1.6.3 // indirect
+	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
