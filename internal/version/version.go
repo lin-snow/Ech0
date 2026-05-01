@@ -19,7 +19,7 @@ const (
 	// Version is the current semantic version. Bump on release.
 	// release-please-action edits the literal below — do NOT remove the
 	// trailing marker comment; see .release-please-config.json.
-	Version = "4.6.4" // x-release-please-version
+	Version = "4.7.0" // x-release-please-version
 
 	// License is the SPDX identifier of the project license.
 	License = "AGPL-3.0-or-later"
