@@ -4,14 +4,14 @@ go 1.26.2
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.38.0
-	github.com/caarlos0/env/v11 v11.4.0
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/charmbracelet/huh v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-co-op/gocron/v2 v2.21.1
-	github.com/go-webauthn/webauthn v0.17.0
+	github.com/go-webauthn/webauthn v0.17.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gomarkdown/markdown v0.0.0-20260417124207-7d523f7318df
 	github.com/google/go-github/v80 v80.0.0
@@ -31,13 +31,13 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	github.com/wneessen/go-mail v0.7.2
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/mod v0.35.0
 	golang.org/x/net v0.53.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/text v0.36.0
-	google.golang.org/genai v1.54.0
+	google.golang.org/genai v1.55.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
