@@ -28,7 +28,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
-    "@cap.js/widget": "^0.1.52",
+    "@cap.js/widget": "^0.1.53",
     "@dicebear/core": "^9.4.2",
     "@dicebear/micah": "^9.4.2",
     "@headlessui/vue": "^1.7.23",
@@ -45,7 +45,7 @@
     "pinia": "^3.0.4",
     "vditor": "^3.11.2",
     "vue": "^3.5.34",
-    "vue-i18n": "^11.4.2",
+    "vue-i18n": "^11.4.4",
     "vue-router": "^5.0.7",
     "vue-sonner": "^2.0.9",
     "vue-virtual-scroller": "3.0.3"
@@ -61,7 +61,7 @@
     "@vue/eslint-config-typescript": "^14.7.0",
     "@vue/test-utils": "^2.4.10",
     "@vue/tsconfig": "^0.9.1",
-    "eslint": "^10.3.0",
+    "eslint": "^10.4.0",
     "eslint-plugin-vue": "~10.9.1",
     "jiti": "^2.7.0",
     "jsdom": "^29.1.1",
@@ -74,7 +74,7 @@
     "stylelint-config-recommended-vue": "^1.6.1",
     "stylelint-config-standard": "^40.0.0",
     "stylelint-config-standard-scss": "^17.0.0",
-    "tsx": "^4.22.0",
+    "tsx": "^4.22.1",
     "typescript": "~6.0.3",
     "unocss": "66.6.8",
     "vite": "^8.0.13",
