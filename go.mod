@@ -3,7 +3,7 @@ module github.com/lin-snow/ech0
 go 1.26.2
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.42.0
+	github.com/anthropics/anthropic-sdk-go v1.43.0
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
@@ -39,7 +39,7 @@ require (
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/text v0.37.0
-	google.golang.org/genai v1.56.0
+	google.golang.org/genai v1.57.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
