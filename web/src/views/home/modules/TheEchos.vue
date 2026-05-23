@@ -16,7 +16,7 @@
       @before-leave="onBeforeLeave"
       @leave="onLeave"
     >
-      <div v-for="(echo, index) in echoStore.echoList" :key="echo.id" class="will-change-transform">
+      <div v-for="(echo, index) in echoStore.echoList" :key="echo.id">
         <TheEchoCard :echo="echo" :index="index" @refresh="handleRefresh" />
       </div>
     </TransitionGroup>

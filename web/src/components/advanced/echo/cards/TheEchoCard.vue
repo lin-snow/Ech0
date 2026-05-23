@@ -154,7 +154,7 @@ const activeMenuId = ref<string | null>(null)
 </script>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, watch } from 'vue'
 import { fetchDeleteEcho, fetchGetEchoById } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useUserStore, useEchoStore, useEditorStore } from '@/stores'
@@ -266,15 +266,7 @@ const toggleMenu = () => {
   activeMenuId.value = isMenuOpen.value ? null : props.echo.id
 }
 
-watch(isMenuOpen, async (open) => {
-  if (open) {
-    await nextTick()
-    updateMenuPosition()
-  }
-})
-
 const handleDocumentClick = (event: MouseEvent) => {
-  if (!isMenuOpen.value) return
   const target = event.target as Node | null
   if (!target) return
   if (menuPanelRef.value?.contains(target) || menuTriggerRef.value?.contains(target)) return
@@ -285,19 +277,39 @@ const handleEscape = (event: KeyboardEvent) => {
   if (event.key === 'Escape') closeMenu()
 }
 
-onMounted(() => {
+// scroll 用 capture 是因为内层 .home-main 容器滚动不会冒泡到 window；
+// passive 让浏览器知道我们只读坐标、不会 preventDefault，可与合成并行。
+const SCROLL_LISTENER_OPTIONS: AddEventListenerOptions = { passive: true, capture: true }
+
+const bindGlobalListeners = () => {
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('keydown', handleEscape)
-  window.addEventListener('resize', updateMenuPosition)
-  window.addEventListener('scroll', updateMenuPosition, true)
-})
+  window.addEventListener('resize', updateMenuPosition, { passive: true })
+  window.addEventListener('scroll', updateMenuPosition, SCROLL_LISTENER_OPTIONS)
+}
 
-onBeforeUnmount(() => {
-  if (isMenuOpen.value) activeMenuId.value = null
+const unbindGlobalListeners = () => {
   document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('keydown', handleEscape)
   window.removeEventListener('resize', updateMenuPosition)
-  window.removeEventListener('scroll', updateMenuPosition, true)
+  window.removeEventListener('scroll', updateMenuPosition, SCROLL_LISTENER_OPTIONS)
+}
+
+watch(isMenuOpen, async (open) => {
+  if (open) {
+    await nextTick()
+    updateMenuPosition()
+    bindGlobalListeners()
+  } else {
+    unbindGlobalListeners()
+  }
+})
+
+onBeforeUnmount(() => {
+  if (isMenuOpen.value) {
+    activeMenuId.value = null
+    unbindGlobalListeners()
+  }
 })
 </script>
 

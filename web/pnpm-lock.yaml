@@ -1514,8 +1514,8 @@ packages:
   balloon-css@0.5.2:
     resolution: {integrity: sha512-zheJpzwyNrG4t39vusA67v3BYg1HTVXOF8cErPEHzWK88PEOFwgo6Ea9VHOgOWNMgeuOtFVtB73NE2NWl9uDyQ==}
 
-  baseline-browser-mapping@2.10.31:
-    resolution: {integrity: sha512-MujYO3eP72uvmSE0i4wltsodRfIpZATP3jvzRNRGGxgzId7aVocVJJV3nf01qnzzKFGxQVC9bpWxl5cjxTr/7Q==}
+  baseline-browser-mapping@2.10.32:
+    resolution: {integrity: sha512-wbPvpyjJPC0zdfdKXxqEL3Ea+bOMD/87X4lftiJkkaBiuG6ALQy1SLmEd7BSmVCuwCQsBrCamgBoLyfFDD1EPg==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -4671,7 +4671,7 @@ snapshots:
 
   balloon-css@0.5.2: {}
 
-  baseline-browser-mapping@2.10.31: {}
+  baseline-browser-mapping@2.10.32: {}
 
   bidi-js@1.0.3:
     dependencies:
@@ -4695,7 +4695,7 @@ snapshots:
 
   browserslist@4.28.2:
     dependencies:
-      baseline-browser-mapping: 2.10.31
+      baseline-browser-mapping: 2.10.32
       caniuse-lite: 1.0.30001793
       electron-to-chromium: 1.5.361
       node-releases: 2.0.46

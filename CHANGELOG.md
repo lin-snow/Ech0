@@ -7,6 +7,18 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/lin-snow/Ech0/releases) — earlier release notes are not retroactively imported here.
 
 
+## [4.8.2] - 2026-05-23
+
+### Fixed
+
+- **Timeline scroll jank**: echo cards no longer keep `4 × N` global scroll/click handlers attached while their action menu is closed; listeners now bind only while the menu is open, with `passive: true` on scroll. The always-on `will-change-transform` wrapper was also dropped.
+- **`/api/files/...` images missing `Cache-Control` in browsers**: `StaticFileSecurity` was setting the header after `c.Next()`, too late on Chrome's Range-request path (curl saw it; browsers didn't). Header is now resolved from the URL extension and set before `c.Next()`.
+
+### Internal
+
+- **Dependency bumps (Go)**: `github.com/anthropics/anthropic-sdk-go` 1.42.0 → 1.43.0, `google.golang.org/genai` 1.56.0 → 1.57.0.
+- **Dependency bumps (`web/`)**: `@cap.js/widget` 0.1.52 → 0.1.53, `vue-i18n` 11.4.2 → 11.4.4, `eslint` 10.3.0 → 10.4.0, `tsx` 4.22.0 → 4.22.1, `js-cookie` 3.0.5 → 3.0.7, `baseline-browser-mapping` 2.10.31 → 2.10.32 (transitive).
+
 ## [4.8.1] - 2026-05-15
 
 ### Added
