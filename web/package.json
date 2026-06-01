@@ -61,7 +61,7 @@
     "@vue/eslint-config-typescript": "^14.7.0",
     "@vue/test-utils": "^2.4.10",
     "@vue/tsconfig": "^0.9.1",
-    "eslint": "^10.4.0",
+    "eslint": "^10.4.1",
     "eslint-plugin-vue": "~10.9.1",
     "jiti": "^2.7.0",
     "jsdom": "^29.1.1",
@@ -74,14 +74,14 @@
     "stylelint-config-recommended-vue": "^1.6.1",
     "stylelint-config-standard": "^40.0.0",
     "stylelint-config-standard-scss": "^17.0.0",
-    "tsx": "^4.22.3",
+    "tsx": "^4.22.4",
     "typescript": "~6.0.3",
     "unocss": "66.7.0",
-    "vite": "^8.0.14",
+    "vite": "^8.0.15",
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-vue-devtools": "^8.1.2",
     "vitest": "^4.1.7",
-    "vue-tsc": "^3.3.2"
+    "vue-tsc": "^3.3.3"
   },
   "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1"
 }
