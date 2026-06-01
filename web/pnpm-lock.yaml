@@ -12,11 +12,11 @@ importers:
         specifier: ^0.1.53
         version: 0.1.53
       '@dicebear/core':
-        specifier: ^9.4.2
-        version: 9.4.2
-      '@dicebear/micah':
-        specifier: ^9.4.2
-        version: 9.4.2(@dicebear/core@9.4.2)
+        specifier: ^10.0.1
+        version: 10.0.1
+      '@dicebear/styles':
+        specifier: ^10.0.0
+        version: 10.0.0
       '@headlessui/vue':
         specifier: ^1.7.23
         version: 1.7.23(vue@3.5.35(typescript@6.0.3))
@@ -418,15 +418,12 @@ packages:
     peerDependencies:
       postcss-selector-parser: ^7.1.1
 
-  '@dicebear/core@9.4.2':
-    resolution: {integrity: sha512-MF0042+Z3s8PGZKZLySfhft28bUa3B1iq0e5NSjCvY8gfMi5aIH/iRJGRJa1N9Jz1BNkxYb4yvJ/N9KO8Z6Y+w==}
-    engines: {node: '>=18.0.0'}
+  '@dicebear/core@10.0.1':
+    resolution: {integrity: sha512-EUldm3THEc58Jz2/N8FsqKpgcJmYvjgwnf03EsIvuOVQ+wMad3r0AWwFB242879LMGU1tXqYpeGzcDblhWpTLQ==}
+    engines: {node: '>=22.0.0'}
 
-  '@dicebear/micah@9.4.2':
-    resolution: {integrity: sha512-e4D3W/OlChSsLo7Llwsy0J18vk0azJqF/uFoY+EKACCNHBc1HGNsqVvu2CTf+OWOA8wTyAK6UkjBN5p01r7D+g==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      '@dicebear/core': ^9.0.0
+  '@dicebear/styles@10.0.0':
+    resolution: {integrity: sha512-L98E+Am9ZG/nm9I05xthcBbuga/oxA2xkHUgkjcEO9hWzB1LU67pvU2BMrQphVKZ4rnzvLwibURe/41lHMC1/Q==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -3654,13 +3651,9 @@ snapshots:
     dependencies:
       postcss-selector-parser: 7.1.1
 
-  '@dicebear/core@9.4.2':
-    dependencies:
-      '@types/json-schema': 7.0.15
+  '@dicebear/core@10.0.1': {}
 
-  '@dicebear/micah@9.4.2(@dicebear/core@9.4.2)':
-    dependencies:
-      '@dicebear/core': 9.4.2
+  '@dicebear/styles@10.0.0': {}
 
   '@emnapi/core@1.10.0':
     dependencies:

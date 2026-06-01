@@ -6,13 +6,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { createAvatar } from '@dicebear/core'
-import * as micah from '@dicebear/micah'
+import { Avatar, Style, type StyleOptions } from '@dicebear/core'
+import micah from '@dicebear/styles/micah.json'
 
+// DiceBear 10 distributes styles as JSON definitions. `new Style()` validates
+// the definition against its JSON Schema, so build it once at module scope and
+// reuse it for every avatar instead of paying that cost on each render.
+const micahStyle = new Style(micah)
+
+type MicahOptions = StyleOptions<typeof micah>
+type MicahOptionKey = keyof MicahOptions
 type AvatarOptionItem = string | number | boolean
 type AvatarOptionValue = AvatarOptionItem | AvatarOptionItem[] | null | undefined
-type MicahRuntimeOptions = NonNullable<Parameters<typeof micah.create>[0]['options']>
-type MicahOptionKey = keyof MicahRuntimeOptions
 type BaseAvatarOptions = Partial<Record<MicahOptionKey, AvatarOptionValue>>
 
 const avatarCache = new Map<string, string>()
@@ -41,7 +46,7 @@ const avatarSrc = computed(() => {
   const seed = props.seed.trim() || 'guest'
   const sizeNum = Number(props.size)
   const size = Number.isFinite(sizeNum) && sizeNum > 0 ? Math.round(sizeNum) : 128
-  const normalizedOptions: Partial<MicahRuntimeOptions> = {}
+  const normalizedOptions: Partial<MicahOptions> = {}
   const sortedOptionEntries = (
     Object.entries(props.options) as [MicahOptionKey, AvatarOptionValue][]
   ).sort(([a], [b]) => String(a).localeCompare(String(b)))
@@ -60,11 +65,11 @@ const avatarSrc = computed(() => {
   const cachedAvatar = avatarCache.get(cacheKey)
   if (cachedAvatar) return cachedAvatar
 
-  const generatedAvatar = createAvatar(micah, {
+  const generatedAvatar = new Avatar(micahStyle, {
     seed,
     size,
     ...normalizedOptions,
-  } as Record<string, unknown>).toDataUri()
+  } as MicahOptions).toDataUri()
 
   avatarCache.set(cacheKey, generatedAvatar)
   return generatedAvatar

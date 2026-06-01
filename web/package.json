@@ -29,8 +29,8 @@
   },
   "dependencies": {
     "@cap.js/widget": "^0.1.53",
-    "@dicebear/core": "^9.4.2",
-    "@dicebear/micah": "^9.4.2",
+    "@dicebear/core": "^10.0.1",
+    "@dicebear/styles": "^10.0.0",
     "@headlessui/vue": "^1.7.23",
     "@vueuse/core": "^14.3.0",
     "aplayer": "^1.10.1",
