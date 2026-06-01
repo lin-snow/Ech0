@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@cap.js/widget": "^0.1.53",
-    "@dicebear/core": "^9.4.2",
+    "@dicebear/core": "^10.0.1",
     "@dicebear/micah": "^9.4.2",
     "@headlessui/vue": "^1.7.23",
     "@vueuse/core": "^14.3.0",
