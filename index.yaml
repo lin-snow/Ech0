@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   ech0:
   - apiVersion: v2
+    appVersion: 5.0.0
+    created: "2026-06-03T17:21:02.230440343Z"
+    description: A Helm chart for Ech0
+    digest: b21f9bbc0aca522f8107aebe0010af00739d07a2b402cd80e901db31ad8c8ba5
+    icon: https://github.com/lin-snow/Ech0/blob/main/docs/imgs/logo.svg
+    name: ech0
+    type: application
+    urls:
+    - https://github.com/lin-snow/Ech0/releases/download/ech0-5.0.0/ech0-5.0.0.tgz
+    version: 5.0.0
+  - apiVersion: v2
     appVersion: 4.9.2
     created: "2026-06-02T10:26:38.294555893Z"
     description: A Helm chart for Ech0
@@ -265,4 +276,4 @@ entries:
     urls:
     - https://lin-snow.github.io/Ech0/ech0-0.1.0.tgz
     version: 0.1.0
-generated: "2026-06-02T10:26:38.294802018Z"
+generated: "2026-06-03T17:21:02.230546993Z"
