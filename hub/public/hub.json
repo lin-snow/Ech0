@@ -1,6 +1,10 @@
 {
   "instances": [
     {
+      "id": "abloom-echo",
+      "url": "https://memo.abloom.site"
+    },
+    {
       "id": "airtouch",
       "url": "https://mm.airtouch.top"
     },
