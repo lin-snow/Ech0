@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div v-if="echo.extension" class="extension-renderer">
-    <APlayerCard v-if="echo.extension.type === ExtensionType.MUSIC" :echo="echo" />
+    <MusicPlayerCard v-if="echo.extension.type === ExtensionType.MUSIC" :echo="echo" />
     <VideoCard
       v-else-if="echo.extension.type === ExtensionType.VIDEO"
       :video-id="echo.extension.payload.videoId"
@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import { ExtensionType } from '@/enums/enums'
-const APlayerCard = defineAsyncComponent(() => import('./cards/APlayerCard.vue'))
+const MusicPlayerCard = defineAsyncComponent(() => import('./cards/MusicPlayerCard.vue'))
 const VideoCard = defineAsyncComponent(() => import('./cards/VideoCard.vue'))
 const GithubCard = defineAsyncComponent(() => import('./cards/GithubCard.vue'))
 const WebsiteCard = defineAsyncComponent(() => import('./cards/WebsiteCard.vue'))

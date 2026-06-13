@@ -7,6 +7,13 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/lin-snow/Ech0/releases) — earlier release notes are not retroactively imported here.
 
 
+## [Unreleased]
+
+### Changed
+
+- **Music cards now use Ech0's native single-track player.** The Vue player keeps Meting API metadata resolution while replacing APlayer/MetingJS with the browser audio API, Ech0 theme tokens, synchronized lyrics, seeking, and Media Session controls. Playlist responses intentionally play only the first track and no next-track action is exposed.
+
+
 ## [5.2.2] - 2026-06-13
 
 ### Added

@@ -33,7 +33,6 @@
     "@dicebear/styles": "^10.1.0",
     "@headlessui/vue": "^1.7.23",
     "@vueuse/core": "^14.3.0",
-    "aplayer": "^1.10.1",
     "chalk": "^5.6.2",
     "floating-vue": "^5.2.2",
     "gsap": "^3.15.0",
