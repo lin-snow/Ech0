@@ -172,6 +172,14 @@ import ExtensionCardSkeleton from '../shared/ExtensionCardSkeleton.vue'
 const TRACK_INFO_DURATION = 4000
 const PLAYER_EVENT = 'ech0:music-play'
 const DEFAULT_VOLUME = 0.7
+const MEDIA_SESSION_ACTIONS = [
+  'play',
+  'pause',
+  'stop',
+  'seekbackward',
+  'seekforward',
+  'seekto',
+] as const satisfies readonly MediaSessionAction[]
 
 const { SystemSetting, loading: settingsLoading } = storeToRefs(useSettingStore())
 const { t } = useI18n()
@@ -440,7 +448,7 @@ function setupMediaSession() {
     artwork: track.value.cover ? [{ src: track.value.cover }] : [],
   })
 
-  const handlers: Partial<Record<MediaSessionAction, MediaSessionActionHandler | null>> = {
+  const handlers: Record<(typeof MEDIA_SESSION_ACTIONS)[number], MediaSessionActionHandler> = {
     play: () => void play(),
     pause,
     stop: () => {
@@ -455,9 +463,26 @@ function setupMediaSession() {
     },
   }
 
-  for (const [action, handler] of Object.entries(handlers)) {
+  for (const action of MEDIA_SESSION_ACTIONS) {
     try {
-      navigator.mediaSession.setActionHandler(action as MediaSessionAction, handler)
+      navigator.mediaSession.setActionHandler(action, handlers[action])
+    } catch {
+      // Browsers may expose only part of the Media Session API.
+    }
+  }
+}
+
+// Mirror of setupMediaSession: release the shared mediaSession singleton so the
+// OS media controls don't stay bound to a destroyed player. Only call this when
+// this card currently owns the session, or it would clobber another player's.
+function teardownMediaSession() {
+  if (!('mediaSession' in navigator)) return
+
+  navigator.mediaSession.metadata = null
+  navigator.mediaSession.playbackState = 'none'
+  for (const action of MEDIA_SESSION_ACTIONS) {
+    try {
+      navigator.mediaSession.setActionHandler(action, null)
     } catch {
       // Browsers may expose only part of the Media Session API.
     }
@@ -513,6 +538,9 @@ onBeforeUnmount(() => {
   lyricController?.abort()
   if (trackInfoTimer) clearTimeout(trackInfoTimer)
   window.removeEventListener(PLAYER_EVENT, handleOtherPlayer)
+  // Only the active player owns the shared mediaSession (playback is mutually
+  // exclusive across cards), so clearing it here can't steal another card's.
+  if (isPlaybackActive.value) teardownMediaSession()
   pause()
 })
 </script>
