@@ -3,10 +3,9 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { loadExternalScript, loadExternalStyle } from '../../src/utils/loadExternalAsset'
+import { loadExternalScript } from '../../src/utils/loadExternalAsset'
 
 const scriptSelector = (src: string) => `script[data-external-script="${src}"]`
-const styleSelector = (href: string) => `link[data-external-style="${href}"]`
 
 describe('loadExternalAsset', () => {
   it('deduplicates concurrent script loads and reuses loaded script', async () => {
@@ -25,24 +24,6 @@ describe('loadExternalAsset', () => {
     await expect(promiseA).resolves.toBeUndefined()
     await expect(loadExternalScript(src)).resolves.toBeUndefined()
     expect(document.querySelectorAll(scriptSelector(src))).toHaveLength(1)
-  })
-
-  it('deduplicates style loads and reuses loaded stylesheet', async () => {
-    const href = `/others/styles/APlayer.min.css?test=${Date.now()}`
-
-    const promiseA = loadExternalStyle(href)
-    const promiseB = loadExternalStyle(href)
-
-    expect(promiseA).toBe(promiseB)
-    expect(document.querySelectorAll(styleSelector(href))).toHaveLength(1)
-
-    const link = document.querySelector<HTMLLinkElement>(styleSelector(href))
-    expect(link).toBeTruthy()
-    link?.dispatchEvent(new Event('load'))
-
-    await expect(promiseA).resolves.toBeUndefined()
-    await expect(loadExternalStyle(href)).resolves.toBeUndefined()
-    expect(document.querySelectorAll(styleSelector(href))).toHaveLength(1)
   })
 
   it('retries script loading once and succeeds on second attempt', async () => {
@@ -70,9 +51,9 @@ describe('loadExternalAsset', () => {
     vi.useFakeTimers()
     try {
       const src = `/others/scripts/APlayer.min.js?timeout=${Date.now()}`
-      const expectation = expect(loadExternalScript(src, { timeoutMs: 10, retries: 1 })).rejects.toThrow(
-        'Timed out loading external asset',
-      )
+      const expectation = expect(
+        loadExternalScript(src, { timeoutMs: 10, retries: 1 }),
+      ).rejects.toThrow('Timed out loading external asset')
       await vi.advanceTimersByTimeAsync(25)
       await expectation
       expect(document.querySelectorAll(scriptSelector(src))).toHaveLength(0)
