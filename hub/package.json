@@ -17,7 +17,7 @@
     "@vueuse/core": "^14.3.0",
     "floating-vue": "^5.2.2",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.1.1",
+    "markdown-it": "^14.2.0",
     "photoswipe": "^5.4.4",
     "sass-embedded": "^1.99.0",
     "unocss": "^66.6.8",
