@@ -13,8 +13,20 @@
       "url": "https://memo.xiaobaozi.cn"
     },
     {
+      "id": "bin",
+      "url": "https://echo.3868088.xyz"
+    },
+    {
+      "id": "chut",
+      "url": "https://ech0.claudropic.com"
+    },
+    {
       "id": "ciraos",
       "url": "https://ech0.ciraos.top"
+    },
+    {
+      "id": "galaha",
+      "url": "https://galaha.cn"
     },
     {
       "id": "hanier",
@@ -59,14 +71,6 @@
     {
       "id": "xiaoten",
       "url": "https://echo.xiaoten.com"
-    },
-    {
-      "id": "galaha",
-      "url": "https://galaha.cn"
-    },
-    {
-      "id": "bin",
-      "url": "https://echo.3868088.xyz"
     }
   ]
 }
