@@ -52,7 +52,7 @@
     "@tsconfig/node22": "^22.0.5",
     "@types/leaflet": "^1.9.21",
     "@types/markdown-it": "^14.1.2",
-    "@types/node": "^25.9.4",
+    "@types/node": "^26.0.0",
     "@unocss/preset-wind4": "66.7.2",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/eslint-config-prettier": "^10.2.0",
