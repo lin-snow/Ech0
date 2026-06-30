@@ -7,6 +7,40 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/lin-snow/Ech0/releases) — earlier release notes are not retroactively imported here.
 
 
+## [5.3.0] - 2026-06-30
+
+This release is anchored by two large engineering efforts — a **type-first OpenAPI rebuild (Huma)** and the project's **first real backend test suite** — plus the security and stability fixes that writing those tests surfaced.
+
+### Added
+
+- **YouTube Shorts and live links now embed.** The video extension's YouTube matcher previously only recognized `watch?v=`, `youtu.be`, and `embed/` URLs, so `youtube.com/shorts/<id>` and `/live/<id>` fell through and were rejected. Both are now extracted and rendered through the existing `/embed/<id>` iframe — no renderer changes needed.
+- **Selectable API-docs renderer.** A new `ECH0_OPENAPI_DOCS_RENDERER` env var chooses the panel served at `/api/docs`: `stoplight` (default, Huma's built-in Stoplight Elements) or `scalar` (a fully offline, self-hosted Scalar API Reference bundled into the binary — no CDN fetch at runtime). See `docs/dev/development.md`.
+
+### Changed
+
+- **API documentation rebuilt on Huma type-first OpenAPI.** The HTTP layer migrated off swaggo annotations to **Huma** on top of Gin: the OpenAPI spec is now generated from Go request/response types (no annotation comments), with interactive docs at `/api/docs` and the machine-readable spec at `/api/openapi.json` and `/api/openapi.yaml` (committed copy at `internal/openapi/openapi.yaml`, kept honest by `make openapi` / `make openapi-check`). JSON handlers became framework-neutral, and each endpoint's authentication is declared once as a single "posture" (`public` / `optional` / `secured`) that emits both the OpenAPI security declaration and the runtime middleware chain, so authn/authz can no longer drift from the docs. Retiring swaggo removed ~10,000 lines of generated swagger from the tree. Non-JSON endpoints (SSE/WebSocket, uploads, downloads, OAuth, captcha, MCP) keep their existing wire shape.
+- **Auto theme-mode icon changed from a leaf to a palm tree.** The home header's "follow system" theme toggle now uses a Lucide `tree-palm` glyph instead of the old Tabler leaf.
+
+### Security
+
+- **Random-string generation is now cryptographically secure.** `util/crypto.GenerateRandomString` switched from `math/rand` (a time-seeded, predictable PRNG) to `crypto/rand` with rejection sampling to avoid modulo bias. This function backs **OAuth `state`, one-time OAuth exchange codes, and token JTIs** — values that must be unpredictable; the old source could in principle be predicted, enabling CSRF-`state` or exchange-code forgery. A failed secure-random read now panics rather than silently degrading to a guessable value.
+- **OAuth token exchange now uses a timeout-bound HTTP client.** The code-for-token exchange was going through `http.DefaultClient` (no timeout); it now uses an explicit timeout-bound client, so a hung or slow identity provider can't pin a request open indefinitely.
+
+### Fixed
+
+- **The async worker pool no longer panics under a shutdown race.** `util/async.Pool.Submit` now holds its read lock through the channel send and drops the `recover`, so `close` happens only under the write lock — structurally eliminating the `send on closed channel` panic when `Submit` and `Stop` race. Covered by a new concurrent `-race` regression test. (This pool backs event/webhook dispatch.)
+- **Busen's dispatch gate no longer panics on an unpaired or double `Leave`.** `Gate.Leave` used to `close` an already-closed idle channel (`panic: close of closed channel`) when called more times than `Enter`; it now no-ops when no callers are active and closes the idle channel only on the true `>0 → 0` edge, making any extra/duplicate `Leave` a safe no-op.
+
+### Internal
+
+- **First-class backend testing system.** Introduced **testify + mockery v3** (pinned via `go run`, kept out of `go.mod`), a shared `internal/test/helpers` scaffold (in-memory DB, viewer identities, JWT overrides, envelope parsing, fixtures) and centrally generated mocks under `internal/test/mocks` (10 domains, deterministic + SPDX). New Makefile targets (`mocks`, `mocks-check`, `test-race`, `test-cover`) and `docs/dev/testing.md` codify the conventions; coverage climbed across three rounds to **~66% (calibrated**, excluding generated mocks/`wire_gen.go`). CI (`test.yml`) now runs `go test` automatically on PRs and pushes to `main` (backend-path-filtered, coverage report-only — RAW + CALIBRATED — with no hard gate).
+- **Testability seams (all zero-Wire — constructor signatures unchanged).** `ConnectService` gained an injectable peer-fetcher and an injectable retry backoff (`WithRetryBaseDelay`, cutting the connect package's wall-clock test time from ~4s to ~0); `storage` gained a `NewStorageManagerForTest` / `helpers.NewTestStorage` path on an isolated temp dir; auth/embedding gained white-box seams.
+- **i18n / error-handling consistency, surfaced by the Huma review.** Framework-level errors are now classified by HTTP status (5xx → `INTERNAL_ERROR` + `common.request_failed` instead of masquerading as "invalid query parameter"; 4xx validation → neutral `common.invalid_request`); the localizer resolves lazily so business responses and validation errors share the post-auth user locale; `humares.Err` and `response.Execute` share one failure-field mapping ladder (`commonModel.ResolveFailureFields`) so the two response contracts can't drift.
+- **Dependency bumps (Go, `go-patch-minor` group)**: `anthropics/anthropic-sdk-go` 1.50.1 → 1.52.0, `aws/aws-sdk-go-v2/service/s3` 1.103.3 → 1.104.0, `coreos/go-oidc/v3` 3.18.0 → 3.19.0, `aws/smithy-go` 1.27.2 → 1.27.3, `gorm.io/gorm` 1.31.1 → 1.31.2.
+- **Dependency bumps (`web/`)**: `vue` 3.5.38 → 3.5.39, `@types/node` 25.9.4 → 26.0.1, `unocss` / `@unocss/preset-wind4` 66.7.2 → 66.7.3, `eslint` 10.5.0 → 10.6.0, `prettier` 3.8.4 → 3.9.1, `stylelint` 17.13.0 → 17.14.0, `vite` 8.0.16 → 8.1.0, `vite-plugin-vue-devtools` 8.1.3 → 8.1.5, `@vue/eslint-config-typescript` 14.8.0 → 14.9.0.
+- **CI**: `actions/checkout` 6 → 7.
+
+
 ## [5.2.5] - 2026-06-21
 
 ### Added
@@ -445,7 +479,11 @@ This is primarily a security release: six advisories disclosed since v4.7.2 are 
 
   Practical risk in this repo was negligible (the vulnerable code only runs at PWA build time on developer-controlled input), but the alerts are now resolved at the supply-chain level.
 
-[Unreleased]: https://github.com/lin-snow/Ech0/compare/v5.2.2...HEAD
+[Unreleased]: https://github.com/lin-snow/Ech0/compare/v5.3.0...HEAD
+[5.3.0]: https://github.com/lin-snow/Ech0/compare/v5.2.5...v5.3.0
+[5.2.5]: https://github.com/lin-snow/Ech0/compare/v5.2.4...v5.2.5
+[5.2.4]: https://github.com/lin-snow/Ech0/compare/v5.2.3...v5.2.4
+[5.2.3]: https://github.com/lin-snow/Ech0/compare/v5.2.2...v5.2.3
 [5.2.2]: https://github.com/lin-snow/Ech0/compare/v5.2.1...v5.2.2
 [5.2.1]: https://github.com/lin-snow/Ech0/compare/v5.2.0...v5.2.1
 [5.2.0]: https://github.com/lin-snow/Ech0/compare/v5.1.0...v5.2.0
