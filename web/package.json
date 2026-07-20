@@ -39,7 +39,7 @@
     "markdown-it": "^14.3.0",
     "ofetch": "^1.5.1",
     "photoswipe": "^5.4.4",
-    "pinia": "^3.0.4",
+    "pinia": "^4.0.2",
     "vue": "^3.5.39",
     "vue-i18n": "^11.4.6",
     "vue-router": "^5.1.0",
