@@ -11,6 +11,7 @@
 | [usage/mcp-usage.md](usage/mcp-usage.md) | MCP（Model Context Protocol）接入：Token、Host 配置、协议要点 |
 | [usage/webhook-usage.md](usage/webhook-usage.md) | Webhook：事件、签名、管理接口与故障处理 |
 | [usage/storage-migration.md](usage/storage-migration.md) | 存储迁移：本地与 S3、`key` 与路径规则、换桶与迁移注意事项 |
+| [usage/capsule.md](usage/capsule.md) | 胶囊（Capsule）：内容导出/导入、校验、编译静态站，以及与快照的分工 |
 
 ## 开发设计（`dev/`）
 
@@ -24,6 +25,8 @@
 | [dev/i18n-contract.md](dev/i18n-contract.md) | 前后端国际化约定（locale、API 错误字段、key 命名） |
 | [dev/logging.md](dev/logging.md) | 日志库使用与字段约定 |
 | [dev/access-token-scope-design.md](dev/access-token-scope-design.md) | Access Token 的 `typ` / scope / audience 设计背景（实现以代码为准） |
+| [dev/capsule/spec.md](dev/capsule/spec.md) | Capsule 交换格式与 CLI 的规范性定义（是什么） |
+| [dev/capsule/capsule-design.md](dev/capsule/capsule-design.md) | Capsule 的设计依据与决策记录（为什么这么定） |
 
 ## 商业推演（`business/`）
 

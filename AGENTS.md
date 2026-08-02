@@ -112,6 +112,8 @@ In-process async event bus. Publishers at `internal/event/publisher`, subscriber
 | Storage migration | `docs/usage/storage-migration.md` |
 | MCP usage | `docs/usage/mcp-usage.md` |
 | Webhook usage | `docs/usage/webhook-usage.md` |
+| Capsule usage | `docs/usage/capsule.md` |
+| Capsule format spec | `docs/dev/capsule/spec.md` (design rationale: `docs/dev/capsule/capsule-design.md`) |
 | Contributing | `CONTRIBUTING.md` |
 | Dev setup | `docs/dev/development.md` |
 

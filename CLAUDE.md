@@ -105,5 +105,6 @@ Two function-calling integrations that point opposite ways:
 - `docs/dev/auth-design.md`, `docs/dev/access-token-scope-design.md` — auth model & token scopes
 - `docs/dev/i18n-contract.md` — frontend/backend i18n contract (locale header, error field shapes, key naming)
 - `docs/dev/logging.md`, `docs/dev/timezone-design.md`, `docs/dev/table-design-standard.md` — logging fields, TZ handling, admin table conventions
-- `docs/usage/storage-migration.md`, `docs/usage/mcp-usage.md`, `docs/usage/webhook-usage.md` — operator/integration guides
+- `docs/usage/storage-migration.md`, `docs/usage/mcp-usage.md`, `docs/usage/webhook-usage.md`, `docs/usage/capsule.md` — operator/integration guides
+- `docs/dev/capsule/spec.md` — Capsule interchange format + CLI (normative); `docs/dev/capsule/capsule-design.md` — why it is shaped that way
 - `CONTRIBUTING.md` — PR workflow and pre-submission checks; `docs/README.md` — doc index

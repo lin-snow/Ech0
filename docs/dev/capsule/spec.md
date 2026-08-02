@@ -1,8 +1,10 @@
-# Ech0 Capsule 规格（草案 v1）
+# Ech0 Capsule 规格 v1
 
-> **状态：草案。** 本文是 Capsule 格式与相关 CLI 的**规范性定义**——只写「是什么」。
+> **状态：已实现（v1）。** 本文是 Capsule 格式与相关 CLI 的**规范性定义**——只写「是什么」。
 > 设计依据、备选方案与讨论见 [`capsule-design.md`](./capsule-design.md)；文中 Q 编号指向该文档 §9。
-> 【待定】标记的条目尚未定稿，其余条目为当前共识。
+> 面向用户的操作指南见 [`../../usage/capsule.md`](../../usage/capsule.md)。
+> 实现位于 `internal/capsule/`（核心格式）与 `internal/capsule/{export,check,importer,build}`，
+> CLI 接线在 `cmd/capsule.go` + `internal/cli/capsule.go`。
 
 **用词约定**：**必须** / **禁止** = 违反即校验错误；**应当** = 违反产生警告；**可选** = 消费者不得因缺失而报错。
 
@@ -84,7 +86,7 @@
 | `id` | string(UUID) | 可选 | `File.ID` 原样；缺省 import 生成。幂等锚点：目标库同 `id` 已存在 → 直接复用行 |
 | `key` | string | 与 `url` 互斥 | `File.Key` 原样（托管文件的扁平存储键，**禁止**含 `/` 或 `..`）。字节**必须**位于 `files/ + Resolve(key)`（§6 路由表）——位置由 `key` 纯函数派生，胶囊不存路径 |
 | `url` | string(URL) | 与 `key` 互斥 | 外链文件（`storage_type=external`）的 `File.URL` 原样透传，**不**本地化 |
-| `category` | enum | 可选 | `File.Category`：`image\|video\|audio\|document\|file`；缺省按扩展名派生，`url` 条目**应当**显式给出 |
+| `category` | enum | 可选 | `File.Category`：`image\|video\|audio\|pdf\|markdown\|file`（`storage.Category` 全集，与 `NormalizeCategory` 一致）；缺省按扩展名派生，`url` 条目**应当**显式给出 |
 | `name` | string | 可选 | `File.Name` 原始文件名（keygen 后的 key 不可读，此字段保留人类信息） |
 | `content_type` | string | 可选 | `File.ContentType`；缺省按扩展名推导，兜底类别与无扩展名文件应当显式给出 |
 | `size` | int ≥ 0 | 可选 | `File.Size`；提供时 `check` **应当**核对实际字节数（完整性校验红利） |
@@ -218,7 +220,8 @@ DB ↔ 胶囊字段映射（权威表见 design §4.3）；往返保真度：
 
 - **幂等按 `id`**：目标库已存在同 `id` 的 Echo → 跳过并报告，不覆盖不合并；无 `--overwrite`（重复执行安全）。
 - **原样导入原则**：胶囊字段值 1:1 写入对应 DB 列，**禁止**数值转换——`username` 逐字入库不改写、`fav_count`/`status`/正文原样。唯一例外是补全胶囊不携带的**内部必填外键** `Echo.UserID`：同名用户存在则挂接，否则挂到执行导入的 owner（权限归属）；展示归属始终以原样保留的 `username` 为准。
-- **站点设置**：`site` 子集仅在目标实例对应项为空时填充，不覆盖已有配置。
+- **站点设置**：`site` 子集仅填「未配置项」，**禁止**覆盖已配置项。「未配置」= 当前值为空串**或**逐字等于 `setting.System.Default()`（config 派生）的对应值——不能只判空串：全新实例的 `site_title`/`server_logo`/`server_url` 等在 KV 缺键时本就返回非空默认值，只判空串会让站点身份在「搬站到新实例」这个头号用例里永远导不进去。
+- **评论归属**：以「落库后目标 `echo_id` 在 `echos` 表中是否存在」为准——本轮新建的与此前已导入的同等对待。往既有 Echo 追加评论不构成对该 Echo 的修改，故不受「幂等跳过」牵连；幂等由评论自身 `id` 保证。宿主不存在（含因 `private` 被排除）→ 记为孤儿并跳过。
 - **不发布事件**：导入不触发事件总线（webhook/embedding/agent 订阅者不响应）；报告末尾提示可在后台触发索引重建覆盖导入内容。
 
 ## 12. 待定项索引
