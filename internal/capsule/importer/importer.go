@@ -187,6 +187,9 @@ func (s *session) run(ctx context.Context) error {
 	if err := s.importEchoes(ctx); err != nil {
 		return err
 	}
+	if err := s.importUnattachedFiles(ctx); err != nil {
+		return err
+	}
 	if err := s.recountTagUsage(); err != nil {
 		return err
 	}
@@ -546,7 +549,7 @@ func (s *session) applySite(ctx context.Context) error {
 	filled := make([]string, 0, len(fields))
 	for _, f := range fields {
 		configured := *f.target != "" && *f.target != defaults[f.name]
-		if configured || f.capsule == "" {
+		if configured || f.capsule == "" || *f.target == f.capsule {
 			continue
 		}
 		*f.target = f.capsule

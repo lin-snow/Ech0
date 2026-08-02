@@ -31,6 +31,13 @@ type Manifest struct {
 	Site          Site      `yaml:"site"`
 	Owner         Owner     `yaml:"owner"`
 	Connects      []Connect `yaml:"connects,omitempty"`
+
+	// Files 是未挂在任何 Echo 上的文件行（站点 logo、上传后没用上的草稿附件）。
+	// 库里 files 是独立表，而 frontmatter 只能表达「挂在这条 Echo 上的文件」——
+	// 没有这个块，这些行就只有字节能进胶囊、元数据无处安放，导入后无法还原
+	// （最直接的后果是搬家之后站点 logo 变死链）。元素形状与 frontmatter 的
+	// files[] 完全一致。
+	Files []FileRef `yaml:"files,omitempty"`
 }
 
 // Site 是站点设置的公开子集。键名逐字对齐 SystemSetting 的 json tag——

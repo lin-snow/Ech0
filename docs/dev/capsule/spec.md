@@ -53,16 +53,18 @@
 | `site.custom_css` / `site.custom_js` | string | 可选 | 非空时 `check` **应当**告警（第三方胶囊 = 执行对方代码） |
 | `owner.username` | string | **必须** | 归属兜底：Echo 未标 `username` 时的默认作者 |
 | `connects` | list | 可选 | 互联实例快照，元素为 `{url: string}` |
+| `files` | list | 可选 | **未挂在任何 Echo 上的文件行**，元素形状与 §4.2 的 `files[]` 完全一致。见下 |
 
 - `site.*` 子集遵循「渲染所需皆入，运维行为皆弃」：`AllowRegister` 等行为开关**禁止**入胶囊。
 - `site.*` 键名 = `SystemSetting` 的 json tag **原样**（`site_title`/`server_logo`/`ICP_number`…）：import 时整块直接反序列化进 `SystemSetting`，零映射代码（「导出即转储」原则，见 §11）。
 - 凭据（密码哈希、token、OAuth/Passkey、S3 密钥、SMTP、Agent 配置）**禁止**出现在胶囊任何位置。
+- **`files` 块的存在理由**：库中 `files` 是独立表，而 frontmatter 只能表达「挂在这条 Echo 上的文件」。站点 logo、以及上传后没用上的附件，其字节会随记录驱动导出进 `files/`，元数据却无处安放——没有这个块，导入侧就还原不出这些行，最直接的后果是**搬家之后 `site.server_logo` 变成死链**。生产者**必须**把这类行写入 `files`；消费者**必须**为其建行并落字节，但**禁止**建立任何 Echo 关联。归属跟随执行导入的 owner（胶囊不携带 `user_id`）。
 
 ## 4. Echo 文件
 
 ### 4.1 路径与命名
 
-- 位置：`echoes/<YYYY>/<YYYY-MM-DD>-<id 前 8 位>.md`，`<YYYY>`/`<YYYY-MM-DD>` 取自 `created_at`。
+- 位置：`echoes/<YYYY>/<YYYY-MM-DD>-<id 去横线后的末 8 位>.md`，`<YYYY>`/`<YYYY-MM-DD>` 取自 `created_at`。取**末** 8 位是因为 Echo 的 id 是 UUIDv7，前 48 位为时间戳——同一批创建的条目前缀高度重合（真实实例上出现过 287 条中 270 条共用同一前 8 位、单日挤进 5 条），只能靠 `-2`/`-3` 后缀区分，等于没有辨识度；末 8 位落在随机段，天然离散。同名时**必须**在 `.md` 前追加 `-2`、`-3`… 去重。
 - 命名仅为浏览友好：消费者**必须**以 frontmatter 为准，**禁止**从文件名解析任何语义。
 
 ### 4.2 Frontmatter 字段
@@ -132,7 +134,7 @@
 - 子目录固定五类：`images/ audios/ videos/ documents/ files/`（对应 `RouteByExt` 四类 + `DefaultRoute("files/")` 兜底；`files/files/` 即兜底类别的 mirror，属预期布局）。
 - 生产者**必须**按 `files` 表记录驱动写入（`Resolve(key)` 落位），**禁止**盲目拷贝 `DataRoot`：`data/files/snapshots/` 等非托管产物不得进入胶囊。「目录拷贝」仅是近似心智模型。
 - 胶囊**必须**自包含：所有 `files[].key` 对应 `files/ + Resolve(key)` 的字节都在胶囊内；S3 托管文件由生产者下载入胶囊。外链（`url`）文件除外。
-- 未被任何 Echo / `site.server_logo` 引用的文件：合法，`check` **应当**告警（悬空文件）。
+- 既不被任何 Echo 的 `files[]`、也不被清单 `files` 块声明的字节：合法，`check` **应当**告警（悬空文件）。真实导出不会产生这种情况——未挂 Echo 的文件行都会进清单 `files` 块；它只在手写胶囊里出现。
 
 ## 7. 校验规则（`ech0 check`）
 
@@ -203,10 +205,12 @@ DB ↔ 胶囊字段映射（权威表见 design §4.3）；往返保真度：
 
 | 数据 | 往返 |
 |---|---|
-| Echo 全量（正文/tags/layout/extension/private/fav_count/created_at/id）、托管媒体字节、site 公开子集、connects | ✅ 完整 |
+| Echo 全量（正文/tags/layout/extension/private/fav_count/created_at/id）、托管媒体字节与文件行（含未挂 Echo 的）、site 公开子集、connects | ✅ 完整 |
 | 评论 | ⚠️ 有损（Public 投影，无 email/ip_hash/user_id） |
 | 外链文件 | ⚠️ URL 透传，字节不随胶囊 |
 | 账号/凭据/运维配置/embeddings/访客统计/日志 | ❌ 不往返 |
+
+> **一处收敛性偏差**：胶囊省略 `files[].size` 时，import 按实际字节数补齐（源库把 size 存成 `0` 的历史行会因此被修正）。这是元数据修复而非内容改写，且一轮往返后即收敛——`export → import → export` 的第二份胶囊会比第一份多出这些 `size`，之后再无差异。
 
 ### 11.1 `files[]` 落地语义（import）
 

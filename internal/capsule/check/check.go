@@ -48,11 +48,13 @@ func Validate(ctx context.Context, loaded *capsule.Loaded, opts Options) (*Repor
 		site = loaded.Manifest.Site
 	}
 
-	validateManifest(r, loaded, site)
+	// Echo 先走：它建立 referenced 集合，清单里的 files 块随后往同一个集合里加，
+	// 两者合起来才是「有人认领的媒体」，悬空判定必须在其后。
 	echoIDs, referenced, err := validateEchoes(r, loaded, opts, site.ServerURL)
 	if err != nil {
 		return nil, err
 	}
+	validateManifest(r, loaded, site, referenced)
 	validateComments(r, loaded, echoIDs)
 	validateMedia(r, loaded, referenced, site)
 	validatePaths(r, loaded)

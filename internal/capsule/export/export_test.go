@@ -217,7 +217,7 @@ func TestRun_EchoDocument(t *testing.T) {
 	_, out := runExport(t, deps, Options{})
 
 	rel := capsule.EchoPath(publicEchoID, time.Unix(publicEchoAt, 0))
-	assert.Equal(t, "echoes/2023/2023-11-14-0193f1a1.md", rel)
+	assert.Equal(t, "echoes/2023/2023-11-14-00000001.md", rel)
 
 	doc, unknown, err := capsule.DecodeEcho(readCapsuleFile(t, out, rel))
 	require.NoError(t, err)
@@ -352,7 +352,8 @@ func TestUniquePath_DeduplicatesCollisions(t *testing.T) {
 	used := make(map[string]struct{})
 	base := capsule.EchoPath("0193f1a1-aaaa", time.Unix(publicEchoAt, 0))
 
-	assert.Equal(t, "echoes/2023/2023-11-14-0193f1a1.md", uniquePath(used, base))
-	assert.Equal(t, "echoes/2023/2023-11-14-0193f1a1-2.md", uniquePath(used, base))
-	assert.Equal(t, "echoes/2023/2023-11-14-0193f1a1-3.md", uniquePath(used, base))
+	// 命名取 id 去掉横线后的末 8 位（UUIDv7 的随机段）。
+	assert.Equal(t, "echoes/2023/2023-11-14-f1a1aaaa.md", uniquePath(used, base))
+	assert.Equal(t, "echoes/2023/2023-11-14-f1a1aaaa-2.md", uniquePath(used, base))
+	assert.Equal(t, "echoes/2023/2023-11-14-f1a1aaaa-3.md", uniquePath(used, base))
 }

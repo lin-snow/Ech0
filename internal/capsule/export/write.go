@@ -36,6 +36,7 @@ func writeCapsule(
 		Site:          data.site,
 		Owner:         data.owner,
 		Connects:      data.connects,
+		Files:         unattachedRefs(data),
 	}
 	body, err := capsule.EncodeYAML(manifest)
 	if err != nil {
@@ -145,22 +146,52 @@ func fileRefs(links []fileModel.EchoFile) []capsule.FileRef {
 	}
 	refs := make([]capsule.FileRef, 0, len(links))
 	for i := range links {
-		file := links[i].File
-		ref := capsule.FileRef{
-			ID:          file.ID,
-			Category:    file.Category,
-			Name:        file.Name,
-			ContentType: file.ContentType,
-			Size:        file.Size,
-			Width:       file.Width,
-			Height:      file.Height,
+		refs = append(refs, fileRef(links[i].File))
+	}
+	return refs
+}
+
+// fileRef 把一行 File 转成胶囊引用。storage_type/provider/bucket/user_id/created_at
+// 不入胶囊：它们是运行时拓扑或行元数据，由目标实例按自己的配置重建。
+func fileRef(file fileModel.File) capsule.FileRef {
+	ref := capsule.FileRef{
+		ID:          file.ID,
+		Category:    file.Category,
+		Name:        file.Name,
+		ContentType: file.ContentType,
+		Size:        file.Size,
+		Width:       file.Width,
+		Height:      file.Height,
+	}
+	if storage.NormalizeStorageType(file.StorageType) == storage.StorageTypeExternal {
+		ref.URL = file.URL
+	} else {
+		ref.Key = file.Key
+	}
+	return ref
+}
+
+// unattachedRefs 收集没挂在任何导出 Echo 上的文件行（站点 logo、上传后没用上的
+// 附件）。它们的字节本来就随记录驱动导出进了胶囊，但 frontmatter 只能表达
+// 「挂在某条 Echo 上的文件」，元数据没有落脚点——导入侧因此无法还原这些行，
+// 最直接的后果是搬家之后 site.server_logo 变成死链。清单里的 files 块就是它们的位置。
+func unattachedRefs(data *dataset) []capsule.FileRef {
+	attached := make(map[string]struct{})
+	for i := range data.echoes {
+		for _, link := range data.echoes[i].EchoFiles {
+			attached[link.FileID] = struct{}{}
 		}
-		if storage.NormalizeStorageType(file.StorageType) == storage.StorageTypeExternal {
-			ref.URL = file.URL
-		} else {
-			ref.Key = file.Key
+	}
+
+	refs := make([]capsule.FileRef, 0)
+	for i := range data.files {
+		if _, ok := attached[data.files[i].ID]; ok {
+			continue
 		}
-		refs = append(refs, ref)
+		refs = append(refs, fileRef(data.files[i]))
+	}
+	if len(refs) == 0 {
+		return nil
 	}
 	return refs
 }

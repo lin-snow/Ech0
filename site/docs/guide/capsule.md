@@ -27,7 +27,7 @@ description: 把内容导出成可读的胶囊，用来搬家、长期保存，�
 ```text
 capsule/
   ech0.yaml                            # 站点信息、归属、互联列表
-  echoes/2026/2026-08-02-a1b2c3d4.md   # 一条 Echo = 一个 frontmatter-markdown 文件
+  echoes/2026/2026-08-02-b302099a.md   # 一条 Echo = 一个 frontmatter-markdown 文件
   comments.yaml                        # 评论快照（公开投影，不含邮箱与 IP）
   files/images/…                       # 媒体字节
 ```
@@ -92,8 +92,7 @@ ech0 check ./my-capsule --fix
 分**错误**和**警告**两级：错误会让导入和构建拒绝执行，警告只是提醒。常见警告：
 
 - `embeds source instance URL`——正文里写死了原站地址，换域名后可能断链。
-- `dangling media`——附件没被任何 Echo 引用（上传后没用上），合法，只是提醒你。
-- `custom_js is not empty`——别人给的胶囊里带着脚本，导入等于执行对方代码，先看一眼。
+- `dangling media`——胶囊里有这个附件的字节，但没有任何地方声明它。自己导出的胶囊不会出现（没挂在 Echo 上的附件会记进清单），基本只在手写胶囊里遇到。
 
 `--fix` 只补一件事：缺失的 `id`。手写胶囊时很有用。
 

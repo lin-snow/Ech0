@@ -43,13 +43,18 @@ func ValidateKey(key string) error {
 }
 
 // EchoPath 由 id 与创建时刻派生 Echo 内容文件的相对路径（spec §4.1）：
-// echoes/<YYYY>/<YYYY-MM-DD>-<id 前 8 位>.md。命名仅为浏览友好，
+// echoes/<YYYY>/<YYYY-MM-DD>-<id 后 8 位>.md。命名仅为浏览友好，
 // 消费者一律以 frontmatter 为准。
+//
+// 取**后** 8 位而非前 8 位：Echo 的 id 是 UUIDv7，前 48 位是时间戳，同一批创建
+// 的条目前缀高度重合（真实实例上出现过 287 条里 270 条共用同一前 8 位、同一天
+// 挤进 5 条的情况），那样文件名只能靠 -2/-3 后缀区分，等于没有辨识度。
+// 后 8 位落在随机段，天然离散。
 func EchoPath(id string, createdAt time.Time) string {
 	utc := createdAt.UTC()
-	short := id
+	short := strings.ReplaceAll(id, "-", "")
 	if len(short) > 8 {
-		short = short[:8]
+		short = short[len(short)-8:]
 	}
 	return fmt.Sprintf("%s/%04d/%s-%s.md", EchoesDir, utc.Year(), utc.Format("2006-01-02"), short)
 }

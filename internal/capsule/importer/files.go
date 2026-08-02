@@ -64,6 +64,24 @@ func (s *session) importFiles(ctx context.Context, docPath string, doc *capsule.
 	return nil
 }
 
+// importUnattachedFiles 落地清单 files 块里的文件行——它们不挂在任何 Echo 上
+// （站点 logo、上传后没用上的附件），所以只建 files 行、不建 echo_files 关联。
+//
+// 少了这一步，logo 的字节虽然躺在胶囊里却没人把它写进目标实例的存储，
+// site.server_logo 指向的 /api/files/... 迁移后就是死链。
+// 归属挂 owner：胶囊不携带 user_id，而这些行没有 Echo 可以继承归属。
+func (s *session) importUnattachedFiles(ctx context.Context) error {
+	if s.loaded.Manifest == nil {
+		return nil
+	}
+	for _, ref := range s.loaded.Manifest.Files {
+		if _, err := s.ensureFile(ctx, capsule.ManifestPath, ref, s.ownerID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *session) ensureFile(
 	ctx context.Context,
 	docPath string,

@@ -13,7 +13,7 @@
 ```text
 capsule/
   ech0.yaml         # 站点信息 + 归属 + 互联列表
-  echoes/2026/2026-08-02-a1b2c3d4.md   # 一条 Echo = 一个 frontmatter-markdown 文件
+  echoes/2026/2026-08-02-b302099a.md   # 一条 Echo = 一个 frontmatter-markdown 文件
   comments.yaml     # 评论快照（公开投影，不含 email / IP）
   files/images/…    # 媒体字节，和实例本地存储同构
 ```
@@ -81,7 +81,7 @@ ech0 check ./my-capsule --fix
 常见警告：
 
 - `embeds source instance URL` — 正文或 logo 里写死了原实例地址，迁移后可能断链。v1 不自动改写（保「逐字一致」契约），你自己决定要不要改。
-- `dangling media` — 媒体文件没被任何 Echo 引用。合法，只是提醒。
+- `dangling media` — 胶囊里有字节，但既没有 Echo 引用它、清单 `files` 块也没声明它。`ech0 export` 不会产生这种情况（未挂 Echo 的附件会进清单），基本只在手写胶囊里出现。
 - `custom_js / custom_css is not empty` — 别人给的胶囊里带着脚本，导入等于执行对方代码。看一眼再说。
 
 `--fix` **只**补一件事：缺失的 `id`（生成 UUIDv7 回写 frontmatter）。手写胶囊时很有用。zip 形态不可写，`--fix` 会直接拒绝。

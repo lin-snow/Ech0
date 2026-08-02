@@ -209,7 +209,7 @@ func TestTimeRoundTrip(t *testing.T) {
 func TestEchoPath(t *testing.T) {
 	got := EchoPath("0198f0a0-1111-7000-8000-000000000001", mustTime(t, "2026-08-02T23:30:00+08:00"))
 	// 2026-08-02T23:30+08:00 == 2026-08-02T15:30Z，年份与日期一律按 UTC 归档。
-	if want := "echoes/2026/2026-08-02-0198f0a0.md"; got != want {
+	if want := "echoes/2026/2026-08-02-00000001.md"; got != want {
 		t.Fatalf("EchoPath = %q, want %q", got, want)
 	}
 	if got := EchoPath("short", mustTime(t, "2026-01-01T00:00:00Z")); got != "echoes/2026/2026-01-01-short.md" {

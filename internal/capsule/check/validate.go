@@ -22,7 +22,12 @@ const echoFileMode = 0o644
 
 // validateManifest 校验 ech0.yaml（spec §3）。清单是胶囊的身份证明：
 // 它不可读或版本不认识时，后面所有字段校验都失去意义，故只报这一条。
-func validateManifest(r *Report, loaded *capsule.Loaded, site capsule.Site) {
+func validateManifest(
+	r *Report,
+	loaded *capsule.Loaded,
+	site capsule.Site,
+	referenced map[string]struct{},
+) {
 	p := capsule.ManifestPath
 
 	if loaded.ManifestErr != nil {
@@ -57,6 +62,10 @@ func validateManifest(r *Report, loaded *capsule.Loaded, site capsule.Site) {
 	if marker := instanceMarker(site.ServerLogo, site.ServerURL); marker != "" {
 		r.warnf(p, "site.server_logo", "embeds source instance URL (%s), the link may break after migration", marker)
 	}
+
+	// 清单里的 files 块与 frontmatter 的 files[] 同形，校验规则也完全一致——
+	// 它承载的是没挂在任何 Echo 上的文件行（logo、未使用的上传）。
+	validateFiles(r, loaded, p, loaded.Manifest.Files, referenced)
 }
 
 // validateEchoes 校验全部 Echo 内容文件（spec §4），返回胶囊内的 Echo id 集合
