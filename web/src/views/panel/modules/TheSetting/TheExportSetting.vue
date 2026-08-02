@@ -23,13 +23,14 @@
       </button>
     </div>
 
-    <div v-if="exportFormat === 'capsule'" class="export-capsule-extra">
-      <p class="export-capsule-warning">{{ t('exportSetting.capsuleWarning') }}</p>
-      <BaseSwitch v-model="exportIncludePrivate" :disabled="isExporting">
-        {{ t('exportSetting.includePrivate') }}
-      </BaseSwitch>
-      <p class="export-capsule-hint">{{ t('exportSetting.includePrivateHint') }}</p>
-    </div>
+    <BaseSwitch
+      v-if="exportFormat === 'capsule'"
+      v-model="exportIncludePrivate"
+      :disabled="isExporting"
+      class="export-include-private"
+    >
+      {{ t('exportSetting.includePrivate') }}
+    </BaseSwitch>
 
     <div class="export-action">
       <BaseButton
@@ -276,25 +277,8 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.export-capsule-extra {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  align-items: flex-start;
-}
-
-.export-capsule-warning {
-  padding: 0.5rem 0.65rem;
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-bg-surface));
-  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
-  border-radius: var(--radius-md);
-  font-size: 0.83rem;
-}
-
-.export-capsule-hint {
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
+.export-include-private {
+  align-self: flex-start;
 }
 
 .export-action {

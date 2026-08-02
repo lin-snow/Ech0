@@ -28,14 +28,10 @@
     </div>
 
     <div v-if="sourceType === 'capsule'" class="migration-capsule-panel">
-      <p class="migration-capsule-note">{{ t('migrationSetting.capsuleNoteAppend') }}</p>
-      <p class="migration-capsule-note">{{ t('migrationSetting.capsuleNoteNoCredential') }}</p>
-      <div class="migration-capsule-switch">
-        <BaseSwitch v-model="capsuleIncludePrivate" :disabled="isSubmittingMigration">
-          {{ t('migrationSetting.capsuleIncludePrivate') }}
-        </BaseSwitch>
-        <p class="migration-capsule-hint">{{ t('migrationSetting.capsuleIncludePrivateHint') }}</p>
-      </div>
+      <p class="migration-capsule-note">{{ t('migrationSetting.capsuleNote') }}</p>
+      <BaseSwitch v-model="capsuleIncludePrivate" :disabled="isSubmittingMigration">
+        {{ t('migrationSetting.capsuleIncludePrivate') }}
+      </BaseSwitch>
     </div>
 
     <div class="migration-form">
@@ -477,30 +473,13 @@ void migrationStore.init()
 .migration-capsule-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface);
-  padding: 0.75rem;
+  gap: 0.5rem;
+  align-items: flex-start;
 }
 
 .migration-capsule-note {
   color: var(--color-text-secondary);
   font-size: 0.85rem;
-  line-height: 1.5;
-}
-
-.migration-capsule-switch {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-  margin-top: 0.25rem;
-}
-
-.migration-capsule-hint {
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
 }
 
 .migration-form {
