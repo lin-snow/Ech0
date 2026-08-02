@@ -55,6 +55,7 @@ import { countWords } from '@/utils/echo'
 import { fetchLikeEcho } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { localStg } from '@/utils/storage'
+import { isStaticMode } from '@/service/request/shared'
 
 const { t } = useI18n()
 
@@ -80,6 +81,13 @@ const handleLikeEcho = (echoId: string) => {
   setTimeout(() => {
     isLikeAnimating.value = false
   }, 250)
+
+  // 静态站是内容的冻结快照：点赞数照常展示（它是内容史的一部分），但没有后端
+  // 可以记录新的一次点赞。与其静默无反应让人以为按钮坏了，不如明说一句。
+  if (isStaticMode()) {
+    theToast.info(String(t('staticSite.likeUnavailable')))
+    return
+  }
 
   if (hasLikedEcho(echoId)) {
     theToast.info(String(t('echoDetail.alreadyLiked')))

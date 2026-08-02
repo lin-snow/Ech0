@@ -253,6 +253,9 @@
     "downloadFailed": "Download fehlgeschlagen",
     "downloadFailedResponse": "Download fehlgeschlagen: unerwartete Serverantwort"
   },
+  "staticSite": {
+    "likeUnavailable": "Dies ist ein statisches Archiv; Liken ist nicht möglich."
+  },
   "auth": {
     "loginSuccess": "Anmeldung erfolgreich – willkommen zurück! 🎉",
     "signupSuccess": "Registrierung erfolgreich, bitte anmelden."

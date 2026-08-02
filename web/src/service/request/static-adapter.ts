@@ -245,7 +245,14 @@ function route<T>(
       if (candidates.length === 0) {
         return unavailable<T>()
       }
-      return ok<T>(candidates[Math.floor(Math.random() * candidates.length)])
+      // 用 CSPRNG 而非 Math.random：这里的返回值流经 request() 这个泛型咽喉，
+      // 静态分析会把它当作可污染整条响应链的弱随机源（CodeQL js/insecure-randomness
+      // 由此把告警落在渲染密码/SMTP 凭据的面板组件上）。选一条 Echo 本身不需要
+      // 密码学强度，但换掉它比在契约咽喉上挂一条永久豁免便宜得多。取模偏置在
+      // 这个量级下无意义。
+      const pick = new Uint32Array(1)
+      crypto.getRandomValues(pick)
+      return ok<T>(candidates[pick[0] % candidates.length])
     }
     case 'GET /tags':
       return ok<T>(dataset.tags ?? [])

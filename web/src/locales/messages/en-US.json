@@ -253,6 +253,9 @@
     "downloadFailed": "Download failed",
     "downloadFailedResponse": "Download failed: server returned unexpected content"
   },
+  "staticSite": {
+    "likeUnavailable": "This is a static archive; liking is unavailable."
+  },
   "auth": {
     "loginSuccess": "Signed in successfully, welcome back! 🎉",
     "signupSuccess": "Sign up successful, please sign in."

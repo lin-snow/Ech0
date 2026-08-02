@@ -6,9 +6,11 @@ package build
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/capsule"
@@ -141,9 +143,36 @@ func runBuild(t *testing.T, baseURL string) (string, *Result) {
 	require.NoError(t, err)
 
 	out := filepath.Join(t.TempDir(), "dist")
-	res, err := Run(ctx, loaded, Options{Output: out, BaseURL: baseURL})
+	res, err := run(ctx, loaded, Options{Output: out, BaseURL: baseURL}, fixtureSPA())
 	require.NoError(t, err)
 	return out, res
+}
+
+// fixtureSPA 复刻真实 SPA 入口里 build 会改写的那几处（模块入口、favicon、
+// webmanifest、RSS 备用链接），外加一个 assets 条目验证整棵树都被拷走。
+//
+// 刻意不读 template.WebFS：那份产物由 `pnpm build` 生成且不进版本库，CI 只写
+// 一个占位 index.html。断言真产物的测试会在 CI 上失败、在本地「恰好构建过」
+// 时通过——测试结果取决于工作区状态，等于没有断言。
+func fixtureSPA() fs.FS {
+	const index = `<!doctype html>
+<html>
+<head>
+<link rel="icon" href="/favicon.ico" />
+<link rel="manifest" href="/app.webmanifest" />
+<link rel="alternate" type="application/atom+xml" href="/rss" />
+<link rel="stylesheet" href="/assets/index-abc.css" />
+<script type="module" src="/assets/index-abc.js"></script>
+</head>
+<body><div id="app"></div></body>
+</html>`
+	return fstest.MapFS{
+		spaRoot + "/" + indexFile:          {Data: []byte(index)},
+		spaRoot + "/assets/index-abc.js":   {Data: []byte("console.log(0)")},
+		spaRoot + "/assets/index-abc.css":  {Data: []byte(".a{}")},
+		spaRoot + "/favicon.ico":           {Data: []byte("ico")},
+		spaRoot + "/_plugin-vue_helper.js": {Data: []byte("export {}")},
+	}
 }
 
 func readDataset(t *testing.T, dir string) *dataset {
@@ -324,7 +353,7 @@ func TestRunRejectsNonEmptyOutput(t *testing.T) {
 	out := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(out, "stale.txt"), []byte("x"), 0o644))
 
-	_, err = Run(ctx, loaded, Options{Output: out})
+	_, err = run(ctx, loaded, Options{Output: out}, fixtureSPA())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not empty")
 }

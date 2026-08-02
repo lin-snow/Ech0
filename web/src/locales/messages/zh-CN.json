@@ -253,6 +253,9 @@
     "downloadFailed": "下载失败",
     "downloadFailedResponse": "下载失败：服务端返回异常内容"
   },
+  "staticSite": {
+    "likeUnavailable": "当前为静态归档站点，无法点赞。"
+  },
   "auth": {
     "loginSuccess": "登录成功,欢迎回来！🎉",
     "signupSuccess": "注册成功,请登录！"

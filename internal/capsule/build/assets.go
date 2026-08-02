@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/lin-snow/ech0/internal/capsule"
-	"github.com/lin-snow/ech0/template"
 )
 
 // spaRoot 是内嵌 SPA 产物在 template.WebFS 里的根目录。
@@ -57,17 +56,21 @@ func writeFile(dir, rel string, data []byte) error {
 	return nil
 }
 
-// copySPA 把内嵌的 SPA 产物整棵树原样铺到输出目录。走 all: 嵌入的全部条目
+// copySPA 把 SPA 产物整棵树原样铺到输出目录。走 all: 嵌入的全部条目
 // （含 _plugin-vue_export-helper-*.js 这类下划线开头的文件），漏一个就白屏。
-func copySPA(dir string) error {
-	return fs.WalkDir(template.WebFS, spaRoot, func(p string, d fs.DirEntry, err error) error {
+//
+// assets 作为参数而非直接取 template.WebFS：内嵌产物由 `pnpm build` 生成、
+// 不进版本库，CI 只塞一个占位 index.html。测试若读真产物就只能在「本地恰好
+// 构建过前端」时通过，等于把测试结果押在工作区状态上。
+func copySPA(dir string, assets fs.FS) error {
+	return fs.WalkDir(assets, spaRoot, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		data, readErr := template.WebFS.ReadFile(p)
+		data, readErr := fs.ReadFile(assets, p)
 		if readErr != nil {
 			return fmt.Errorf("read embedded %s: %w", p, readErr)
 		}
@@ -174,8 +177,8 @@ func jsonString(s string) string {
 }
 
 // writeEntrypoints 改写 index.html 并复制出 404.html。
-func writeEntrypoints(dir, baseURL string) error {
-	raw, err := template.WebFS.ReadFile(spaRoot + "/" + indexFile)
+func writeEntrypoints(dir, baseURL string, assets fs.FS) error {
+	raw, err := fs.ReadFile(assets, spaRoot+"/"+indexFile)
 	if err != nil {
 		return fmt.Errorf("read embedded %s: %w", indexFile, err)
 	}

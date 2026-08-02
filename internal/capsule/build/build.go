@@ -19,11 +19,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/capsule"
+	"github.com/lin-snow/ech0/template"
 )
 
 // Options 是一次烘焙的输入参数。
@@ -45,6 +47,12 @@ type Result struct {
 // Run 执行烘焙：拷贝内嵌 SPA、产出 dataset.json 与各类静态端点、
 // 铺开媒体字节、改写入口 HTML。
 func Run(ctx context.Context, loaded *capsule.Loaded, opts Options) (*Result, error) {
+	return run(ctx, loaded, opts, template.WebFS)
+}
+
+// run 是 Run 的可注入版本：assets 供测试塞入自己的 SPA 夹具，避免依赖
+// `pnpm build` 才存在的 template/dist（CI 只放一个占位 index.html）。
+func run(ctx context.Context, loaded *capsule.Loaded, opts Options, assets fs.FS) (*Result, error) {
 	if loaded == nil {
 		return nil, fmt.Errorf("capsule is not loaded")
 	}
@@ -63,10 +71,10 @@ func Run(ctx context.Context, loaded *capsule.Loaded, opts Options) (*Result, er
 		return nil, err
 	}
 
-	if err := copySPA(dir); err != nil {
+	if err := copySPA(dir, assets); err != nil {
 		return nil, err
 	}
-	if err := writeEntrypoints(dir, baseURL); err != nil {
+	if err := writeEntrypoints(dir, baseURL, assets); err != nil {
 		return nil, err
 	}
 

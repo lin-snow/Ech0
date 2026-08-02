@@ -253,6 +253,9 @@
     "downloadFailed": "ダウンロードに失敗しました",
     "downloadFailedResponse": "ダウンロード失敗：サーバーから不正な応答が返されました"
   },
+  "staticSite": {
+    "likeUnavailable": "これは静的アーカイブのため、いいねはできません。"
+  },
   "auth": {
     "loginSuccess": "ログインしました。おかえりなさい！🎉",
     "signupSuccess": "登録が完了しました。ログインしてください！"

@@ -20,7 +20,7 @@
     <div class="home-header__actions">
       <div class="home-header__links">
         <a
-          href="/rss"
+          :href="rssHref"
           v-tooltip="t('homeTop.rssTitle')"
           :aria-label="t('homeTop.rssTitle')"
           class="home-header__link-icon"
@@ -56,28 +56,32 @@
           <component :is="themeIcon" class="w-4 h-4" />
         </button>
         <TheLocaleToggle />
-        <button
-          v-if="!isLogin"
-          type="button"
-          v-tooltip="t('authPage.login')"
-          :title="t('authPage.login')"
-          :aria-label="t('authPage.login')"
-          class="home-header__link-icon"
-          @click="handleGoLogin"
-        >
-          <Auth class="block w-4 h-4" />
-        </button>
-        <button
-          v-else
-          type="button"
-          v-tooltip="t('panelPage.logout')"
-          :title="t('panelPage.logout')"
-          :aria-label="t('panelPage.logout')"
-          class="home-header__link-icon"
-          @click="handleLogout"
-        >
-          <Signoff class="block w-4 h-4" />
-        </button>
+        <!-- 静态站没有后端：登录与登出两个入口都不该出现（只藏登录会让 v-else
+             把登出顶上来，反而更糟）。 -->
+        <template v-if="!isStatic">
+          <button
+            v-if="!isLogin"
+            type="button"
+            v-tooltip="t('authPage.login')"
+            :title="t('authPage.login')"
+            :aria-label="t('authPage.login')"
+            class="home-header__link-icon"
+            @click="handleGoLogin"
+          >
+            <Auth class="block w-4 h-4" />
+          </button>
+          <button
+            v-else
+            type="button"
+            v-tooltip="t('panelPage.logout')"
+            :title="t('panelPage.logout')"
+            :aria-label="t('panelPage.logout')"
+            class="home-header__link-icon"
+            @click="handleLogout"
+          >
+            <Signoff class="block w-4 h-4" />
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -96,7 +100,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingStore, useUserStore, useThemeStore } from '@/stores'
-import { resolveAvatarUrl } from '@/service/request/shared'
+import { resolveAvatarUrl, isStaticMode, staticBase } from '@/service/request/shared'
 import { useRouter } from 'vue-router'
 import { theToast } from '@/utils/toast'
 import { useBaseDialog } from '@/composables/useBaseDialog'
@@ -110,6 +114,11 @@ const { user, isLogin } = storeToRefs(userStore)
 const { t } = useI18n()
 const router = useRouter()
 const { openConfirm } = useBaseDialog()
+
+// 静态站（`ech0 build` 产物）没有后端：登录入口点进去也只能失败，直接不渲染。
+// RSS 也要改指——/rss 是 serve 模式的动态路由，静态产物里叫 rss.xml。
+const isStatic = isStaticMode()
+const rssHref = computed(() => (isStatic ? staticBase() + 'rss.xml' : '/rss'))
 
 const logo = computed(() => {
   if (isLogin.value && user.value?.avatar) {
