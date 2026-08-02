@@ -31,9 +31,11 @@ type (
 	GetMigrationStatusInput struct{}
 	CancelMigrationInput    struct{}
 	CleanupMigrationInput   struct{}
-	StartExportInput        struct{}
-	GetExportStatusInput    struct{}
-	CancelExportInput       struct{}
+	StartExportInput        struct {
+		Body migratorModel.StartExportRequest
+	}
+	GetExportStatusInput struct{}
+	CancelExportInput    struct{}
 )
 
 type (
@@ -73,8 +75,8 @@ func (h *MigrationHandler) CleanupMigration(ctx context.Context, _ *CleanupMigra
 	return commonModel.OK[any](nil), nil
 }
 
-func (h *MigrationHandler) StartExport(ctx context.Context, _ *StartExportInput) (ExportOutput, error) {
-	data, err := h.migrationService.StartExport(ctx)
+func (h *MigrationHandler) StartExport(ctx context.Context, in *StartExportInput) (ExportOutput, error) {
+	data, err := h.migrationService.StartExport(ctx, in.Body)
 	if err != nil {
 		return ExportOutput{}, err
 	}
@@ -118,10 +120,10 @@ func (h *MigrationHandler) UploadSourceZip() gin.HandlerFunc {
 	})
 }
 
-// DownloadExport 同步导出并触发浏览器下载（二进制 octet-stream）。
+// DownloadExport 取回上一次导出作业的产物（二进制 zip）。format 决定取快照还是胶囊槽位。
 func (h *MigrationHandler) DownloadExport() gin.HandlerFunc {
 	return response.Execute(func(ctx *gin.Context) response.Response {
-		if err := h.migrationService.DownloadExport(ctx, ctx.Request.Context()); err != nil {
+		if err := h.migrationService.DownloadExport(ctx, ctx.Request.Context(), ctx.Query("format")); err != nil {
 			return response.Response{Msg: "", Err: err}
 		}
 		return response.Response{Msg: commonModel.EXPORT_SNAPSHOT_SUCCESS}

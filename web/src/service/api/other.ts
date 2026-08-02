@@ -11,10 +11,10 @@ export function fetchHelloEch0() {
   })
 }
 
-// 导出快照（下载）- 使用专门的下载函数
-export function fetchDownloadExport() {
+// 导出产物（下载）- 使用专门的下载函数；format 缺省时后端按 snapshot 处理，故不拼 query。
+export function fetchDownloadExport(format?: ExportFormat) {
   return downloadFile({
-    url: '/migration/export/download',
+    url: format ? `/migration/export/download?format=${format}` : '/migration/export/download',
     method: 'GET',
   })
 }
@@ -42,8 +42,12 @@ export function fetchGetWebsiteTitle(websiteURL: string) {
   })
 }
 
+// 迁移来源:ech0 快照、memos 导出,以及 Ech0 胶囊(内容交换格式)。
+export type MigrationSourceType = 'ech0' | 'memos' | 'capsule'
+
 export interface StartMigrationPayload {
-  source_type: 'ech0' | 'memos'
+  source_type: MigrationSourceType
+  // 胶囊导入时这里额外携带 include_private,决定是否一并写入胶囊内的私密 echo。
   source_payload: Record<string, unknown>
 }
 
@@ -89,6 +93,10 @@ export function fetchCleanupMigration() {
 }
 
 // 导出（手动快照异步出口）：与导入对称，统一收敛到 Migrator 域，走 export 作业（job.Manager）。
+// 两种产物语义完全不同：snapshot 是整个 data/ 的 zip（含账号与凭据，唯一可灾难恢复）；
+// capsule 只含内容（人类可读，可分享/搬家/编静态站），二者不可互换。
+export type ExportFormat = 'snapshot' | 'capsule'
+
 export interface ExportStatusPayload {
   version: number
   status: 'idle' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled'
@@ -96,15 +104,17 @@ export interface ExportStatusPayload {
   error_message: string
   file_name?: string
   size?: number
+  format?: ExportFormat
   started_at?: number
   updated_at?: number
   finished_at?: number
 }
 
-export function fetchStartExport() {
+export function fetchStartExport(params?: { format?: ExportFormat; include_private?: boolean }) {
   return request<ExportStatusPayload>({
     url: '/migration/export',
     method: 'POST',
+    data: params,
   })
 }
 
@@ -123,7 +133,7 @@ export function fetchCancelExport() {
 }
 
 export interface UploadMigrationSourceZipResponse {
-  source_type: 'ech0' | 'memos'
+  source_type: MigrationSourceType
   tmp_dir: string
   source_payload: Record<string, unknown>
 }

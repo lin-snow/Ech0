@@ -89,6 +89,12 @@ func ProvideStorageKV(repo *keyvalueRepository.KeyValueRepository) kvstore.Store
 	return kvstore.NewPersistent(repo)
 }
 
+// ProvideGormDB 把库句柄提供者摊平成句柄本身。胶囊包直连 GORM 读写（见 internal/capsule
+// 各包注释），而 wire 图里流通的是 func() *gorm.DB，故需这一层。
+func ProvideGormDB(dbProvider func() *gorm.DB) *gorm.DB {
+	return dbProvider()
+}
+
 var DomainSet = wire.NewSet(
 	BuildHandlers,
 	BuildMiddlewares,
@@ -261,6 +267,7 @@ func BuildJobManager(
 	appCache cache.ICache[string, any],
 	storageManager *storage.Manager,
 	ebProvider func() *busen.Bus,
+	tx transaction.Transactor,
 ) (*job.Manager, error) {
 	wire.Build(
 		repository.JobSet,
@@ -273,6 +280,9 @@ func BuildJobManager(
 		migrator.NewImportEngine,
 		// ExportRunner ← migrator.ExportEngine（无状态导出，不含 *job.Manager）+ bus（发 SystemSnapshot）
 		migrator.NewExportEngine,
+		// 两个 Runner 的胶囊分支 ← migrator.CapsuleEngine（直连 GORM + 事务，胶囊包刻意不过 service 层）
+		ProvideGormDB,
+		migrator.NewCapsuleEngine,
 		jobRunner.ProviderSet,
 		ProvideJobManager,
 	)

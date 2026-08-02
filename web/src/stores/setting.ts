@@ -16,7 +16,7 @@ import {
   fetchGetAgentInfo,
   fetchHelloEch0,
 } from '@/service/api'
-import type { ExportStatusPayload } from '@/service/api'
+import type { ExportFormat, ExportStatusPayload } from '@/service/api'
 import { S3Provider, OAuth2Provider, AgentProtocol } from '@/enums/enums'
 import { useUserStore } from './user'
 
@@ -103,6 +103,12 @@ export const useSettingStore = defineStore('settingStore', () => {
   const snapshotPhase = ref<string>('')
   const snapshotFileName = ref<string>('')
   const snapshotSize = ref<number>(0)
+  // 界面上待发起的导出格式与「含私密内容」选择（仅胶囊有意义，快照本就含全部私密内容）。
+  const exportFormat = ref<ExportFormat>('snapshot')
+  const exportIncludePrivate = ref<boolean>(false)
+  // 作业实际产出的格式,来自轮询响应,与界面选择器解耦:用户导完胶囊后可能又把选择器拨回快照,
+  // 下载必须仍指向真实产物。老后端不回该字段时按 snapshot 兜底。
+  const snapshotFormat = ref<ExportFormat>('snapshot')
   const snapshotPolling = ref<boolean>(false)
   const snapshotPollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const snapshotPollInFlight = ref<boolean>(false)
@@ -185,6 +191,7 @@ export const useSettingStore = defineStore('settingStore', () => {
     // 产物文件名/大小仅在终态成功时由后端补出;非成功态后端回空,这里如实清零。
     snapshotFileName.value = data.file_name || ''
     snapshotSize.value = data.size || 0
+    snapshotFormat.value = data.format || 'snapshot'
   }
 
   const isExportTerminal = (status: SnapshotUIStatus) =>
@@ -218,11 +225,18 @@ export const useSettingStore = defineStore('settingStore', () => {
     scheduleSnapshotPoll()
   }
 
-  const startSnapshotTask = async () => {
+  // format 显式入参而非直读 exportFormat：定时快照 tab 的「立即创建」必须永远产出快照，
+  // 不能被导出 tab 的选择器带偏。
+  const startSnapshotTask = async (
+    format: ExportFormat = 'snapshot',
+    includePrivate: boolean = false,
+  ) => {
     if (snapshotStatus.value === 'pending' || snapshotStatus.value === 'running') return null
-    const res = await fetchStartExport()
+    const res = await fetchStartExport({ format, include_private: includePrivate })
     if (res.code === 1 && res.data) {
       applyExportState(res.data)
+      // 起始响应尚未回填 format 时以本次请求的格式为准，否则会兜底成 snapshot 而下载错产物。
+      if (!res.data.format) snapshotFormat.value = format
       snapshotPolling.value = true
       scheduleSnapshotPoll()
     }
@@ -304,5 +318,8 @@ export const useSettingStore = defineStore('settingStore', () => {
     snapshotFileName,
     snapshotSize,
     snapshotPolling,
+    snapshotFormat,
+    exportFormat,
+    exportIncludePrivate,
   }
 })

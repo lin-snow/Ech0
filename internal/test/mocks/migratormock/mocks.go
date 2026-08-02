@@ -215,16 +215,16 @@ func (_c *MockService_CleanupGlobalMigration_Call) RunAndReturn(run func(ctx con
 }
 
 // DownloadExport provides a mock function for the type MockService
-func (_mock *MockService) DownloadExport(ctx *gin.Context, reqCtx context.Context) error {
-	ret := _mock.Called(ctx, reqCtx)
+func (_mock *MockService) DownloadExport(ctx *gin.Context, reqCtx context.Context, format string) error {
+	ret := _mock.Called(ctx, reqCtx, format)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DownloadExport")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*gin.Context, context.Context) error); ok {
-		r0 = returnFunc(ctx, reqCtx)
+	if returnFunc, ok := ret.Get(0).(func(*gin.Context, context.Context, string) error); ok {
+		r0 = returnFunc(ctx, reqCtx, format)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -239,11 +239,12 @@ type MockService_DownloadExport_Call struct {
 // DownloadExport is a helper method to define mock.On call
 //   - ctx *gin.Context
 //   - reqCtx context.Context
-func (_e *MockService_Expecter) DownloadExport(ctx any, reqCtx any) *MockService_DownloadExport_Call {
-	return &MockService_DownloadExport_Call{Call: _e.mock.On("DownloadExport", ctx, reqCtx)}
+//   - format string
+func (_e *MockService_Expecter) DownloadExport(ctx any, reqCtx any, format any) *MockService_DownloadExport_Call {
+	return &MockService_DownloadExport_Call{Call: _e.mock.On("DownloadExport", ctx, reqCtx, format)}
 }
 
-func (_c *MockService_DownloadExport_Call) Run(run func(ctx *gin.Context, reqCtx context.Context)) *MockService_DownloadExport_Call {
+func (_c *MockService_DownloadExport_Call) Run(run func(ctx *gin.Context, reqCtx context.Context, format string)) *MockService_DownloadExport_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *gin.Context
 		if args[0] != nil {
@@ -253,9 +254,14 @@ func (_c *MockService_DownloadExport_Call) Run(run func(ctx *gin.Context, reqCtx
 		if args[1] != nil {
 			arg1 = args[1].(context.Context)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -266,7 +272,7 @@ func (_c *MockService_DownloadExport_Call) Return(err error) *MockService_Downlo
 	return _c
 }
 
-func (_c *MockService_DownloadExport_Call) RunAndReturn(run func(ctx *gin.Context, reqCtx context.Context) error) *MockService_DownloadExport_Call {
+func (_c *MockService_DownloadExport_Call) RunAndReturn(run func(ctx *gin.Context, reqCtx context.Context, format string) error) *MockService_DownloadExport_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -392,8 +398,8 @@ func (_c *MockService_GetGlobalMigrationStatus_Call) RunAndReturn(run func(ctx c
 }
 
 // StartExport provides a mock function for the type MockService
-func (_mock *MockService) StartExport(ctx context.Context) (model.ExportStateDTO, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockService) StartExport(ctx context.Context, req model.StartExportRequest) (model.ExportStateDTO, error) {
+	ret := _mock.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StartExport")
@@ -401,16 +407,16 @@ func (_mock *MockService) StartExport(ctx context.Context) (model.ExportStateDTO
 
 	var r0 model.ExportStateDTO
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (model.ExportStateDTO, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.StartExportRequest) (model.ExportStateDTO, error)); ok {
+		return returnFunc(ctx, req)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) model.ExportStateDTO); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.StartExportRequest) model.ExportStateDTO); ok {
+		r0 = returnFunc(ctx, req)
 	} else {
 		r0 = ret.Get(0).(model.ExportStateDTO)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, model.StartExportRequest) error); ok {
+		r1 = returnFunc(ctx, req)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -424,18 +430,24 @@ type MockService_StartExport_Call struct {
 
 // StartExport is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockService_Expecter) StartExport(ctx any) *MockService_StartExport_Call {
-	return &MockService_StartExport_Call{Call: _e.mock.On("StartExport", ctx)}
+//   - req model.StartExportRequest
+func (_e *MockService_Expecter) StartExport(ctx any, req any) *MockService_StartExport_Call {
+	return &MockService_StartExport_Call{Call: _e.mock.On("StartExport", ctx, req)}
 }
 
-func (_c *MockService_StartExport_Call) Run(run func(ctx context.Context)) *MockService_StartExport_Call {
+func (_c *MockService_StartExport_Call) Run(run func(ctx context.Context, req model.StartExportRequest)) *MockService_StartExport_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 model.StartExportRequest
+		if args[1] != nil {
+			arg1 = args[1].(model.StartExportRequest)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -446,7 +458,7 @@ func (_c *MockService_StartExport_Call) Return(exportStateDTO model.ExportStateD
 	return _c
 }
 
-func (_c *MockService_StartExport_Call) RunAndReturn(run func(ctx context.Context) (model.ExportStateDTO, error)) *MockService_StartExport_Call {
+func (_c *MockService_StartExport_Call) RunAndReturn(run func(ctx context.Context, req model.StartExportRequest) (model.ExportStateDTO, error)) *MockService_StartExport_Call {
 	_c.Call.Return(run)
 	return _c
 }

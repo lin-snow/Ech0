@@ -348,7 +348,7 @@ func TestStartExport(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.StartExport(helpers.CtxAsUser(adminID))
+		_, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
 		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
 	})
 
@@ -356,7 +356,7 @@ func TestStartExport(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.StartExport(helpers.CtxAsUser(adminID))
+		_, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
 		require.Error(t, err)
 		assert.NotEqual(t, "导出进行中，请稍候", err.Error())
 		assert.ErrorIs(t, err, job.ErrNoRunner)
@@ -369,7 +369,7 @@ func TestStartExport(t *testing.T) {
 		repo.seed(jobModel.Job{Type: jobModel.TypeExport, Status: jobModel.StatusRunning})
 		s := newService(common, repo, nil)
 		s.jobManager.Register(jobModel.TypeExport, noopRunner{})
-		_, err := s.StartExport(helpers.CtxAsUser(adminID))
+		_, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
 		require.Error(t, err)
 		assert.Equal(t, "导出进行中，请稍候", err.Error())
 	})
@@ -380,7 +380,7 @@ func TestStartExport(t *testing.T) {
 		repo := newFakeJobRepo()
 		s := newService(common, repo, nil)
 		s.jobManager.Register(jobModel.TypeExport, noopRunner{})
-		dto, err := s.StartExport(helpers.CtxAsUser(adminID))
+		dto, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
 		require.NoError(t, err)
 		assert.Equal(t, 1, dto.Version)
 		assert.Equal(t, string(jobModel.StatusPending), dto.Status)
@@ -511,7 +511,7 @@ func TestDownloadExport(t *testing.T) {
 		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		c, _ := newGinCtx(t)
-		err := s.DownloadExport(c, helpers.CtxAsUser(adminID))
+		err := s.DownloadExport(c, helpers.CtxAsUser(adminID), "")
 		require.Error(t, err)
 		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
 	})
@@ -522,9 +522,9 @@ func TestDownloadExport(t *testing.T) {
 		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		c, _ := newGinCtx(t)
-		err := s.DownloadExport(c, helpers.CtxAsUser(adminID))
+		err := s.DownloadExport(c, helpers.CtxAsUser(adminID), "")
 		require.Error(t, err)
-		assert.Equal(t, "暂无可下载的快照，请先创建导出", err.Error())
+		assert.Equal(t, "暂无可下载的产物，请先创建导出", err.Error())
 	})
 
 	t.Run("streams latest snapshot and emits event", func(t *testing.T) {
@@ -540,11 +540,53 @@ func TestDownloadExport(t *testing.T) {
 		s := newService(common, newFakeJobRepo(), bus)
 
 		c, w := newGinCtx(t)
-		require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID)))
+		require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID), ""))
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "application/zip", w.Header().Get("Content-Type"))
 		assert.Contains(t, w.Header().Get("Content-Disposition"), "attachment;")
 		assert.Equal(t, content, w.Body.Bytes())
+	})
+
+	// 快照与胶囊各占一个槽位。取错槽位的后果是用户拿到另一种格式的产物——想备份的拿到不含
+	// 账号的胶囊，是最坏的一类静默错误，故对两个方向都断言。
+	t.Run("format selects the matching artifact slot", func(t *testing.T) {
+		chdirTemp(t)
+		snapshotBytes := []byte("PK-snapshot")
+		capsuleBytes := []byte("PK-capsule")
+		require.NoError(t, os.MkdirAll(filepath.Join("data", "files", "snapshots"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join("data", "files", "capsules"), 0o755))
+		require.NoError(t, os.WriteFile(
+			filepath.Join("data", "files", "snapshots", "ech0_snapshot_2026-01-01_00-00-00.zip"), snapshotBytes, 0o644))
+		require.NoError(t, os.WriteFile(
+			filepath.Join("data", "files", "capsules", "ech0_capsule_2026-01-01_00-00-00.zip"), capsuleBytes, 0o644))
+
+		for _, tc := range []struct {
+			format string
+			want   []byte
+		}{
+			{format: "capsule", want: capsuleBytes},
+			{format: "snapshot", want: snapshotBytes},
+			// 空 format 是加入格式选择之前的客户端行为，必须仍然拿到快照。
+			{format: "", want: snapshotBytes},
+		} {
+			common := commonmock.NewMockService(t)
+			expectUser(t, common, adminUser(), nil)
+			s := newService(common, newFakeJobRepo(), helpers.NewTestBus(t))
+			c, w := newGinCtx(t)
+			require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID), tc.format))
+			assert.Equal(t, tc.want, w.Body.Bytes(), "format=%q", tc.format)
+			assert.Contains(t, w.Header().Get("Content-Disposition"), "ech0-")
+		}
+	})
+
+	// 未知格式必须报错而不是静默回落成快照：悄悄给出另一种产物，用户会拿错东西。
+	t.Run("unknown format rejected", func(t *testing.T) {
+		chdirTemp(t)
+		common := commonmock.NewMockService(t)
+		expectUser(t, common, adminUser(), nil)
+		s := newService(common, newFakeJobRepo(), nil)
+		c, _ := newGinCtx(t)
+		require.Error(t, s.DownloadExport(c, helpers.CtxAsUser(adminID), "tarball"))
 	})
 }
 

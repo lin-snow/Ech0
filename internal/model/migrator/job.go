@@ -39,3 +39,20 @@ const (
 	MigrationPhaseReporting    = "reporting"
 	MigrationPhaseCompleted    = "completed"
 )
+
+// 导出格式。快照是「data/ 的 zip」(含账号与凭据,可灾难恢复),胶囊是可分享的内容子集
+// (不含任何凭据)。两者产物落在不同槽位,详见 internal/migrator/artifact。
+const (
+	ExportFormatSnapshot = "snapshot"
+	ExportFormatCapsule  = "capsule"
+)
+
+// 胶囊导入阶段。与 MigrationPhase* 分开是因为胶囊走的是另一条链路:校验是硬前置
+// (spec §7),没有解压与转换两步。
+const (
+	ImportPhaseChecking  = "checking"
+	ImportPhaseImporting = "importing"
+)
+
+// MigrationSourceCapsule 是胶囊导入的来源标识(与 ech0/memos 并列,走 source_type 分派)。
+const MigrationSourceCapsule = "capsule"

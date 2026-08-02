@@ -19,10 +19,10 @@ type Service interface {
 	CancelGlobalMigration(ctx context.Context) (migratorModel.GlobalMigrationStateDTO, error)
 	CleanupGlobalMigration(ctx context.Context) error
 
-	StartExport(ctx context.Context) (migratorModel.ExportStateDTO, error)
+	StartExport(ctx context.Context, req migratorModel.StartExportRequest) (migratorModel.ExportStateDTO, error)
 	GetExportStatus(ctx context.Context) (migratorModel.ExportStateDTO, error)
 	CancelExport(ctx context.Context) (migratorModel.ExportStateDTO, error)
-	DownloadExport(ctx *gin.Context, reqCtx context.Context) error
+	DownloadExport(ctx *gin.Context, reqCtx context.Context, format string) error
 }
 
 type CommonService = commonService.Service

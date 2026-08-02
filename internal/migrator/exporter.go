@@ -13,10 +13,14 @@ import (
 
 // ExportOutcome 是一次导出的产物描述。ArtifactPath 为本地归档路径(供同步下载流式下发,不暴露给
 // 前端),其余字段可序列化进作业终态 Payload 供 UI 展示。
+//
+// Format 与 ExportPayload.Format 同名同值,这不是巧合:作业行的 Payload 列先存输入 payload、
+// 成功后被本结构覆盖,同名让 DTO 转换用一次解析覆盖「运行中」与「已完成」两种形态。
 type ExportOutcome struct {
 	ArtifactPath string `json:"-"`
 	FileName     string `json:"file_name"`
 	Size         int64  `json:"size,omitempty"`
+	Format       string `json:"format,omitempty"`
 }
 
 // ExportEngine 跑导出编排:按目的地选 Exporter 适配器(配了对象存储用 s3,否则 fs)→ 运行 →
@@ -63,5 +67,6 @@ func (ex *ExportEngine) Export(
 		ArtifactPath: result.ArtifactPath,
 		FileName:     result.FileName,
 		Size:         result.Size,
+		Format:       migratorModel.ExportFormatSnapshot,
 	}, nil
 }

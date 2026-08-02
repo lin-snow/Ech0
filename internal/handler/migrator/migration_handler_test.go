@@ -152,7 +152,7 @@ func TestStartExport(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := migratormock.NewMockService(t)
 		mockSvc.EXPECT().
-			StartExport(mock.Anything).
+			StartExport(mock.Anything, mock.Anything).
 			Return(migratorModel.ExportStateDTO{Status: "running"}, nil).
 			Once()
 
@@ -167,7 +167,7 @@ func TestStartExport(t *testing.T) {
 	t.Run("error", func(t *testing.T) {
 		mockSvc := migratormock.NewMockService(t)
 		mockSvc.EXPECT().
-			StartExport(mock.Anything).
+			StartExport(mock.Anything, mock.Anything).
 			Return(migratorModel.ExportStateDTO{}, errBoom).
 			Once()
 

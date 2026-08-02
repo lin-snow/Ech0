@@ -93,7 +93,7 @@ func BuildApp() (*app.App, error) {
 	keyValueRepository := keyvalue.NewKeyValueRepository(v, iCache)
 	store := ProvideStorageKV(keyValueRepository)
 	manager := storage.ProvideStorageManager(store)
-	jobManager, err := BuildJobManager(v, iCache, manager, v2)
+	jobManager, err := BuildJobManager(v, iCache, manager, v2, gormTransactor)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache cache.ICache[string, any
 // service），在构造期注册完成。Runner 依赖的 EmbeddingService / migrator.ImportEngine 均不
 // 含 *job.Manager，故无构造环。storageManager 由顶层共享单例注入，确保迁移导入 S3
 // 设置时 reload 的就是文件服务在用的那份 Manager。
-func BuildJobManager(dbProvider func() *gorm.DB, appCache cache.ICache[string, any], storageManager *storage.Manager, ebProvider func() *busen.Bus) (*job.Manager, error) {
+func BuildJobManager(dbProvider func() *gorm.DB, appCache cache.ICache[string, any], storageManager *storage.Manager, ebProvider func() *busen.Bus, tx transaction.Transactor) (*job.Manager, error) {
 	jobRepository := repository12.NewJobRepository(dbProvider)
 	embeddingRepository := repository.NewEmbeddingRepository(dbProvider)
 	keyValueRepository := keyvalue.NewKeyValueRepository(dbProvider, appCache)
@@ -195,9 +195,11 @@ func BuildJobManager(dbProvider func() *gorm.DB, appCache cache.ICache[string, a
 	embeddingService := service.NewEmbeddingService(embeddingRepository, persistent, echoRepository)
 	reindexRunner := runner.NewReindexRunner(embeddingService)
 	importEngine := migrator.NewImportEngine(persistent, storageManager, appCache)
-	migrationRunner := runner.NewMigrationRunner(importEngine)
+	db := ProvideGormDB(dbProvider)
+	capsuleEngine := migrator.NewCapsuleEngine(db, storageManager, persistent, tx)
+	migrationRunner := runner.NewMigrationRunner(importEngine, capsuleEngine)
 	exportEngine := migrator.NewExportEngine(storageManager)
-	exportRunner := runner.NewExportRunner(exportEngine, ebProvider)
+	exportRunner := runner.NewExportRunner(exportEngine, capsuleEngine, ebProvider)
 	manager := ProvideJobManager(jobRepository, reindexRunner, migrationRunner, exportRunner)
 	return manager, nil
 }
@@ -223,7 +225,7 @@ func BuildServer() (*server.Server, error) {
 	keyValueRepository := keyvalue.NewKeyValueRepository(v, iCache)
 	store := ProvideStorageKV(keyValueRepository)
 	manager := storage.ProvideStorageManager(store)
-	jobManager, err := BuildJobManager(v, iCache, manager, v2)
+	jobManager, err := BuildJobManager(v, iCache, manager, v2, gormTransactor)
 	if err != nil {
 		return nil, err
 	}
@@ -305,6 +307,12 @@ var StorageSet = wire.NewSet(keyvalue.NewKeyValueRepository, ProvideStorageKV, s
 // 它消费（而非再 provide）该具体类型，故不与各 Build 内的 KeyValueSet 冲突。
 func ProvideStorageKV(repo *keyvalue.KeyValueRepository) kvstore.Store {
 	return kvstore.NewPersistent(repo)
+}
+
+// ProvideGormDB 把库句柄提供者摊平成句柄本身。胶囊包直连 GORM 读写（见 internal/capsule
+// 各包注释），而 wire 图里流通的是 func() *gorm.DB，故需这一层。
+func ProvideGormDB(dbProvider func() *gorm.DB) *gorm.DB {
+	return dbProvider()
 }
 
 var DomainSet = wire.NewSet(

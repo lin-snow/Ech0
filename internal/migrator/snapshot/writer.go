@@ -5,42 +5,47 @@
 // 以及把外部上传的 zip 解开到目录(导入端)。它是 import / export 两端共用的同一产物,
 // 只依赖 virefs 与配置,可被无 DI 的 CLI 直接调用。
 //
-// 快照格式即「data/ 的 zip」(排除 snapshots/、tmp/)。数据库文件名固定为 ech0.db
+// 快照格式即「data/ 的 zip」(排除 snapshots/、capsules/、tmp/)。数据库文件名固定为 ech0.db
 // (见 config 默认),导入端在 ech0 importer 中定位。在线导出时应通过 WithConsistentDB
 // 打入数据库的一致性副本(见其注释),冷目录打包则原样带走全部文件。
 package snapshot
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/virefs"
 	vizip "github.com/lin-snow/ech0/pkg/virefs/plugin/zip"
 )
 
-// ErrNoSnapshot 表示快照目录下尚无可下载的快照（需先执行一次导出）。
-var ErrNoSnapshot = errors.New("snapshot: no snapshot available")
+// ErrNoSnapshot 表示快照目录下尚无可下载的快照（需先执行一次导出）。与 artifact.ErrNone 是
+// 同一个值，errors.Is 在两侧都成立；保留此名是为了不惊动既有调用方。
+var ErrNoSnapshot = artifact.ErrNone
 
 const (
-	dataDir             = "data"
-	snapshotRelativeDir = "files/snapshots"
-	tmpRelativeDir      = "files/tmp"
-	snapshotFileName    = "ech0_snapshot"
-	timeLayout          = "2006-01-02_15-04-05"
+	dataDir = artifact.DataDir
+	// 布局常量的本地投影：真相在 artifact，这里只为可读性与测试引用。
+	snapshotRelativeDir = artifact.SnapshotDir
+	tmpRelativeDir      = artifact.TmpDir
+	capsuleRelativeDir  = artifact.CapsuleDir
 	// dbFileName 是快照内数据库文件的固定名称(与 config 默认的 data/ech0.db 对应)。
 	dbFileName = "ech0.db"
 	// dbStagingRelativeDir 是数据库一致性副本的暂存目录,位于 tmp 下(tmp 本身被快照排除)。
-	dbStagingRelativeDir = "files/tmp/db-export"
+	dbStagingRelativeDir = artifact.TmpDir + "/db-export"
 )
+
+// Slot 返回快照产物槽位，供下载出口取回最新一份。
+func Slot() artifact.Slot {
+	return artifact.Snapshots()
+}
 
 // CreateOption 调整 Create 的打包行为。
 type CreateOption func(*createConfig)
@@ -68,11 +73,11 @@ func Create(opts ...CreateOption) (string, string, error) {
 		opt(&cfg)
 	}
 
-	snapshotTime := time.Now().UTC().Format(timeLayout)
-	fileName := fmt.Sprintf("%s_%s.zip", snapshotFileName, snapshotTime)
-	snapshotDir := filepath.Join(dataDir, snapshotRelativeDir)
-	snapshotPath := filepath.Join(snapshotDir, fileName)
-	tempPath := filepath.Join(snapshotDir, "."+fileName+".tmp")
+	slot := Slot()
+	fileName := slot.Name(time.Now().UTC())
+	snapshotDir := slot.Dir()
+	snapshotPath := slot.Path(fileName)
+	tempPath := slot.Path("." + fileName + ".tmp")
 
 	if err := os.MkdirAll(snapshotDir, 0o755); err != nil {
 		return "", "", fmt.Errorf("create snapshot dir: %w", err)
@@ -145,43 +150,17 @@ func Create(opts ...CreateOption) (string, string, error) {
 		return "", "", fmt.Errorf("finalize snapshot zip: %w", err)
 	}
 
-	if err := keepOnlyLatestSnapshot(snapshotDir, fileName); err != nil {
+	if err := slot.KeepOnly(fileName); err != nil {
 		return "", "", err
 	}
 
 	return snapshotPath, fileName, nil
 }
 
-// LatestPath 返回 data/files/snapshots 下最新一份快照 zip 的路径（文件名内嵌 UTC 时间戳，
-// 取字典序最大者）。无可用快照时返回 ErrNoSnapshot。配合「仅保留最新一份」语义，目录里
-// 通常只有一个 .zip。供同步下载出口取回「上一次导出作业产出的快照」。
+// LatestPath 返回最新一份快照 zip 的路径，无可用快照时返回 ErrNoSnapshot。
+// 供同步下载出口取回「上一次导出作业产出的快照」。
 func LatestPath() (string, error) {
-	snapshotDir := filepath.Join(dataDir, snapshotRelativeDir)
-	entries, err := os.ReadDir(snapshotDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", ErrNoSnapshot
-		}
-		return "", fmt.Errorf("read snapshot dir: %w", err)
-	}
-	latest := ""
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		// 跳过打包中的临时文件（"."+name+".tmp"），只认完成的 .zip。
-		if !strings.HasSuffix(name, ".zip") {
-			continue
-		}
-		if name > latest {
-			latest = name
-		}
-	}
-	if latest == "" {
-		return "", ErrNoSnapshot
-	}
-	return filepath.Join(snapshotDir, latest), nil
+	return Slot().Latest()
 }
 
 // Unpack unpacks a snapshot zip file to the destination directory.
@@ -268,31 +247,11 @@ func (o *dbOverlayFS) Stat(ctx context.Context, key string) (*virefs.FileInfo, e
 }
 
 func shouldExcludeFromSnapshot(cleanKey string) bool {
-	snapshotPrefix := strings.Trim(strings.TrimSpace(snapshotRelativeDir), "/")
-	tmpPrefix := strings.Trim(strings.TrimSpace(tmpRelativeDir), "/")
-	return cleanKey == snapshotPrefix ||
-		strings.HasPrefix(cleanKey, snapshotPrefix+"/") ||
-		cleanKey == tmpPrefix ||
-		strings.HasPrefix(cleanKey, tmpPrefix+"/")
-}
-
-func keepOnlyLatestSnapshot(snapshotDir string, latestFileName string) error {
-	entries, err := os.ReadDir(snapshotDir)
-	if err != nil {
-		return fmt.Errorf("read snapshot dir: %w", err)
-	}
-	sort.SliceStable(entries, func(i, j int) bool {
-		return entries[i].Name() < entries[j].Name()
-	})
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == latestFileName {
-			continue
-		}
-		removePath := filepath.Join(snapshotDir, name)
-		if err := os.RemoveAll(removePath); err != nil {
-			return fmt.Errorf("cleanup old snapshot %s: %w", name, err)
+	for _, dir := range artifact.Excluded() {
+		prefix := strings.Trim(strings.TrimSpace(dir), "/")
+		if cleanKey == prefix || strings.HasPrefix(cleanKey, prefix+"/") {
+			return true
 		}
 	}
-	return nil
+	return false
 }

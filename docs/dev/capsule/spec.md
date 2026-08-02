@@ -1,10 +1,11 @@
 # Ech0 Capsule 规格 v1
 
-> **状态：已实现（v1）。** 本文是 Capsule 格式与相关 CLI 的**规范性定义**——只写「是什么」。
+> **状态：已实现（v1）。** 本文是 Capsule 格式与相关命令的**规范性定义**——只写「是什么」。
 > 设计依据、备选方案与讨论见 [`capsule-design.md`](./capsule-design.md)；文中 Q 编号指向该文档 §9。
 > 面向用户的操作指南见 [`../../usage/capsule.md`](../../usage/capsule.md)。
 > 实现位于 `internal/capsule/`（核心格式）与 `internal/capsule/{export,check,importer,build}`，
-> CLI 接线在 `cmd/capsule.go` + `internal/cli/capsule.go`。
+> CLI 接线在 `cmd/capsule.go` + `internal/cli/capsule.go`，Web 接线在 `internal/migrator/capsule.go`
+> + `internal/service/migrator` + `internal/job/runner`（见 §9.1）。
 
 **用词约定**：**必须** / **禁止** = 违反即校验错误；**应当** = 违反产生警告；**可选** = 消费者不得因缺失而报错。
 
@@ -180,6 +181,26 @@ ech0 build            [<path>=./capsule] [-o ./dist] [--base-url /]
 | `--yes` | import snapshot | 破坏性操作确认门，缺失即拒绝 |
 
 退出码：`0` 成功；`1` 校验错误或执行失败；仅警告不影响退出码。
+
+## 9.1 HTTP 接口（Web 面板）
+
+`export capsule` 与 `import capsule` 另有一条等价的 HTTP 路径，供面板使用；两条路复用同一批
+`internal/capsule/*` 入口，语义完全一致。`check` 与 `build` **只有** CLI。全部端点沿用既有导出
+/迁移域的 `admin:settings` 权限。
+
+| 端点 | 胶囊相关增量 |
+|---|---|
+| `POST /migration/export` | 请求体 `{format?: "snapshot"\|"capsule", include_private?: bool}`；两者皆可省，省略即「快照、不含私密」 |
+| `GET /migration/export/status` | 响应新增 `format`，标明当前产物是哪种格式 |
+| `GET /migration/export/download` | 新增 `?format=` 查询参数，缺省 `snapshot` |
+| `POST /migration/upload` | `source_type` 新增取值 `capsule` |
+| `POST /migration/start` | `source_type: "capsule"` 时，`source_payload.include_private` 控制是否导入私密条目 |
+
+- 未知 `format` **必须**拒绝，**禁止**静默回落到快照——悄悄给出另一种产物会让用户拿错东西。
+- 胶囊产物落在 `data/files/capsules/`，与快照的 `data/files/snapshots/` 分居两个槽位，各自只保留最新
+  一份。两个目录都**必须**排除在快照打包之外（`internal/migrator/artifact` 收口）。
+- Web 导入与 CLI 一样把校验作为硬前置：有错误级发现即拒绝落库，错误摘要回填进作业的 `error_message`。
+- 导出胶囊**禁止**发布 `SystemSnapshot` 事件：webhook 订阅它来确认「备份已完成」，而胶囊不是备份。
 
 ## 10. `ech0 build` 产物约定
 

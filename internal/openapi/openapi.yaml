@@ -506,6 +506,8 @@ components:
         finished_at:
           format: int64
           type: integer
+        format:
+          type: string
         phase:
           type: string
         size:
@@ -2034,6 +2036,14 @@ components:
         cron_expression:
           type: string
         enable:
+          type: boolean
+      type: object
+    StartExportRequest:
+      additionalProperties: true
+      properties:
+        format:
+          type: string
+        include_private:
           type: boolean
       type: object
     StartGlobalMigrationRequest:
@@ -3615,6 +3625,12 @@ paths:
   /migration/export:
     post:
       operationId: migration-export
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartExportRequest"
+        required: true
       responses:
         "200":
           content:

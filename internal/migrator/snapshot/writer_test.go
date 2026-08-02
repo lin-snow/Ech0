@@ -218,6 +218,9 @@ func TestShouldExcludeFromSnapshot(t *testing.T) {
 		{key: "files/snapshots/a.zip", expected: true},
 		{key: "files/tmp", expected: true},
 		{key: "files/tmp/a.zip", expected: true},
+		// 胶囊产物也是 data/ 下的派生物：漏掉它，每次快照都会把上一个胶囊打进去并雪球式膨胀。
+		{key: "files/capsules", expected: true},
+		{key: "files/capsules/ech0_capsule_2026-08-02_10-00-00.zip", expected: true},
 		{key: "files/images/a.png", expected: false},
 		{key: "ech0.db", expected: false},
 	}

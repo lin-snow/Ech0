@@ -14,25 +14,53 @@ import (
 	"github.com/lin-snow/ech0/pkg/busen"
 )
 
-// SnapshotExporter 是导出执行端，便于测试解耦（由 migrator.ExportEngine 满足）。
+// SnapshotExporter 是快照导出执行端，便于测试解耦（由 migrator.ExportEngine 满足）。
 type SnapshotExporter interface {
 	Export(ctx context.Context, report func(phase string, snapshot any)) (coreMigrator.ExportOutcome, error)
 }
 
-var _ SnapshotExporter = (*coreMigrator.ExportEngine)(nil)
+// CapsuleExporter 是胶囊导出执行端（由 migrator.CapsuleEngine 满足）。
+type CapsuleExporter interface {
+	Export(
+		ctx context.Context,
+		includePrivate bool,
+		report func(phase string, snapshot any),
+	) (coreMigrator.ExportOutcome, error)
+}
 
-// ExportRunner 把导出执行包成作业 Runner（手动快照异步出口）。导出完成后发布 SystemSnapshot
-// 事件（webhook 观察 SystemSnapshot）。
+var (
+	_ SnapshotExporter = (*coreMigrator.ExportEngine)(nil)
+	_ CapsuleExporter  = (*coreMigrator.CapsuleEngine)(nil)
+)
+
+// ExportRunner 把导出执行包成作业 Runner（手动导出的异步出口），按 payload.Format 在快照与
+// 胶囊之间分派。两种格式共用同一作业类型：它们都是重 IO 的整库打包，互斥跑才不会打满磁盘，
+// 且前端那套轮询与进度卡可以原样复用。
 type ExportRunner struct {
-	exporter SnapshotExporter
-	bus      *busen.Bus
+	exporter        SnapshotExporter
+	capsuleExporter CapsuleExporter
+	bus             *busen.Bus
 }
 
-func NewExportRunner(exporter *coreMigrator.ExportEngine, busProvider func() *busen.Bus) *ExportRunner {
-	return &ExportRunner{exporter: exporter, bus: busProvider()}
+func NewExportRunner(
+	exporter *coreMigrator.ExportEngine,
+	capsuleExporter *coreMigrator.CapsuleEngine,
+	busProvider func() *busen.Bus,
+) *ExportRunner {
+	return &ExportRunner{exporter: exporter, capsuleExporter: capsuleExporter, bus: busProvider()}
 }
 
-func (r *ExportRunner) Run(ctx context.Context, _ migratorModel.ExportPayload, report job.ReportFunc) (any, error) {
+func (r *ExportRunner) Run(
+	ctx context.Context,
+	p migratorModel.ExportPayload,
+	report job.ReportFunc,
+) (any, error) {
+	if p.Format == migratorModel.ExportFormatCapsule {
+		// 刻意不发 SystemSnapshot：webhook 订阅它来确认「备份已完成」，而胶囊不含账号与凭据、
+		// 不能用于灾难恢复，拿它冒充备份完成会给用户错误的安全感。
+		return r.capsuleExporter.Export(ctx, p.IncludePrivate, report)
+	}
+
 	outcome, err := r.exporter.Export(ctx, report)
 	if err != nil {
 		return nil, err
