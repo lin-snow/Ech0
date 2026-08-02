@@ -22,6 +22,14 @@ export function buildCommonHeaders(): Record<string, string> {
   return headers
 }
 
+/**
+ * 静态站（`ech0 build` 产物）开关：index.html 里注入 `window.__ECH0_STATIC__ = true`。
+ * 判定必须极轻且不 import adapter，保证非静态构建下 adapter 不进主 chunk。
+ */
+export function isStaticMode(): boolean {
+  return typeof window !== 'undefined' && window.__ECH0_STATIC__ === true
+}
+
 export const getApiUrl = () => {
   const baseUrl = import.meta.env.VITE_SERVICE_BASE_URL
   const resolvedBaseUrl = baseUrl.replace(/\/+$/, '') // 正则去除末尾的斜杠

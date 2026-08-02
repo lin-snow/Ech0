@@ -3,7 +3,7 @@
 <template>
   <div id="comments" class="w-full max-w-sm h-auto px-0 py-2 mx-auto">
     <div
-      v-if="formMeta && !formMeta.enable_comment"
+      v-if="formMeta && !formMeta.enable_comment && !readOnly"
       class="rounded-lg border border-[var(--color-border-subtle)] p-3 text-sm text-[var(--color-text-muted)]"
     >
       {{ t('commentSection.disabled') }}
@@ -13,6 +13,7 @@
       <div class="mb-4 comment-list-board">
         <div class="mb-3 flex items-center justify-between gap-2">
           <button
+            v-if="!readOnly"
             type="button"
             class="comment-pill-btn shrink-0"
             :aria-expanded="commentFormExpanded"
@@ -27,7 +28,7 @@
         </div>
 
         <form
-          v-if="commentFormExpanded"
+          v-if="commentFormExpanded && !readOnly"
           class="comment-form-panel mb-3"
           @submit.prevent="submitComment"
         >
@@ -194,7 +195,12 @@
                   <span class="comment-time">{{ formatDate(item.created_at) }}</span>
                 </div>
                 <TheMdPreview class="comment-md-content" :content="item.content" />
-                <button type="button" class="comment-reply-btn" @click="startReply(item)">
+                <button
+                  v-if="!readOnly"
+                  type="button"
+                  class="comment-reply-btn"
+                  @click="startReply(item)"
+                >
                   {{ t('commentSection.reply') }}
                 </button>
               </div>
@@ -250,7 +256,12 @@
                     </template>
                   </div>
                   <TheMdPreview class="comment-md-content" :content="reply.content" />
-                  <button type="button" class="comment-reply-btn" @click="startReply(reply)">
+                  <button
+                    v-if="!readOnly"
+                    type="button"
+                    class="comment-reply-btn"
+                    @click="startReply(reply)"
+                  >
                     {{ t('commentSection.reply') }}
                   </button>
                 </div>
@@ -296,6 +307,7 @@ import Verified from '../icons/verified.vue'
 import MarkdownIcon from '../icons/markdown.vue'
 import Comments from '../icons/comments.vue'
 import { useI18n } from 'vue-i18n'
+import { isStaticMode } from '@/service/request/shared'
 
 type CapSolveDetail = {
   token?: string
@@ -330,6 +342,11 @@ const solvingCaptcha = ref(false)
 const commentFormExpanded = ref(false)
 const submitNotice = ref<SubmitNotice | null>(null)
 let capWidgetLoadPromise: Promise<unknown> | null = null
+
+// 静态站（`ech0 build` 产物）没有后端可收评论：按冻结展示处理——既有评论照常
+// 只读呈现，发布/回复入口整体隐藏。不能靠 formMeta.enable_comment=false 达成，
+// 那会连评论列表一起藏掉，等于把内容史也一并抹了。
+const readOnly = isStaticMode()
 
 const form = reactive<App.Api.Comment.CreateCommentDto>({
   echo_id: '',
