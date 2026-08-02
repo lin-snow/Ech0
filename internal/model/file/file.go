@@ -43,7 +43,7 @@ type File struct {
 	Width       int    `gorm:"default:0" json:"width,omitempty"`
 	Height      int    `gorm:"default:0" json:"height,omitempty"`
 
-	Category  string `gorm:"type:varchar(20);index" json:"category"` // image|video|audio|document|file
+	Category  string `gorm:"type:varchar(20);index" json:"category"` // image|video|audio|pdf|markdown|file，见 storage.Category
 	UserID    string `gorm:"type:char(36);index;not null" json:"user_id"`
 	CreatedAt int64  `gorm:"autoCreateTime" json:"created_at"`
 }
