@@ -135,6 +135,7 @@ const DOC_ORDER: readonly string[] = [
   "guide/mcp",
   "guide/s3",
   "guide/datacontrol",
+  "guide/capsule",
   "dev/guide",
   "start/community",
 ];

@@ -1,0 +1,181 @@
+---
+title: 胶囊与静态站
+description: 把内容导出成可读的胶囊，用来搬家、长期保存，或编译成一个静态归档站
+---
+
+**胶囊（Capsule）是一个装着你全部公开内容的文件夹**，人类可读、可编辑、可以扔进 git。它解决快照解决不了的三件事：搬家到新实例、十年后还能打开、把归档发布成一个不需要服务器的站点。
+
+---
+
+## 胶囊和快照的区别
+
+两者都能"备份"，但目标完全不同。
+
+|          | 胶囊 Capsule                             | 快照 Snapshot                      |
+| -------- | ---------------------------------------- | ---------------------------------- |
+| 装什么   | 公开内容：Echo、媒体、评论、站点设置     | 整台实例：含数据库文件、账号、凭据 |
+| 长什么样 | 可读目录，一条 Echo 一个 Markdown 文件   | 不透明 ZIP                         |
+| 导入语义 | **幂等合并**，按 id 跳过，不覆盖已有内容 | **破坏性替换**整库                 |
+| 适合     | 搬家、长期保存、发布静态站、换工具       | 灾备回滚                           |
+
+一句话：备份"整台机器"用快照，带走"我写的东西"用胶囊。
+
+---
+
+## 长什么样
+
+```text
+capsule/
+  ech0.yaml                            # 站点信息、归属、互联列表
+  echoes/2026/2026-08-02-a1b2c3d4.md   # 一条 Echo = 一个 frontmatter-markdown 文件
+  comments.yaml                        # 评论快照（公开投影，不含邮箱与 IP）
+  files/images/…                       # 媒体字节
+```
+
+单条 Echo 就是普通 Markdown，前面加一段元信息：
+
+```markdown
+---
+id: 0198f0a0-0000-7000-8000-000000000001
+created_at: 2026-08-02T10:00:00Z
+tags:
+  - 日记
+---
+
+正文写在这里，逐字保存。
+```
+
+即使有一天没有 Ech0 了，这些文件用任何编辑器都能打开。
+
+---
+
+## 命令
+
+需要**二进制安装**（Docker 用户可 `docker exec` 进容器执行）。所有命令都在实例根目录（`data/` 所在目录）下运行。
+
+```bash
+ech0 export capsule   [-o ./capsule] [--include-private] [--zip]
+ech0 import capsule   [<路径>=./capsule] [--include-private] [--dry-run]
+ech0 check            [<路径>=./capsule] [--fix]
+ech0 build            [<路径>=./capsule] [-o ./dist] [--base-url /]
+```
+
+顺带一提，快照也有了命令行入口，可以直接写进 cron：
+
+```bash
+ech0 export snapshot  [-o ./snapshot.zip]
+ech0 import snapshot  <snapshot.zip> --yes    # 破坏性，必须显式确认
+```
+
+---
+
+## 导出
+
+```bash
+ech0 export capsule -o ./my-capsule
+```
+
+- 默认**排除私密 Echo**。要带走加 `--include-private`——胶囊不加密，别随手推到公开仓库。
+- 存在 S3 上的附件会被下载进胶囊，所以胶囊永远是自包含的。
+- 如果有任何一个附件取不回来（桶不可达、对象丢了），导出会**整体失败并列出清单**，而不是产出一个缺图的胶囊。修好再跑即可，失败不会留下半成品。
+- `--zip` 产出单文件，内部结构与目录形态完全一致。
+
+---
+
+## 校验
+
+```bash
+ech0 check ./my-capsule
+ech0 check ./my-capsule --fix
+```
+
+分**错误**和**警告**两级：错误会让导入和构建拒绝执行，警告只是提醒。常见警告：
+
+- `embeds source instance URL`——正文里写死了原站地址，换域名后可能断链。
+- `dangling media`——附件没被任何 Echo 引用（上传后没用上），合法，只是提醒你。
+- `custom_js is not empty`——别人给的胶囊里带着脚本，导入等于执行对方代码，先看一眼。
+
+`--fix` 只补一件事：缺失的 `id`。手写胶囊时很有用。
+
+---
+
+## 导入
+
+```bash
+ech0 import capsule ./my-capsule --dry-run   # 先看清单，不写库
+ech0 import capsule ./my-capsule
+```
+
+几条要点：
+
+- **可以重复执行**。按 id 判重，已存在的 Echo 直接跳过，不覆盖不合并。
+- **逐字入库**。作者名、点赞数、正文原样保留，不做任何改写。
+- **站点设置只填空位**。你已经配过的项一个都不动；从没配过的（还是默认值）才用胶囊里的值填上——所以搬到新实例时，站点标题、Logo、备案号会一并带过去。
+- **不触发 Webhook**。导入历史内容不该给订阅方推一遍通知。代价是向量索引不会自动跟进，导完去后台点一次索引重建。
+
+### 搬家到新实例
+
+```bash
+# 旧实例
+ech0 export capsule -o ./capsule --include-private
+
+# 把 capsule/ 复制到新机器，然后在新实例上
+ech0 check ./capsule
+ech0 import capsule ./capsule --include-private
+```
+
+---
+
+## 编译成静态站
+
+```bash
+ech0 build ./my-capsule -o ./dist
+ech0 build ./my-capsule -o ./dist --base-url /blog/   # 部署到子路径
+```
+
+产物是一个能直接扔进 GitHub Pages、Cloudflare Pages、对象存储的目录：
+
+```text
+dist/
+  index.html  404.html  assets/…   # 完整的 Ech0 前端，界面与你的站点一模一样
+  dataset.json                     # 烘焙好的内容数据
+  api/files/…                      # 附件
+  api/connect                      # Connect 名片，别的 Ech0 实例仍可以连你
+  rss.xml  sitemap.xml
+```
+
+**不需要装 Node 或 pnpm**——前端已经内嵌在 `ech0` 二进制里。
+
+静态站是**冻结展示**：点赞数和评论都按导出时的样子只读呈现，发布/回复/登录入口自动隐藏，点赞会提示当前为静态归档。互动痕迹本身就是内容史的一部分，藏掉只会让归档站显得比原站"死"。
+
+> **部署提醒**：GitHub Pages / Cloudflare Pages 这类平台要把 **SPA 深链兜底**指到 `404.html`，否则直接访问 `/echo/xxx` 会 404。
+
+### 用它做什么
+
+- 把博客冻结成静态归档，关掉服务器但内容永远在线。
+- 给每次导出留一份可浏览的时间胶囊。
+- 白嫖免费静态托管，把动态实例留在内网。
+
+---
+
+## 手写与第三方胶囊
+
+胶囊格式是**公开规范**，你可以手写，也可以写转换器把别家的数据变成胶囊再导入。最小可用的一条 Echo 只需要 `id` 和 `created_at`——`id` 缺了用 `ech0 check --fix` 生成即可。时间接受任意合法 RFC3339 偏移（写 `+08:00` 也行）。
+
+完整规范见仓库 **[Capsule 规格](https://github.com/lin-snow/Ech0/blob/main/docs/dev/capsule/spec.md)**，操作细节见 **[使用说明](https://github.com/lin-snow/Ech0/blob/main/docs/usage/capsule.md)**。
+
+---
+
+## 常见问题
+
+**导出报错说某个文件取不回来？**
+S3 配置变了或对象被删了。修好存储配置再跑；实在拿不回来的，把对应的附件记录清掉。
+
+**导入后站点标题没变？**
+说明目标实例已经配过标题了——导入不覆盖你配过的东西，去后台改即可。
+
+**静态站图片全裂？**
+检查 `api/files/` 目录是否完整；部署到子路径时记得带 `--base-url`。
+
+**能用 git 管理胶囊吗？**
+可以，这是设计目标之一。每条 Echo 是独立文件，评论单独放一个文件，所以新增评论不会污染内容文件的 diff。
