@@ -138,8 +138,12 @@
 
 | 级别 | 条件 |
 |---|---|
-| **错误**（拒绝 import/build） | `ech0.yaml` 缺失或 `schema_version` 不识别；`id`/`created_at` 缺失或非法；`layout`/`extension.type`/`files[].category` 非法枚举；`files[].key` 含 `/` 或 `..`，或字节不存在于 `files/ + Resolve(key)`；`key`+`url` 同时存在或同时缺失；`comments.yaml` 出现禁止字段；`id` 重复 |
-| **警告** | 孤儿评论；悬空媒体文件；未知字段/未知顶层路径；`custom_js`/`custom_css` 非空；`status != approved` 的评论；`files[].size` 与实际字节数不符；正文、`extension.payload` 或 `site.server_logo` 内嵌实例相关 URL（`site.server_url` 前缀或 `/api/files/` 引用，迁移后可能断链） |
+| **错误**（拒绝 import/build） | `ech0.yaml` 缺失或 `schema_version` 不识别；`id`/`created_at` 缺失或非法；有 `extension` 但 `type` 或 `payload` 缺失；`files[].key` 含 `/` 或 `..`，或字节不存在于 `files/ + Resolve(key)`；`key`+`url` 同时存在或同时缺失；`comments.yaml` 出现禁止字段；`id` 重复 |
+| **警告** | **`layout`/`extension.type`/`files[].category` 取值不在已知枚举内**（见下）；孤儿评论；悬空媒体文件；未知字段/未知顶层路径；`custom_js`/`custom_css` 非空；`status != approved` 的评论；`files[].size` 与实际字节数不符；正文、`extension.payload` 或 `site.server_logo` 内嵌实例相关 URL（`site.server_url` 前缀或 `/api/files/` 引用，迁移后可能断链） |
+
+**表现层枚举只警告、不阻断**：`layout`、`files[].category`、`extension.type` 都只影响「怎么渲染」，内容本身完好。消费者**必须**优雅降级——`layout` 回落 `waterfall`、`category` 回落 `file`、不认得的 `extension.type` 跳过渲染——而**禁止**因此拒绝整个胶囊。理由有二：其一，活实例的写路径本就如此（`service/echo` 把未知 `layout` 归一成 `waterfall`），规范没有理由比它描述的系统更严格；其二，这与 §8「消费者必须忽略未知字段」是同一类前向兼容问题——未知的枚举**取值**和未知的**字段**都可能来自更新的版本或第三方生产者。缺失 `extension.type` 仍是硬错：`payload` 的结构随 `type` 而异，没有它就无从解释。
+
+> 降级只发生在**消费侧的渲染**（`build`）。`export`/`import` 一律逐字保留原值——库里是 `stream` 就导出 `stream`、导入回去还是 `stream`（§11 的 1:1 纪律）。
 
 - `--fix` 可自动修复项：缺失 `id`（生成 UUIDv7 回写 frontmatter）。仅此一项，后续扩展须逐项列入本规格。
 - `ech0 import capsule` / `ech0 build` 隐式执行同一套校验。

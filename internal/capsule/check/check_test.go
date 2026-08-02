@@ -201,13 +201,17 @@ body
 	if !report.HasErrors() {
 		t.Fatal("期望拦截级发现，实际为零")
 	}
-	if got := report.Count(LevelError); got != 3 {
-		t.Fatalf("error 数 = %d，期望 3:%s", got, dumpIssues(report))
+	// category 不认得只是渲染退化，属警告；真正拦截的是 key/url 互斥违规与缺字节。
+	if got := report.Count(LevelError); got != 2 {
+		t.Fatalf("error 数 = %d，期望 2:%s", got, dumpIssues(report))
 	}
-	for _, field := range []string{"files[0]", "files[1].key", "files[2].category"} {
+	for _, field := range []string{"files[0]", "files[1].key"} {
 		if findIssue(report, LevelError, echoPath, field) == nil {
 			t.Errorf("缺少 %s 的 error:%s", field, dumpIssues(report))
 		}
+	}
+	if findIssue(report, LevelWarning, echoPath, "files[2].category") == nil {
+		t.Errorf("未知 category 应为 warning:%s", dumpIssues(report))
 	}
 	if it := findIssue(report, LevelError, echoPath, "files[1].key"); it != nil &&
 		!strings.Contains(it.Message, "files/images/ghost.png") {
@@ -306,12 +310,15 @@ comments:
 		{capsule.ManifestPath, "owner.username"}, // 归属兜底缺失
 		{echoPath, "id"},                         // 非法 UUID
 		{echoPath, "created_at"},                 // 非 RFC3339
-		{echoPath, "layout"},                     // 非法枚举
 		{echoPath, "extension.payload"},          // 有 extension 必须有 payload
 	} {
 		if findIssue(report, LevelError, want.path, want.field) == nil {
 			t.Errorf("缺少 %s [%s] 的 error:%s", want.path, want.field, dumpIssues(report))
 		}
+	}
+	// 表现层枚举退化成警告：内容完好，消费者回落默认值即可，不该拦下整个胶囊。
+	if findIssue(report, LevelWarning, echoPath, "layout") == nil {
+		t.Errorf("未知 layout 应为 warning:%s", dumpIssues(report))
 	}
 	if findIssue(report, LevelWarning, capsule.CommentsPath, "comments[0].echo_id") == nil {
 		t.Errorf("孤儿评论应为 warning:%s", dumpIssues(report))

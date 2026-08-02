@@ -5,6 +5,7 @@ package build
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +36,33 @@ func derivedID(kind string, parts ...string) string {
 // mediaSchema 与胶囊 / 实例本地存储用的是同一份路由表，
 // 所以 <dist>/api/files/ 下的位置与 serve 模式逐字一致，URL 零改写。
 var mediaSchema = storage.NewFileSchema()
+
+// renderCategory 决定前端拿到的 category。胶囊里的原值一律不动，这里只为渲染
+// 归一：认得的取值原样，不认得的走 NormalizeCategory 的兜底。
+//
+// category 省略时（手写胶囊常见）按扩展名派生——判据直接取自 mediaSchema 的
+// 路由前缀，而不是另抄一份扩展名表，免得两处约定各自漂移。documents/ 与兜底
+// files/ 无法进一步区分（.pdf 与 .docx 同前缀），统一落到 file。
+func renderCategory(ref capsule.FileRef) string {
+	if ref.Category != "" {
+		return string(storage.NormalizeCategory(ref.Category))
+	}
+
+	name := ref.Key
+	if name == "" {
+		name = ref.URL
+	}
+	switch {
+	case strings.HasPrefix(mediaSchema.Resolve(path.Base(name)), "images/"):
+		return string(storage.CategoryImage)
+	case strings.HasPrefix(mediaSchema.Resolve(path.Base(name)), "audios/"):
+		return string(storage.CategoryAudio)
+	case strings.HasPrefix(mediaSchema.Resolve(path.Base(name)), "videos/"):
+		return string(storage.CategoryVideo)
+	default:
+		return string(storage.CategoryFile)
+	}
+}
 
 // bakeInput 是烘焙的全部输入：已加载的胶囊 + 归一化后的基址 + 构建时刻。
 type bakeInput struct {
@@ -138,8 +166,10 @@ func bakeEchos(loaded *capsule.Loaded, baseURL string) ([]echo, error) {
 			return nil, fmt.Errorf("%s: created_at: %w", le.Path, err)
 		}
 
+		// 未知/缺失 layout 一律退回默认值：这是「构建即转换」该管的事——胶囊里
+		// 逐字保留原值（可能来自旧版本或第三方工具），静态站只负责渲染得出来。
 		layout := doc.Layout
-		if layout == "" {
+		if _, ok := capsule.ValidLayouts[layout]; !ok {
 			layout = capsule.DefaultLayout
 		}
 		username := doc.Username
@@ -195,10 +225,12 @@ func bakeFiles(doc *capsule.EchoDoc, createdAt int64, baseURL string) []echoFile
 			Name:        ref.Name,
 			ContentType: ref.ContentType,
 			Size:        ref.Size,
-			Category:    ref.Category,
-			Width:       ref.Width,
-			Height:      ref.Height,
-			CreatedAt:   createdAt,
+			// 与 layout 同理：前端按 category 分支渲染（图/视频/音频/附件），
+			// 不认得的取值归一成兜底类别，胶囊里的原值不动。
+			Category:  renderCategory(ref),
+			Width:     ref.Width,
+			Height:    ref.Height,
+			CreatedAt: createdAt,
 		}
 		if ref.Managed() {
 			f.Key = ref.Key

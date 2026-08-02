@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/lin-snow/ech0/internal/capsule"
+	"github.com/lin-snow/ech0/internal/storage"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 )
 
@@ -107,10 +108,12 @@ func validateEchoes(r *Report, loaded *capsule.Loaded, opts Options, serverURL s
 			r.errorf(e.Path, "created_at", "%v", perr)
 		}
 
-		// 空枚举值不算非法：缺省走默认值（spec §4.2）。
+		// 表现层枚举不认得的取值只警告，不阻断（spec §7）：内容本身完好，消费者
+		// 退回默认值即可。活实例的写路径本来就是这么干的（service/echo 把未知
+		// layout 归一成 waterfall），校验器没有理由比它描述的系统更严格。
 		if doc.Layout != "" {
 			if _, ok := capsule.ValidLayouts[doc.Layout]; !ok {
-				r.errorf(e.Path, "layout", "invalid layout %q", doc.Layout)
+				r.warnf(e.Path, "layout", "unknown layout %q, consumers fall back to %q", doc.Layout, capsule.DefaultLayout)
 			}
 		}
 
@@ -133,7 +136,9 @@ func validateExtension(r *Report, echoPath string, ext *capsule.Extension, serve
 	if ext.Type == "" {
 		r.errorf(echoPath, "extension.type", "extension.type is required when extension is present")
 	} else if _, ok := capsule.ValidExtensionTypes[ext.Type]; !ok {
-		r.errorf(echoPath, "extension.type", "invalid extension type %q", ext.Type)
+		// 同 layout/category：类型不认得只是渲染不出来，正文与 payload 都还在，
+		// 不该让整个胶囊无法导入。缺失 type 才是硬错——那时 payload 无从解释。
+		r.warnf(echoPath, "extension.type", "unknown extension type %q, consumers skip rendering it", ext.Type)
 	}
 	if ext.Payload == nil {
 		r.errorf(echoPath, "extension.payload", "extension.payload is required when extension is present")
@@ -160,7 +165,7 @@ func validateFiles(r *Report, loaded *capsule.Loaded, echoPath string, files []c
 
 		if f.Category != "" {
 			if _, ok := capsule.ValidCategories[f.Category]; !ok {
-				r.errorf(echoPath, field+".category", "invalid category %q", f.Category)
+				r.warnf(echoPath, field+".category", "unknown category %q, consumers fall back to %q", f.Category, string(storage.CategoryFile))
 			}
 		}
 
