@@ -37,7 +37,7 @@
     "floating-vue": "^5.2.2",
     "highlight.js": "^11.11.1",
     "leaflet": "^1.9.4",
-    "markdown-it": "^14.3.0",
+    "markdown-it": "^15.0.0",
     "ofetch": "^1.5.1",
     "photoswipe": "^5.4.4",
     "pinia": "^4.0.2",
