@@ -104,6 +104,18 @@ jobs:
           ZIG_TARGET: ${{ matrix.zig_target }}
         run: |
           set -euo pipefail
+          # sqlite-vec 的 cgo 绑定需要 sqlite3.h；交叉编译时不依赖 runner 系统头，
+          # 从 go-sqlite3 模块内置的 amalgamation 头提取（同 release.yml）。
+          SQLITE_INC="${RUNNER_TEMP}/sqlite-include"
+          mkdir -p "${SQLITE_INC}"
+          go mod download github.com/mattn/go-sqlite3
+          MATTN_DIR="$(go list -m -f '{{.Dir}}' github.com/mattn/go-sqlite3)"
+          if [ -z "${MATTN_DIR}" ] || [ ! -f "${MATTN_DIR}/sqlite3-binding.h" ]; then
+            echo "::error::could not locate go-sqlite3 header (MATTN_DIR='${MATTN_DIR}')" >&2
+            exit 1
+          fi
+          cp "${MATTN_DIR}/sqlite3-binding.h" "${SQLITE_INC}/sqlite3.h"
+          export CGO_CFLAGS="-I${SQLITE_INC} -Du_int8_t=uint8_t -Du_int16_t=uint16_t -Du_int64_t=uint64_t -Wno-typedef-redefinition -fno-sanitize=undefined"
           test -f cmd/ech0/main.go
           STATIC_LDFLAGS="-linkmode external -extldflags '-static'"
           OUTPUT_NAME="ech0-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.output_suffix }}"
