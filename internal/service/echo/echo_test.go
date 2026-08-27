@@ -27,7 +27,7 @@ func TestNormalizeEchoExtension(t *testing.T) {
 			name: "music extension",
 			input: &model.EchoExtension{
 				Type: model.Extension_MUSIC,
-				Payload: map[string]interface{}{
+				Payload: map[string]any{
 					"url": "https://music.163.com/#/song?id=123",
 				},
 			},
@@ -38,7 +38,7 @@ func TestNormalizeEchoExtension(t *testing.T) {
 			name: "website missing title",
 			input: &model.EchoExtension{
 				Type: model.Extension_WEBSITE,
-				Payload: map[string]interface{}{
+				Payload: map[string]any{
 					"site": "https://example.com",
 				},
 			},
@@ -49,7 +49,7 @@ func TestNormalizeEchoExtension(t *testing.T) {
 			name: "unsupported type",
 			input: &model.EchoExtension{
 				Type: "UNKNOWN",
-				Payload: map[string]interface{}{
+				Payload: map[string]any{
 					"foo": "bar",
 				},
 			},
@@ -111,7 +111,7 @@ func TestIsEchoEmpty(t *testing.T) {
 				Content: "  ",
 				Extension: &model.EchoExtension{
 					Type: model.Extension_MUSIC,
-					Payload: map[string]interface{}{
+					Payload: map[string]any{
 						"url": "https://example.com/song",
 					},
 				},

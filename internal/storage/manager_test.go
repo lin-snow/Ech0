@@ -10,48 +10,53 @@ import (
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
-func TestMergeStorageConfig_DBOverrideAndFallback(t *testing.T) {
+func TestStorageConfigFromSetting(t *testing.T) {
 	defaultCfg := config.StorageConfig{
-		ObjectEnabled: false,
-		DataRoot:      "data/files",
-		Endpoint:      "fallback.example.com",
-		AccessKey:     "fallback-ak",
-		SecretKey:     "fallback-sk",
-		BucketName:    "fallback-bucket",
-		Region:        "ap-southeast-1",
-		Provider:      "minio",
-		UseSSL:        false,
-		CDNURL:        "https://cdn.example.com/",
-		PathPrefix:    "fallback/",
+		DataRoot:  "data/files",
+		Endpoint:  "env.example.com",
+		AccessKey: "env-ak-must-be-ignored",
+		SecretKey: "env-sk-must-be-ignored",
 	}
-	dbSetting := &settingModel.S3Setting{
-		Enable:     true,
-		Provider:   "aws",
-		Endpoint:   "https://s3.amazonaws.com",
-		BucketName: "db-bucket",
-		UseSSL:     true,
-		PathPrefix: "uploads/",
+	s3 := settingModel.S3Setting{
+		Enable:       true,
+		Provider:     "aws",
+		Endpoint:     "https://s3.amazonaws.com",
+		BucketName:   "db-bucket",
+		Region:       "us-east-1",
+		UseSSL:       true,
+		CDNURL:       "https://cdn.example.com/",
+		PathPrefix:   "uploads/",
+		UsePathStyle: true,
 	}
 
-	merged := MergeStorageConfig(defaultCfg, dbSetting)
+	cfg := storageConfigFromSetting(s3, defaultCfg)
 
-	if !merged.ObjectEnabled {
+	if !cfg.ObjectEnabled {
 		t.Fatalf("expected object storage enabled")
 	}
-	if merged.Provider != "aws" {
-		t.Fatalf("expected provider aws, got %s", merged.Provider)
+	if cfg.Provider != "aws" {
+		t.Fatalf("expected provider aws, got %s", cfg.Provider)
 	}
-	if merged.Endpoint != "s3.amazonaws.com" {
-		t.Fatalf("expected trimmed endpoint, got %s", merged.Endpoint)
+	if cfg.Endpoint != "s3.amazonaws.com" {
+		t.Fatalf("expected scheme-stripped endpoint, got %s", cfg.Endpoint)
 	}
-	if merged.AccessKey != "fallback-ak" {
-		t.Fatalf("expected access key fallback, got %s", merged.AccessKey)
+	if cfg.BucketName != "db-bucket" {
+		t.Fatalf("expected db bucket, got %s", cfg.BucketName)
 	}
-	if merged.BucketName != "db-bucket" {
-		t.Fatalf("expected db bucket, got %s", merged.BucketName)
+	if cfg.CDNURL != "https://cdn.example.com" {
+		t.Fatalf("expected trailing-slash-trimmed CDN, got %s", cfg.CDNURL)
 	}
-	if merged.PathPrefix != "uploads" {
-		t.Fatalf("expected trimmed path prefix, got %s", merged.PathPrefix)
+	if cfg.PathPrefix != "uploads" {
+		t.Fatalf("expected trimmed path prefix, got %s", cfg.PathPrefix)
+	}
+	if cfg.DataRoot != "data/files" {
+		t.Fatalf("expected DataRoot carried from defaultCfg, got %s", cfg.DataRoot)
+	}
+	if !cfg.UsePathStyle {
+		t.Fatalf("expected UsePathStyle carried from setting")
+	}
+	if cfg.AccessKey != "" || cfg.SecretKey != "" {
+		t.Fatalf("S3 fields must come from setting only (no env fallback), got ak=%q sk=%q", cfg.AccessKey, cfg.SecretKey)
 	}
 }
 

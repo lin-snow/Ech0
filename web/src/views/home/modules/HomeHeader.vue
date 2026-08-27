@@ -20,23 +20,13 @@
     <div class="home-header__actions">
       <div class="home-header__links">
         <a
-          href="/rss"
+          :href="rssHref"
           v-tooltip="t('homeTop.rssTitle')"
           :aria-label="t('homeTop.rssTitle')"
           class="home-header__link-icon"
         >
           <Rss class="w-4 h-4" />
         </a>
-        <!-- <a
-          href="https://github.com/lin-snow/Ech0"
-          target="_blank"
-          rel="noopener noreferrer"
-          v-tooltip="t('homeNav.githubAction')"
-          :aria-label="t('homeNav.githubAction')"
-          class="home-header__link-icon"
-        >
-          <Github class="w-5 h-5" />
-        </a> -->
         <button
           type="button"
           v-tooltip="t('zenMode.tooltip')"
@@ -55,28 +45,31 @@
         >
           <component :is="themeIcon" class="w-4 h-4" />
         </button>
-        <button
-          v-if="!isLogin"
-          type="button"
-          v-tooltip="t('authPage.login')"
-          :title="t('authPage.login')"
-          :aria-label="t('authPage.login')"
-          class="home-header__link-icon"
-          @click="handleGoLogin"
-        >
-          <Auth class="block w-4 h-4" />
-        </button>
-        <button
-          v-else
-          type="button"
-          v-tooltip="t('panelPage.logout')"
-          :title="t('panelPage.logout')"
-          :aria-label="t('panelPage.logout')"
-          class="home-header__link-icon"
-          @click="handleLogout"
-        >
-          <Signoff class="block w-4 h-4" />
-        </button>
+        <TheLocaleToggle />
+        <template v-if="!isStatic">
+          <button
+            v-if="!isLogin"
+            type="button"
+            v-tooltip="t('authPage.login')"
+            :title="t('authPage.login')"
+            :aria-label="t('authPage.login')"
+            class="home-header__link-icon"
+            @click="handleGoLogin"
+          >
+            <Auth class="block w-4 h-4" />
+          </button>
+          <button
+            v-else
+            type="button"
+            v-tooltip="t('panelPage.logout')"
+            :title="t('panelPage.logout')"
+            :aria-label="t('panelPage.logout')"
+            class="home-header__link-icon"
+            @click="handleLogout"
+          >
+            <Signoff class="block w-4 h-4" />
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -85,17 +78,18 @@
 <script setup lang="ts">
 import LightIcon from '@/components/icons/light.vue'
 import DarkIcon from '@/components/icons/dark.vue'
-import LeafIcon from '@/components/icons/leaf.vue'
+import TreeIcon from '@/components/icons/tree.vue'
 import SystemIcon from '@/components/icons/system.vue'
 import Rss from '@/components/icons/rss.vue'
 import Auth from '@/components/icons/auth.vue'
 import Signoff from '@/components/icons/signoff.vue'
 import Zen from '@/components/icons/zen.vue'
+import TheLocaleToggle from '@/components/common/TheLocaleToggle.vue'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingStore, useUserStore, useThemeStore } from '@/stores'
-import { resolveAvatarUrl } from '@/service/request/shared'
+import { resolveAvatarUrl, isStaticMode, staticBase } from '@/service/request/shared'
 import { useRouter } from 'vue-router'
 import { theToast } from '@/utils/toast'
 import { useBaseDialog } from '@/composables/useBaseDialog'
@@ -109,6 +103,9 @@ const { user, isLogin } = storeToRefs(userStore)
 const { t } = useI18n()
 const router = useRouter()
 const { openConfirm } = useBaseDialog()
+
+const isStatic = isStaticMode()
+const rssHref = computed(() => (isStatic ? staticBase() + 'rss.xml' : '/rss'))
 
 const logo = computed(() => {
   if (isLogin.value && user.value?.avatar) {
@@ -159,7 +156,6 @@ const runTypingEffect = () => {
     isTypingTitle.value = false
   }
 
-  // 先显示一小段纯光标闪烁，再开始打字机输出。
   introDelayTimer = setTimeout(typeNext, CURSOR_INTRO_DELAY_MS)
 }
 
@@ -175,7 +171,7 @@ const themeIcon = computed(() => {
   if (themeStore.mode === 'system') return SystemIcon
   if (themeStore.mode === 'light') return LightIcon
   if (themeStore.mode === 'dark') return DarkIcon
-  return LeafIcon
+  return TreeIcon
 })
 
 const nextThemeModeLabel = computed(() => {

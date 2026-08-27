@@ -2,7 +2,9 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="w-full px-2 comment-manager-page">
-    <PanelCard class="mb-4">
+    <BaseSegmented v-model="tab" :options="tabOptions" />
+
+    <PanelCard v-if="tab === 'setting'">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 class="text-lg font-bold text-[var(--color-text-primary)]">
@@ -33,9 +35,7 @@
         </div>
       </div>
 
-      <div
-        class="space-y-2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]/50 p-3"
-      >
+      <div class="space-y-2">
         <div class="setting-row">
           <div>
             <h3 class="setting-title">{{ t('commentManager.enableCommentTitle') }}</h3>
@@ -107,7 +107,15 @@
       </div>
     </PanelCard>
 
-    <PanelCard>
+    <PanelCard v-else>
+      <div class="mb-4">
+        <h1 class="text-lg font-bold text-[var(--color-text-primary)]">
+          {{ t('commentManager.listTitle') }}
+        </h1>
+        <p class="text-xs text-[var(--color-text-muted)]">
+          {{ t('commentManager.listSubtitle') }}
+        </p>
+      </div>
       <div class="mb-3 flex flex-wrap items-center gap-2">
         <BaseInput
           v-model.trim="query.keyword"
@@ -158,7 +166,7 @@
       <div
         class="x-scrollbar overflow-x-auto rounded-lg border border-[var(--color-border-subtle)]"
       >
-        <table class="w-full min-w-[820px] text-sm">
+        <table class="w-full min-w-[700px] text-sm">
           <thead>
             <tr class="bg-[var(--color-bg-muted)]/70 text-left text-[var(--color-text-muted)]">
               <th class="w-10 px-2 py-2 align-middle">
@@ -170,9 +178,6 @@
               <th class="min-w-[160px] px-2 py-2">{{ t('commentManager.email') }}</th>
               <th class="min-w-[68px] px-2 py-2">{{ t('commentManager.status') }}</th>
               <th class="min-w-[68px] px-2 py-2">{{ t('commentManager.hotColumn') }}</th>
-              <th class="min-w-[120px] px-2 py-2 whitespace-nowrap">
-                {{ t('commentManager.time') }}
-              </th>
               <th class="min-w-[200px] px-2 py-2">{{ t('commonUi.actions') }}</th>
             </tr>
           </thead>
@@ -199,7 +204,6 @@
                   {{ item.hot ? t('commentManager.hotPicked') : t('commentManager.hotNormal') }}
                 </span>
               </td>
-              <td class="px-2 py-2 whitespace-nowrap">{{ formatDate(item.created_at) }}</td>
               <td class="px-2 py-2">
                 <div class="flex items-center gap-2">
                   <button class="table-action text-cyan-500" @click="openEcho(item.echo_id)">
@@ -233,7 +237,7 @@
               </td>
             </tr>
             <tr v-if="list.items.length === 0">
-              <td colspan="7" class="px-3 py-8 text-center text-[var(--color-text-muted)]">
+              <td colspan="6" class="px-3 py-8 text-center text-[var(--color-text-muted)]">
                 {{ t('commentManager.empty') }}
               </td>
             </tr>
@@ -269,52 +273,65 @@
 
     <div
       v-if="detailOpen && current"
-      class="fixed inset-0 z-30 flex items-end justify-center bg-black/30 p-3 md:items-center"
+      class="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-3"
       @click.self="detailOpen = false"
     >
       <div
-        class="w-full max-w-lg rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-canvas)] p-4 shadow-[var(--shadow-md)]"
+        class="comment-detail w-full max-w-lg overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-canvas)] shadow-[var(--shadow-md)]"
       >
-        <div class="mb-2 flex items-center justify-between">
-          <h3 class="text-base font-semibold text-[var(--color-text-primary)]">
-            {{ t('commentManager.detailTitle') }}
-          </h3>
+        <div class="comment-detail__header">
+          <h3 class="comment-detail__title">{{ t('commentManager.detailTitle') }}</h3>
           <button
-            class="table-action text-sm text-[var(--color-text-muted)]"
+            class="comment-detail__close"
+            :title="t('commentManager.close')"
+            :aria-label="t('commentManager.close')"
             @click="detailOpen = false"
           >
-            {{ t('commentManager.close') }}
+            ✕
           </button>
         </div>
-        <div class="space-y-1 text-sm text-[var(--color-text-secondary)]">
-          <p>
-            <b>{{ t('commentManager.nickname') }}：</b>{{ current.nickname }}
-          </p>
-          <p>
-            <b>{{ t('commentManager.email') }}：</b>{{ current.email }}
-          </p>
-          <p>
-            <b>{{ t('commentManager.website') }}：</b>{{ current.website || '-' }}
-          </p>
-          <p>
-            <b>{{ t('commentManager.status') }}：</b
-            >{{ statusLabelMap[current.status] || current.status }}
-          </p>
-          <p>
-            <b>{{ t('commentManager.hotColumn') }}：</b
-            >{{ current.hot ? t('commentManager.yes') : t('commentManager.no') }}
-          </p>
-          <p>
-            <b>{{ t('commentManager.source') }}：</b>{{ current.source }}
-          </p>
-          <p>
-            <b>{{ t('commentManager.time') }}：</b>{{ formatDate(current.created_at) }}
-          </p>
-          <p
-            class="mt-2 whitespace-pre-wrap break-words rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)]/50 p-2"
-          >
-            {{ current.content }}
-          </p>
+
+        <div class="comment-detail__body">
+          <div class="comment-detail__author">
+            <BaseAvatar
+              :seed="avatarSeed(current)"
+              :size="40"
+              :alt="current.nickname"
+              class="comment-detail__avatar"
+            />
+            <div class="min-w-0">
+              <p class="comment-detail__name">{{ current.nickname }}</p>
+              <div class="comment-detail__badges">
+                <span class="status-pill" :class="statusClass(current.status)">
+                  {{ statusLabelMap[current.status] || current.status }}
+                </span>
+                <span v-if="current.hot" class="status-pill status-hot">
+                  {{ t('commentManager.hotPicked') }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p class="comment-detail__content">{{ current.content }}</p>
+
+          <dl class="comment-detail__meta">
+            <div class="comment-detail__meta-row">
+              <dt>{{ t('commentManager.email') }}</dt>
+              <dd>{{ current.email || '-' }}</dd>
+            </div>
+            <div class="comment-detail__meta-row">
+              <dt>{{ t('commentManager.website') }}</dt>
+              <dd>{{ current.website || '-' }}</dd>
+            </div>
+            <div class="comment-detail__meta-row">
+              <dt>{{ t('commentManager.source') }}</dt>
+              <dd>{{ current.source || '-' }}</dd>
+            </div>
+            <div class="comment-detail__meta-row">
+              <dt>{{ t('commentManager.time') }}</dt>
+              <dd>{{ formatDate(current.created_at) }}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </div>
@@ -341,11 +358,19 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseSegmented from '@/components/common/BaseSegmented.vue'
+import BaseAvatar from '@/components/common/BaseAvatar.vue'
 import { theToast } from '@/utils/toast'
 import { formatDate } from '@/utils/other'
 
 const router = useRouter()
 const { t } = useI18n()
+
+const tab = ref('setting')
+const tabOptions = computed(() => [
+  { label: String(t('commentManager.tabSetting')), value: 'setting' },
+  { label: String(t('commentManager.tabManage')), value: 'manage' },
+])
 
 const setting = reactive<App.Api.Comment.SystemSetting>({
   enable_comment: true,
@@ -366,7 +391,7 @@ const testingEmail = ref(false)
 
 const query = reactive<App.Api.Comment.PanelListQuery>({
   page: 1,
-  page_size: 20,
+  page_size: 10,
   keyword: '',
   status: '',
   echo_id: '',
@@ -543,6 +568,9 @@ const openDetail = async (id: string) => {
   }
 }
 
+const avatarSeed = (item: App.Api.Comment.CommentItem) =>
+  `${item.id}-${item.nickname}-${item.source}`
+
 const prevPage = async () => {
   if (query.page <= 1) return
   query.page -= 1
@@ -666,6 +694,124 @@ onMounted(async () => {
 
 .table-action:hover {
   opacity: 0.72;
+}
+
+.comment-detail__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.comment-detail__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.comment-detail__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.comment-detail__close:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+
+.comment-detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+.comment-detail__author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.comment-detail__avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.comment-detail__name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.comment-detail__content {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.comment-detail__meta {
+  margin: 0;
+}
+
+.comment-detail__meta-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.comment-detail__meta-row:first-child {
+  border-top: none;
+}
+
+.comment-detail__meta-row dt {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.comment-detail__meta-row dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 
 @media (width <= 768px) {

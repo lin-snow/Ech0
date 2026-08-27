@@ -31,20 +31,17 @@ func (settingRepository *SettingRepository) getDB(ctx context.Context) *gorm.DB 
 	return settingRepository.db()
 }
 
-// ListAccessTokens 列出访问令牌
 func (settingRepository *SettingRepository) ListAccessTokens(
 	ctx context.Context,
 	userID string,
 ) ([]model.AccessTokenSetting, error) {
 	var tokens []model.AccessTokenSetting
-	// 查询所有访问令牌
 	if err := settingRepository.getDB(ctx).Where("user_id = ?", userID).Find(&tokens).Error; err != nil {
 		return nil, err
 	}
 	return tokens, nil
 }
 
-// CreateAccessToken 创建访问令牌
 func (settingRepository *SettingRepository) CreateAccessToken(
 	ctx context.Context,
 	token *model.AccessTokenSetting,
@@ -53,8 +50,6 @@ func (settingRepository *SettingRepository) CreateAccessToken(
 	return db.Create(token).Error
 }
 
-// GetAccessTokenByID 按 ID 读取访问令牌；用于在删除前取出 JTI 写入黑名单
-// (GHSA-fpw6-hrg5-q5x5)。
 func (settingRepository *SettingRepository) GetAccessTokenByID(
 	ctx context.Context,
 	id string,
@@ -66,7 +61,6 @@ func (settingRepository *SettingRepository) GetAccessTokenByID(
 	return token, nil
 }
 
-// DeleteAccessTokenByID 删除访问令牌
 func (settingRepository *SettingRepository) DeleteAccessTokenByID(
 	ctx context.Context,
 	id string,

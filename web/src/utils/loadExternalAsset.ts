@@ -2,10 +2,8 @@
 // Copyright (C) 2025-2026 lin-snow
 
 const scriptLoadPromises = new Map<string, Promise<void>>()
-const styleLoadPromises = new Map<string, Promise<void>>()
 
 const scriptSelector = (src: string) => `script[data-external-script="${src}"],script[src="${src}"]`
-const styleSelector = (href: string) => `link[data-external-style="${href}"],link[href="${href}"]`
 const DEFAULT_SCRIPT_TIMEOUT_MS = 8_000
 const DEFAULT_SCRIPT_RETRIES = 0
 
@@ -14,18 +12,8 @@ type ScriptLoadOptions = {
   retries?: number
 }
 
-const resolveFromReadyState = (
-  node: HTMLScriptElement | HTMLLinkElement,
-  url: string,
-  isScript: boolean,
-  timeoutMs?: number,
-) => {
-  const stateAttr = isScript ? 'data-external-script-ready' : 'data-external-style-ready'
-  if (node.getAttribute(stateAttr) === 'true') {
-    return Promise.resolve()
-  }
-  if (!isScript && (node as HTMLLinkElement).sheet) {
-    node.setAttribute(stateAttr, 'true')
+const resolveFromReadyState = (node: HTMLScriptElement, url: string, timeoutMs?: number) => {
+  if (node.getAttribute('data-external-script-ready') === 'true') {
     return Promise.resolve()
   }
 
@@ -41,7 +29,7 @@ const resolveFromReadyState = (
     }
 
     const onLoad = () => {
-      node.setAttribute(stateAttr, 'true')
+      node.setAttribute('data-external-script-ready', 'true')
       cleanup()
       resolve()
     }
@@ -95,7 +83,7 @@ export const loadExternalScript = (src: string, options: ScriptLoadOptions = {})
       }
 
       try {
-        await resolveFromReadyState(script, src, true, timeoutMs)
+        await resolveFromReadyState(script, src, timeoutMs)
         return
       } catch (error) {
         latestError = error
@@ -112,27 +100,5 @@ export const loadExternalScript = (src: string, options: ScriptLoadOptions = {})
   })
 
   scriptLoadPromises.set(src, promise)
-  return promise
-}
-
-export const loadExternalStyle = (href: string): Promise<void> => {
-  if (typeof document === 'undefined') return Promise.resolve()
-  const cached = styleLoadPromises.get(href)
-  if (cached) return cached
-
-  let link = document.querySelector<HTMLLinkElement>(styleSelector(href))
-  if (!link) {
-    link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = href
-    link.setAttribute('data-external-style', href)
-    document.head.appendChild(link)
-  }
-
-  const promise = resolveFromReadyState(link, href, false).catch((error) => {
-    styleLoadPromises.delete(href)
-    throw error
-  })
-  styleLoadPromises.set(href, promise)
   return promise
 }

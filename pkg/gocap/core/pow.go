@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-// PRNG generates a deterministic hex string from a seed.
 func PRNG(seed string, length int) string {
 	if length <= 0 {
 		return ""
@@ -30,10 +29,9 @@ func PRNG(seed string, length int) string {
 	return s[:length]
 }
 
-// BuildChallengePairs derives all salt/target pairs for one challenge token.
 func BuildChallengePairs(seed string, count, saltSize, difficulty int) [][2]string {
 	pairs := make([][2]string, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		idx := strconv.Itoa(i + 1)
 		salt := PRNG(seed+idx, saltSize)
 		target := PRNG(seed+idx+"d", difficulty)
@@ -42,7 +40,6 @@ func BuildChallengePairs(seed string, count, saltSize, difficulty int) [][2]stri
 	return pairs
 }
 
-// VerifySolutions validates all client solutions for a challenge token.
 func VerifySolutions(seed string, count, saltSize, difficulty int, solutions []int) bool {
 	if len(solutions) != count {
 		return false

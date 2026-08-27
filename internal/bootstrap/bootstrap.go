@@ -5,15 +5,23 @@ package bootstrap
 
 import (
 	"github.com/lin-snow/ech0/internal/config"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 func initLogger() {
 	cfg := config.Config()
+
+	dev := cfg.Server.Mode == "debug"
+	logFormat := cfg.Log.Format
+	if dev && (logFormat == "" || logFormat == "json") {
+		logFormat = "console"
+	}
+
 	logUtil.InitLoggerWithConfig(logUtil.LogConfig{
 		Level:   cfg.Log.Level,
-		Format:  cfg.Log.Format,
+		Format:  logFormat,
 		Console: cfg.Log.Console,
+		Color:   dev,
 		File: logUtil.FileConfig{
 			Enable:     cfg.Log.FileEnable,
 			Filename:   cfg.Log.FilePath,
@@ -36,7 +44,6 @@ func initConfig() {
 	config.Config()
 }
 
-// Bootstrap 执行应用启动阶段所需的基础初始化流程。
 func Bootstrap() {
 	initConfig()
 	initLogger()

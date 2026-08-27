@@ -5,14 +5,14 @@ package service
 
 import (
 	"github.com/google/wire"
-	agentService "github.com/lin-snow/ech0/internal/service/agent"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
-	backupService "github.com/lin-snow/ech0/internal/service/backup"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
+	copilotService "github.com/lin-snow/ech0/internal/service/copilot"
 	dashboardService "github.com/lin-snow/ech0/internal/service/dashboard"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
+	embeddingService "github.com/lin-snow/ech0/internal/service/embedding"
 	fileService "github.com/lin-snow/ech0/internal/service/file"
 	initService "github.com/lin-snow/ech0/internal/service/init"
 	migratorService "github.com/lin-snow/ech0/internal/service/migrator"
@@ -56,17 +56,19 @@ var (
 		connectService.NewConnectService,
 		wire.Bind(new(connectService.Service), new(*connectService.ConnectService)),
 	)
-	BackupSet = wire.NewSet(
-		backupService.NewBackupService,
-		wire.Bind(new(backupService.Service), new(*backupService.BackupService)),
-	)
 	DashboardSet = wire.NewSet(
 		dashboardService.NewDashboardService,
 		wire.Bind(new(dashboardService.Service), new(*dashboardService.DashboardService)),
 	)
-	AgentSet = wire.NewSet(
-		agentService.NewAgentService,
-		wire.Bind(new(agentService.Service), new(*agentService.AgentService)),
+	EmbeddingSet = wire.NewSet(
+		embeddingService.NewEmbeddingService,
+		wire.Bind(new(embeddingService.Service), new(*embeddingService.EmbeddingService)),
+		wire.Bind(new(embeddingService.Indexer), new(*embeddingService.EmbeddingService)),
+	)
+	CopilotSet = wire.NewSet(
+		copilotService.NewCopilotService,
+		wire.Bind(new(copilotService.SummaryService), new(*copilotService.CopilotService)),
+		wire.Bind(new(copilotService.ChatService), new(*copilotService.CopilotService)),
 	)
 	MigratorSet = wire.NewSet(
 		migratorService.NewMigratorService,

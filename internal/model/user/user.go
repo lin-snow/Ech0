@@ -12,12 +12,10 @@ const (
 	USER_NOT_EXISTS_ID = ""
 )
 
-// User 定义用户实体
 type User struct {
 	ID       string `gorm:"type:char(36);primaryKey" json:"id"`
 	Username string `gorm:"size:255;not null;unique" json:"username"`
 	Email    string `gorm:"size:255;index"            json:"email"`
-	Password string `gorm:"size:255;not null"        json:"-"`
 	IsAdmin  bool   `gorm:"bool"                     json:"is_admin"`
 	IsOwner  bool   `gorm:"bool"                     json:"is_owner"`
 	Avatar   string `gorm:"size:255"                 json:"avatar"`
@@ -26,7 +24,7 @@ type User struct {
 
 func (u *User) BeforeCreate(_ *gorm.DB) error {
 	if u.ID == "" {
-		u.ID = uuidUtil.MustNewV7()
+		u.ID = uuidUtil.NewV7()
 	}
 	return nil
 }

@@ -135,10 +135,7 @@ func (a *Adapter) resourceFileUploadGuide(ctx context.Context, _ string) (*Resou
 
 func (a *Adapter) listFiles(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
 	page := intArg(args, "page", 1)
-	pageSize := intArg(args, "page_size", 20)
-	if pageSize > 100 {
-		pageSize = 100
-	}
+	pageSize := min(intArg(args, "page_size", 20), 100)
 	search := stringArg(args, "search")
 	storageType := stringArg(args, "storage_type")
 

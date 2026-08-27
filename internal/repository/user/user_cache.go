@@ -6,12 +6,12 @@ package repository
 import "fmt"
 
 const (
-	UsernameKeyPrefix = "username" // username:username
-	IDKeyPrefix       = "id"       // id:userid
-	AdminKey          = "admin"    // admin:userid
+	UsernameKeyPrefix = "username"
+	IDKeyPrefix       = "id"
+	AdminKey          = "admin"
 	OwnerKey          = "owner"
-	PasskeyRegKey     = "passkey:reg"   // passkey:reg:nonce
-	PasskeyLoginKey   = "passkey:login" // passkey:login:nonce
+	PasskeyRegKey     = "passkey:reg"
+	PasskeyLoginKey   = "passkey:login"
 )
 
 func GetUserIDKey(id string) string {

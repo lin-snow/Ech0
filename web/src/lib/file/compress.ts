@@ -61,10 +61,6 @@ async function reencodeViaCanvas(file: File, mime: string, quality: number): Pro
   }
 }
 
-// Mirrors compressorjs defaults used by the prior @uppy/compressor wrapper:
-//   - file.size < convertSize  → keep original mime, only quality re-encode
-//   - file.size >= convertSize → re-encode as outputMimeType (webp, or jpeg on Safari)
-// If the re-encoded result is larger than the original, return the original instead.
 export async function compressImage(file: File, opts: CompressOptions = {}): Promise<File> {
   const quality = opts.quality ?? DEFAULT_QUALITY
   const convertSize = opts.convertSize ?? DEFAULT_CONVERT_SIZE

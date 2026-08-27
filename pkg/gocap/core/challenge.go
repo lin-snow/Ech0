@@ -3,7 +3,6 @@
 
 package core
 
-// CreateChallenge creates and signs one challenge token for the given site key.
 func (s *Service) CreateChallenge(siteKey string) (*ChallengeResponse, error) {
 	site, ok := s.Store.GetSite(siteKey)
 	if !ok {

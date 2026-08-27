@@ -5,11 +5,11 @@ package migration
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
-	"go.uber.org/zap"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"gorm.io/gorm"
 )
 
@@ -47,10 +47,10 @@ func (m *storageTimeSanitizeMigrator) Migrate(db *gorm.DB) error {
 
 	logUtil.Info(
 		"storage time sanitize completed",
-		zap.String("module", "database"),
-		zap.String("migrator", m.Name()),
-		zap.Int64("total_candidate_rows", report.TotalCandidate),
-		zap.Int64("total_updated_rows", report.TotalUpdated),
+		slog.String("module", "database"),
+		slog.String("migrator", m.Name()),
+		slog.Int64("total_candidate_rows", report.TotalCandidate),
+		slog.Int64("total_updated_rows", report.TotalUpdated),
 	)
 	return nil
 }

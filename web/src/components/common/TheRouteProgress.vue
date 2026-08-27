@@ -49,7 +49,6 @@ const start = () => {
     visible.value = true
     progress.value = 12
     trickleTimer = window.setInterval(() => {
-      // 缓慢向 90% 逼近，永远到不了，等真正完成再 100%
       const remaining = 90 - progress.value
       if (remaining <= 0) return
       progress.value += Math.max(0.4, remaining * 0.08)
@@ -63,7 +62,6 @@ const finish = () => {
   stopTrickle()
 
   if (!visible.value) {
-    // 导航在 SHOW_DELAY 内完成，整条进度条都没出现过，直接重置
     progress.value = 0
     return
   }
@@ -71,7 +69,6 @@ const finish = () => {
   progress.value = 100
   hideTimer = window.setTimeout(() => {
     visible.value = false
-    // 等淡出动画走完再清零，避免回弹
     hideTimer = window.setTimeout(() => {
       progress.value = 0
       hideTimer = null

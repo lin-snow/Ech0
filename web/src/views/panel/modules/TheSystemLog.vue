@@ -110,7 +110,6 @@ const { onMessage, open, close, status } = useOWebSocket<App.Api.Response<App.Ap
         startSSE()
       },
     },
-    // 与后端协议对齐，避免 heartbeat ping/pong 不一致导致反复断连
     heartbeat: false,
   },
 )
@@ -358,7 +357,6 @@ onUnmounted(() => {
   overflow: visible;
 }
 
-/* outside 会被 .log-container 的 overflow 裁切；inside 与首行时间左缘对齐 */
 .log-line-raw > summary {
   cursor: pointer;
   user-select: none;

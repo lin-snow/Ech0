@@ -43,6 +43,6 @@ description: 反馈渠道、参与贡献、贡献者与赞助
 
 ### Star 趋势
 
-![Star History](https://api.star-history.com/svg?repos=lin-snow/Ech0&type=Timeline)
+![Star History](https://api.star-history.com/svg?repos=lin-snow/Ech0&type=timeline&legend=top-left)
 
 觉得有用欢迎在 [GitHub](https://github.com/lin-snow/Ech0) 点 Star；也可通过 [爱发电](https://afdian.com/a/l1nsn0w) 支持维护。

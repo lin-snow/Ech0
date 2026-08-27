@@ -45,7 +45,7 @@ description: Webhook 是什么、如何配置、请求格式、验签与重试�
 - **失败**：网络错误、超时、返回 4xx/5xx 都算失败。
 
 一次发送失败时，客户端会**在短时间内自动重试**（例如共 3 次，间隔约 500ms → 1s → 2s，**单次请求超时约 5 秒**；管理后台里的「测试」可能使用更短的重试策略）。  
-若仍失败，事件可能进入**死信队列**，由后台任务在之后的时间点再次尝试（具体间隔与次数以当前版本为准）。
+若这几次即时重试仍失败，本次投递记为失败（在 Webhook 状态里体现），事件**不会**再排队补投。
 
 **建议**：接收端收到请求后**尽快返回 2xx**，耗时逻辑先**丢进队列异步处理**，避免超过 5 秒导致反复重试。
 
@@ -61,11 +61,10 @@ description: Webhook 是什么、如何配置、请求格式、验签与重试�
 | `echo.created` / `echo.updated` / `echo.deleted`                 | 动态（Echo）发布、编辑、删除       |
 | `comment.created` / `comment.status.updated` / `comment.deleted` | 评论创建、状态变更（如审核）、删除 |
 | `resource.uploaded`                                              | 资源/文件上传完成                  |
-| `system.backup` / `system.export`                                | 备份或导出任务相关                 |
-| `system.backup_schedule.updated`                                 | 备份计划被修改                     |
+| `system.snapshot` / `system.export`                                | 快照或导出任务相关                 |
+| `system.snapshot_schedule.updated`                                 | 快照计划被修改                     |
 
-说明：**`deadletter.retried`** 等内部事件**不会**作为对外 Webhook 业务 topic 出现在上述白名单里。  
-评论与审核相关行为也可结合 [评论系统](/docs/guide/comment) 理解；备份类与 [数据管理](/docs/guide/datacontrol) 中的计划任务相关。
+说明：评论与审核相关行为也可结合 [评论系统](/docs/guide/comment) 理解；快照类与 [数据管理](/docs/guide/datacontrol) 中的计划任务相关。
 
 ---
 
@@ -86,7 +85,7 @@ description: Webhook 是什么、如何配置、请求格式、验签与重试�
 ```json
 {
   "topic": "echo.created",
-  "event_name": "EchoCreatedEvent",
+  "event_name": "EchoCreated",
   "payload_raw": {},
   "metadata": {},
   "occurred_at": 1710000000
@@ -151,7 +150,7 @@ function verifyEch0Signature(rawBody, secret, signatureHeader) {
 确认该 Webhook **已启用**；确认事件属于上文 **topic 白名单**；确认 URL 未被安全策略拒绝（例如误填内网地址）。
 
 **接收端业务处理失败了要不要返回 500？**  
-不建议。Webhook 侧只要**确认收到并持久化**就应返回 2xx；后续业务失败应在你方队列里重试，否则 Ech0 会认为是投递失败并触发重试与死信。
+不建议。Webhook 侧只要**确认收到并持久化**就应返回 2xx；后续业务失败应在你方队列里重试，否则 Ech0 会认为是投递失败并触发即时重试。
 
 ---
 

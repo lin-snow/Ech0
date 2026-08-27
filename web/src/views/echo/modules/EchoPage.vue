@@ -31,7 +31,6 @@ const echoStore = useEchoStore()
 const isLoading = ref(true)
 const echo = ref<App.Api.Ech0.Echo | null>(null)
 
-// 从 echoIndexMap 获取对应的 EchoList索引
 const getEchoFromStore = (): App.Api.Ech0.Echo | null => {
   const idx = echoStore.echoIndexMap.get(echoId)
   if (idx !== undefined) {
@@ -40,20 +39,15 @@ const getEchoFromStore = (): App.Api.Ech0.Echo | null => {
   return null
 }
 
-// 刷新点赞数据
 const handleUpdateLikeCount = () => {
   if (echo.value) {
-    // 更新 Echo 的点赞数量
     echo.value.fav_count += 1
   }
 }
 
 onMounted(async () => {
-  // 先尝试从 store 获取
   echo.value = getEchoFromStore()
 
-  // 如果 store 里没有，复用 beforeEnter 守卫已发起的请求；
-  // 没走守卫的边缘场景下，prefetchEcho 会直接发起请求。
   if (!echo.value) {
     echo.value = await echoStore.prefetchEcho(echoId)
   }

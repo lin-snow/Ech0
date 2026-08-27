@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.26.2"
-  NODE_VERSION: "25"
+  GO_VERSION: "1.27.0"
+  NODE_VERSION: "26"
   ZIG_VERSION: "latest"
 
 jobs:
@@ -54,15 +54,15 @@ jobs:
             output_suffix: ".exe"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 10
+          version: 11
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
@@ -82,7 +82,7 @@ jobs:
           test -n "$(ls -A template/dist)"
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: "**/go.sum"

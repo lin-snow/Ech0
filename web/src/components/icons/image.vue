@@ -1,15 +1,19 @@
 <template>
-  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
-    <!-- Icon from Fluent UI System Icons by Microsoft Corporation - https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE -->
+  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+    <!-- Icon from coolicons by Kryston Schwarze - https://creativecommons.org/licenses/by/4.0/ -->
     <path
-      fill="#888888"
-      d="M11.5 5.502a1.002 1.002 0 1 1-2.004 0a1.002 1.002 0 0 1 2.004 0M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM4.5 3A1.5 1.5 0 0 0 3 4.5v7c0 .232.052.45.146.647l3.652-3.652a1.7 1.7 0 0 1 2.404 0l3.652 3.652A1.5 1.5 0 0 0 13 11.5v-7A1.5 1.5 0 0 0 11.5 3zm7.647 9.854L8.495 9.202a.7.7 0 0 0-.99 0l-3.652 3.652c.196.094.415.146.647.146h7c.232 0 .45-.053.647-.146"
-    ></path>
+      fill="none"
+      stroke="#888888"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M3 17V7.2c0-1.12 0-1.68.218-2.108c.192-.377.497-.682.874-.874C4.52 4 5.08 4 6.2 4h11.6c1.12 0 1.68 0 2.108.218a2 2 0 0 1 .874.874c.218.427.218.987.218 2.105v9.606c0 .485 0 .865-.018 1.174M3 17c0 .988.013 1.506.218 1.907c.192.377.497.683.874.875c.427.218.987.218 2.105.218h11.607c1.118 0 1.677 0 2.104-.218c.376-.192.682-.498.874-.875c.123-.242.177-.526.2-.93M3 17l4.768-5.562l.001-.002c.423-.493.635-.74.886-.83a1 1 0 0 1 .681.005c.25.093.46.343.876.843l2.671 3.205c.386.464.58.696.816.79a1 1 0 0 0 .651.028c.244-.072.46-.287.889-.716l.497-.497c.437-.438.656-.656.904-.728a1 1 0 0 1 .659.037c.238.099.431.34.818.822l2.865 3.582m0 0L21 18m-6-8a1 1 0 1 1 0-2a1 1 0 0 1 0 2"
+    />
   </svg>
 </template>
 
 <script lang="ts">
 export default {
-  name: 'FluentImage16Regular',
+  name: 'CiImage01',
 }
 </script>

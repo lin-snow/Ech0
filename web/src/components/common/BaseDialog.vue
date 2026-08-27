@@ -1,10 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
-<!-- ConfirmDialog.vue -->
 <template>
   <TransitionRoot :show="isOpen" as="template">
     <Dialog @close="handleDialogClose" class="relative z-5000">
-      <!-- 背景遮罩 -->
       <TransitionChild
         enter="duration-300 ease-out"
         enter-from="opacity-0"
@@ -16,7 +14,6 @@
         <div class="fixed inset-0 bg-black/30" aria-hidden="true" />
       </TransitionChild>
 
-      <!-- 对话框面板 -->
       <div class="fixed inset-0 flex items-center justify-center p-4">
         <TransitionChild
           enter="duration-300 ease-out"

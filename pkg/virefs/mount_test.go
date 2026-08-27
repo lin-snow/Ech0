@@ -28,11 +28,9 @@ func TestMountTable_Routing(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Put via mount table
 	_ = mt.Put(ctx, "local/greet.txt", strings.NewReader("hi"))
 	_ = mt.Put(ctx, "s3/data.bin", strings.NewReader("01"))
 
-	// Get from local
 	rc, err := mt.Get(ctx, "local/greet.txt")
 	if err != nil {
 		t.Fatalf("Get local: %v", err)
@@ -43,7 +41,6 @@ func TestMountTable_Routing(t *testing.T) {
 		t.Fatalf("Get local = %q, want %q", data, "hi")
 	}
 
-	// Get from s3
 	rc, err = mt.Get(ctx, "s3/data.bin")
 	if err != nil {
 		t.Fatalf("Get s3: %v", err)

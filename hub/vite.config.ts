@@ -13,15 +13,12 @@ const webSrc = path.resolve(hubDir, '../web/src')
 const webOtherShim = path.resolve(hubDir, 'src/shims/utils-other.ts')
 const webOtherReal = path.resolve(webSrc, 'utils/other.ts')
 
-// https://vite.dev/config/
 export default defineConfig({
-  /** 默认 5193，避免与 web（5173）、site（5183）同时开发时抢端口 */
   server: {
     port: 5193,
     strictPort: false,
   },
   resolve: {
-    /** 必须在 `@` 之前：仅打包时把 web/utils/other 换成精简 shim，避免拉入 i18n 与整站依赖 */
     alias: [
       { find: webOtherReal, replacement: webOtherShim },
       { find: '@', replacement: webSrc },
@@ -40,7 +37,6 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      /** 与 web/public 同套 PNG/ico（hub/public 内为拷贝） */
       includeAssets: [
         'favicon.ico',
         'favicon.svg',

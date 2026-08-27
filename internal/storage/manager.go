@@ -5,36 +5,43 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
 
 	"github.com/lin-snow/ech0/internal/config"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/kvstore"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 )
-
-type S3SettingStore interface {
-	GetKeyValue(ctx context.Context, key string) (string, error)
-}
 
 type Manager struct {
 	mu         sync.RWMutex
 	defaultCfg config.StorageConfig
-	store      S3SettingStore
+	durableKV  kvstore.Store
 	selector   *StorageSelector
 }
 
-func NewStorageManager(store S3SettingStore) *Manager {
+func NewStorageManager(durableKV kvstore.Store) *Manager {
 	defaultCfg := config.Config().Storage
 	m := &Manager{
 		defaultCfg: defaultCfg,
-		store:      store,
+		durableKV:  durableKV,
 		selector:   NewStorageSelector(defaultCfg),
 	}
 	_ = m.ReloadFromConfigAndDB(context.Background())
+	fileModel.RegisterURLResolver(m.ResolveURL)
 	return m
+}
+
+func NewStorageManagerForTest(dataRoot string) *Manager {
+	cfg := config.StorageConfig{DataRoot: dataRoot}
+	return &Manager{
+		defaultCfg: cfg,
+		durableKV:  nil,
+		selector:   NewStorageSelector(cfg),
+	}
 }
 
 func (m *Manager) GetSelector() *StorageSelector {
@@ -43,24 +50,20 @@ func (m *Manager) GetSelector() *StorageSelector {
 	return m.selector
 }
 
-// GetStorageConfig returns the current merged storage configuration.
+func (m *Manager) ResolveURL(storageType, key string) string {
+	return m.GetSelector().ResolveURL(StorageType(storageType), key)
+}
+
 func (m *Manager) GetStorageConfig(ctx context.Context) config.StorageConfig {
-	dbSetting, _ := m.loadS3SettingFromDB(ctx)
-	return MergeStorageConfig(m.defaultCfg, dbSetting)
+	return m.resolveStorageConfig(ctx)
 }
 
 func (m *Manager) ReloadFromConfigAndDB(ctx context.Context) error {
-	dbSetting, err := m.loadS3SettingFromDB(ctx)
-	if err != nil {
-		return err
-	}
-	cfg := MergeStorageConfig(m.defaultCfg, dbSetting)
-	return m.replaceSelector(cfg)
+	return m.replaceSelector(m.resolveStorageConfig(ctx))
 }
 
 func (m *Manager) ApplyS3Setting(setting settingModel.S3Setting) error {
-	cfg := MergeStorageConfig(m.defaultCfg, &setting)
-	return m.replaceSelector(cfg)
+	return m.replaceSelector(storageConfigFromSetting(setting, m.defaultCfg))
 }
 
 func (m *Manager) replaceSelector(cfg config.StorageConfig) error {
@@ -74,57 +77,38 @@ func (m *Manager) replaceSelector(cfg config.StorageConfig) error {
 	return nil
 }
 
-func (m *Manager) loadS3SettingFromDB(ctx context.Context) (*settingModel.S3Setting, error) {
-	if m.store == nil {
-		return nil, nil
-	}
-	raw, err := m.store.GetKeyValue(ctx, commonModel.S3SettingKey)
-	if err != nil {
-		return nil, nil
-	}
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-	var s settingModel.S3Setting
-	if err := json.Unmarshal([]byte(raw), &s); err != nil {
-		return nil, err
-	}
-	return &s, nil
+func (m *Manager) resolveStorageConfig(ctx context.Context) config.StorageConfig {
+	return storageConfigFromSetting(m.currentS3Setting(ctx), m.defaultCfg)
 }
 
-func MergeStorageConfig(defaultCfg config.StorageConfig, dbS3Setting *settingModel.S3Setting) config.StorageConfig {
+func (m *Manager) currentS3Setting(ctx context.Context) settingModel.S3Setting {
+	if m.durableKV == nil {
+		return coreSetting.S3.Default()
+	}
+	s3, _ := coreSetting.Get(ctx, m.durableKV, coreSetting.S3)
+	return s3
+}
+
+func storageConfigFromSetting(s3 settingModel.S3Setting, defaultCfg config.StorageConfig) config.StorageConfig {
 	cfg := defaultCfg
 	cfg.DataRoot = strings.TrimSpace(defaultCfg.DataRoot)
 	if cfg.DataRoot == "" {
 		cfg.DataRoot = "data/files"
 	}
 
-	if dbS3Setting == nil {
-		return cfg
-	}
-
-	cfg.ObjectEnabled = dbS3Setting.Enable
-
-	cfg.Provider = coalesceTrim(dbS3Setting.Provider, cfg.Provider)
-	cfg.Endpoint = trimEndpoint(coalesceTrim(dbS3Setting.Endpoint, cfg.Endpoint))
-	cfg.AccessKey = coalesceTrim(dbS3Setting.AccessKey, cfg.AccessKey)
-	cfg.SecretKey = coalesceTrim(dbS3Setting.SecretKey, cfg.SecretKey)
-	cfg.BucketName = coalesceTrim(dbS3Setting.BucketName, cfg.BucketName)
-	cfg.Region = coalesceTrim(dbS3Setting.Region, cfg.Region)
-	cfg.CDNURL = strings.TrimRight(coalesceTrim(dbS3Setting.CDNURL, cfg.CDNURL), "/")
-	cfg.PathPrefix = strings.Trim(strings.TrimSpace(coalesceTrim(dbS3Setting.PathPrefix, cfg.PathPrefix)), "/")
-	cfg.UseSSL = dbS3Setting.UseSSL
+	cfg.ObjectEnabled = s3.Enable
+	cfg.Provider = strings.TrimSpace(s3.Provider)
+	cfg.Endpoint = trimEndpoint(s3.Endpoint)
+	cfg.AccessKey = strings.TrimSpace(s3.AccessKey)
+	cfg.SecretKey = strings.TrimSpace(s3.SecretKey)
+	cfg.BucketName = strings.TrimSpace(s3.BucketName)
+	cfg.Region = strings.TrimSpace(s3.Region)
+	cfg.CDNURL = strings.TrimRight(strings.TrimSpace(s3.CDNURL), "/")
+	cfg.PathPrefix = strings.Trim(strings.TrimSpace(s3.PathPrefix), "/")
+	cfg.UseSSL = s3.UseSSL
+	cfg.UsePathStyle = s3.UsePathStyle
 
 	return cfg
-}
-
-func coalesceTrim(preferred string, fallback string) string {
-	v := strings.TrimSpace(preferred)
-	if v != "" {
-		return v
-	}
-	return strings.TrimSpace(fallback)
 }
 
 func trimEndpoint(endpoint string) string {

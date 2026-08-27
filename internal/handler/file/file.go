@@ -4,7 +4,7 @@
 package handler
 
 import (
-	"errors"
+	"context"
 
 	"github.com/gin-gonic/gin"
 	res "github.com/lin-snow/ech0/internal/handler/response"
@@ -21,6 +21,100 @@ func NewFileHandler(fileService service.Service) *FileHandler {
 	return &FileHandler{fileService: fileService}
 }
 
+type (
+	ListFilesInput struct {
+		Page        int    `query:"page" doc:"页码"`
+		PageSize    int    `query:"pageSize" doc:"每页数量"`
+		Search      string `query:"search" doc:"搜索关键词"`
+		StorageType string `query:"storage_type" doc:"存储类型"`
+	}
+	ListFileTreeInput struct {
+		StorageType string `query:"storage_type" required:"true" doc:"存储类型"`
+		Prefix      string `query:"prefix" doc:"路径前缀"`
+	}
+	GetFileByIDInput struct {
+		ID string `path:"id" doc:"文件 ID"`
+	}
+	DeleteFileInput struct {
+		ID string `path:"id" doc:"文件 ID"`
+	}
+	UpdateFileMetaInput struct {
+		ID   string `path:"id" doc:"文件 ID"`
+		Body commonModel.UpdateFileMetaDto
+	}
+	CreateExternalFileInput struct {
+		Body commonModel.CreateExternalFileDto
+	}
+	GetFilePresignURLInput struct {
+		Body commonModel.GetPresignURLDto
+	}
+)
+
+type (
+	FileListOutput = commonModel.Result[commonModel.FileListResultDto]
+	FileTreeOutput = commonModel.Result[commonModel.FileTreeResultDto]
+	FileOutput     = commonModel.Result[commonModel.FileDto]
+	PresignOutput  = commonModel.Result[commonModel.PresignDto]
+	EmptyOutput    = commonModel.Result[any]
+)
+
+func (fileHandler *FileHandler) ListFiles(ctx context.Context, in *ListFilesInput) (FileListOutput, error) {
+	query := commonModel.FileListQueryDto{Page: in.Page, PageSize: in.PageSize, Search: in.Search, StorageType: in.StorageType}
+	result, err := fileHandler.fileService.ListFiles(ctx, query)
+	if err != nil {
+		return FileListOutput{}, err
+	}
+	return commonModel.OK(result), nil
+}
+
+func (fileHandler *FileHandler) ListFileTree(ctx context.Context, in *ListFileTreeInput) (FileTreeOutput, error) {
+	query := commonModel.FileTreeQueryDto{StorageType: in.StorageType, Prefix: in.Prefix}
+	result, err := fileHandler.fileService.ListFileTree(ctx, query)
+	if err != nil {
+		return FileTreeOutput{}, err
+	}
+	return commonModel.OK(result), nil
+}
+
+func (fileHandler *FileHandler) GetFileByID(ctx context.Context, in *GetFileByIDInput) (FileOutput, error) {
+	fileDto, err := fileHandler.fileService.GetFileByID(ctx, in.ID)
+	if err != nil {
+		return FileOutput{}, err
+	}
+	return commonModel.OK(fileDto), nil
+}
+
+func (fileHandler *FileHandler) UpdateFileMeta(ctx context.Context, in *UpdateFileMetaInput) (FileOutput, error) {
+	fileDto, err := fileHandler.fileService.UpdateFileMeta(ctx, in.ID, in.Body)
+	if err != nil {
+		return FileOutput{}, err
+	}
+	return commonModel.OK(fileDto), nil
+}
+
+func (fileHandler *FileHandler) CreateExternalFile(ctx context.Context, in *CreateExternalFileInput) (FileOutput, error) {
+	fileDto, err := fileHandler.fileService.CreateExternalFile(ctx, in.Body)
+	if err != nil {
+		return FileOutput{}, err
+	}
+	return commonModel.OK(fileDto, commonModel.UPLOAD_SUCCESS), nil
+}
+
+func (fileHandler *FileHandler) DeleteFile(ctx context.Context, in *DeleteFileInput) (EmptyOutput, error) {
+	if err := fileHandler.fileService.DeleteFile(ctx, in.ID); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.DELETE_SUCCESS), nil
+}
+
+func (fileHandler *FileHandler) GetFilePresignURL(ctx context.Context, in *GetFilePresignURLInput) (PresignOutput, error) {
+	presignDto, err := fileHandler.fileService.GetFilePresignURL(ctx, &in.Body)
+	if err != nil {
+		return PresignOutput{}, err
+	}
+	return commonModel.OK(presignDto, commonModel.GET_S3_PRESIGN_URL_SUCCESS), nil
+}
+
 func (fileHandler *FileHandler) UploadFile() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		file, err := ctx.FormFile("file")
@@ -34,112 +128,6 @@ func (fileHandler *FileHandler) UploadFile() gin.HandlerFunc {
 			return res.Response{Msg: "", Err: err}
 		}
 		return res.Response{Data: fileDto, Msg: commonModel.UPLOAD_SUCCESS}
-	})
-}
-
-func (fileHandler *FileHandler) CreateExternalFile() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto commonModel.CreateExternalFileDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-
-		fileDto, err := fileHandler.fileService.CreateExternalFile(ctx.Request.Context(), dto)
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: fileDto, Msg: commonModel.UPLOAD_SUCCESS}
-	})
-}
-
-func (fileHandler *FileHandler) DeleteFile() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := ctx.Param("id")
-		if id == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS, Err: errors.New(commonModel.INVALID_PARAMS)}
-		}
-
-		if err := fileHandler.fileService.DeleteFile(ctx.Request.Context(), id); err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Msg: commonModel.DELETE_SUCCESS}
-	})
-}
-
-func (fileHandler *FileHandler) GetFileByID() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := ctx.Param("id")
-		if id == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS, Err: errors.New(commonModel.INVALID_PARAMS)}
-		}
-
-		fileDto, err := fileHandler.fileService.GetFileByID(ctx.Request.Context(), id)
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: fileDto}
-	})
-}
-
-func (fileHandler *FileHandler) ListFiles() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var query commonModel.FileListQueryDto
-		if err := ctx.ShouldBindQuery(&query); err != nil {
-			return res.Response{Msg: commonModel.INVALID_QUERY_PARAMS, Err: err}
-		}
-
-		result, err := fileHandler.fileService.ListFiles(ctx.Request.Context(), query)
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: result, Msg: commonModel.SUCCESS_MESSAGE}
-	})
-}
-
-func (fileHandler *FileHandler) ListFileTree() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var query commonModel.FileTreeQueryDto
-		if err := ctx.ShouldBindQuery(&query); err != nil {
-			return res.Response{Msg: commonModel.INVALID_QUERY_PARAMS, Err: err}
-		}
-
-		result, err := fileHandler.fileService.ListFileTree(ctx.Request.Context(), query)
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: result, Msg: commonModel.SUCCESS_MESSAGE}
-	})
-}
-
-// UpdateFileMeta 更新对象存储文件元信息
-//
-//	@Summary		更新对象存储文件元信息
-//	@Description	用于 ObjectFS 预签名直传完成后回填 size/width/height
-//	@Tags			File
-//	@Accept			json
-//	@Produce		json
-//	@Param			id		path		string					true	"文件ID"
-//	@Param			data	body		model.UpdateFileMetaDto	true	"文件元信息"
-//	@Success		200		{object}	handler.Response
-//	@Failure		500		{object}	handler.Response
-//	@Router			/file/{id}/meta [put]
-func (fileHandler *FileHandler) UpdateFileMeta() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := ctx.Param("id")
-		if id == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS, Err: errors.New(commonModel.INVALID_PARAMS)}
-		}
-
-		var dto commonModel.UpdateFileMetaDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-
-		fileDto, err := fileHandler.fileService.UpdateFileMeta(ctx.Request.Context(), id, dto)
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: fileDto, Msg: commonModel.SUCCESS_MESSAGE}
 	})
 }
 
@@ -159,19 +147,4 @@ func (fileHandler *FileHandler) StreamFileByPath(ctx *gin.Context) {
 		return
 	}
 	fileHandler.fileService.StreamFileByPath(ctx, query)
-}
-
-func (fileHandler *FileHandler) GetFilePresignURL() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto commonModel.GetPresignURLDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-
-		presignDto, err := fileHandler.fileService.GetFilePresignURL(ctx.Request.Context(), &dto)
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: presignDto, Msg: commonModel.GET_S3_PRESIGN_URL_SUCCESS}
-	})
 }

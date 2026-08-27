@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <PanelCard>
-    <!-- 存储设置 -->
     <div class="w-full">
       <div class="flex flex-row items-center justify-between mb-3">
         <h1 class="text-[var(--color-text-primary)] font-bold text-lg">
@@ -20,7 +19,6 @@
         </div>
       </div>
 
-      <!-- 开启S3 -->
       <div class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] h-10">
         <h2 class="font-semibold min-w-30 w-max shrink-0 whitespace-nowrap">
           {{ t('storageSetting.enableS3') }}:
@@ -28,7 +26,6 @@
         <BaseSwitch v-model="S3Setting.enable" :disabled="!storageEditMode" />
       </div>
 
-      <!-- 使用 SSL -->
       <div class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] h-10">
         <h2 class="font-semibold min-w-30 w-max shrink-0 whitespace-nowrap">
           {{ t('storageSetting.enableSsl') }}:
@@ -36,7 +33,6 @@
         <BaseSwitch v-model="S3Setting.use_ssl" :disabled="!storageEditMode" />
       </div>
 
-      <!-- S3 Service Provider -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -51,7 +47,19 @@
         />
       </div>
 
-      <!-- S3 Endpoint -->
+      <div
+        v-if="S3Setting.provider === S3Provider.OTHER"
+        class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] h-10"
+      >
+        <h2
+          v-tooltip="t('storageSetting.usePathStyleHint')"
+          class="font-semibold min-w-30 w-max shrink-0 whitespace-nowrap"
+        >
+          {{ t('storageSetting.usePathStyle') }}:
+        </h2>
+        <BaseSwitch v-model="S3Setting.use_path_style" :disabled="!storageEditMode" />
+      </div>
+
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -75,7 +83,6 @@
         />
       </div>
 
-      <!-- S3 Access Key -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -99,7 +106,6 @@
         />
       </div>
 
-      <!-- S3 Secret Key -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -123,7 +129,6 @@
         />
       </div>
 
-      <!-- S3 Bucket -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -147,7 +152,6 @@
         />
       </div>
 
-      <!-- Path Prefix -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -171,7 +175,6 @@
         />
       </div>
 
-      <!-- S3 Region -->
       <div
         v-if="S3Setting.provider !== S3Provider.MINIO"
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
@@ -196,7 +199,6 @@
         />
       </div>
 
-      <!-- CDN 加速域名（可选） -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
       >
@@ -219,6 +221,17 @@
           class="w-full py-1!"
         />
       </div>
+
+      <div class="flex justify-end mt-6">
+        <BaseButton
+          class="px-3 text-sm bg-transparent"
+          :loading="s3Testing"
+          :title="t('storageSetting.testConnection')"
+          @click="handleTestS3Connection"
+        >
+          {{ t('storageSetting.testConnection') }}
+        </BaseButton>
+      </div>
     </div>
   </PanelCard>
 </template>
@@ -229,10 +242,11 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseEditCapsule from '@/components/common/BaseEditCapsule.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { S3Provider } from '@/enums/enums'
-import { fetchUpdateS3Settings } from '@/service/api'
+import { fetchUpdateS3Settings, fetchTestS3Connection } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
@@ -248,8 +262,6 @@ const S3ServiceOptions = ref<{ label: string; value: S3Provider }[]>([
   { label: 'AWS', value: S3Provider.AWS },
   { label: 'MinIO', value: S3Provider.MINIO },
   { label: 'Cloudflare R2', value: S3Provider.R2 },
-  // { label: '阿里OSS', value: S3Provider.ALIYUN },
-  // { label: '腾讯COS', value: S3Provider.TENCENT },
   { label: 'Other', value: S3Provider.OTHER },
 ])
 
@@ -262,9 +274,23 @@ const handleUpdateS3Setting = async () => {
     })
     .finally(() => {
       storageEditMode.value = false
-      // 重新获取S3设置
       getS3Setting()
     })
+}
+
+const s3Testing = ref<boolean>(false)
+const handleTestS3Connection = async () => {
+  s3Testing.value = true
+  try {
+    const res = await fetchTestS3Connection(settingStore.S3Setting)
+    if (res.code === 1) {
+      theToast.success(t('storageSetting.testSuccess'))
+    } else {
+      theToast.error(t('storageSetting.testFailed', { detail: res.msg }))
+    }
+  } finally {
+    s3Testing.value = false
+  }
 }
 
 onMounted(() => {

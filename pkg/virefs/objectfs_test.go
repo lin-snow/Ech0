@@ -22,12 +22,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-// fakeS3 is an in-memory S3 implementation for testing.
 type fakeS3 struct {
 	objects      map[string][]byte
 	contentTypes map[string]string
 	metadata     map[string]map[string]string
-	maxKeys      int // if > 0, limits results per ListObjectsV2 call to simulate pagination
+	maxKeys      int
 }
 
 func newFakeS3() *fakeS3 {
@@ -124,7 +123,6 @@ func (f *fakeS3) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ .
 	commonPrefixSet := make(map[string]struct{})
 	var commonPrefixes []types.CommonPrefix
 
-	// Collect all matching keys, sorted for deterministic pagination.
 	keys := make([]string, 0, len(f.objects))
 	for k := range f.objects {
 		keys = append(keys, k)
@@ -151,7 +149,6 @@ func (f *fakeS3) ListObjectsV2(_ context.Context, in *s3.ListObjectsV2Input, _ .
 		matched = append(matched, entry{key: k, data: f.objects[k]})
 	}
 
-	// Handle pagination via ContinuationToken (token is a string-encoded offset).
 	startIdx := 0
 	if tok := aws.ToString(in.ContinuationToken); tok != "" {
 		startIdx, _ = strconv.Atoi(tok)
@@ -307,7 +304,6 @@ func TestObjectFS_NotFound(t *testing.T) {
 	}
 }
 
-// fakePresign implements PresignAPI for testing.
 type fakePresign struct{}
 
 func (fp *fakePresign) PresignGetObject(_ context.Context, in *s3.GetObjectInput, opts ...func(*s3.PresignOptions)) (*v4.PresignedHTTPRequest, error) {

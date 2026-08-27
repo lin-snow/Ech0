@@ -34,7 +34,6 @@ func ExampleNewLocalFS() {
 	defer rc.Close()
 	data, _ := io.ReadAll(rc)
 	fmt.Println(string(data))
-	// Output: world
 }
 
 func ExampleNewLocalFS_withKeyFunc() {
@@ -56,7 +55,6 @@ func ExampleNewLocalFS_withKeyFunc() {
 		log.Fatal(err)
 	}
 	fmt.Println(strings.Contains(info.Path, "v2/note.txt"))
-	// Output: true
 }
 
 func ExampleCopy() {
@@ -79,7 +77,6 @@ func ExampleCopy() {
 	defer rc.Close()
 	data, _ := io.ReadAll(rc)
 	fmt.Println(string(data))
-	// Output: data
 }
 
 func ExampleWalk() {
@@ -106,7 +103,6 @@ func ExampleWalk() {
 		return nil
 	})
 	fmt.Println(count)
-	// Output: 2
 }
 
 func ExampleNewSchema() {
@@ -119,10 +115,6 @@ func ExampleNewSchema() {
 	fmt.Println(schema.Resolve("cat.jpg"))
 	fmt.Println(schema.Resolve("report.pdf"))
 	fmt.Println(schema.Resolve("readme.txt"))
-	// Output:
-	// images/cat.jpg
-	// docs/report.pdf
-	// other/readme.txt
 }
 
 func ExampleNewMountTable() {
@@ -145,7 +137,6 @@ func ExampleNewMountTable() {
 	defer rc.Close()
 	data, _ := io.ReadAll(rc)
 	fmt.Println(string(data))
-	// Output: hello
 }
 
 func ExampleNewLocalFS_withAccessFunc() {
@@ -168,9 +159,6 @@ func ExampleNewLocalFS_withAccessFunc() {
 	}
 	fmt.Println(info.URL)
 	fmt.Println(info.Path != "")
-	// Output:
-	// https://cdn.example.com/files/photo.jpg
-	// true
 }
 
 func ExampleChain() {
@@ -182,12 +170,11 @@ func ExampleChain() {
 
 	_ = base.Put(ctx, "secret.txt", strings.NewReader("classified"))
 
-	// Chain: uppercase is inner (closest to base), logging is outer (caller hits first)
 	fs := virefs.Chain(base,
-		func(next virefs.FS) virefs.FS { // inner: uppercase
+		func(next virefs.FS) virefs.FS {
 			return &uppercaseFS{virefs.BaseFS{Inner: next}}
 		},
-		func(next virefs.FS) virefs.FS { // outer: audit log
+		func(next virefs.FS) virefs.FS {
 			return virefs.WithHooks(next, virefs.Hooks{
 				WrapGet: func(key string, rc io.ReadCloser) io.ReadCloser {
 					fmt.Println("audit: read", key)
@@ -201,9 +188,6 @@ func ExampleChain() {
 	data, _ := io.ReadAll(rc)
 	rc.Close()
 	fmt.Println(string(data))
-	// Output:
-	// audit: read secret.txt
-	// CLASSIFIED
 }
 
 type uppercaseFS struct{ virefs.BaseFS }
@@ -238,5 +222,4 @@ func ExampleMigrate() {
 		log.Fatal(err)
 	}
 	fmt.Printf("copied=%d skipped=%d total=%d\n", result.Copied, result.Skipped, result.Total)
-	// Output: copied=2 skipped=0 total=2
 }

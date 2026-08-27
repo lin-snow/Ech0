@@ -5,8 +5,8 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { theToast } from '@/utils/toast'
 import { fetchAddEcho, fetchUpdateEcho } from '@/service/api'
-import { Mode, ExtensionType, ImageLayout } from '@/enums/enums'
-import { FILE_STORAGE_TYPE } from '@/constants/file'
+import { Mode, ExtensionType, ImageLayout, VideoLayout, AudioLayout } from '@/enums/enums'
+import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import { useEchoStore } from '@/stores'
 import { localStg } from '@/utils/storage'
 import { globalFileRegistry } from '@/lib/file'
@@ -23,9 +23,6 @@ export const useEditorStore = defineStore('editorStore', () => {
   const echoStore = useEchoStore()
   const t: Translate = (key, params) => String(i18n.global.t(key, params || {}))
 
-  //================================================================
-  // 基础顶层状态
-  //================================================================
   const ShowEditor = ref<boolean>(true)
   const currentMode = ref<Mode>(Mode.ECH0)
   const currentExtensionType = ref<ExtensionType>()
@@ -43,9 +40,6 @@ export const useEditorStore = defineStore('editorStore', () => {
 
   const hasContent = computed(() => !!echoToAdd.value.content?.trim())
 
-  //================================================================
-  // 子模块组合
-  //================================================================
   const extension = useExtensionModule({ echoToAdd, t })
   const files = useFilesModule({ t })
   const draft = useDraftModule({
@@ -64,12 +58,8 @@ export const useEditorStore = defineStore('editorStore', () => {
     t,
   })
 
-  // 草稿自动保存监听：依赖所有子模块的 state，必须在全部装配完成后挂
   draft.initDraftWatchers()
 
-  //================================================================
-  // 跨域编排:编辑模式、清空、提交、Uppy 上传完成后的条件同步
-  //================================================================
   const resetHomeTimelineState = () => {
     echoStore.searchValue = ''
     echoStore.filteredTag = null
@@ -81,6 +71,12 @@ export const useEditorStore = defineStore('editorStore', () => {
 
   const jumpToHomeTimeline = () => {
     void router.push({ name: 'home' }).catch(() => undefined)
+  }
+
+  const backToTimelineTab = () => {
+    const query = { ...router.currentRoute.value.query }
+    delete query.tab
+    void router.push({ name: 'home', query }).catch(() => undefined)
   }
 
   const setMode = (mode: Mode) => {
@@ -151,7 +147,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
 
     if (isUpdateMode.value && echoStore.echoToUpdate) {
-      await handleAddOrUpdateEcho(true) // 仅同步文件
+      await handleAddOrUpdateEcho(true)
     }
   }
 
@@ -177,10 +173,8 @@ export const useEditorStore = defineStore('editorStore', () => {
         return
       }
 
-      // 处理扩展板块
       extension.checkEchoExtension()
 
-      // 回填图片板块（后端只认 echo_files）
       echoToAdd.value.echo_files = files.filesToAdd.value
         .filter((file) => file.id)
         .map((file, index) => ({
@@ -188,7 +182,15 @@ export const useEditorStore = defineStore('editorStore', () => {
           sort_order: index,
         }))
 
-      // 回填标签板块
+      const mediaCat = files.mediaCategory.value
+      if (mediaCat === FILE_CATEGORY.VIDEO) {
+        echoToAdd.value.layout = VideoLayout.DEFAULT
+      } else if (mediaCat === FILE_CATEGORY.AUDIO) {
+        echoToAdd.value.layout = AudioLayout.DEFAULT
+      } else if (!Object.values(ImageLayout).includes(echoToAdd.value.layout as ImageLayout)) {
+        echoToAdd.value.layout = ImageLayout.WATERFALL
+      }
+
       echoToAdd.value.tags = (tagToAdd.value ?? [])
         .map((name) => name.trim())
         .filter((name) => name.length > 0)
@@ -200,7 +202,6 @@ export const useEditorStore = defineStore('editorStore', () => {
         return
       }
 
-      // ========= 添加模式 =========
       if (!isUpdateMode.value) {
         theToast.promise(fetchAddEcho(echoToAdd.value), {
           loading: t('editor.publishing'),
@@ -224,7 +225,6 @@ export const useEditorStore = defineStore('editorStore', () => {
         return
       }
 
-      // ======== 更新模式 =========
       if (isUpdateMode.value) {
         if (!echoStore.echoToUpdate) {
           theToast.error(t('editor.noEchoToUpdate'))
@@ -242,14 +242,12 @@ export const useEditorStore = defineStore('editorStore', () => {
           loading: justSyncFiles ? t('editor.syncingFiles') : t('editor.updating'),
           success: (res) => {
             if (res.code === 1 && !justSyncFiles) {
-              resetHomeTimelineState()
               clearEditor()
-              echoStore.refreshEchos()
               isUpdateMode.value = false
               echoStore.echoToUpdate = null
               setMode(Mode.ECH0)
               echoStore.getTags()
-              jumpToHomeTimeline()
+              backToTimelineTab()
               return t('editor.updateSuccess')
             } else if (res.code === 1 && justSyncFiles) {
               return t('editor.updateSuccessWithSync')
@@ -282,7 +280,6 @@ export const useEditorStore = defineStore('editorStore', () => {
   }
 
   return {
-    // ===== 状态 =====
     ShowEditor,
 
     currentMode,
@@ -301,6 +298,9 @@ export const useEditorStore = defineStore('editorStore', () => {
     fileToAdd: files.fileToAdd,
     filesToAdd: files.filesToAdd,
     fileIndex: files.fileIndex,
+    selectedCategory: files.selectedCategory,
+    mediaCategory: files.mediaCategory,
+    effectiveCategory: files.effectiveCategory,
 
     websiteToAdd: extension.websiteToAdd,
     videoURL: extension.videoURL,
@@ -311,12 +311,12 @@ export const useEditorStore = defineStore('editorStore', () => {
     tweetToAdd: extension.tweetToAdd,
     tagToAdd,
 
-    // ===== 方法 =====
     init,
     setMode,
     toggleMode,
     clearEditor,
     handleAddMoreFile: files.handleAddMoreFile,
+    setSelectedCategory: files.setSelectedCategory,
     handleAddOrUpdateEcho,
     handleAddOrUpdate,
     handleExitUpdateMode,

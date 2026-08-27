@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="base-textarea w-full">
-    <!-- Label -->
     <label
       v-if="label"
       :for="id"
@@ -11,7 +10,6 @@
       {{ label }}
     </label>
 
-    <!-- Textarea Wrapper -->
     <div class="relative">
       <textarea
         :id="id"
@@ -43,15 +41,15 @@ const props = defineProps<{
   id?: string
   label?: string
   placeholder?: string
-  rows?: number // 默认行数
+  rows?: number
   disabled?: boolean
   readonly?: boolean
   customClass?: string
-  maxLength?: number // 最大长度
+  maxLength?: number
 }>()
 
 const customClass = props.customClass
-const rows = props.rows || 3 // 默认行数为 3
+const rows = props.rows || 3
 </script>
 
 <style scoped>
@@ -61,7 +59,7 @@ const rows = props.rows || 3 // 默认行数为 3
 }
 
 textarea {
-  resize: vertical; /* 允许用户垂直调整大小 */
+  resize: vertical;
   outline: none;
 }
 </style>

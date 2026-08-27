@@ -11,6 +11,7 @@ import (
 	model "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type UserRepository struct {
@@ -82,6 +83,13 @@ func (userRepository *UserRepository) CreateUser(ctx context.Context, user *mode
 		userRepository.cache.Set(GetOwnerKey(), *user, 1)
 	}
 	return nil
+}
+
+func (userRepository *UserRepository) UpsertLocalAuth(ctx context.Context, localAuth *model.UserLocalAuth) error {
+	return userRepository.getDB(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"password_hash", "password_algo", "updated_at"}),
+	}).Create(localAuth).Error
 }
 
 func (userRepository *UserRepository) GetUserByID(ctx context.Context, id string) (model.User, error) {
@@ -203,6 +211,12 @@ func (userRepository *UserRepository) DeleteUser(ctx context.Context, id string)
 
 	err = userRepository.getDB(ctx).Where("id = ?", id).Delete(&model.User{}).Error
 	if err != nil {
+		return err
+	}
+
+	if err := userRepository.getDB(ctx).
+		Where("user_id = ?", id).
+		Delete(&model.UserLocalAuth{}).Error; err != nil {
 		return err
 	}
 

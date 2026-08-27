@@ -10,12 +10,10 @@ import (
 
 type contextKey struct{}
 
-// WithContext returns a new context with the viewer attached.
 func WithContext(ctx context.Context, v Context) context.Context {
 	return context.WithValue(ctx, contextKey{}, v)
 }
 
-// FromContext extracts the viewer from the context.
 func FromContext(ctx context.Context) (Context, bool) {
 	if ctx == nil {
 		return nil, false
@@ -28,7 +26,6 @@ func FromContext(ctx context.Context) (Context, bool) {
 	return vc, ok
 }
 
-// MustFromContext extracts the viewer from context and falls back to NoopViewer.
 func MustFromContext(ctx context.Context) Context {
 	if ctx == nil {
 		return NewNoopViewer()
@@ -41,7 +38,6 @@ func MustFromContext(ctx context.Context) Context {
 	return NewNoopViewer()
 }
 
-// WithRequest returns a new request with the viewer attached to context.
 func WithRequest(req *http.Request, v Context) *http.Request {
 	if req == nil {
 		return nil
@@ -53,7 +49,6 @@ func WithRequest(req *http.Request, v Context) *http.Request {
 	return req.WithContext(WithContext(reqCtx, v))
 }
 
-// AttachToRequest updates request pointer with viewer-attached request context.
 func AttachToRequest(req **http.Request, v Context) {
 	if req == nil || *req == nil {
 		return

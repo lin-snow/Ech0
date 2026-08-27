@@ -46,4 +46,12 @@ describe('renderMarkdown renderer behaviors', () => {
     expect(htmlB).toContain('展开B')
     expect(htmlB).not.toContain('展开A')
   })
+
+  it('自动成链只覆盖带协议的地址，裸域名保持纯文本', async () => {
+    const html = await renderMarkdown('看 https://ech0.cc 和 ech0.cc 与 [站点](https://ech0.cc)')
+
+    expect(html).toContain('<a href="https://ech0.cc"')
+    expect(html).toContain('>站点</a>')
+    expect(html).toContain('和 ech0.cc 与')
+  })
 })

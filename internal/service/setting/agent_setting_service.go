@@ -5,56 +5,41 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"time"
 
+	"github.com/lin-snow/ech0/internal/agent"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
-	httpUtil "github.com/lin-snow/ech0/internal/util/http"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
+	urlUtil "github.com/lin-snow/ech0/internal/util/url"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
-// GetAgentInfo 获取 Agent 信息
-func (settingService *SettingService) GetAgentInfo(setting *model.AgentSetting) error {
-	return settingService.transactor.Run(context.Background(), func(ctx context.Context) error {
-		agentSetting, err := settingService.keyvalueRepository.GetKeyValue(
-			ctx,
-			commonModel.AgentSettingKey,
-		)
-		if err != nil {
-			// 数据库中不存在数据，返回默认值
-			setting.Enable = false
-			setting.Provider = string(commonModel.OpenAI)
-			setting.Model = ""
-			setting.ApiKey = ""
-			setting.Prompt = ""
-			setting.BaseURL = ""
+const agentTestTimeout = 15 * time.Second
 
-			// 序列化为 JSON
-			settingToJSON, err := json.Marshal(setting)
-			if err != nil {
-				return err
-			}
-			if err := settingService.keyvalueRepository.AddKeyValue(ctx, commonModel.AgentSettingKey, string(settingToJSON)); err != nil {
-				return err
-			}
-			return nil
-		}
-
-		if err := json.Unmarshal([]byte(agentSetting), setting); err != nil {
-			return err
-		}
-
-		return nil
-	})
+func normalizeAgentProtocol(protocol string) string {
+	switch protocol {
+	case string(commonModel.OpenAI), string(commonModel.OpenAIResponses), string(commonModel.Anthropic):
+		return protocol
+	default:
+		return string(commonModel.OpenAI)
+	}
 }
 
-// GetAgentSettings 获取 Agent 设置
+func (settingService *SettingService) GetAgentInfo(setting *model.AgentSetting) error {
+	v, err := coreSetting.Get(context.Background(), settingService.durableKV, coreSetting.Agent)
+	if err != nil {
+		return err
+	}
+	*setting = v
+	return nil
+}
+
 func (settingService *SettingService) GetAgentSettings(
 	ctx context.Context,
 	setting *model.AgentSetting,
 ) error {
-	// 检查用户权限
 	userid := viewer.MustFromContext(ctx).UserID()
 	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
 	if err != nil {
@@ -64,46 +49,18 @@ func (settingService *SettingService) GetAgentSettings(
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	return settingService.transactor.Run(ctx, func(ctx context.Context) error {
-		agentSetting, err := settingService.keyvalueRepository.GetKeyValue(
-			ctx,
-			commonModel.AgentSettingKey,
-		)
-		if err != nil {
-			// 数据库中不存在数据，返回默认值
-			setting.Enable = false
-			setting.Provider = string(commonModel.OpenAI)
-			setting.Model = ""
-			setting.ApiKey = ""
-			setting.Prompt = ""
-			setting.BaseURL = ""
-
-			// 序列化为 JSON
-			settingToJSON, err := json.Marshal(setting)
-			if err != nil {
-				return err
-			}
-			if err := settingService.keyvalueRepository.AddKeyValue(ctx, commonModel.AgentSettingKey, string(settingToJSON)); err != nil {
-				return err
-			}
-
-			return nil
-		}
-
-		if err := json.Unmarshal([]byte(agentSetting), setting); err != nil {
-			return err
-		}
-
-		return nil
-	})
+	v, err := coreSetting.Get(ctx, settingService.durableKV, coreSetting.Agent)
+	if err != nil {
+		return err
+	}
+	*setting = v
+	return nil
 }
 
-// UpdateAgentSettings 更新 Agent 设置
 func (settingService *SettingService) UpdateAgentSettings(
 	ctx context.Context,
 	newSetting *model.AgentSettingDto,
 ) error {
-	// 检查用户权限
 	userid := viewer.MustFromContext(ctx).UserID()
 	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
 	if err != nil {
@@ -113,34 +70,41 @@ func (settingService *SettingService) UpdateAgentSettings(
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	if newSetting.Provider != string(commonModel.OpenAI) &&
-		newSetting.Provider != string(commonModel.Anthropic) &&
-		newSetting.Provider != string(commonModel.Gemini) {
-		// 未识别的提供商一律按 OpenAI 兼容协议处理
-		newSetting.Provider = string(commonModel.OpenAI)
+	setting := model.AgentSetting{
+		Enable:        newSetting.Enable,
+		Protocol:      normalizeAgentProtocol(newSetting.Protocol),
+		Model:         newSetting.Model,
+		ApiKey:        newSetting.ApiKey,
+		Prompt:        newSetting.Prompt,
+		BaseURL:       urlUtil.TrimURL(newSetting.BaseURL),
+		Multimodal:    newSetting.Multimodal,
+		ContextWindow: max(0, newSetting.ContextWindow),
+	}
+	return coreSetting.Set(ctx, settingService.durableKV, coreSetting.Agent, setting)
+}
+
+func (settingService *SettingService) TestAgentConnection(
+	ctx context.Context,
+	newSetting *model.AgentSettingDto,
+) error {
+	userid := viewer.MustFromContext(ctx).UserID()
+	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
+	if err != nil {
+		return err
+	}
+	if !user.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	setting := &model.AgentSetting{
-		Enable:   newSetting.Enable,
-		Provider: newSetting.Provider,
+	setting := model.AgentSetting{
+		Enable:   true,
+		Protocol: normalizeAgentProtocol(newSetting.Protocol),
 		Model:    newSetting.Model,
 		ApiKey:   newSetting.ApiKey,
-		Prompt:   newSetting.Prompt,
-		BaseURL:  httpUtil.TrimURL(newSetting.BaseURL),
+		BaseURL:  urlUtil.TrimURL(newSetting.BaseURL),
 	}
 
-	return settingService.transactor.Run(ctx, func(ctx context.Context) error {
-		// 序列化为 JSON
-		settingToJSON, err := json.Marshal(setting)
-		if err != nil {
-			return err
-		}
-		settingToJSONString := string(settingToJSON)
-
-		if err := settingService.keyvalueRepository.UpdateKeyValue(ctx, commonModel.AgentSettingKey, settingToJSONString); err != nil {
-			return err
-		}
-
-		return nil
-	})
+	ctx, cancel := context.WithTimeout(ctx, agentTestTimeout)
+	defer cancel()
+	return agent.Ping(ctx, setting)
 }

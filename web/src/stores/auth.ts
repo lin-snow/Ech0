@@ -4,7 +4,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ofetch } from 'ofetch'
-import { getApiUrl } from '@/service/request/shared'
+import { getApiUrl, isStaticMode } from '@/service/request/shared'
 
 export const useAuthStore = defineStore('authStore', () => {
   const accessToken = ref('')
@@ -20,9 +20,12 @@ export const useAuthStore = defineStore('authStore', () => {
     accessToken.value = ''
   }
 
-  // 静默刷新：仅通过 HttpOnly Cookie 刷新 access token，前端不接触 refresh token。
   async function silentRefresh(): Promise<boolean> {
     if (refreshPromise) return refreshPromise
+    if (isStaticMode()) {
+      clearToken()
+      return false
+    }
     refreshPromise = (async () => {
       try {
         const res = await ofetch<App.Api.Response<App.Api.Auth.TokenPairResponse>>(
@@ -45,7 +48,6 @@ export const useAuthStore = defineStore('authStore', () => {
     return refreshPromise
   }
 
-  // 登出：后端清 Cookie + 记录黑名单，前端清 access token 内存状态。
   async function logout() {
     try {
       await ofetch(`${getApiUrl()}/auth/logout`, {

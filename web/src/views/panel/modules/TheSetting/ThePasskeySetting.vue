@@ -101,7 +101,6 @@
         </div>
       </div>
 
-      <!-- 绑定 -->
       <div class="flex items-center justify-start gap-2 mb-4">
         <div class="w-50">
           <BaseInput
@@ -124,7 +123,6 @@
         {{ t('passkeySetting.notSupported') }}
       </div>
 
-      <!-- 多设备管理 -->
       <div class="text-[var(--color-text-muted)] font-semibold mb-2">
         {{ t('passkeySetting.boundDevices') }}
       </div>
@@ -266,13 +264,11 @@ const parseList = (input: string) =>
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
 
-// 断言服务端返回的 publicKey 合法
 function assertCreationOptionsJSON(raw: unknown): CreationOptionsJSON {
   if (!raw || typeof raw !== 'object') throw new Error(String(t('passkeySetting.invalidPublicKey')))
   return raw as CreationOptionsJSON
 }
 
-// 标准化服务端返回的 publicKey
 function normalizeCreationOptions(raw: unknown): PublicKeyCredentialCreationOptions {
   const o = assertCreationOptionsJSON(raw)
   const { challenge, user, excludeCredentials, ...rest } = o
@@ -294,7 +290,6 @@ function normalizeCreationOptions(raw: unknown): PublicKeyCredentialCreationOpti
   } as PublicKeyCredentialCreationOptions
 }
 
-// 将 PublicKeyCredential 转换为 JSON
 function credentialToJSON(cred: PublicKeyCredential) {
   if (!cred) return null
   const obj: Record<string, unknown> = {
@@ -307,13 +302,11 @@ function credentialToJSON(cred: PublicKeyCredential) {
   const response: Record<string, unknown> = {}
   response.clientDataJSON = uint8ArrayToBase64url(cred.response.clientDataJSON)
 
-  // 注册（attestation）
   if ('attestationObject' in cred.response) {
     const r = cred.response as AuthenticatorAttestationResponse
     response.attestationObject = uint8ArrayToBase64url(r.attestationObject)
   }
 
-  // 登录（assertion）——这里暂时不会用到，但保持通用
   if ('authenticatorData' in cred.response) {
     const r = cred.response as AuthenticatorAssertionResponse
     response.authenticatorData = uint8ArrayToBase64url(r.authenticatorData)
@@ -327,7 +320,6 @@ function credentialToJSON(cred: PublicKeyCredential) {
   return obj
 }
 
-// 格式化时间
 function formatTime(v: number) {
   if (!v) return String(t('commonUi.none'))
   const d = new Date(v * 1000)
@@ -335,7 +327,6 @@ function formatTime(v: number) {
   return d.toLocaleString()
 }
 
-// 刷新设备列表
 async function refresh() {
   const res = await fetchPasskeyDevices()
   if (res.code === 1) devices.value = res.data ?? []
@@ -394,7 +385,6 @@ function handleAutoFillBoundary() {
   theToast.success(String(t('passkeySetting.autofillDone')))
 }
 
-// 绑定设备
 async function handleBind() {
   if (!supported) return
   busy.value = true
@@ -422,7 +412,6 @@ async function handleBind() {
   }
 }
 
-// 删除设备
 async function handleDelete(id: string) {
   openConfirm({
     title: String(t('passkeySetting.deleteConfirmTitle')),
@@ -441,7 +430,6 @@ async function handleDelete(id: string) {
   })
 }
 
-// 改名
 async function promptRename(d: App.Api.Auth.PasskeyDevice) {
   const name = window.prompt(
     String(t('passkeySetting.newDeviceNamePrompt')),

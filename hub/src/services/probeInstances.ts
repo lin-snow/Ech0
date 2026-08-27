@@ -19,9 +19,6 @@ type ProbeOutcome =
   | { kind: 'ok'; instance: HubInstance }
   | { kind: 'fail'; instance: HubInstance; reason: string }
 
-/**
- * 受限并发探活：必须 healthz 成功且 version ≥ 4.4.0 才参与聚合。
- */
 export async function probeInstances(
   instances: HubInstance[],
   signal?: AbortSignal,

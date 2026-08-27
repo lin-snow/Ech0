@@ -39,18 +39,20 @@ Ech0 是**自托管的个人微博客**：内容在一条**时间线**上展示�
 
 ## 部署与功能索引
 
-| 你想做…                         | 文档                                                              |
-| ------------------------------- | ----------------------------------------------------------------- |
-| 第一次部署、端口与数据目录      | [安装部署](/docs/start/installation)                              |
-| 从零基础到能发帖                | [快速上手](/docs/start/getting-started)                           |
-| 升级镜像或小版本迭代            | [版本更新](/docs/start/update)                                    |
-| 多站合并时间线                  | [互联聚合](/docs/guide/federation)（Connect + `/hub`）            |
-| 第三方登录与 Passkey            | [统一登录](/docs/guide/sso)                                       |
-| 访问令牌、MCP（AI 接入）        | [访问令牌](/docs/guide/accesstoken) · [MCP 接入](/docs/guide/mcp) |
-| 站点 Logo、页脚、头像与面板偏好 | [偏好设置与用户资料](/docs/guide/preferences)                     |
-| 评论与审核                      | [评论系统](/docs/guide/comment)                                   |
-| 附件上云                        | [对象存储](/docs/guide/s3)                                        |
-| 备份与迁移                      | [数据管理](/docs/guide/datacontrol)                               |
+| 你想做…                         | 文档                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 第一次部署、端口与数据目录      | [安装部署](/docs/start/installation)                                                                 |
+| 从零基础到能发帖                | [快速上手](/docs/start/getting-started)                                                              |
+| 升级镜像或小版本迭代            | [版本更新](/docs/start/update)                                                                       |
+| 多站合并时间线                  | [互联聚合](/docs/guide/federation)（Connect + `/hub`）                                               |
+| 第三方登录与 Passkey            | [统一登录](/docs/guide/sso)                                                                          |
+| 访问令牌、MCP（AI 接入）        | [访问令牌](/docs/guide/accesstoken) · [MCP 接入](/docs/guide/mcp)                                    |
+| 跟自己的 Echo 对话、近期摘要    | [AI 问答](/docs/guide/chat) · [AI 模型与摘要](/docs/guide/agent) · [向量检索](/docs/guide/embedding) |
+| 站点 Logo、页脚、头像与面板偏好 | [偏好设置与用户资料](/docs/guide/preferences)                                                        |
+| 评论与审核                      | [评论系统](/docs/guide/comment)                                                                      |
+| 附件上云                        | [对象存储](/docs/guide/s3)                                                                           |
+| 备份与迁移                      | [数据管理](/docs/guide/datacontrol)                                                                  |
+| 换实例、长期保存、做静态归档站  | [胶囊与静态站](/docs/guide/capsule)                                                                  |
 
 ---
 
@@ -58,10 +60,11 @@ Ech0 是**自托管的个人微博客**：内容在一条**时间线**上展示�
 
 - **写作**：Markdown 时间线，图片、链接，以及音乐/视频等扩展卡片（见 [编辑指南](/docs/guide/editor)）。
 - **外观与资料**：站点 Logo、页脚、服务地址、Meting、自定义 CSS/JS；个人头像与界面语言（见 [偏好设置与用户资料](/docs/guide/preferences)）。
-- **数据**：默认数据在本地目录；附件可接 **S3 兼容**存储；支持快照导出与从 v3 等来源迁移。
+- **数据**：默认数据在本地目录；附件可接 **S3 兼容**存储；支持快照导出与从 v3 等来源迁移；可导出人类可读的**胶囊**用于搬家与长期保存，并一键编译成[静态归档站](/docs/guide/capsule)。
 - **互动**：内建评论；**RSS**；**Connect / Hub** 聚合多个实例的公开内容。
 - **账号**：OAuth、Passkey；脚本与集成使用 **访问令牌** 调用 HTTP API，AI 客户端通过 **MCP** 连接实例（见 [访问令牌](/docs/guide/accesstoken)、[MCP 接入](/docs/guide/mcp)）。
-- **自动化**：**Webhook** 事件推送、[智能摘要](/docs/guide/agent)（LLM）等，按需在设置中开启。
+- **AI**：用自然语言[跟自己的 Echo 对话](/docs/guide/chat)、生成[近期摘要](/docs/guide/agent)；可选开启[向量检索](/docs/guide/embedding)做语义搜索。需自备 LLM（OpenAI 兼容 / Anthropic）。
+- **自动化**：**Webhook** 事件推送等，按需在设置中开启。
 
 接口与字段以你实例上的 **`/swagger/index.html`** 为准；不同版本可能有差异。
 

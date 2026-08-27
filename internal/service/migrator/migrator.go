@@ -9,347 +9,365 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/lin-snow/ech0/internal/backup"
+	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/event"
+	eventbus "github.com/lin-snow/ech0/internal/event/bus"
+	"github.com/lin-snow/ech0/internal/job"
 	coreMigrator "github.com/lin-snow/ech0/internal/migrator"
-	"github.com/lin-snow/ech0/internal/migrator/spec"
-	commentModel "github.com/lin-snow/ech0/internal/model/comment"
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
+	snapshot "github.com/lin-snow/ech0/internal/migrator/snapshot"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	migrationModel "github.com/lin-snow/ech0/internal/model/migration"
-	settingModel "github.com/lin-snow/ech0/internal/model/setting"
-	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	jobModel "github.com/lin-snow/ech0/internal/model/job"
+	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
+	"github.com/lin-snow/ech0/pkg/busen"
 	"github.com/lin-snow/ech0/pkg/viewer"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
-const migrationTmpRelativeDir = "files/tmp"
-
 type MigratorService struct {
-	commonService      CommonService
-	keyValueRepository KeyValueRepository
-	storageManager     StorageManager
-	appCache           AppCache
-
-	activeMu     sync.Mutex
-	activeCancel context.CancelFunc
+	commonService CommonService
+	jobManager    *job.Manager
+	bus           *busen.Bus
 }
 
 func NewMigratorService(
 	commonService CommonService,
-	keyValueRepository KeyValueRepository,
-	storageManager StorageManager,
-	appCache AppCache,
+	jobManager *job.Manager,
+	busProvider func() *busen.Bus,
 ) *MigratorService {
 	return &MigratorService{
-		commonService:      commonService,
-		keyValueRepository: keyValueRepository,
-		storageManager:     storageManager,
-		appCache:           appCache,
+		commonService: commonService,
+		jobManager:    jobManager,
+		bus:           busProvider(),
 	}
+}
+
+func (s *MigratorService) DownloadExport(ctx *gin.Context, reqCtx context.Context, format string) error {
+	if _, err := s.ensureAdmin(reqCtx); err != nil {
+		return err
+	}
+
+	format, err := normalizeExportFormat(format)
+	if err != nil {
+		return err
+	}
+
+	slot := artifact.Snapshots()
+	if format == migratorModel.ExportFormatCapsule {
+		slot = artifact.Capsules()
+	}
+
+	artifactPath, err := slot.Latest()
+	if errors.Is(err, artifact.ErrNone) {
+		return errors.New("暂无可下载的产物，请先创建导出")
+	}
+	if err != nil {
+		return err
+	}
+
+	info, err := os.Stat(artifactPath)
+	if err != nil {
+		return err
+	}
+
+	filename := fmt.Sprintf("ech0-%s-%s.zip", format, time.Now().UTC().Format("2006-01-02-150405"))
+
+	ctx.Writer.Header().Set("Content-Type", "application/zip")
+	ctx.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	ctx.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+	ctx.Writer.Header().Set("Accept-Ranges", "bytes")
+	ctx.Writer.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	ctx.Writer.WriteHeader(200)
+	ctx.File(artifactPath)
+
+	eventbus.Notify(context.Background(), s.bus, event.SystemExport{Info: "System export completed", Size: info.Size()})
+
+	return nil
 }
 
 func (s *MigratorService) UploadSourceZip(
 	ctx context.Context,
 	sourceType string,
 	file *multipart.FileHeader,
-) (migrationModel.UploadMigrationSourceZipResponse, error) {
+) (migratorModel.UploadMigrationSourceZipResponse, error) {
 	if err := validateSourceType(sourceType); err != nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, err
+		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
 	if file == nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
 	}
 
 	userID := viewer.MustFromContext(ctx).UserID()
 	user, err := s.commonService.CommonGetUserByUserId(ctx, userID)
 	if err != nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, err
+		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
 	if !user.IsAdmin {
-		return migrationModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.NO_PERMISSION_DENIED)
+		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
-	state, err := s.getGlobalState(ctx)
-	if err != nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, err
-	}
-	if state.Status != migrationModel.MigrationStatusIdle {
-		return migrationModel.UploadMigrationSourceZipResponse{}, errors.New("请先结束/清理当前迁移")
+	if _, err := s.jobManager.Get(ctx, jobModel.TypeMigration); err == nil {
+		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New("请先结束/清理当前迁移")
+	} else if !errors.Is(err, job.ErrNotFound) {
+		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
 
 	if !strings.HasSuffix(strings.ToLower(file.Filename), ".zip") {
-		return migrationModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
 	}
 
-	baseTmpDir := filepath.Join("data", migrationTmpRelativeDir)
+	baseTmpDir := filepath.Join("data", coreMigrator.TmpRelativeDir)
 	if err := os.MkdirAll(baseTmpDir, 0o755); err != nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("create migration tmp dir: %w", err)
+		return migratorModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("create migration tmp dir: %w", err)
 	}
 
-	uploadID := uuidUtil.MustNewV7()
+	uploadID := uuidUtil.NewV7()
 	folderName := fmt.Sprintf("%s_%s", strings.TrimSpace(sourceType), uploadID)
 	zipPath := filepath.Join(baseTmpDir, folderName+".zip")
 	extractDir := filepath.Join(baseTmpDir, folderName)
 
 	if err := saveMultipartFile(file, zipPath); err != nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("save uploaded zip: %w", err)
+		return migratorModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("save uploaded zip: %w", err)
 	}
 	defer func() {
 		_ = os.Remove(zipPath)
 	}()
 
 	if err := os.MkdirAll(extractDir, 0o755); err != nil {
-		return migrationModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("create extract dir: %w", err)
+		return migratorModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("create extract dir: %w", err)
 	}
-	if err := backup.UnpackZipToDir(zipPath, extractDir); err != nil {
+	if err := snapshot.Unpack(zipPath, extractDir); err != nil {
 		_ = os.RemoveAll(extractDir)
-		return migrationModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("unpack migration zip: %w", err)
+		return migratorModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("unpack migration zip: %w", err)
 	}
 
-	relativeTmpDir := filepath.ToSlash(filepath.Join(migrationTmpRelativeDir, folderName))
-	sourcePayload := map[string]any{
-		"tmp_dir": relativeTmpDir,
-	}
-	return migrationModel.UploadMigrationSourceZipResponse{
+	relativeTmpDir := filepath.ToSlash(filepath.Join(coreMigrator.TmpRelativeDir, folderName))
+	return migratorModel.UploadMigrationSourceZipResponse{
 		SourceType:    sourceType,
 		TmpDir:        relativeTmpDir,
-		SourcePayload: sourcePayload,
+		SourcePayload: map[string]any{"tmp_dir": relativeTmpDir},
 	}, nil
 }
 
 func (s *MigratorService) StartGlobalMigration(
 	ctx context.Context,
-	req migrationModel.StartGlobalMigrationRequest,
-) (migrationModel.GlobalMigrationStateDTO, error) {
+	req migratorModel.StartGlobalMigrationRequest,
+) (migratorModel.GlobalMigrationStateDTO, error) {
 	if err := validateStartRequest(req); err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
+		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
 	adminUserID, err := s.ensureAdmin(ctx)
 	if err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-
-	s.activeMu.Lock()
-	defer s.activeMu.Unlock()
-
-	state, err := s.getGlobalState(ctx)
-	if err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-
-	if state.Status != migrationModel.MigrationStatusIdle {
-		_ = cleanupMigrationTmpDirFromPayload(req.SourcePayload)
-		return migrationModel.GlobalMigrationStateDTO{}, errors.New("请先结束/清理当前迁移")
+		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
 
 	sourcePayload := cloneMap(req.SourcePayload)
 	if _, ok := sourcePayload["created_by"]; !ok {
 		sourcePayload["created_by"] = adminUserID
 	}
-
-	now := nowUTC()
-	state = migrationModel.GlobalMigrationStateDTO{
-		Version:       1,
+	raw, err := json.Marshal(migratorModel.MigrationPayload{
 		SourceType:    strings.TrimSpace(req.SourceType),
-		Status:        migrationModel.MigrationStatusPending,
-		ErrorMessage:  "",
 		SourcePayload: sourcePayload,
-		StartedAt:     &now,
-		UpdatedAt:     &now,
-		FinishedAt:    nil,
-	}
-	if err := s.saveGlobalStateWithRetry(ctx, state); err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-
-	runCtx, cancel := context.WithCancel(context.Background())
-	s.activeCancel = cancel
-	go s.runGlobalMigration(runCtx, state)
-	return state, nil
-}
-
-func (s *MigratorService) GetGlobalMigrationStatus(ctx context.Context) (migrationModel.GlobalMigrationStateDTO, error) {
-	if _, err := s.ensureAdmin(ctx); err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-	return s.getGlobalState(ctx)
-}
-
-func (s *MigratorService) CancelGlobalMigration(ctx context.Context) (migrationModel.GlobalMigrationStateDTO, error) {
-	if _, err := s.ensureAdmin(ctx); err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-	s.activeMu.Lock()
-	cancelFn := s.activeCancel
-	s.activeCancel = nil
-	s.activeMu.Unlock()
-	if cancelFn != nil {
-		cancelFn()
-	}
-	state, err := s.getGlobalState(ctx)
+	})
 	if err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
+		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
-	if state.Status != migrationModel.MigrationStatusPending && state.Status != migrationModel.MigrationStatusRunning {
-		return migrationModel.GlobalMigrationStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+
+	jb, err := s.jobManager.Submit(ctx, jobModel.TypeMigration, raw)
+	if err != nil {
+		_ = coreMigrator.CleanupTmpDirFromPayload(req.SourcePayload)
+		if errors.Is(err, job.ErrAlreadyRunning) {
+			return migratorModel.GlobalMigrationStateDTO{}, errors.New("请先结束/清理当前迁移")
+		}
+		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
-	now := nowUTC()
-	state.Status = migrationModel.MigrationStatusCancelled
-	state.ErrorMessage = "迁移已取消"
-	state.UpdatedAt = &now
-	state.FinishedAt = &now
-	if err := s.saveGlobalStateWithRetry(ctx, state); err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
+	return s.jobToDTO(jb), nil
+}
+
+func (s *MigratorService) GetGlobalMigrationStatus(ctx context.Context) (migratorModel.GlobalMigrationStateDTO, error) {
+	if _, err := s.ensureAdmin(ctx); err != nil {
+		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
-	return state, nil
+	jb, err := s.jobManager.Get(ctx, jobModel.TypeMigration)
+	if errors.Is(err, job.ErrNotFound) {
+		return migratorModel.GlobalMigrationStateDTO{Version: 1, Status: migratorModel.MigrationStatusIdle}, nil
+	}
+	if err != nil {
+		return migratorModel.GlobalMigrationStateDTO{}, err
+	}
+	return s.jobToDTO(jb), nil
+}
+
+func (s *MigratorService) CancelGlobalMigration(ctx context.Context) (migratorModel.GlobalMigrationStateDTO, error) {
+	if _, err := s.ensureAdmin(ctx); err != nil {
+		return migratorModel.GlobalMigrationStateDTO{}, err
+	}
+	jb, err := s.jobManager.Get(ctx, jobModel.TypeMigration)
+	if errors.Is(err, job.ErrNotFound) {
+		return migratorModel.GlobalMigrationStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+	}
+	if err != nil {
+		return migratorModel.GlobalMigrationStateDTO{}, err
+	}
+	if jb.Status != jobModel.StatusPending && jb.Status != jobModel.StatusRunning {
+		return migratorModel.GlobalMigrationStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+	}
+	_ = s.jobManager.Cancel(jobModel.TypeMigration)
+	jb, err = s.jobManager.Get(ctx, jobModel.TypeMigration)
+	if err != nil {
+		return migratorModel.GlobalMigrationStateDTO{}, err
+	}
+	return s.jobToDTO(jb), nil
 }
 
 func (s *MigratorService) CleanupGlobalMigration(ctx context.Context) error {
 	if _, err := s.ensureAdmin(ctx); err != nil {
 		return err
 	}
-	state, err := s.getGlobalState(ctx)
+	jb, err := s.jobManager.Get(ctx, jobModel.TypeMigration)
+	if errors.Is(err, job.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	if state.Status == migrationModel.MigrationStatusPending || state.Status == migrationModel.MigrationStatusRunning {
+	if jb.Status == jobModel.StatusPending || jb.Status == jobModel.StatusRunning {
 		return errors.New("迁移进行中，无法清理")
 	}
-	if err := cleanupMigrationTmpDirFromPayload(state.SourcePayload); err != nil {
+	var payload migratorModel.MigrationPayload
+	if jb.Payload != "" {
+		_ = json.Unmarshal([]byte(jb.Payload), &payload)
+	}
+	if err := coreMigrator.CleanupTmpDirFromPayload(payload.SourcePayload); err != nil {
 		return fmt.Errorf("cleanup migration tmp dir: %w", err)
 	}
-	return s.keyValueRepository.DeleteKeyValue(ctx, commonModel.MigrationGlobalJobStateKey)
+	return s.jobManager.Delete(ctx, jobModel.TypeMigration)
 }
 
-func (s *MigratorService) runGlobalMigration(ctx context.Context, state migrationModel.GlobalMigrationStateDTO) {
-	logUtil.GetLogger().Info("global migration started",
-		zap.String("module", "migration"),
-		zap.String("source_type", state.SourceType),
-	)
-	defer func() {
-		s.activeMu.Lock()
-		s.activeCancel = nil
-		s.activeMu.Unlock()
-	}()
-	defer func() {
-		if err := cleanupMigrationTmpDirFromPayload(state.SourcePayload); err != nil {
-			logUtil.GetLogger().Warn("Failed to cleanup migration temp directory",
-				zap.String("module", "migration"),
-				zap.Error(err),
-			)
-		}
-	}()
-
-	runner, err := coreMigrator.BuildSourceMigrator(state.SourceType)
-	if err != nil {
-		logUtil.GetLogger().Error("build source migrator failed",
-			zap.String("module", "migration"),
-			zap.String("source_type", state.SourceType),
-			zap.Error(err),
-		)
-		s.updateFailed(context.Background(), state, fmt.Sprintf("构建迁移器失败: %v", err))
-		return
+func (s *MigratorService) StartExport(
+	ctx context.Context,
+	req migratorModel.StartExportRequest,
+) (migratorModel.ExportStateDTO, error) {
+	if _, err := s.ensureAdmin(ctx); err != nil {
+		return migratorModel.ExportStateDTO{}, err
 	}
-
-	runningState := state
-	now := nowUTC()
-	runningState.Status = migrationModel.MigrationStatusRunning
-	runningState.UpdatedAt = &now
-	_ = s.saveGlobalStateWithRetry(context.Background(), runningState)
-
-	result, runErr := runner.Migrate(ctx, spec.MigrateRequest{
-		SourcePayload: runningState.SourcePayload,
-		UpdateProgress: func(progress spec.MigrateProgress) {
-			if ctx.Err() != nil {
-				return
-			}
-			if strings.TrimSpace(progress.ErrorSummary) != "" {
-				runningState.ErrorMessage = progress.ErrorSummary
-			}
-		},
+	format, err := normalizeExportFormat(req.Format)
+	if err != nil {
+		return migratorModel.ExportStateDTO{}, err
+	}
+	raw, err := json.Marshal(migratorModel.ExportPayload{
+		Format:         format,
+		IncludePrivate: format == migratorModel.ExportFormatCapsule && req.IncludePrivate,
 	})
-	if runErr != nil {
-		if errors.Is(ctx.Err(), context.Canceled) {
-			logUtil.GetLogger().Warn("global migration cancelled",
-				zap.String("module", "migration"),
-				zap.String("source_type", state.SourceType),
-			)
-			return
-		}
-		logUtil.GetLogger().Error("global migration failed",
-			zap.String("module", "migration"),
-			zap.String("source_type", state.SourceType),
-			zap.Error(runErr),
-		)
-		s.updateFailed(context.Background(), runningState, runErr.Error())
-		return
-	}
-
-	current, err := s.getGlobalState(context.Background())
 	if err != nil {
-		return
+		return migratorModel.ExportStateDTO{}, err
 	}
-	if current.Status == migrationModel.MigrationStatusCancelled {
-		return
+	jb, err := s.jobManager.Submit(ctx, jobModel.TypeExport, raw)
+	if err != nil {
+		if errors.Is(err, job.ErrAlreadyRunning) {
+			return migratorModel.ExportStateDTO{}, errors.New("导出进行中，请稍候")
+		}
+		return migratorModel.ExportStateDTO{}, err
 	}
-	now = nowUTC()
-	current.Status = migrationModel.MigrationStatusSuccess
-	if result.Report != nil {
-		current.SourcePayload["report"] = result.Report
-	}
-	if strings.TrimSpace(result.JobID) != "" {
-		current.SourcePayload["migration_job_id"] = result.JobID
-	}
-	if strings.TrimSpace(result.ErrorSummary) != "" && result.FailCount > 0 {
-		current.ErrorMessage = result.ErrorSummary
-	}
-	if err := s.applyMigratedSettings(context.Background(), result.Report); err != nil {
-		logUtil.GetLogger().Error("apply migrated settings failed",
-			zap.String("module", "migration"),
-			zap.String("source_type", state.SourceType),
-			zap.Error(err),
-		)
-		s.updateFailed(context.Background(), runningState, fmt.Sprintf("应用迁移配置失败: %v", err))
-		return
-	}
-	s.invalidateEchoCachesAfterMigration()
-	current.UpdatedAt = &now
-	current.FinishedAt = &now
-	_ = s.saveGlobalStateWithRetry(context.Background(), current)
-	logUtil.GetLogger().Info("global migration completed",
-		zap.String("module", "migration"),
-		zap.String("source_type", state.SourceType),
-		zap.String("status", string(current.Status)),
-		zap.Int64("processed", result.Processed),
-		zap.Int64("success_count", result.SuccessCount),
-		zap.Int64("fail_count", result.FailCount),
-		zap.String("job_id", result.JobID),
-	)
+	return s.jobExportToDTO(jb), nil
 }
 
-func (s *MigratorService) updateFailed(ctx context.Context, state migrationModel.GlobalMigrationStateDTO, reason string) {
-	logUtil.GetLogger().Error("global migration marked failed",
-		zap.String("module", "migration"),
-		zap.String("source_type", state.SourceType),
-		zap.String("reason", reason),
-	)
-	now := nowUTC()
-	state.Status = migrationModel.MigrationStatusFailed
-	state.ErrorMessage = reason
-	state.UpdatedAt = &now
-	state.FinishedAt = &now
-	_ = s.saveGlobalStateWithRetry(ctx, state)
+func (s *MigratorService) GetExportStatus(ctx context.Context) (migratorModel.ExportStateDTO, error) {
+	if _, err := s.ensureAdmin(ctx); err != nil {
+		return migratorModel.ExportStateDTO{}, err
+	}
+	jb, err := s.jobManager.Get(ctx, jobModel.TypeExport)
+	if errors.Is(err, job.ErrNotFound) {
+		return migratorModel.ExportStateDTO{Version: 1, Status: migratorModel.MigrationStatusIdle}, nil
+	}
+	if err != nil {
+		return migratorModel.ExportStateDTO{}, err
+	}
+	return s.jobExportToDTO(jb), nil
 }
 
-func validateStartRequest(req migrationModel.StartGlobalMigrationRequest) error {
+func (s *MigratorService) CancelExport(ctx context.Context) (migratorModel.ExportStateDTO, error) {
+	if _, err := s.ensureAdmin(ctx); err != nil {
+		return migratorModel.ExportStateDTO{}, err
+	}
+	jb, err := s.jobManager.Get(ctx, jobModel.TypeExport)
+	if errors.Is(err, job.ErrNotFound) {
+		return migratorModel.ExportStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+	}
+	if err != nil {
+		return migratorModel.ExportStateDTO{}, err
+	}
+	if jb.Status != jobModel.StatusPending && jb.Status != jobModel.StatusRunning {
+		return migratorModel.ExportStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+	}
+	_ = s.jobManager.Cancel(jobModel.TypeExport)
+	jb, err = s.jobManager.Get(ctx, jobModel.TypeExport)
+	if err != nil {
+		return migratorModel.ExportStateDTO{}, err
+	}
+	return s.jobExportToDTO(jb), nil
+}
+
+func (s *MigratorService) jobExportToDTO(jb jobModel.Job) migratorModel.ExportStateDTO {
+	dto := migratorModel.ExportStateDTO{
+		Version:      1,
+		Status:       string(jb.Status),
+		Phase:        jb.Phase,
+		ErrorMessage: jb.Error,
+		StartedAt:    jb.StartedAt,
+		FinishedAt:   jb.FinishedAt,
+	}
+	if jb.Payload != "" {
+		var outcome struct {
+			FileName string `json:"file_name"`
+			Size     int64  `json:"size"`
+			Format   string `json:"format"`
+		}
+		if err := json.Unmarshal([]byte(jb.Payload), &outcome); err == nil {
+			dto.FileName = outcome.FileName
+			dto.Size = outcome.Size
+			dto.Format = outcome.Format
+		}
+	}
+	if dto.Format == "" {
+		dto.Format = migratorModel.ExportFormatSnapshot
+	}
+	if jb.UpdatedAt != 0 {
+		updatedAt := jb.UpdatedAt
+		dto.UpdatedAt = &updatedAt
+	}
+	return dto
+}
+
+func (s *MigratorService) jobToDTO(jb jobModel.Job) migratorModel.GlobalMigrationStateDTO {
+	var payload migratorModel.MigrationPayload
+	if jb.Payload != "" {
+		_ = json.Unmarshal([]byte(jb.Payload), &payload)
+	}
+	dto := migratorModel.GlobalMigrationStateDTO{
+		Version:       1,
+		SourceType:    payload.SourceType,
+		Status:        string(jb.Status),
+		Phase:         jb.Phase,
+		ErrorMessage:  jb.Error,
+		SourcePayload: payload.SourcePayload,
+		StartedAt:     jb.StartedAt,
+		FinishedAt:    jb.FinishedAt,
+	}
+	if jb.UpdatedAt != 0 {
+		updatedAt := jb.UpdatedAt
+		dto.UpdatedAt = &updatedAt
+	}
+	return dto
+}
+
+func validateStartRequest(req migratorModel.StartGlobalMigrationRequest) error {
 	if err := validateSourceType(req.SourceType); err != nil {
 		return err
 	}
@@ -372,71 +390,25 @@ func (s *MigratorService) ensureAdmin(ctx context.Context) (string, error) {
 	return userID, nil
 }
 
-func (s *MigratorService) getGlobalState(ctx context.Context) (migrationModel.GlobalMigrationStateDTO, error) {
-	raw, err := s.keyValueRepository.GetKeyValue(ctx, commonModel.MigrationGlobalJobStateKey)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return migrationModel.GlobalMigrationStateDTO{
-				Version:      1,
-				Status:       migrationModel.MigrationStatusIdle,
-				ErrorMessage: "",
-			}, nil
-		}
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-	var state migrationModel.GlobalMigrationStateDTO
-	if err := json.Unmarshal([]byte(raw), &state); err != nil {
-		return migrationModel.GlobalMigrationStateDTO{}, err
-	}
-	if state.Version == 0 {
-		state.Version = 1
-	}
-	if state.Status == "" {
-		state.Status = migrationModel.MigrationStatusIdle
-	}
-	return state, nil
-}
-
-func (s *MigratorService) saveGlobalState(ctx context.Context, state migrationModel.GlobalMigrationStateDTO) error {
-	state.Version = 1
-	raw, err := json.Marshal(state)
-	if err != nil {
-		return err
-	}
-	return s.keyValueRepository.AddOrUpdateKeyValue(ctx, commonModel.MigrationGlobalJobStateKey, string(raw))
-}
-
-func (s *MigratorService) saveGlobalStateWithRetry(ctx context.Context, state migrationModel.GlobalMigrationStateDTO) error {
-	var lastErr error
-	for i := 0; i < 20; i++ {
-		if err := s.saveGlobalState(ctx, state); err != nil {
-			lastErr = err
-			if !isDatabaseLockedError(err) {
-				return err
-			}
-			select {
-			case <-ctx.Done():
-				return err
-			default:
-			}
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
-		return nil
-	}
-	return lastErr
-}
-
-func nowUTC() int64 {
-	return time.Now().UTC().Unix()
-}
-
 func validateSourceType(sourceType string) error {
 	switch strings.TrimSpace(sourceType) {
-	case migrationModel.MigrationSourceMemos, migrationModel.MigrationSourceEch0V4:
+	case migratorModel.MigrationSourceMemos,
+		migratorModel.MigrationSourceEch0,
+		migratorModel.MigrationSourceCapsule:
 		return nil
 	default:
 		return errors.New(commonModel.INVALID_REQUEST_BODY)
+	}
+}
+
+func normalizeExportFormat(format string) (string, error) {
+	switch strings.TrimSpace(format) {
+	case "", migratorModel.ExportFormatSnapshot:
+		return migratorModel.ExportFormatSnapshot, nil
+	case migratorModel.ExportFormatCapsule:
+		return migratorModel.ExportFormatCapsule, nil
+	default:
+		return "", errors.New(commonModel.INVALID_REQUEST_BODY)
 	}
 }
 
@@ -466,149 +438,6 @@ func cloneMap(input map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	out := make(map[string]any, len(input))
-	for k, v := range input {
-		out[k] = v
-	}
+	maps.Copy(out, input)
 	return out
-}
-
-func isDatabaseLockedError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(strings.ToLower(err.Error()), "database is locked")
-}
-
-func cleanupMigrationTmpDirFromPayload(sourcePayload map[string]any) error {
-	tmpDir, ok := resolveMigrationTmpDir(sourcePayload)
-	if !ok {
-		return nil
-	}
-	return os.RemoveAll(tmpDir)
-}
-
-func resolveMigrationTmpDir(sourcePayload map[string]any) (string, bool) {
-	if len(sourcePayload) == 0 {
-		return "", false
-	}
-	tmpDirRaw, ok := sourcePayload["tmp_dir"].(string)
-	if !ok || strings.TrimSpace(tmpDirRaw) == "" {
-		return "", false
-	}
-	cleanRelPath := filepath.Clean(filepath.FromSlash(strings.TrimSpace(tmpDirRaw)))
-	if cleanRelPath == "." || cleanRelPath == "" || filepath.IsAbs(cleanRelPath) || strings.HasPrefix(cleanRelPath, "..") {
-		return "", false
-	}
-
-	allowedBaseDir := filepath.Clean(filepath.Join("data", migrationTmpRelativeDir))
-	targetDir := filepath.Clean(filepath.Join("data", cleanRelPath))
-	if targetDir != allowedBaseDir && !strings.HasPrefix(targetDir, allowedBaseDir+string(os.PathSeparator)) {
-		return "", false
-	}
-	return targetDir, true
-}
-
-func (s *MigratorService) applyMigratedSettings(ctx context.Context, report map[string]any) error {
-	if len(report) == 0 {
-		return nil
-	}
-	updatedS3 := false
-
-	if _, err := applyMigratedSettingValue(ctx, s.keyValueRepository, report, "source_system_setting", commonModel.SystemSettingsKey, parseMigratedSystemSetting); err != nil {
-		return err
-	}
-	if _, err := applyMigratedSettingValue(ctx, s.keyValueRepository, report, "source_comment_setting", commentModel.CommentSystemSettingKey, parseMigratedCommentSetting); err != nil {
-		return err
-	}
-	ok, err := applyMigratedSettingValue(ctx, s.keyValueRepository, report, "source_s3_setting", commonModel.S3SettingKey, parseMigratedS3Setting)
-	if err != nil {
-		return err
-	}
-	updatedS3 = ok
-	if _, err := applyMigratedSettingValue(ctx, s.keyValueRepository, report, "source_oauth2_setting", commonModel.OAuth2SettingKey, parseMigratedOAuth2Setting); err != nil {
-		return err
-	}
-
-	if updatedS3 && s.storageManager != nil {
-		if err := s.storageManager.ReloadFromConfigAndDB(context.Background()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func parseMigratedS3Setting(report map[string]any) (*settingModel.S3Setting, bool, error) {
-	setting, ok, err := parseSettingFromReport[settingModel.S3Setting](report, "source_s3_setting")
-	if err != nil || !ok || setting == nil {
-		return nil, false, err
-	}
-	if strings.TrimSpace(setting.Provider) == "" || strings.TrimSpace(setting.Endpoint) == "" || strings.TrimSpace(setting.BucketName) == "" {
-		return nil, false, nil
-	}
-	return setting, true, nil
-}
-
-func parseMigratedSystemSetting(report map[string]any) (*settingModel.SystemSetting, bool, error) {
-	return parseSettingFromReport[settingModel.SystemSetting](report, "source_system_setting")
-}
-
-func parseMigratedCommentSetting(report map[string]any) (*commentModel.SystemSetting, bool, error) {
-	return parseSettingFromReport[commentModel.SystemSetting](report, "source_comment_setting")
-}
-
-func parseMigratedOAuth2Setting(report map[string]any) (*settingModel.OAuth2Setting, bool, error) {
-	return parseSettingFromReport[settingModel.OAuth2Setting](report, "source_oauth2_setting")
-}
-
-func applyMigratedSettingValue[T any](
-	ctx context.Context,
-	repo KeyValueRepository,
-	report map[string]any,
-	reportKey string,
-	storeKey string,
-	parser func(map[string]any) (*T, bool, error),
-) (bool, error) {
-	parsed, ok, err := parser(report)
-	if err != nil {
-		// 迁移报告中的单项配置格式异常时忽略，不中断整任务。
-		return false, nil
-	}
-	if !ok || parsed == nil {
-		return false, nil
-	}
-	raw, err := json.Marshal(parsed)
-	if err != nil {
-		return false, nil
-	}
-	if err := repo.AddOrUpdateKeyValue(ctx, storeKey, string(raw)); err != nil {
-		return false, err
-	}
-	return reportKey == "source_s3_setting", nil
-}
-
-func parseSettingFromReport[T any](report map[string]any, key string) (*T, bool, error) {
-	if len(report) == 0 {
-		return nil, false, nil
-	}
-	raw, ok := report[key]
-	if !ok || raw == nil {
-		return nil, false, nil
-	}
-	bs, err := json.Marshal(raw)
-	if err != nil {
-		return nil, false, err
-	}
-	var setting T
-	if err := json.Unmarshal(bs, &setting); err != nil {
-		return nil, false, err
-	}
-	return &setting, true, nil
-}
-
-func (s *MigratorService) invalidateEchoCachesAfterMigration() {
-	if s.appCache == nil {
-		return
-	}
-	echoRepository.ClearEchoPageCache(s.appCache)
-	echoRepository.ClearTodayEchosCache(s.appCache)
 }

@@ -4,21 +4,24 @@
 package service
 
 import (
-	publisher "github.com/lin-snow/ech0/internal/event/publisher"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
+	webhookclient "github.com/lin-snow/ech0/internal/webhook"
+	"github.com/lin-snow/ech0/pkg/busen"
 )
 
 type SettingService struct {
-	transactor         transaction.Transactor
-	commonService      CommonService
-	fileService        FileService
-	storageManager     *storage.Manager
-	keyvalueRepository KeyValueRepository
-	settingRepository  SettingRepository
-	webhookRepository  WebhookRepository
-	tokenRevoker       TokenRevoker
-	publisher          *publisher.Publisher
+	transactor        transaction.Transactor
+	commonService     CommonService
+	fileService       FileService
+	storageManager    *storage.Manager
+	durableKV         kvstore.Store
+	settingRepository SettingRepository
+	webhookRepository WebhookRepository
+	webhookSender     *webhookclient.Sender
+	tokenRevoker      TokenRevoker
+	bus               *busen.Bus
 }
 
 func NewSettingService(
@@ -26,21 +29,23 @@ func NewSettingService(
 	commonService CommonService,
 	fileService FileService,
 	storageManager *storage.Manager,
-	keyvalueRepository KeyValueRepository,
+	durableKV kvstore.Store,
 	settingRepository SettingRepository,
 	webhookRepository WebhookRepository,
+	webhookSender *webhookclient.Sender,
 	tokenRevoker TokenRevoker,
-	publisher *publisher.Publisher,
+	busProvider func() *busen.Bus,
 ) *SettingService {
 	return &SettingService{
-		transactor:         tx,
-		commonService:      commonService,
-		fileService:        fileService,
-		storageManager:     storageManager,
-		keyvalueRepository: keyvalueRepository,
-		webhookRepository:  webhookRepository,
-		settingRepository:  settingRepository,
-		tokenRevoker:       tokenRevoker,
-		publisher:          publisher,
+		transactor:        tx,
+		commonService:     commonService,
+		fileService:       fileService,
+		storageManager:    storageManager,
+		durableKV:         durableKV,
+		webhookRepository: webhookRepository,
+		webhookSender:     webhookSender,
+		settingRepository: settingRepository,
+		tokenRevoker:      tokenRevoker,
+		bus:               busProvider(),
 	}
 }

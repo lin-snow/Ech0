@@ -7,41 +7,36 @@ import (
 	"errors"
 
 	model "github.com/lin-snow/ech0/internal/model/common"
-	util "github.com/lin-snow/ech0/internal/util/log"
-	"go.uber.org/zap"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
-// HandleError 处理错误信息，记录日志并返回错误消息
 func HandleError(se *model.ServerError) string {
 	if se.Err != nil {
-		if se.Msg == "" || len(se.Msg) == 0 {
+		if se.Msg == "" {
 			se.Msg = se.Err.Error()
 		}
-		util.GetLogger().Error(se.Msg, zap.Error(se.Err))
+		logUtil.GetLogger().Error(se.Msg, logUtil.Err(se.Err))
 	}
 
 	return se.Msg
 }
 
-// ExtractBizErrorCode 从 error 链路中提取业务错误码。
 func ExtractBizErrorCode(err error) string {
 	if err == nil {
 		return ""
 	}
-	var bizErr *model.BizError
-	if errors.As(err, &bizErr) {
+	if bizErr, ok := errors.AsType[*model.BizError](err); ok {
 		return bizErr.Code
 	}
 	return ""
 }
 
-// HandlePanicError 处理 panic 错误，记录日志并触发 panic
 func HandlePanicError(se *model.ServerError) {
 	if se.Err != nil {
-		if se.Msg == "" || len(se.Msg) == 0 {
+		if se.Msg == "" {
 			se.Msg = se.Err.Error()
 		}
-		util.GetLogger().Panic(se.Msg, zap.Error(se.Err))
+		logUtil.Panic(se.Msg, logUtil.Err(se.Err))
 	}
 
 	panic(se.Msg)

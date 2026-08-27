@@ -15,6 +15,8 @@ import (
 func ProvideGinEngine() *gin.Engine {
 	if config.Config().Server.Mode == "debug" {
 		gin.SetMode(gin.DebugMode)
+		gin.ForceConsoleColor()
+		gin.DebugPrintRouteFunc = func(_, _, _ string, _ int) {}
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}

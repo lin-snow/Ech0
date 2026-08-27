@@ -3,7 +3,6 @@
 
 import 'virtual:uno.css'
 import '../../web/src/themes/index.scss'
-/** 首屏前为 html 固定挂上 light（Hub 仅 light 主题） */
 import './syncWebTheme'
 import 'floating-vue/dist/style.css'
 

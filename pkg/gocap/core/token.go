@@ -14,7 +14,6 @@ import (
 
 var b64url = base64.RawURLEncoding
 
-// SignChallengeToken signs challenge claims using HS256 and returns a JWT-like token.
 func SignChallengeToken(claims ChallengeClaims, secret []byte) (string, error) {
 	headerJSON := []byte(`{"alg":"HS256","typ":"JWT"}`)
 	payloadJSON, err := json.Marshal(claims)
@@ -33,7 +32,6 @@ func SignChallengeToken(claims ChallengeClaims, secret []byte) (string, error) {
 	return signingInput + "." + sig, nil
 }
 
-// VerifyChallengeToken verifies token signature and decodes challenge claims.
 func VerifyChallengeToken(token string, secret []byte) (*ChallengeClaims, bool) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -64,7 +62,6 @@ func VerifyChallengeToken(token string, secret []byte) (*ChallengeClaims, bool) 
 	return &claims, true
 }
 
-// TokenSignatureHash returns the SHA-256 hex digest of a full token string.
 func TokenSignatureHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])

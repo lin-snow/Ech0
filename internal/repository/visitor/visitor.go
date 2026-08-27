@@ -36,7 +36,7 @@ func (visitorRepository *VisitorRepository) UpsertDailyStat(
 	return visitorRepository.getDB(ctx).Clauses(
 		clause.OnConflict{
 			Columns: []clause.Column{{Name: "date"}},
-			DoUpdates: clause.Assignments(map[string]interface{}{
+			DoUpdates: clause.Assignments(map[string]any{
 				"pv": stat.PV,
 				"uv": stat.UV,
 			}),

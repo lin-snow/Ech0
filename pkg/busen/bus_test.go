@@ -19,7 +19,7 @@ func TestPublishSubscribeTyped(t *testing.T) {
 	bus := New()
 
 	got := make(chan int, 1)
-	unsubscribe, err := Subscribe(bus, func(_ context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(_ context.Context, event Event[int]) error {
 		got <- event.Value
 		return nil
 	})
@@ -28,7 +28,7 @@ func TestPublishSubscribeTyped(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 42); err != nil {
+	if err := bus.Publish(context.Background(), 42); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -48,7 +48,7 @@ func TestTypeIsolation(t *testing.T) {
 	var ints atomic.Int64
 	var strings atomic.Int64
 
-	unsubInt, err := Subscribe(bus, func(_ context.Context, _ Event[int]) error {
+	unsubInt, err := bus.Subscribe(func(_ context.Context, _ Event[int]) error {
 		ints.Add(1)
 		return nil
 	})
@@ -57,7 +57,7 @@ func TestTypeIsolation(t *testing.T) {
 	}
 	defer unsubInt()
 
-	unsubString, err := Subscribe(bus, func(_ context.Context, _ Event[string]) error {
+	unsubString, err := bus.Subscribe(func(_ context.Context, _ Event[string]) error {
 		strings.Add(1)
 		return nil
 	})
@@ -66,7 +66,7 @@ func TestTypeIsolation(t *testing.T) {
 	}
 	defer unsubString()
 
-	if err := Publish(context.Background(), bus, 7); err != nil {
+	if err := bus.Publish(context.Background(), 7); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -84,7 +84,7 @@ func TestSubscribeMatch(t *testing.T) {
 	var got []int
 	var mu sync.Mutex
 
-	unsubscribe, err := SubscribeMatch(bus, func(event Event[int]) bool {
+	unsubscribe, err := bus.SubscribeMatch(func(event Event[int]) bool {
 		return event.Value%2 == 0
 	}, func(_ context.Context, event Event[int]) error {
 		mu.Lock()
@@ -98,7 +98,7 @@ func TestSubscribeMatch(t *testing.T) {
 	defer unsubscribe()
 
 	for _, value := range []int{1, 2, 3, 4} {
-		if err := Publish(context.Background(), bus, value); err != nil {
+		if err := bus.Publish(context.Background(), value); err != nil {
 			t.Fatalf("Publish(%d) error = %v", value, err)
 		}
 	}
@@ -124,7 +124,7 @@ func TestMiddlewareWrapsHandler(t *testing.T) {
 		t.Fatalf("Use() error = %v", err)
 	}
 
-	unsubscribe, err := Subscribe(bus, func(_ context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(_ context.Context, event Event[int]) error {
 		calls = append(calls, "handler")
 		return nil
 	})
@@ -133,7 +133,7 @@ func TestMiddlewareWrapsHandler(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -160,7 +160,7 @@ func TestMiddlewareCanTransformDispatch(t *testing.T) {
 	}
 
 	got := make(chan Event[string], 1)
-	unsubscribe, err := SubscribeTopic(bus, "source.topic", func(_ context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopic("source.topic", func(_ context.Context, event Event[string]) error {
 		got <- event
 		return nil
 	})
@@ -169,7 +169,7 @@ func TestMiddlewareCanTransformDispatch(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "hello", WithTopic("source.topic")); err != nil {
+	if err := bus.Publish(context.Background(), "hello", WithTopic("source.topic")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -195,7 +195,7 @@ func TestWithMiddlewareRegistersGlobalMiddleware(t *testing.T) {
 		}
 	}))
 
-	unsubscribe, err := Subscribe(bus, func(_ context.Context, _ Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(_ context.Context, _ Event[int]) error {
 		calls = append(calls, "handler")
 		return nil
 	})
@@ -204,7 +204,7 @@ func TestWithMiddlewareRegistersGlobalMiddleware(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -217,7 +217,7 @@ func TestUseAfterSubscribeAppliesToExistingSubscriptions(t *testing.T) {
 	bus := New()
 
 	var calls []string
-	unsubscribe, err := Subscribe(bus, func(_ context.Context, _ Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(_ context.Context, _ Event[int]) error {
 		calls = append(calls, "handler")
 		return nil
 	})
@@ -235,7 +235,7 @@ func TestUseAfterSubscribeAppliesToExistingSubscriptions(t *testing.T) {
 		t.Fatalf("Use() error = %v", err)
 	}
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -263,7 +263,7 @@ func TestMiddlewareDoesNotAffectPublishHooksOrRouting(t *testing.T) {
 		}),
 	)
 
-	unsubscribe, err := SubscribeTopic(bus, "original.topic", func(_ context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopic("original.topic", func(_ context.Context, event Event[string]) error {
 		got <- event
 		return nil
 	})
@@ -272,7 +272,7 @@ func TestMiddlewareDoesNotAffectPublishHooksOrRouting(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "hello", WithTopic("original.topic"), WithKey("original-key")); err != nil {
+	if err := bus.Publish(context.Background(), "hello", WithTopic("original.topic"), WithKey("original-key")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -320,7 +320,7 @@ func TestMiddlewareDoesNotRewriteHandlerErrorHooks(t *testing.T) {
 		}),
 	)
 
-	unsubscribe, err := Subscribe(bus, func(_ context.Context, _ Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(_ context.Context, _ Event[int]) error {
 		return errors.New("boom")
 	})
 	if err != nil {
@@ -328,7 +328,7 @@ func TestMiddlewareDoesNotRewriteHandlerErrorHooks(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1, WithTopic("source.topic"), WithKey("source-key")); err == nil {
+	if err := bus.Publish(context.Background(), 1, WithTopic("source.topic"), WithKey("source-key")); err == nil {
 		t.Fatal("Publish() error = nil, want non-nil")
 	}
 
@@ -352,7 +352,7 @@ func TestAsyncSequentialPreservesOrder(t *testing.T) {
 	)
 
 	wg.Add(5)
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		defer wg.Done()
 		mu.Lock()
 		values = append(values, event.Value)
@@ -365,7 +365,7 @@ func TestAsyncSequentialPreservesOrder(t *testing.T) {
 	defer unsubscribe()
 
 	for i := range 5 {
-		if err := Publish(context.Background(), bus, i); err != nil {
+		if err := bus.Publish(context.Background(), i); err != nil {
 			t.Fatalf("Publish(%d) error = %v", i, err)
 		}
 	}
@@ -398,7 +398,7 @@ func TestAsyncParallelPreservesOrderPerKey(t *testing.T) {
 	)
 
 	wg.Add(6)
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		defer wg.Done()
 		mu.Lock()
 		defer mu.Unlock()
@@ -427,7 +427,7 @@ func TestAsyncParallelPreservesOrderPerKey(t *testing.T) {
 		{"beta", 12},
 	}
 	for _, publish := range publishes {
-		if err := Publish(context.Background(), bus, publish.value, WithKey(publish.key)); err != nil {
+		if err := bus.Publish(context.Background(), publish.value, WithKey(publish.key)); err != nil {
 			t.Fatalf("Publish(%s, %d) error = %v", publish.key, publish.value, err)
 		}
 	}
@@ -459,7 +459,7 @@ func TestAsyncParallelEmptyKeyDeliversAll(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(6)
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		calls.Add(1)
 		wg.Done()
 		return nil
@@ -470,7 +470,7 @@ func TestAsyncParallelEmptyKeyDeliversAll(t *testing.T) {
 	defer unsubscribe()
 
 	for i := range 6 {
-		if err := Publish(context.Background(), bus, i); err != nil {
+		if err := bus.Publish(context.Background(), i); err != nil {
 			t.Fatalf("Publish(%d) error = %v", i, err)
 		}
 	}
@@ -519,7 +519,7 @@ func TestAsyncParallelPreservesOrderPerKeyWithMiddlewareAndHooks(t *testing.T) {
 	)
 	wg.Add(4)
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		defer wg.Done()
 		if event.Headers["mw"] != "yes" {
 			t.Fatalf("event.Headers = %v, want middleware header", event.Headers)
@@ -549,7 +549,7 @@ func TestAsyncParallelPreservesOrderPerKeyWithMiddlewareAndHooks(t *testing.T) {
 		{"beta", 11},
 	}
 	for _, publish := range publishes {
-		if err := Publish(context.Background(), bus, publish.value, WithKey(publish.key)); err != nil {
+		if err := bus.Publish(context.Background(), publish.value, WithKey(publish.key)); err != nil {
 			t.Fatalf("Publish(%s, %d) error = %v", publish.key, publish.value, err)
 		}
 	}
@@ -591,7 +591,7 @@ func TestAsyncOverflowFailFast(t *testing.T) {
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -604,7 +604,7 @@ func TestAsyncOverflowFailFast(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 
@@ -614,11 +614,11 @@ func TestAsyncOverflowFailFast(t *testing.T) {
 		t.Fatal("timed out waiting for handler start")
 	}
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("second publish error = %v", err)
 	}
 
-	err = Publish(context.Background(), bus, 3)
+	err = bus.Publish(context.Background(), 3)
 	if !errors.Is(err, ErrBufferFull) {
 		t.Fatalf("third publish error = %v, want ErrBufferFull", err)
 	}
@@ -638,7 +638,7 @@ func TestAsyncDropOldestKeepsLatest(t *testing.T) {
 	)
 
 	wg.Add(2)
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -659,7 +659,7 @@ func TestAsyncDropOldestKeepsLatest(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 	select {
@@ -668,11 +668,11 @@ func TestAsyncDropOldestKeepsLatest(t *testing.T) {
 		t.Fatal("timed out waiting for handler start")
 	}
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("second publish error = %v", err)
 	}
 
-	err = Publish(context.Background(), bus, 3)
+	err = bus.Publish(context.Background(), 3)
 	if !errors.Is(err, ErrDropped) {
 		t.Fatalf("third publish error = %v, want ErrDropped", err)
 	}
@@ -702,7 +702,7 @@ func TestSubscribeTopicWildcard(t *testing.T) {
 	var got []string
 	var mu sync.Mutex
 
-	unsubscribe, err := SubscribeTopic(bus, "orders.>", func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopic("orders.>", func(ctx context.Context, event Event[string]) error {
 		mu.Lock()
 		defer mu.Unlock()
 		got = append(got, event.Topic)
@@ -713,13 +713,13 @@ func TestSubscribeTopicWildcard(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "created", WithTopic("orders.created")); err != nil {
+	if err := bus.Publish(context.Background(), "created", WithTopic("orders.created")); err != nil {
 		t.Fatalf("Publish(orders.created) error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, "archived", WithTopic("orders.eu.archived")); err != nil {
+	if err := bus.Publish(context.Background(), "archived", WithTopic("orders.eu.archived")); err != nil {
 		t.Fatalf("Publish(orders.eu.archived) error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, "ignored", WithTopic("payments.created")); err != nil {
+	if err := bus.Publish(context.Background(), "ignored", WithTopic("payments.created")); err != nil {
 		t.Fatalf("Publish(payments.created) error = %v", err)
 	}
 
@@ -734,7 +734,7 @@ func TestSubscribeTopicsMatchesAnyPattern(t *testing.T) {
 	var got []string
 	var mu sync.Mutex
 
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.created", "payments.failed"}, func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.created", "payments.failed"}, func(ctx context.Context, event Event[string]) error {
 		mu.Lock()
 		defer mu.Unlock()
 		got = append(got, event.Topic)
@@ -745,13 +745,13 @@ func TestSubscribeTopicsMatchesAnyPattern(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "created", WithTopic("orders.created")); err != nil {
+	if err := bus.Publish(context.Background(), "created", WithTopic("orders.created")); err != nil {
 		t.Fatalf("Publish(orders.created) error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, "failed", WithTopic("payments.failed")); err != nil {
+	if err := bus.Publish(context.Background(), "failed", WithTopic("payments.failed")); err != nil {
 		t.Fatalf("Publish(payments.failed) error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, "ignored", WithTopic("orders.updated")); err != nil {
+	if err := bus.Publish(context.Background(), "ignored", WithTopic("orders.updated")); err != nil {
 		t.Fatalf("Publish(orders.updated) error = %v", err)
 	}
 
@@ -766,7 +766,7 @@ func TestSubscribeTopicsSupportsWildcardPatterns(t *testing.T) {
 	var got []string
 	var mu sync.Mutex
 
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.>", "payments.*"}, func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.>", "payments.*"}, func(ctx context.Context, event Event[string]) error {
 		mu.Lock()
 		defer mu.Unlock()
 		got = append(got, event.Topic)
@@ -778,11 +778,11 @@ func TestSubscribeTopicsSupportsWildcardPatterns(t *testing.T) {
 	defer unsubscribe()
 
 	for _, topic := range []string{"orders.created", "orders.eu.archived", "payments.failed"} {
-		if err := Publish(context.Background(), bus, topic, WithTopic(topic)); err != nil {
+		if err := bus.Publish(context.Background(), topic, WithTopic(topic)); err != nil {
 			t.Fatalf("Publish(%s) error = %v", topic, err)
 		}
 	}
-	if err := Publish(context.Background(), bus, "ignored", WithTopic("payments.eu.failed")); err != nil {
+	if err := bus.Publish(context.Background(), "ignored", WithTopic("payments.eu.failed")); err != nil {
 		t.Fatalf("Publish(payments.eu.failed) error = %v", err)
 	}
 
@@ -795,7 +795,7 @@ func TestSubscribeTopicsOverlappingPatternsDeliverOnce(t *testing.T) {
 	bus := New()
 
 	var calls atomic.Int64
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.>", "orders.created"}, func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.>", "orders.created"}, func(ctx context.Context, event Event[string]) error {
 		calls.Add(1)
 		return nil
 	})
@@ -804,7 +804,7 @@ func TestSubscribeTopicsOverlappingPatternsDeliverOnce(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "created", WithTopic("orders.created")); err != nil {
+	if err := bus.Publish(context.Background(), "created", WithTopic("orders.created")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -816,7 +816,7 @@ func TestSubscribeTopicsOverlappingPatternsDeliverOnce(t *testing.T) {
 func TestSubscribeTopicsRejectsEmptyPatterns(t *testing.T) {
 	bus := New()
 
-	unsubscribe, err := SubscribeTopics(bus, nil, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.SubscribeTopics(nil, func(ctx context.Context, event Event[int]) error {
 		return nil
 	})
 	if !errors.Is(err, ErrInvalidOption) {
@@ -830,7 +830,7 @@ func TestSubscribeTopicsRejectsEmptyPatterns(t *testing.T) {
 func TestSubscribeTopicsRejectsInvalidPattern(t *testing.T) {
 	bus := New()
 
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.created", "orders.>.bad"}, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.created", "orders.>.bad"}, func(ctx context.Context, event Event[int]) error {
 		return nil
 	})
 	if !errors.Is(err, ErrInvalidPattern) {
@@ -847,7 +847,7 @@ func TestSubscribeTopicsCombinesWithFilter(t *testing.T) {
 	var got []int
 	var mu sync.Mutex
 
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.created", "orders.updated"}, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.created", "orders.updated"}, func(ctx context.Context, event Event[int]) error {
 		mu.Lock()
 		defer mu.Unlock()
 		got = append(got, event.Value)
@@ -860,13 +860,13 @@ func TestSubscribeTopicsCombinesWithFilter(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1, WithTopic("orders.created")); err != nil {
+	if err := bus.Publish(context.Background(), 1, WithTopic("orders.created")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, 2, WithTopic("payments.created")); err != nil {
+	if err := bus.Publish(context.Background(), 2, WithTopic("payments.created")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, 4, WithTopic("orders.updated")); err != nil {
+	if err := bus.Publish(context.Background(), 4, WithTopic("orders.updated")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -879,7 +879,7 @@ func TestSubscribeTopicsUnsubscribeStopsAllPatterns(t *testing.T) {
 	bus := New()
 
 	var calls atomic.Int64
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.created", "payments.failed"}, func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.created", "payments.failed"}, func(ctx context.Context, event Event[string]) error {
 		calls.Add(1)
 		return nil
 	})
@@ -887,13 +887,13 @@ func TestSubscribeTopicsUnsubscribeStopsAllPatterns(t *testing.T) {
 		t.Fatalf("SubscribeTopics() error = %v", err)
 	}
 
-	if err := Publish(context.Background(), bus, "created", WithTopic("orders.created")); err != nil {
+	if err := bus.Publish(context.Background(), "created", WithTopic("orders.created")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
 	unsubscribe()
 
-	if err := Publish(context.Background(), bus, "failed", WithTopic("payments.failed")); err != nil {
+	if err := bus.Publish(context.Background(), "failed", WithTopic("payments.failed")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -906,7 +906,7 @@ func TestUnsubscribeStopsNewMessages(t *testing.T) {
 	bus := New()
 
 	var calls atomic.Int64
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		calls.Add(1)
 		return nil
 	})
@@ -914,13 +914,13 @@ func TestUnsubscribeStopsNewMessages(t *testing.T) {
 		t.Fatalf("Subscribe() error = %v", err)
 	}
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 
 	unsubscribe()
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("second publish error = %v", err)
 	}
 
@@ -936,7 +936,7 @@ func TestUnsubscribeIsIdempotentAndAllowsInFlightAsync(t *testing.T) {
 	release := make(chan struct{})
 	var calls atomic.Int64
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		calls.Add(1)
 		select {
 		case started <- struct{}{}:
@@ -949,7 +949,7 @@ func TestUnsubscribeIsIdempotentAndAllowsInFlightAsync(t *testing.T) {
 		t.Fatalf("Subscribe() error = %v", err)
 	}
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 
@@ -962,7 +962,7 @@ func TestUnsubscribeIsIdempotentAndAllowsInFlightAsync(t *testing.T) {
 	unsubscribe()
 	unsubscribe()
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("publish after unsubscribe error = %v", err)
 	}
 
@@ -978,7 +978,7 @@ func TestCloseRejectsNewPublishAndDrainsAsync(t *testing.T) {
 	bus := New()
 
 	var processed atomic.Int64
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		time.Sleep(10 * time.Millisecond)
 		processed.Add(1)
 		return nil
@@ -989,7 +989,7 @@ func TestCloseRejectsNewPublishAndDrainsAsync(t *testing.T) {
 	defer unsubscribe()
 
 	for i := range 3 {
-		if err := Publish(context.Background(), bus, i); err != nil {
+		if err := bus.Publish(context.Background(), i); err != nil {
 			t.Fatalf("Publish(%d) error = %v", i, err)
 		}
 	}
@@ -1005,7 +1005,7 @@ func TestCloseRejectsNewPublishAndDrainsAsync(t *testing.T) {
 		t.Fatalf("processed %d events, want 3", processed.Load())
 	}
 
-	err = Publish(context.Background(), bus, 99)
+	err = bus.Publish(context.Background(), 99)
 	if !errors.Is(err, ErrClosed) {
 		t.Fatalf("publish after close error = %v, want ErrClosed", err)
 	}
@@ -1018,7 +1018,7 @@ func TestCloseWaitsForInFlightPublishBeforeStoppingSubscriptions(t *testing.T) {
 	releasePredicate := make(chan struct{})
 	delivered := make(chan int, 1)
 
-	unsubscribe, err := SubscribeMatch(bus, func(event Event[int]) bool {
+	unsubscribe, err := bus.SubscribeMatch(func(event Event[int]) bool {
 		select {
 		case predicateEntered <- struct{}{}:
 		default:
@@ -1036,7 +1036,7 @@ func TestCloseWaitsForInFlightPublishBeforeStoppingSubscriptions(t *testing.T) {
 
 	publishDone := make(chan error, 1)
 	go func() {
-		publishDone <- Publish(context.Background(), bus, 42)
+		publishDone <- bus.Publish(context.Background(), 42)
 	}()
 
 	select {
@@ -1090,7 +1090,7 @@ func TestAsyncSubscribeAfterCloseDoesNotLeakWorkers(t *testing.T) {
 	before := runtime.NumGoroutine()
 
 	for range 20 {
-		unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+		unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 			return nil
 		}, Async(), WithParallelism(3), WithBuffer(8))
 		if !errors.Is(err, ErrClosed) {
@@ -1128,7 +1128,7 @@ func TestCloseTimeoutReportsIncompleteDrain(t *testing.T) {
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -1141,7 +1141,7 @@ func TestCloseTimeoutReportsIncompleteDrain(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -1175,7 +1175,7 @@ func TestShutdownDrainReturnsStructuredStats(t *testing.T) {
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -1188,7 +1188,7 @@ func TestShutdownDrainReturnsStructuredStats(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 	select {
@@ -1197,18 +1197,36 @@ func TestShutdownDrainReturnsStructuredStats(t *testing.T) {
 		t.Fatal("timed out waiting for handler start")
 	}
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("second publish error = %v", err)
 	}
-	err = Publish(context.Background(), bus, 3)
+	err = bus.Publish(context.Background(), 3)
 	if !errors.Is(err, ErrDropped) {
 		t.Fatalf("third publish error = %v, want ErrDropped", err)
 	}
 
+	var (
+		result      ShutdownResult
+		shutdownErr error
+	)
+	shutdownDone := make(chan struct{})
+	go func() {
+		defer close(shutdownDone)
+		result, shutdownErr = bus.Shutdown(context.Background(), ShutdownDrain)
+	}()
+
+	pollDeadline := time.Now().Add(5 * time.Second)
+	for !errors.Is(bus.Publish(context.Background(), 99), ErrClosed) {
+		if time.Now().After(pollDeadline) {
+			t.Fatal("timed out waiting for bus gate to close")
+		}
+		runtime.Gosched()
+	}
 	close(release)
-	result, err := bus.Shutdown(context.Background(), ShutdownDrain)
-	if err != nil {
-		t.Fatalf("Shutdown() error = %v", err)
+	<-shutdownDone
+
+	if shutdownErr != nil {
+		t.Fatalf("Shutdown() error = %v", shutdownErr)
 	}
 	if !result.Completed {
 		t.Fatalf("Completed = false, want true")
@@ -1233,7 +1251,7 @@ func TestShutdownBestEffortReturnsTimeoutSubscribers(t *testing.T) {
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -1246,7 +1264,7 @@ func TestShutdownBestEffortReturnsTimeoutSubscribers(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 	select {
@@ -1278,7 +1296,7 @@ func TestShutdownAbortDropsQueuedEvents(t *testing.T) {
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -1292,7 +1310,7 @@ func TestShutdownAbortDropsQueuedEvents(t *testing.T) {
 	defer unsubscribe()
 
 	for i := range 3 {
-		if err := Publish(context.Background(), bus, i); err != nil {
+		if err := bus.Publish(context.Background(), i); err != nil {
 			t.Fatalf("Publish(%d) error = %v", i, err)
 		}
 	}
@@ -1335,7 +1353,7 @@ func TestPublishHooks(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := SubscribeTopic(bus, "orders.>", func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopic("orders.>", func(ctx context.Context, event Event[string]) error {
 		return nil
 	})
 	if err != nil {
@@ -1343,7 +1361,7 @@ func TestPublishHooks(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "created", WithTopic("orders.created"), WithKey("k1")); err != nil {
+	if err := bus.Publish(context.Background(), "created", WithTopic("orders.created"), WithKey("k1")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -1380,7 +1398,7 @@ func TestSubscribeTopicsPublishDoneCountsSingleSubscriberOnce(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := SubscribeTopics(bus, []string{"orders.>", "orders.created"}, func(ctx context.Context, event Event[string]) error {
+	unsubscribe, err := bus.SubscribeTopics([]string{"orders.>", "orders.created"}, func(ctx context.Context, event Event[string]) error {
 		return nil
 	})
 	if err != nil {
@@ -1388,7 +1406,7 @@ func TestSubscribeTopicsPublishDoneCountsSingleSubscriberOnce(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, "created", WithTopic("orders.created")); err != nil {
+	if err := bus.Publish(context.Background(), "created", WithTopic("orders.created")); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -1417,7 +1435,7 @@ func TestPublishDoneSeparatesMatchedAndDeliveredSubscribers(t *testing.T) {
 	var unsubscribe func()
 
 	var err error
-	unsubscribe, err = SubscribeMatch(bus, func(event Event[int]) bool {
+	unsubscribe, err = bus.SubscribeMatch(func(event Event[int]) bool {
 		unsubscribe()
 		return true
 	}, func(ctx context.Context, event Event[int]) error {
@@ -1428,7 +1446,7 @@ func TestPublishDoneSeparatesMatchedAndDeliveredSubscribers(t *testing.T) {
 		t.Fatalf("SubscribeMatch() error = %v", err)
 	}
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -1461,7 +1479,7 @@ func TestHookPanicsAreReportedWithoutBreakingPublish(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		return nil
 	})
 	if err != nil {
@@ -1469,7 +1487,7 @@ func TestHookPanicsAreReportedWithoutBreakingPublish(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v, want nil", err)
 	}
 
@@ -1496,7 +1514,7 @@ func TestAsyncHandlerErrorVisibleViaHook(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		return wantErr
 	}, Async(), WithBuffer(1))
 	if err != nil {
@@ -1504,7 +1522,7 @@ func TestAsyncHandlerErrorVisibleViaHook(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
 
@@ -1530,7 +1548,7 @@ func TestSyncHandlerPanicReturnedAndHooked(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		panic("boom")
 	})
 	if err != nil {
@@ -1538,7 +1556,7 @@ func TestSyncHandlerPanicReturnedAndHooked(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	err = Publish(context.Background(), bus, 1)
+	err = bus.Publish(context.Background(), 1)
 	if !errors.Is(err, ErrHandlerPanic) {
 		t.Fatalf("Publish() error = %v, want ErrHandlerPanic", err)
 	}
@@ -1567,7 +1585,7 @@ func TestDropHookFiresOnDropNewest(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -1580,7 +1598,7 @@ func TestDropHookFiresOnDropNewest(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 	select {
@@ -1589,11 +1607,11 @@ func TestDropHookFiresOnDropNewest(t *testing.T) {
 		t.Fatal("timed out waiting for handler start")
 	}
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("second publish error = %v", err)
 	}
 
-	err = Publish(context.Background(), bus, 3)
+	err = bus.Publish(context.Background(), 3)
 	if !errors.Is(err, ErrDropped) {
 		t.Fatalf("third publish error = %v, want ErrDropped", err)
 	}
@@ -1633,7 +1651,7 @@ func TestRejectHookFiresOnFailFast(t *testing.T) {
 		},
 	}))
 
-	unsubscribe, err := Subscribe(bus, func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event Event[int]) error {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -1646,7 +1664,7 @@ func TestRejectHookFiresOnFailFast(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 1); err != nil {
+	if err := bus.Publish(context.Background(), 1); err != nil {
 		t.Fatalf("first publish error = %v", err)
 	}
 	select {
@@ -1655,11 +1673,11 @@ func TestRejectHookFiresOnFailFast(t *testing.T) {
 		t.Fatal("timed out waiting for handler start")
 	}
 
-	if err := Publish(context.Background(), bus, 2); err != nil {
+	if err := bus.Publish(context.Background(), 2); err != nil {
 		t.Fatalf("second publish error = %v", err)
 	}
 
-	err = Publish(context.Background(), bus, 3)
+	err = bus.Publish(context.Background(), 3)
 	if !errors.Is(err, ErrBufferFull) {
 		t.Fatalf("third publish error = %v, want ErrBufferFull", err)
 	}
@@ -1712,7 +1730,7 @@ func TestMetadataBuilderAndPublishOverride(t *testing.T) {
 		}),
 	)
 
-	unsubscribe, err := SubscribeTopic(bus, "orders.>", func(ctx context.Context, event Event[int]) error {
+	unsubscribe, err := bus.SubscribeTopic("orders.>", func(ctx context.Context, event Event[int]) error {
 		got <- event
 		return nil
 	})
@@ -1721,7 +1739,7 @@ func TestMetadataBuilderAndPublishOverride(t *testing.T) {
 	}
 	defer unsubscribe()
 
-	if err := Publish(context.Background(), bus, 7,
+	if err := bus.Publish(context.Background(), 7,
 		WithTopic("orders.created"),
 		WithMetadata(map[string]string{"trace": "manual-trace"}),
 	); err != nil {
@@ -1766,7 +1784,7 @@ func TestObserverFilterAndPayload(t *testing.T) {
 		t.Fatalf("UseObserver() error = %v", err)
 	}
 
-	unsubscribeOrders, err := SubscribeTopic(bus, "orders.>", func(ctx context.Context, event Event[int]) error {
+	unsubscribeOrders, err := bus.SubscribeTopic("orders.>", func(ctx context.Context, event Event[int]) error {
 		return nil
 	})
 	if err != nil {
@@ -1774,7 +1792,7 @@ func TestObserverFilterAndPayload(t *testing.T) {
 	}
 	defer unsubscribeOrders()
 
-	unsubscribePayments, err := SubscribeTopic(bus, "payments.>", func(ctx context.Context, event Event[int]) error {
+	unsubscribePayments, err := bus.SubscribeTopic("payments.>", func(ctx context.Context, event Event[int]) error {
 		return nil
 	})
 	if err != nil {
@@ -1782,13 +1800,13 @@ func TestObserverFilterAndPayload(t *testing.T) {
 	}
 	defer unsubscribePayments()
 
-	if err := Publish(context.Background(), bus, 1, WithTopic("payments.created"), WithMetadata(map[string]string{"trace": "trace-1"})); err != nil {
+	if err := bus.Publish(context.Background(), 1, WithTopic("payments.created"), WithMetadata(map[string]string{"trace": "trace-1"})); err != nil {
 		t.Fatalf("Publish(payments) error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, 2, WithTopic("orders.created"), WithMetadata(map[string]string{"trace": "trace-2"})); err != nil {
+	if err := bus.Publish(context.Background(), 2, WithTopic("orders.created"), WithMetadata(map[string]string{"trace": "trace-2"})); err != nil {
 		t.Fatalf("Publish(orders non-match meta) error = %v", err)
 	}
-	if err := Publish(context.Background(), bus, 3, WithTopic("orders.created"), WithMetadata(map[string]string{"trace": "trace-1"})); err != nil {
+	if err := bus.Publish(context.Background(), 3, WithTopic("orders.created"), WithMetadata(map[string]string{"trace": "trace-1"})); err != nil {
 		t.Fatalf("Publish(orders match) error = %v", err)
 	}
 

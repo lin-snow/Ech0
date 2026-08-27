@@ -1,16 +1,32 @@
 {
   "instances": [
     {
-      "id": "airtouch",
-      "url": "https://mm.airtouch.top"
+      "id": "abloom-echo",
+      "url": "https://memo.abloom.site"
     },
     {
-      "id": "baozi",
-      "url": "https://memo.xiaobaozi.cn"
+      "id": "alayedong",
+      "url": "https://ech0.alayedong.cn"
+    },
+    {
+      "id": "bin",
+      "url": "https://3868088.xyz"
+    },
+    {
+      "id": "chut",
+      "url": "https://ech0.claudropic.com"
     },
     {
       "id": "ciraos",
       "url": "https://ech0.ciraos.top"
+    },
+    {
+      "id": "echorizon",
+      "url": "https://holymypo.damnb.qzz.io"
+    },
+    {
+      "id": "galaha",
+      "url": "https://galaha.cn"
     },
     {
       "id": "jinvic",
@@ -25,12 +41,16 @@
       "url": "https://mm.liushen.fun"
     },
     {
-      "id": "moeouo-ech0",
-      "url": "https://time.moeouo.cn"
+      "id": "ljx",
+      "url": "https://mm.ljx.icu"
     },
     {
-      "id": "qixz",
-      "url": "https://mm.qixz.cn"
+      "id": "moretti-815",
+      "url": "https://m.081531.xyz"
+    },
+    {
+      "id": "panda",
+      "url": "https://ech0.pandageneral.dpdns.org"
     },
     {
       "id": "rookiezoe",
@@ -45,12 +65,20 @@
       "url": "https://echo.sunboy.ltd"
     },
     {
+      "id": "suzic",
+      "url": "https://ech0.suzichen.me"
+    },
+    {
       "id": "tiki-echo",
       "url": "https://i.zixizixi.cn"
     },
     {
       "id": "xiaoten",
       "url": "https://echo.xiaoten.com"
+    },
+    {
+      "id": "zhangjwchn-blog",
+      "url": "https://blog.zhangjw.cn"
     }
   ]
 }

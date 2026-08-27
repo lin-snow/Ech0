@@ -11,19 +11,16 @@ import (
 )
 
 func ValidateCrontabExpression(expr string) error {
-	// 去掉多余空格，防止 "  * * * * *  " 之类情况
 	expr = strings.TrimSpace(expr)
 	fields := strings.Fields(expr)
 
 	switch len(fields) {
 	case 5:
-		// 标准 cron（分钟、小时、日、月、星期）
 		_, err := cron.ParseStandard(expr)
 		if err != nil {
 			return fmt.Errorf("invalid 5-field cron expression: %w", err)
 		}
 	case 6:
-		// 含秒字段（秒、分钟、小时、日、月、星期）
 		parser := cron.NewParser(
 			cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow,
 		)

@@ -81,8 +81,6 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 	}, a.testWebhook, authModel.ScopeAdminSettings)
 }
 
-// --- Tool handlers ---
-
 func (a *Adapter) listWebhooks(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {
 	webhooks, err := a.settingSvc.GetAllWebhooks(ctx)
 	if err != nil {

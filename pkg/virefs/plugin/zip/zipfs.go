@@ -16,19 +16,14 @@ import (
 	virefs "github.com/lin-snow/ech0/pkg/virefs"
 )
 
-// FS is a read-only virefs.FS backed by a zip archive.
-// Put, Delete and Access always return virefs.ErrNotSupported.
 type FS struct {
 	r      *zip.Reader
 	closer io.Closer
 	index  map[string]*zip.File
 }
 
-// compile-time interface check
 var _ virefs.FS = (*FS)(nil)
 
-// OpenFS opens a zip file at filePath and returns a read-only FS.
-// The caller must call Close when done.
 func OpenFS(filePath string) (*FS, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -51,8 +46,6 @@ func OpenFS(filePath string) (*FS, error) {
 	}, nil
 }
 
-// NewFS creates a read-only FS from an io.ReaderAt.
-// The caller is responsible for the lifetime of ra.
 func NewFS(ra io.ReaderAt, size int64) (*FS, error) {
 	zr, err := zip.NewReader(ra, size)
 	if err != nil {
@@ -64,12 +57,10 @@ func NewFS(ra io.ReaderAt, size int64) (*FS, error) {
 	}, nil
 }
 
-// NewFSFromBytes creates a read-only FS from in-memory bytes.
 func NewFSFromBytes(data []byte) (*FS, error) {
 	return NewFS(bytes.NewReader(data), int64(len(data)))
 }
 
-// Close releases the underlying file handle if one was opened by OpenFS.
 func (z *FS) Close() error {
 	if z.closer != nil {
 		return z.closer.Close()
@@ -77,7 +68,6 @@ func (z *FS) Close() error {
 	return nil
 }
 
-// Get implements virefs.FS.
 func (z *FS) Get(_ context.Context, key string) (io.ReadCloser, error) {
 	cleaned, err := virefs.CleanKey(key)
 	if err != nil {
@@ -94,17 +84,14 @@ func (z *FS) Get(_ context.Context, key string) (io.ReadCloser, error) {
 	return rc, nil
 }
 
-// Put implements virefs.FS. Always returns ErrNotSupported.
 func (z *FS) Put(_ context.Context, key string, _ io.Reader, _ ...virefs.PutOption) error {
 	return &virefs.OpError{Op: "Put", Key: key, Err: virefs.ErrNotSupported}
 }
 
-// Delete implements virefs.FS. Always returns ErrNotSupported.
 func (z *FS) Delete(_ context.Context, key string) error {
 	return &virefs.OpError{Op: "Delete", Key: key, Err: virefs.ErrNotSupported}
 }
 
-// List implements virefs.FS.
 func (z *FS) List(_ context.Context, prefix string) (*virefs.ListResult, error) {
 	cleanedPrefix, err := virefs.CleanKey(prefix)
 	if err != nil {
@@ -144,7 +131,6 @@ func (z *FS) List(_ context.Context, prefix string) (*virefs.ListResult, error) 
 	return result, nil
 }
 
-// Stat implements virefs.FS.
 func (z *FS) Stat(_ context.Context, key string) (*virefs.FileInfo, error) {
 	cleaned, err := virefs.CleanKey(key)
 	if err != nil {
@@ -158,7 +144,6 @@ func (z *FS) Stat(_ context.Context, key string) (*virefs.FileInfo, error) {
 	return &fi, nil
 }
 
-// Exists implements virefs.FS.
 func (z *FS) Exists(_ context.Context, key string) (bool, error) {
 	cleaned, err := virefs.CleanKey(key)
 	if err != nil {
@@ -168,12 +153,10 @@ func (z *FS) Exists(_ context.Context, key string) (bool, error) {
 	return ok, nil
 }
 
-// Access implements virefs.FS. Always returns ErrNotSupported.
 func (z *FS) Access(_ context.Context, key string) (*virefs.AccessInfo, error) {
 	return nil, &virefs.OpError{Op: "Access", Key: key, Err: virefs.ErrNotSupported}
 }
 
-// buildIndex creates a key -> *zip.File map with normalised keys.
 func buildIndex(zr *zip.Reader) map[string]*zip.File {
 	idx := make(map[string]*zip.File, len(zr.File))
 	for _, f := range zr.File {

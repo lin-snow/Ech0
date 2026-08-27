@@ -38,8 +38,6 @@ export const useInitStore = defineStore('initStore', () => {
   }
 
   const initOwner = async (payload: App.Api.Auth.SignupParams) => {
-    // 把部署者当前页面生效的 locale（来自 navigator 检测或手动切换）一起提交，
-    // 后端会用它作为 owner.locale 与站点 default_locale，避免新部署被锁成 zh-CN。
     const enriched: App.Api.Auth.SignupParams = {
       ...payload,
       locale: payload.locale || String(i18n.global.locale.value),
@@ -51,13 +49,11 @@ export const useInitStore = defineStore('initStore', () => {
       ready.value = true
       saveCache()
     } else if (res.error_code === INIT_ALREADY_DONE || res.error_code === INIT_OWNER_EXISTS) {
-      // 服务端明确返回“已初始化/Owner已存在”时，直接更新本地状态，避免被陈旧缓存卡在 init 页。
       initialized.value = true
       ownerExists.value = true
       ready.value = true
       saveCache()
     } else {
-      // 提交初始化失败时同步一次服务端状态，避免并发初始化后前端状态滞后。
       await getStatus().catch(() => undefined)
     }
     return res

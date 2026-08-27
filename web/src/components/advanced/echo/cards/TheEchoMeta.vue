@@ -55,6 +55,7 @@ import { countWords } from '@/utils/echo'
 import { fetchLikeEcho } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { localStg } from '@/utils/storage'
+import { isStaticMode } from '@/service/request/shared'
 
 const { t } = useI18n()
 
@@ -80,6 +81,11 @@ const handleLikeEcho = (echoId: string) => {
   setTimeout(() => {
     isLikeAnimating.value = false
   }, 250)
+
+  if (isStaticMode()) {
+    theToast.info(String(t('staticSite.likeUnavailable')))
+    return
+  }
 
   if (hasLikedEcho(echoId)) {
     theToast.info(String(t('echoDetail.alreadyLiked')))

@@ -47,6 +47,38 @@ func TestUseCommentRecipient(t *testing.T) {
 	}
 }
 
+func TestShouldNotifyOwnerOnCreate(t *testing.T) {
+	tests := []struct {
+		name   string
+		source model.SourceType
+		want   bool
+	}{
+		{
+			name:   "guest comment notifies owner",
+			source: model.SourceGuest,
+			want:   true,
+		},
+		{
+			name:   "integration comment notifies owner",
+			source: model.SourceIntegration,
+			want:   true,
+		},
+		{
+			name:   "owner's own comment does not notify owner",
+			source: model.SourceSystem,
+			want:   false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldNotifyOwnerOnCreate(tc.source); got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestParseValidEmail(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -20,21 +20,17 @@ var spaBypassPrefixes = []string{
 	"/api",
 	"/ws",
 	"/mcp",
-	"/swagger",
 }
 
 type WebHandler struct {
 	visitorTracker *visitor.Tracker
 }
 
-// NewWebHandler WebHandler 的构造函数
 func NewWebHandler(visitorTracker *visitor.Tracker) *WebHandler {
 	return &WebHandler{visitorTracker: visitorTracker}
 }
 
-// Templates 返回一个处理前端编译后文件的 gin.HandlerFunc
 func (webHandler *WebHandler) Templates() gin.HandlerFunc {
-	// 提取 dist 子目录
 	subFS, _ := fs.Sub(template.WebFS, "dist")
 	fileServer := http.FS(subFS)
 
@@ -57,7 +53,6 @@ func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 		fullPath := path.Clean("." + requestPath)
 		f, err := fileServer.Open(fullPath)
 		if err != nil {
-			// fallback 到 index.html
 			fallback, err := fileServer.Open("index.html")
 			if err != nil {
 				ctx.Status(http.StatusNotFound)
@@ -79,10 +74,8 @@ func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 		}
 		defer func() { _ = f.Close() }()
 
-		// 获取文件信息
 		stat, _ := f.Stat()
 
-		// 适配资源压缩Gzip 算法
 		encoding := ctx.GetHeader("Accept-Encoding")
 		if strings.Contains(encoding, "gzip") {
 			gzPath := fullPath + ".gz"
@@ -134,7 +127,6 @@ func shouldBypassSPAFallback(requestPath string) bool {
 	return false
 }
 
-// getMimeType 根据文件扩展名返回 MIME 类型，带默认值
 func getMimeType(path string) string {
 	ext := filepath.Ext(path)
 	mimeType := mime.TypeByExtension(ext)

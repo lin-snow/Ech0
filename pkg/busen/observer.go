@@ -11,7 +11,6 @@ import (
 	"github.com/lin-snow/ech0/pkg/busen/router"
 )
 
-// Observation represents an accepted delivery for bridge/audit observers.
 type Observation struct {
 	EventType reflect.Type
 	Topic     string
@@ -24,7 +23,6 @@ type Observation struct {
 	SubscriberID uint64
 }
 
-// Observer receives accepted observations.
 type Observer func(context.Context, Observation)
 
 type observerFilter struct {
@@ -39,7 +37,6 @@ type observerEntry struct {
 	filter observerFilter
 }
 
-// ObserverOption configures an observer filter.
 type ObserverOption interface {
 	applyObserver(*observerFilter) error
 }
@@ -50,7 +47,6 @@ func (f observerOptionFunc) applyObserver(filter *observerFilter) error {
 	return f(filter)
 }
 
-// ObserveType filters observations by exact event type.
 func ObserveType[T any]() ObserverOption {
 	return observerOptionFunc(func(filter *observerFilter) error {
 		filter.eventType = reflect.TypeFor[T]()
@@ -58,7 +54,6 @@ func ObserveType[T any]() ObserverOption {
 	})
 }
 
-// ObserveTopic filters observations by topic pattern.
 func ObserveTopic(pattern string) ObserverOption {
 	return observerOptionFunc(func(filter *observerFilter) error {
 		matcher, err := router.Compile(pattern)
@@ -70,7 +65,6 @@ func ObserveTopic(pattern string) ObserverOption {
 	})
 }
 
-// ObserveMetadata filters observations by metadata subset.
 func ObserveMetadata(meta map[string]string) ObserverOption {
 	return observerOptionFunc(func(filter *observerFilter) error {
 		filter.meta = cloneHeaders(meta)
@@ -78,7 +72,6 @@ func ObserveMetadata(meta map[string]string) ObserverOption {
 	})
 }
 
-// ObserveMatch applies a custom observation predicate.
 func ObserveMatch(fn func(Observation) bool) ObserverOption {
 	return observerOptionFunc(func(filter *observerFilter) error {
 		if fn == nil {
@@ -89,7 +82,6 @@ func ObserveMatch(fn func(Observation) bool) ObserverOption {
 	})
 }
 
-// UseObserver registers an optional bridge/audit observer.
 func (b *Bus) UseObserver(observer Observer, opts ...ObserverOption) error {
 	if b == nil {
 		return fmt.Errorf("%w: nil bus", ErrInvalidOption)

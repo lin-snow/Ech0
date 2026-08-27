@@ -3,7 +3,6 @@
 
 import { request } from '../request'
 
-// 登录
 export function fetchLogin(loginParams: App.Api.Auth.LoginParams) {
   return request<App.Api.Auth.LoginResponse>({
     url: '/login',
@@ -12,7 +11,6 @@ export function fetchLogin(loginParams: App.Api.Auth.LoginParams) {
   })
 }
 
-// 注册
 export function fetchSignup(signupParams: App.Api.Auth.SignupParams) {
   return request({
     url: '/register',
@@ -21,7 +19,6 @@ export function fetchSignup(signupParams: App.Api.Auth.SignupParams) {
   })
 }
 
-// 登出（best-effort，错误静默处理）
 export function fetchLogout() {
   return request<null>({
     url: '/auth/logout',
@@ -30,7 +27,6 @@ export function fetchLogout() {
   })
 }
 
-// 一次性 code 交换 token（OAuth 回调专用）
 export function fetchExchangeCode(code: string) {
   return request<App.Api.Auth.TokenPairResponse>({
     url: '/auth/exchange',
@@ -39,7 +35,6 @@ export function fetchExchangeCode(code: string) {
   })
 }
 
-// Passkey / WebAuthn
 export function fetchPasskeyRegisterBegin(deviceName: string) {
   return request<App.Api.Auth.PasskeyRegisterBeginResp>({
     url: '/passkey/register/begin',

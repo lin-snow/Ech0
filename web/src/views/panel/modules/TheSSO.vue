@@ -2,17 +2,26 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="w-full px-2">
-    <!-- OAuth2 设置 -->
-    <TheOAuth2Setting class="mb-3" />
+    <BaseSegmented v-model="tab" :options="tabOptions" />
 
-    <!-- Passkey 设置 -->
-    <ThePasskeySetting class="mb-3" />
+    <TheOAuth2Setting v-if="tab === 'oauth2'" />
+    <ThePasskeySetting v-else />
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import BaseSegmented from '@/components/common/BaseSegmented.vue'
 import TheOAuth2Setting from './TheSetting/TheOAuth2Setting.vue'
 import ThePasskeySetting from './TheSetting/ThePasskeySetting.vue'
+
+const { t } = useI18n()
+const tab = ref('oauth2')
+const tabOptions = computed(() => [
+  { label: String(t('ssoManagement.tabOAuth2')), value: 'oauth2' },
+  { label: String(t('ssoManagement.tabPasskey')), value: 'passkey' },
+])
 </script>
 
 <style scoped></style>

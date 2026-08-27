@@ -4,7 +4,6 @@
 import { downloadFile, request } from '../request'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 
-// 上传文件
 export function fetchUploadFile(
   file: File,
   storageType: App.Api.File.StorageType = FILE_STORAGE_TYPE.LOCAL,
@@ -22,7 +21,6 @@ export function fetchUploadFile(
   })
 }
 
-// 创建外链文件记录（不上传二进制）
 export function fetchCreateExternalFile(dto: App.Api.File.CreateExternalFileDto) {
   return request<App.Api.File.FileDto>({
     url: `/files/external`,
@@ -31,7 +29,6 @@ export function fetchCreateExternalFile(dto: App.Api.File.CreateExternalFileDto)
   })
 }
 
-// 删除文件
 export function fetchDeleteFile(file: App.Api.File.FileDeleteDto) {
   return request({
     url: `/file/${file.id}`,
@@ -39,7 +36,6 @@ export function fetchDeleteFile(file: App.Api.File.FileDeleteDto) {
   })
 }
 
-// 按ID获取文件详情
 export function fetchGetFileById(id: string) {
   return request<App.Api.File.FileDto>({
     url: `/file/${id}`,
@@ -47,7 +43,6 @@ export function fetchGetFileById(id: string) {
   })
 }
 
-// 回填对象存储文件元信息
 export function fetchUpdateFileMeta(id: string, dto: App.Api.File.UpdateFileMetaDto) {
   return request<App.Api.File.FileDto>({
     url: `/file/${id}/meta`,
@@ -56,7 +51,6 @@ export function fetchUpdateFileMeta(id: string, dto: App.Api.File.UpdateFileMeta
   })
 }
 
-// 获取预签名URL（对象存储）
 export function fetchGetPresignedUrl(
   fileName: string,
   contentType?: string,
@@ -73,7 +67,6 @@ export function fetchGetPresignedUrl(
   })
 }
 
-// 获取文件列表
 export function fetchListFiles(query: App.Api.File.FileListQuery) {
   const searchParams = new URLSearchParams({
     page: String(query.page),
@@ -89,7 +82,6 @@ export function fetchListFiles(query: App.Api.File.FileListQuery) {
   })
 }
 
-// 获取文件树（懒加载）
 export function fetchFileTree(query: App.Api.File.FileTreeQuery) {
   const searchParams = new URLSearchParams({
     storage_type: query.storage_type,
@@ -103,7 +95,6 @@ export function fetchFileTree(query: App.Api.File.FileTreeQuery) {
   })
 }
 
-// 下载文件（二进制流）
 export function fetchDownloadFileById(id: string) {
   return downloadFile({
     url: `/file/${id}/stream`,
@@ -111,7 +102,6 @@ export function fetchDownloadFileById(id: string) {
   })
 }
 
-// 按路径下载文件（当 file_id 缺失时兜底）
 export function fetchDownloadFileByPath(query: App.Api.File.FilePathStreamQuery) {
   const searchParams = new URLSearchParams({
     storage_type: query.storage_type,

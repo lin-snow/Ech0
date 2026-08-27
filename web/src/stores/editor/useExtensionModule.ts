@@ -102,7 +102,6 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     }
 
     extensionToAdd.value.extension_type = ExtensionType.LOCATION
-    // 其他扩展共享的 extension 字符串字段塞一个稳定标识,保持 hasExtension 的回落路径可走
     extensionToAdd.value.extension = `${latitude},${longitude}`
     return true
   }
@@ -242,7 +241,6 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
   }
 
   return {
-    // state
     websiteToAdd,
     videoURL,
     musicURL,
@@ -250,9 +248,7 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     extensionToAdd,
     locationToAdd,
     tweetToAdd,
-    // computed
     hasExtension,
-    // methods
     checkEchoExtension,
     syncEchoExtension,
     clearExtension,

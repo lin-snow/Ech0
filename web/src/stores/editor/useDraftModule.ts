@@ -247,9 +247,7 @@ export function useDraftModule(deps: DraftModuleDeps) {
   }
 
   return {
-    // state
     isRestoringDraft,
-    // methods
     clearLocalDraft,
     hasDraftContent,
     saveDraftNow,

@@ -4,9 +4,8 @@
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	res "github.com/lin-snow/ech0/internal/handler/response"
+	"context"
+
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/user"
@@ -22,136 +21,70 @@ func NewUserHandler(userService service.Service) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
-// Register 用户注册
-//
-//	@Summary		用户注册
-//	@Description	注册新用户账号
-//	@Tags			用户
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body		model.RegisterDto	true	"注册信息"
-//	@Success		200		{object}	handler.Response	"注册成功"
-//	@Failure		200		{object}	handler.Response	"注册失败"
-//	@Router			/register [post]
-func (userHandler *UserHandler) Register() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var registerDto authModel.RegisterDto
-		if err := ctx.ShouldBindJSON(&registerDto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := userHandler.userService.Register(&registerDto); err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Msg: commonModel.REGISTER_SUCCESS}
-	})
+type (
+	RegisterInput struct {
+		Body authModel.RegisterDto
+	}
+	UpdateUserInput struct {
+		Body model.UserInfoDto
+	}
+	UpdateUserAdminInput struct {
+		ID string `path:"id" format:"uuid" doc:"用户 ID（UUID）"`
+	}
+	GetAllUsersInput struct{}
+	DeleteUserInput  struct {
+		ID string `path:"id" format:"uuid" doc:"用户 ID（UUID）"`
+	}
+	GetUserInfoInput struct{}
+)
+
+type (
+	UserListOutput = commonModel.Result[[]model.User]
+	UserOutput     = commonModel.Result[model.User]
+	EmptyOutput    = commonModel.Result[any]
+)
+
+func (userHandler *UserHandler) Register(ctx context.Context, in *RegisterInput) (EmptyOutput, error) {
+	if err := userHandler.userService.Register(&in.Body); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.REGISTER_SUCCESS), nil
 }
 
-// UpdateUser 更新当前用户信息
-//
-//	@Summary		更新用户信息
-//	@Description	更新当前已认证用户的个人信息
-//	@Tags			用户
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body		model.UserInfoDto	true	"用户信息"
-//	@Success		200		{object}	handler.Response	"更新成功"
-//	@Failure		200		{object}	handler.Response	"更新失败"
-//	@Router			/user [put]
-func (userHandler *UserHandler) UpdateUser() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var userdto model.UserInfoDto
-		if err := ctx.ShouldBindJSON(&userdto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := userHandler.userService.UpdateUser(ctx.Request.Context(), userdto); err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Msg: commonModel.UPDATE_USER_SUCCESS}
-	})
+func (userHandler *UserHandler) UpdateUser(ctx context.Context, in *UpdateUserInput) (EmptyOutput, error) {
+	if err := userHandler.userService.UpdateUser(ctx, in.Body); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.UPDATE_USER_SUCCESS), nil
 }
 
-// UpdateUserAdmin 切换用户管理员权限
-//
-//	@Summary		切换用户管理员权限
-//	@Description	由管理员切换指定用户的管理员状态
-//	@Tags			用户
-//	@Produce		json
-//	@Param			id	path		string				true	"用户 ID (UUID)"
-//	@Success		200	{object}	handler.Response	"更新成功"
-//	@Failure		200	{object}	handler.Response	"更新失败"
-//	@Router			/user/admin/{id} [put]
-func (userHandler *UserHandler) UpdateUserAdmin() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		idStr := ctx.Param("id")
-		if _, err := uuid.Parse(idStr); err != nil {
-			return res.Response{Msg: commonModel.INVALID_PARAMS, Err: err}
-		}
-		if err := userHandler.userService.UpdateUserAdmin(ctx.Request.Context(), idStr); err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Msg: commonModel.UPDATE_USER_SUCCESS}
-	})
+func (userHandler *UserHandler) UpdateUserAdmin(ctx context.Context, in *UpdateUserAdminInput) (EmptyOutput, error) {
+	if err := userHandler.userService.UpdateUserAdmin(ctx, in.ID); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.UPDATE_USER_SUCCESS), nil
 }
 
-// GetAllUsers 获取所有用户列表
-//
-//	@Summary		获取所有用户
-//	@Description	管理员获取系统中所有用户的列表
-//	@Tags			用户
-//	@Produce		json
-//	@Success		200	{object}	handler.Response{data=[]model.User}	"获取成功"
-//	@Failure		200	{object}	handler.Response					"获取失败"
-//	@Router			/users [get]
-func (userHandler *UserHandler) GetAllUsers() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		allusers, err := userHandler.userService.GetAllUsers(ctx.Request.Context())
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: allusers, Msg: commonModel.GET_USER_SUCCESS}
-	})
+func (userHandler *UserHandler) GetAllUsers(ctx context.Context, _ *GetAllUsersInput) (UserListOutput, error) {
+	allusers, err := userHandler.userService.GetAllUsers(ctx)
+	if err != nil {
+		return UserListOutput{}, err
+	}
+	return commonModel.OK(allusers, commonModel.GET_USER_SUCCESS), nil
 }
 
-// DeleteUser 删除用户
-//
-//	@Summary		删除用户
-//	@Description	管理员根据 ID 删除指定用户
-//	@Tags			用户
-//	@Produce		json
-//	@Param			id	path		string				true	"用户 ID (UUID)"
-//	@Success		200	{object}	handler.Response	"删除成功"
-//	@Failure		200	{object}	handler.Response	"删除失败"
-//	@Router			/user/{id} [delete]
-func (userHandler *UserHandler) DeleteUser() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		idStr := ctx.Param("id")
-		if _, err := uuid.Parse(idStr); err != nil {
-			return res.Response{Msg: commonModel.INVALID_PARAMS, Err: err}
-		}
-		if err := userHandler.userService.DeleteUser(ctx.Request.Context(), idStr); err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Msg: commonModel.DELETE_USER_SUCCESS}
-	})
+func (userHandler *UserHandler) DeleteUser(ctx context.Context, in *DeleteUserInput) (EmptyOutput, error) {
+	if err := userHandler.userService.DeleteUser(ctx, in.ID); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.DELETE_USER_SUCCESS), nil
 }
 
-// GetUserInfo 获取当前用户信息
-//
-//	@Summary		获取当前用户信息
-//	@Description	获取当前已认证用户的详细信息
-//	@Tags			用户
-//	@Produce		json
-//	@Success		200	{object}	handler.Response{data=model.User}	"获取成功"
-//	@Failure		200	{object}	handler.Response					"获取失败"
-//	@Router			/user [get]
-func (userHandler *UserHandler) GetUserInfo() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		userid := viewer.MustFromContext(ctx.Request.Context()).UserID()
-		user, err := userHandler.userService.GetUserByID(userid)
-		user.Password = ""
-		if err != nil {
-			return res.Response{Msg: "", Err: err}
-		}
-		return res.Response{Data: user, Msg: commonModel.GET_USER_INFO_SUCCESS}
-	})
+func (userHandler *UserHandler) GetUserInfo(ctx context.Context, _ *GetUserInfoInput) (UserOutput, error) {
+	userid := viewer.MustFromContext(ctx).UserID()
+	user, err := userHandler.userService.GetUserByID(userid)
+	if err != nil {
+		return UserOutput{}, err
+	}
+	return commonModel.OK(user, commonModel.GET_USER_INFO_SUCCESS), nil
 }

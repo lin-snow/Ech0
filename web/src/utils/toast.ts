@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-// 处理全局通知工具函数 (基于 vue-sonner)
 import { toast } from 'vue-sonner'
 
-// 定义自定义通知选项接口
 interface customToastOptions {
-  /** 相同 id 会替换已有 toast，避免同一错误连弹多次 */
   id?: string | number
   duration?: number
   description?: string
@@ -19,10 +16,9 @@ interface customToastOptions {
   }
 }
 
-// 默认通知选项
 const defaultToastOptions: customToastOptions = {
-  duration: 1200, // 默认持续时间为1200毫秒
-  description: '', // 默认描述为空
+  duration: 1200,
+  description: '',
   classes: {
     actionButton: 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500',
   },
@@ -48,7 +44,6 @@ function show(
   })
 }
 
-// 简化后的 promise toast
 function showPromise<T>(
   promise: Promise<T>,
   messages: {

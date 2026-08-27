@@ -5,20 +5,20 @@
     <div class="editor-shell__inner">
       <div class="editor-shell__body">
         <TheMdEditor v-if="currentMode === Mode.ECH0" class="rounded-[var(--radius-xs)]" />
-        <TheImageEditor v-if="currentMode === Mode.Image" />
+        <TheMediaEditor v-if="currentMode === Mode.Media" />
         <TheModePanel v-if="currentMode === Mode.Panel" />
         <TheExtensionEditor v-if="currentMode === Mode.EXTEN" />
         <TheTagsManager v-if="currentMode === Mode.TagManage" />
       </div>
 
       <TheEditorButtons />
-      <TheEditorImage />
+      <TheEditorMedia />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import TheEditorImage from './TheEditor/TheEditorImage.vue'
+import TheEditorMedia from './TheEditor/TheEditorMedia.vue'
 import TheEditorButtons from './TheEditor/TheEditorButtons.vue'
 
 import { theToast } from '@/utils/toast'
@@ -31,7 +31,7 @@ import { useI18n } from 'vue-i18n'
 
 const TheMdEditor = defineAsyncComponent(() => import('@/components/advanced/md/TheMdEditor.vue'))
 const TheModePanel = defineAsyncComponent(() => import('./TheEditor/TheModePanel.vue'))
-const TheImageEditor = defineAsyncComponent(() => import('./TheEditor/TheImageEditor.vue'))
+const TheMediaEditor = defineAsyncComponent(() => import('./TheEditor/TheMediaEditor.vue'))
 const TheExtensionEditor = defineAsyncComponent(() => import('./TheEditor/TheExtensionEditor.vue'))
 const TheTagsManager = defineAsyncComponent(() => import('./TheEditor/TheTagsManager.vue'))
 
@@ -47,6 +47,7 @@ const {
   extensionToAdd,
   websiteToAdd,
   locationToAdd,
+  tweetToAdd,
   tagToAdd,
   currentExtensionType,
 } = storeToRefs(editorStore)
@@ -58,7 +59,7 @@ watch(
     if (newVal.length > 0) {
       const bvRegex = /(BV[0-9A-Za-z]{10})/
       const ytRegex =
-        /(?:https?:\/\/(?:www\.)?)?(?:youtu\.be\/|youtube\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed)\/))([\w-]+)/
+        /(?:https?:\/\/(?:www\.)?)?(?:youtu\.be\/|youtube\.com\/(?:(?:watch)?\?(?:.*&)?v(?:i)?=|(?:embed|shorts|live)\/))([\w-]+)/
       let match = newVal.match(bvRegex)
       if (match) {
         extensionToAdd.value.extension = match[0]
@@ -78,14 +79,19 @@ const fillEditorFromEchoToUpdate = () => {
   editorStore.clearEditor()
   echoToAdd.value.content = echoToUpdate.value?.content || ''
 
-  const existingImages = getEchoFiles(echoToUpdate.value)
-  if (existingImages.length > 0) {
+  const existingMedia = getEchoFiles(echoToUpdate.value)
+  if (existingMedia.length > 0) {
     editorStore.setFilesToAdd(
-      existingImages.map((img) => ({
-        id: String(img.id || ''),
-        url: img.url || '',
-        storage_type: img.storage_type || 'local',
-        key: img.key || '',
+      existingMedia.map((f) => ({
+        id: String(f.id || ''),
+        url: f.url || '',
+        storage_type: f.storage_type || 'local',
+        category: f.category,
+        content_type: f.content_type,
+        key: f.key || '',
+        size: f.size,
+        width: f.width,
+        height: f.height,
       })),
     )
   } else {
@@ -121,6 +127,16 @@ const fillEditorFromEchoToUpdate = () => {
           typeof payload.latitude === 'number' && typeof payload.longitude === 'number'
             ? `${payload.latitude},${payload.longitude}`
             : ''
+        break
+      }
+      case ExtensionType.TWEET: {
+        const payload = echoToUpdate.value.extension.payload
+        tweetToAdd.value = {
+          url: payload.url || '',
+          username: payload.username || '',
+          statusId: payload.statusId || '',
+        }
+        extensionToAdd.value.extension = payload.url || ''
         break
       }
     }

@@ -14,21 +14,20 @@ To keep collaboration smooth, please read this document and follow the conventio
 
 ### Backend
 
-- Go `1.26.0+`
+- Go `1.27.0+`
 - A working C toolchain (CGO is used, e.g. for SQLite)
 
 Common commands (repository root):
 
 ```bash
-make run
-make dev
-make check     # full local verification before a PR (delegates to dev-lint)
-make dev-lint  # backend fmt/lint + web format/lint + i18n
+just run
+just dev
+just check     # backend fmt/lint + web format/lint + i18n (mandatory before a PR)
 ```
 
 ### Frontend
 
-- Node.js `25.5.0+`
+- Node.js `26.0.0+`
 - pnpm `10+`
 
 Common commands (`web` directory):
@@ -44,14 +43,14 @@ pnpm lint
 
 1. Fork this repository and create a feature branch (e.g. `feat/xxx`, `fix/xxx`).
 2. Keep changes focused: one PR should ideally address one kind of change.
-3. **Before opening a PR, run `make check` (or `make dev-lint`) from the repository root** (required; see “Pre-submission checks”).
+3. **Before opening a PR, run `just check` from the repository root** (required; see “Pre-submission checks”).
 4. Open a Pull Request with a clear description of context, approach, and verification.
 
 ## Pre-submission checks
 
 Before opening a PR:
 
-- **Run `make check` (or `make dev-lint`) once from the repository root** (backend `golangci-lint` fmt/lint, `web` format/lint, and i18n guardrails). This is **mandatory**; fix any reported issues before you submit.
+- **Run `just check` once from the repository root** (backend `golangci-lint` fmt/lint, `web` format/lint, and i18n guardrails). This is **mandatory**; fix any reported issues before you submit.
 - Ensure the backend still builds (`go build ./...`).
 - Ensure the frontend still builds (`pnpm build` from the `web` directory).
 - Add or update tests when behavior changes (when applicable).

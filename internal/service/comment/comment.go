@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
+	"log/slog"
 	"net/mail"
 	"net/url"
 	"strconv"
@@ -22,13 +22,17 @@ import (
 
 	captchaCfg "github.com/lin-snow/ech0/internal/captcha"
 	"github.com/lin-snow/ech0/internal/config"
-	contracts "github.com/lin-snow/ech0/internal/event/contracts"
+	"github.com/lin-snow/ech0/internal/event"
+	eventbus "github.com/lin-snow/ech0/internal/event/bus"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
+	"github.com/lin-snow/ech0/pkg/busen"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
-	"go.uber.org/zap"
 )
 
 const (
@@ -44,26 +48,26 @@ const (
 )
 
 type CommentService struct {
-	commonService      CommonService
-	repo               Repository
-	keyvalueRepository KeyValueRepository
-	publisher          EventPublisher
-	mailer             Mailer
+	commonService CommonService
+	repo          Repository
+	durableKV     kvstore.Store
+	bus           *busen.Bus
+	mailer        Mailer
 }
 
 func NewCommentService(
 	commonService CommonService,
 	repo Repository,
-	keyvalueRepository KeyValueRepository,
-	publisher EventPublisher,
+	durableKV kvstore.Store,
+	busProvider func() *busen.Bus,
 	mailer Mailer,
 ) *CommentService {
 	return &CommentService{
-		commonService:      commonService,
-		repo:               repo,
-		keyvalueRepository: keyvalueRepository,
-		publisher:          publisher,
-		mailer:             mailer,
+		commonService: commonService,
+		repo:          repo,
+		durableKV:     durableKV,
+		bus:           busProvider(),
+		mailer:        mailer,
 	}
 }
 
@@ -112,7 +116,7 @@ func (s *CommentService) CreateComment(
 	}
 
 	if setting.CaptchaEnabled {
-		if err := s.verifyCaptcha(dto.CaptchaToken, clientIP); err != nil {
+		if err := captchaCfg.SiteVerify(dto.CaptchaToken); err != nil {
 			return model.CreateCommentResult{},
 				commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "验证码验证失败")
 		}
@@ -140,10 +144,15 @@ func (s *CommentService) CreateComment(
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
 	}
 
+	parentID, err := s.resolveParentID(ctx, comment.EchoID, dto.ParentID)
+	if err != nil {
+		return model.CreateCommentResult{}, err
+	}
+	comment.ParentID = parentID
+
 	if validUser && (user.IsAdmin || user.IsOwner) {
 		comment.Source = model.SourceSystem
 		comment.Nickname = user.Username
-		// 内部成员评论允许邮箱为空，不再自动填充占位邮箱。
 		comment.Email = ""
 		comment.UserID = &user.ID
 		comment.Status = model.StatusApproved
@@ -200,11 +209,29 @@ func (s *CommentService) CreateComment(
 		return model.CreateCommentResult{}, err
 	}
 	s.emitCommentCreated(ctx, comment)
-	s.notifyOwnerAsync(ctx, "created", comment)
+	if shouldNotifyOwnerOnCreate(comment.Source) {
+		s.notifyOwnerAsync(ctx, "created", comment)
+	}
+	s.notifyReplyTargetAsync(ctx, comment)
 	return model.CreateCommentResult{
 		ID:     comment.ID,
 		Status: comment.Status,
 	}, nil
+}
+
+func (s *CommentService) resolveParentID(ctx context.Context, echoID, rawParentID string) (*string, error) {
+	parentID := strings.TrimSpace(rawParentID)
+	if parentID == "" {
+		return nil, nil
+	}
+	parent, err := s.repo.GetCommentByID(ctx, parentID)
+	if err != nil || parent.ID == "" || parent.EchoID != echoID {
+		return nil, commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "回复的评论不存在")
+	}
+	if parent.Status != model.StatusApproved {
+		return nil, commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "该评论暂不可回复")
+	}
+	return &parent.ID, nil
 }
 
 func (s *CommentService) CreateIntegrationComment(
@@ -223,12 +250,8 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 
 	v := viewer.MustFromContext(ctx)
-	userID := ""
-	tokenID := ""
-	if v != nil {
-		userID = strings.TrimSpace(v.UserID())
-		tokenID = strings.TrimSpace(v.TokenID())
-	}
+	userID := strings.TrimSpace(v.UserID())
+	tokenID := strings.TrimSpace(v.TokenID())
 
 	comment := model.Comment{
 		EchoID:    strings.TrimSpace(dto.EchoID),
@@ -286,17 +309,19 @@ func (s *CommentService) CreateIntegrationComment(
 		return model.CreateCommentResult{}, err
 	}
 
-	zap.L().Info("integration comment created",
-		zap.String("comment_id", comment.ID),
-		zap.String("echo_id", comment.EchoID),
-		zap.String("token_id", tokenID),
-		zap.String("user_id", userID),
-		zap.String("source", string(comment.Source)),
-		zap.String("metadata", strings.TrimSpace(dto.Metadata)),
+	logUtil.GetLogger().Info("integration comment created",
+		slog.String("comment_id", comment.ID),
+		slog.String("echo_id", comment.EchoID),
+		slog.String("token_id", tokenID),
+		slog.String("user_id", userID),
+		slog.String("source", string(comment.Source)),
+		slog.String("metadata", strings.TrimSpace(dto.Metadata)),
 	)
 
 	s.emitCommentCreated(ctx, comment)
-	s.notifyOwnerAsync(ctx, "created", comment)
+	if shouldNotifyOwnerOnCreate(comment.Source) {
+		s.notifyOwnerAsync(ctx, "created", comment)
+	}
 	return model.CreateCommentResult{
 		ID:     comment.ID,
 		Status: comment.Status,
@@ -484,24 +509,21 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 }
 
 func (s *CommentService) emitCommentCreated(ctx context.Context, comment model.Comment) {
-	if s.publisher == nil || comment.ID == "" {
-		return
+	if comment.ID != "" {
+		eventbus.Notify(ctx, s.bus, event.CommentCreated{Comment: comment})
 	}
-	_ = s.publisher.CommentCreated(ctx, contracts.CommentCreatedEvent{Comment: comment})
 }
 
 func (s *CommentService) emitCommentStatusUpdated(ctx context.Context, comment model.Comment) {
-	if s.publisher == nil || comment.ID == "" {
-		return
+	if comment.ID != "" {
+		eventbus.Notify(ctx, s.bus, event.CommentStatusUpdated{Comment: comment})
 	}
-	_ = s.publisher.CommentStatusUpdated(ctx, contracts.CommentStatusUpdatedEvent{Comment: comment})
 }
 
 func (s *CommentService) emitCommentDeleted(ctx context.Context, comment model.Comment) {
-	if s.publisher == nil || comment.ID == "" {
-		return
+	if comment.ID != "" {
+		eventbus.Notify(ctx, s.bus, event.CommentDeleted{Comment: comment})
 	}
-	_ = s.publisher.CommentDeleted(ctx, contracts.CommentDeletedEvent{Comment: comment})
 }
 
 func (s *CommentService) GetSystemSetting(ctx context.Context) (model.SystemSetting, error) {
@@ -513,24 +535,7 @@ func (s *CommentService) GetSystemSetting(ctx context.Context) (model.SystemSett
 }
 
 func (s *CommentService) getSystemSettingRaw(ctx context.Context) (model.SystemSetting, error) {
-	raw, err := s.keyvalueRepository.GetKeyValue(ctx, model.CommentSystemSettingKey)
-	if err != nil {
-		defaultSetting := model.SystemSetting{
-			EnableComment:   true,
-			RequireApproval: true,
-			CaptchaEnabled:  false,
-		}
-		applySettingDefaults(&defaultSetting)
-		buf, _ := json.Marshal(defaultSetting)
-		_ = s.keyvalueRepository.AddKeyValue(ctx, model.CommentSystemSettingKey, string(buf))
-		return defaultSetting, nil
-	}
-	var setting model.SystemSetting
-	if err := json.Unmarshal([]byte(raw), &setting); err != nil {
-		return model.SystemSetting{}, err
-	}
-	applySettingDefaults(&setting)
-	return setting, nil
+	return coreSetting.Get(ctx, s.durableKV, coreSetting.Comment)
 }
 
 func (s *CommentService) UpdateSystemSetting(ctx context.Context, setting model.SystemSetting) error {
@@ -546,7 +551,7 @@ func (s *CommentService) UpdateSystemSetting(ctx context.Context, setting model.
 	if err != nil {
 		return err
 	}
-	return s.keyvalueRepository.AddOrUpdateKeyValue(ctx, model.CommentSystemSettingKey, string(buf))
+	return s.durableKV.Set(ctx, model.CommentSystemSettingKey, string(buf))
 }
 
 func (s *CommentService) SendTestEmail(ctx context.Context, setting model.SystemSetting) error {
@@ -595,9 +600,9 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 		var ok bool
 		recipient, ok = parseValidEmail(comment.Email)
 		if !ok {
-			zap.L().Info("skip comment notify mail due to invalid commenter email",
-				zap.String("kind", kind),
-				zap.String("comment_id", comment.ID))
+			logUtil.GetLogger().Info("skip comment notify mail due to invalid commenter email",
+				slog.String("kind", kind),
+				slog.String("comment_id", comment.ID))
 			return
 		}
 	} else {
@@ -613,7 +618,7 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
-			zap.L().Warn("comment notify mail failed", zap.Error(err), zap.String("comment_id", comment.ID))
+			logUtil.GetLogger().Warn("comment notify mail failed", logUtil.Err(err), slog.String("comment_id", comment.ID))
 		}
 	}(setting.EmailNotify, MailMessage{
 		To:       recipient,
@@ -623,8 +628,52 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 	})
 }
 
+func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment model.Comment) {
+	if comment.ParentID == nil || strings.TrimSpace(*comment.ParentID) == "" {
+		return
+	}
+	setting, err := s.getSystemSettingRaw(ctx)
+	if err != nil || !setting.EmailNotify.Enabled {
+		return
+	}
+	parent, err := s.repo.GetCommentByID(ctx, strings.TrimSpace(*comment.ParentID))
+	if err != nil || parent.ID == "" {
+		return
+	}
+	targetEmail, ok := parseValidEmail(parent.Email)
+	if !ok {
+		return
+	}
+	if strings.EqualFold(targetEmail, strings.TrimSpace(comment.Email)) {
+		return
+	}
+	if ownerEmail, ownerErr := s.resolveOwnerEmail(); ownerErr == nil &&
+		strings.EqualFold(targetEmail, strings.TrimSpace(ownerEmail)) {
+		return
+	}
+	serverURL := s.resolveServerURL(ctx)
+	content := buildNotifyContent("reply", comment, serverURL)
+	go func(cfg model.EmailNotifySetting, msg MailMessage) {
+		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
+			logUtil.GetLogger().Warn("comment reply notify mail failed",
+				logUtil.Err(err), slog.String("comment_id", comment.ID))
+		}
+	}(setting.EmailNotify, MailMessage{
+		To:       targetEmail,
+		Subject:  content.Subject,
+		TextBody: content.TextBody,
+		HTMLBody: content.HTMLBody,
+	})
+}
+
 func useCommentRecipient(kind string) bool {
 	return kind == "status" || kind == "hot"
+}
+
+func shouldNotifyOwnerOnCreate(source model.SourceType) bool {
+	return source != model.SourceSystem
 }
 
 func parseValidEmail(raw string) (string, bool) {
@@ -732,8 +781,8 @@ func (s *CommentService) resolveOwnerEmail() (string, error) {
 }
 
 func (s *CommentService) resolveServerURL(ctx context.Context) string {
-	if s.keyvalueRepository != nil {
-		serverURL, err := s.keyvalueRepository.GetKeyValue(ctx, commonModel.ServerURLKey)
+	if s.durableKV != nil {
+		serverURL, err := s.durableKV.Get(ctx, commonModel.ServerURLKey)
 		if err == nil {
 			value := strings.TrimSuffix(strings.TrimSpace(serverURL), "/")
 			if value != "" {
@@ -781,50 +830,6 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 	return nil
 }
 
-func (s *CommentService) verifyCaptcha(token, _ string) error {
-	if strings.TrimSpace(token) == "" {
-		return errors.New("captcha token missing")
-	}
-	payload := map[string]string{
-		"response": strings.TrimSpace(token),
-		"secret":   captchaCfg.Secret(),
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodPost,
-		captchaCfg.SiteVerifyURL(),
-		strings.NewReader(string(body)),
-	)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("captcha verify status: %d", resp.StatusCode)
-	}
-
-	var out struct {
-		Success bool `json:"success"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return err
-	}
-	if out.Success {
-		return nil
-	}
-	return errors.New("captcha verify failed")
-}
-
 func (s *CommentService) verifyFormToken(clientIP, token string) error {
 	parts := strings.Split(strings.TrimSpace(token), ".")
 	if len(parts) != 2 {
@@ -861,7 +866,7 @@ func (s *CommentService) computeHMAC(payload string) string {
 
 func (s *CommentService) requireAdmin(ctx context.Context) error {
 	v := viewer.MustFromContext(ctx)
-	if v == nil || strings.TrimSpace(v.UserID()) == "" {
+	if strings.TrimSpace(v.UserID()) == "" {
 		return commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
 	}
 	user, err := s.commonService.CommonGetUserByUserId(ctx, v.UserID())
@@ -876,7 +881,7 @@ func (s *CommentService) requireAdmin(ctx context.Context) error {
 
 func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel.User, valid bool, err error) {
 	v := viewer.MustFromContext(ctx)
-	if v == nil || strings.TrimSpace(v.UserID()) == "" {
+	if strings.TrimSpace(v.UserID()) == "" {
 		return user, false, nil
 	}
 	u, err := s.commonService.CommonGetUserByUserId(ctx, v.UserID())

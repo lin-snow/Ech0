@@ -35,9 +35,6 @@ func TestCreateClaims_WithSessionType(t *testing.T) {
 	}
 }
 
-// TestCreateAccessClaimsWithExpiry_NeverExpiryGetsFiniteExp 防止回归：
-// expiry=0 (NEVER_EXPIRY) 必须仍然填充 ExpiresAt，否则 logout/RevokeToken 路径会
-// 走进 nil-deref panic 与黑名单跳过的 GHSA-fpw6-hrg5-q5x5 缺陷。
 func TestCreateAccessClaimsWithExpiry_NeverExpiryGetsFiniteExp(t *testing.T) {
 	user := userModel.User{ID: "u-never", Username: "never"}
 	claimsAny := CreateAccessClaimsWithExpiry(user, 0, []string{"profile:read"}, "cli", "jti-never")

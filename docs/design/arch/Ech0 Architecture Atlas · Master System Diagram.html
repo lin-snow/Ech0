@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ech0 Architecture Atlas · Master System Diagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="./Ech0 Architecture Atlas · Master System Diagram_files/css2" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-warm: var(--surface);
+
+  --fg: #111111;
+  --fg-2: var(--fg);
+  --muted: #6b6b6b;
+  --meta: var(--muted);
+
+  --border: #e5e5e5;
+  --border-soft: var(--border);
+
+  --accent: #2f6feb;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+
+  --success: #17a34a;
+  --warn: #eab308;
+  --danger: #dc2626;
+
+  --font-display: "Inter", -apple-system, system-ui, sans-serif;
+  --font-body: "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 48px;
+  --text-4xl: 64px;
+
+  --leading-body: 1.5;
+  --leading-tight: 1.2;
+  --tracking-display: -0.01em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-20: 80px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--accent), transparent 70%);
+
+  --motion-fast: 150ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root {
+  --ink-02: color-mix(in oklab, var(--fg), transparent 98%);
+  --ink-03: color-mix(in oklab, var(--fg), transparent 97%);
+  --ink-04: color-mix(in oklab, var(--fg), transparent 96%);
+  --ink-05: color-mix(in oklab, var(--fg), transparent 95%);
+  --ink-07: color-mix(in oklab, var(--fg), transparent 93%);
+  --line:   color-mix(in oklab, var(--fg), transparent 84%);
+  --line-2: color-mix(in oklab, var(--fg), transparent 60%);
+  --line-3: color-mix(in oklab, var(--fg), transparent 42%);
+  --accent-line: color-mix(in oklab, var(--accent), transparent 50%);
+  --accent-06:  color-mix(in oklab, var(--accent), transparent 94%);
+  --accent-10:  color-mix(in oklab, var(--accent), transparent 90%);
+  --accent-soft: color-mix(in oklab, var(--accent), var(--surface) 86%);
+}
+
+* , *::before, *::after { box-sizing: border-box; border-radius: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+
+.stage { padding: 40px; }
+.fitbox { margin: 0 auto; overflow: hidden; }
+.poster {
+  width: 1600px;
+  background: var(--surface);
+  border: 1.5px solid var(--line-3);
+  transform-origin: top left;
+}
+
+.poster-head { padding: 50px 56px 30px; border-bottom: 1.5px solid var(--line-3); position: relative; }
+.poster-head::before { content: ""; position: absolute; top: 0; left: 0; width: 200px; height: 4px; background: var(--accent); }
+.kicker {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 16px;
+}
+.kicker::before { content: ""; width: 34px; height: 2px; background: var(--accent); }
+.poster-title { font-family: var(--font-display); font-weight: 700; font-size: 52px; line-height: 1.03; letter-spacing: -0.026em; }
+.poster-title span { color: var(--muted); font-weight: 600; }
+.poster-sub { font-size: var(--text-lg); color: var(--muted); margin-top: 14px; max-width: 96ch; line-height: 1.45; }
+.poster-sub b { color: var(--fg); font-weight: 600; }
+.head-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; margin-top: 26px; flex-wrap: wrap; }
+.metawrap { display: flex; flex-wrap: wrap; gap: 7px; max-width: 60%; }
+.meta-chip { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg); background: var(--ink-04); border: 1px solid var(--border); padding: 5px 11px; }
+.meta-chip b { color: var(--muted); font-weight: 500; }
+
+.legend { display: flex; flex-direction: column; gap: 8px; }
+.legend .li { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); }
+.legend .sw { width: 30px; height: 0; flex: none; }
+.legend .sw.sync  { border-top: 2px solid var(--accent); }
+.legend .sw.async { border-top: 2px dashed var(--line-2); }
+.legend .sw.dep   { border-top: 1px solid var(--line-2); }
+.legend .sw.key   { width: 14px; height: 14px; border: 1.5px solid var(--accent-line); background: var(--accent-06); }
+.legend .sw.star  { width: auto; height: auto; color: var(--accent); font-size: 13px; }
+
+.diagram { padding: 34px 56px 44px; }
+
+.rgn { display: flex; align-items: center; gap: 13px; margin: 26px 0 14px; }
+.rgn:first-child { margin-top: 0; }
+.rgn .ix {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--accent-on); background: var(--accent);
+  width: 24px; height: 24px; display: grid; place-items: center; flex: none;
+}
+.rgn .t { font-family: var(--font-display); font-weight: 600; font-size: var(--text-lg); letter-spacing: -0.012em; flex: none; }
+.rgn .d { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); flex: none; }
+.rgn .rule { flex: 1; height: 1px; background: var(--border); min-width: 24px; }
+
+.node { background: var(--surface); border: 1px solid var(--border); padding: 12px 15px; }
+.node .nt { font-weight: 600; font-size: var(--text-sm); letter-spacing: -0.005em; line-height: 1.3; }
+.node .ns { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.45; }
+.node.key { border-color: var(--accent-line); background: var(--accent-06); }
+.node.key .nt { color: var(--accent); }
+.node.dark { background: var(--fg); border-color: var(--fg); }
+.node.dark .nt { color: var(--surface); }
+.node.dark .ns { color: color-mix(in oklab, var(--surface), transparent 42%); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--fg); line-height: 1.05; }
+.chip .cd { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.chip.soft { background: var(--ink-04); border-style: dashed; }
+.chip.key { border-color: var(--accent-line); background: var(--accent-06); color: var(--accent); }
+.chip.key .cd { color: color-mix(in oklab, var(--accent), var(--muted) 40%); }
+.star { color: var(--accent); font-weight: 700; }
+.harrow { font-family: var(--font-mono); color: var(--line-2); font-size: 17px; line-height: 1; padding: 0 1px; align-self: center; }
+
+.down { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 0; }
+.down .t { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.02em; text-align: center; }
+.down .l { width: 2px; height: 15px; background: var(--line-2); }
+.down .h { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--line-2); }
+.down.async .l { width: 0; height: 15px; background: none; border-left: 2px dashed var(--line-2); }
+.down.sync .l { background: var(--accent); }
+.down.sync .h { border-top-color: var(--accent); }
+.down.sync .t { color: var(--accent); }
+
+.clients4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+.hostframe {
+  position: relative; border: 1.5px solid var(--line-3);
+  background-color: color-mix(in oklab, var(--surface), var(--bg) 70%);
+  background-image: radial-gradient(var(--ink-07) 1px, transparent 1.4px);
+  background-size: 22px 22px; background-position: -1px -1px;
+  padding: 42px 30px 30px; margin-top: 8px;
+}
+.frame-tab {
+  position: absolute; top: -13px; left: 26px; background: var(--surface); color: var(--fg);
+  font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: 0.06em; font-weight: 600;
+  padding: 5px 13px; border: 1.5px solid var(--line-3);
+}
+.frame-tab .dim { color: var(--muted); font-weight: 500; }
+.binary { position: relative; border: 1.5px solid var(--line-2); background: color-mix(in oklab, var(--surface), transparent 6%); padding: 40px 26px 28px; }
+.binary .frame-tab { left: 24px; border-color: var(--line-2); }
+
+.gate { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.gatecard { border: 1px solid var(--border); background: var(--surface); padding: 14px 16px; }
+.gatecard.mw { background: var(--ink-03); }
+.gate-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 11px; flex-wrap: wrap; }
+.gate-n { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg); font-weight: 600; }
+.gate-d { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+
+.clusters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.cluster { border: 1px solid var(--border); background: var(--surface); padding: 13px 14px; }
+.cluster .ch { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 11px; display: flex; align-items: center; gap: 7px; }
+.cluster .ch::before { content: ""; width: 7px; height: 7px; background: var(--line-2); }
+.cluster.intel .ch::before { background: var(--accent); }
+.cluster .chips { gap: 6px; }
+.cluster .chip { padding: 5px 10px; font-size: 12.5px; }
+
+.core { border: 1px dashed var(--line-2); background: var(--ink-02); padding: 16px; }
+.core3 {
+  display: grid; grid-template-columns: 1.04fr 58px 1.46fr 58px 1.04fr;
+  align-items: stretch;
+}
+.wing { border: 1.5px solid var(--line-2); background: var(--surface); padding: 30px 16px 16px; position: relative; display: flex; flex-direction: column; gap: 9px; }
+.wing-tab {
+  position: absolute; top: -12px; left: 14px; padding: 4px 11px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  border: 1.5px solid var(--line-2); background: var(--surface);
+}
+.wing.agent { border-color: var(--accent-line); }
+.wing.agent .wing-tab { border-color: var(--accent-line); color: var(--accent); background: var(--accent-06); }
+.wing-sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.02em; line-height: 1.4; margin: -2px 0 2px; }
+.wn { border: 1px solid var(--border); background: var(--surface); padding: 9px 11px; }
+.wn .wt { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--fg); letter-spacing: -0.005em; }
+.wn .wd { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+.wn.key { border-color: var(--accent-line); background: var(--accent-06); }
+.wn.key .wt { color: var(--accent); }
+.wn.soft { background: var(--ink-03); border-style: dashed; }
+.wmini { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px 0; }
+.wmini .l { width: 2px; height: 11px; background: var(--line-2); }
+.wmini.out .l { background: var(--accent); }
+.wmini .h { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--line-2); }
+.wmini.out .h { border-top-color: var(--accent); }
+.wdiv { border-top: 1px dashed var(--border); margin: 5px 0 2px; padding-top: 8px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.bind { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; text-align: center; }
+.bind .glyph { font-family: var(--font-mono); font-size: 22px; line-height: 1; color: var(--accent); }
+.bind .glyph.evt { color: var(--line-2); }
+.bind .lbl { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); line-height: 1.35; max-width: 56px; }
+.bind .lbl b { color: var(--fg); font-weight: 600; }
+
+.spine { display: flex; flex-direction: column; }
+.spine-cap { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 600; text-align: center; margin-bottom: 9px; }
+.snode { border: 1px solid var(--line-2); background: var(--surface); padding: 11px 14px; text-align: center; }
+.snode .st { font-weight: 600; font-size: var(--text-sm); letter-spacing: -0.005em; }
+.snode .ss { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.snode.hub { border: 1.5px solid var(--accent); background: var(--accent-soft); position: relative; }
+.snode.hub .st { color: var(--accent); font-size: 15px; }
+.snode.hub .port { position: absolute; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; background: var(--accent); }
+.snode.hub .port.l { left: -6px; } .snode.hub .port.r { right: -6px; }
+.snode.term { border-color: var(--fg); background: var(--fg); }
+.snode.term .st { color: var(--surface); }
+.snode.term .ss { color: color-mix(in oklab, var(--surface), transparent 42%); }
+.sflow { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; }
+.sflow .l { width: 2px; height: 13px; background: var(--accent); }
+.sflow .h { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--accent); }
+.sflow .t { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.02em; }
+
+.shield { border: 1.5px solid var(--accent-line); background: var(--accent-06); padding: 11px 13px; margin: 6px 0; position: relative; }
+.shield::before {
+  content: "cache-aside band"; position: absolute; top: -10px; left: 12px;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--accent); background: var(--surface); padding: 2px 8px; border: 1px solid var(--accent-line);
+}
+.shield .sh-top { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--accent); }
+.shield .sh-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin-top: 8px; }
+.shield .sh-rules div { font-family: var(--font-mono); font-size: 10px; color: var(--fg); line-height: 1.4; display: flex; gap: 6px; }
+.shield .sh-rules b { color: var(--accent); font-weight: 600; flex: none; }
+.shield .sh-tx { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); margin-top: 8px; border-top: 1px dashed var(--accent-line); padding-top: 7px; line-height: 1.4; }
+.shield .sh-tx b { color: var(--fg); font-weight: 600; }
+
+.fdn { display: grid; grid-template-columns: 156px 1fr; border: 1px solid var(--line-2); background: var(--ink-03); margin-top: 11px; }
+.fdn + .fdn { margin-top: 9px; }
+.fdn-tab { background: var(--fg); color: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; justify-content: center; }
+.fdn-tab .ft { font-family: var(--font-display); font-weight: 600; font-size: var(--text-sm); letter-spacing: -0.01em; }
+.fdn-tab .fp { font-family: var(--font-mono); font-size: 10px; color: color-mix(in oklab, var(--surface), transparent 45%); line-height: 1.4; }
+.fdn-body { padding: 13px 16px; display: flex; flex-direction: column; gap: 9px; justify-content: center; }
+.fdn-cells { display: grid; gap: 8px; }
+.fdn-cells.c3 { grid-template-columns: repeat(3, 1fr); }
+.fdn-cells.c4 { grid-template-columns: repeat(4, 1fr); }
+.fdc { border: 1px solid var(--border); background: var(--surface); padding: 9px 11px; }
+.fdc .ft2 { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--fg); letter-spacing: -0.005em; display: flex; align-items: center; gap: 6px; }
+.fdc .fd2 { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.45; }
+.fdc.key { border-color: var(--accent-line); background: var(--accent-06); }
+.fdc.key .ft2 { color: var(--accent); }
+.fdn-note { font-family: var(--font-mono); font-size: 10px; color: var(--muted); line-height: 1.5; }
+.fdn-note b { color: var(--fg); font-weight: 600; }
+
+.persist { display: grid; grid-template-columns: 156px 1fr; border: 1.5px solid var(--line-3); background: var(--surface); }
+.persist .fdn-tab { background: var(--fg); }
+.persist .fdn-body { gap: 0; }
+.persist .fdn-note { margin-top: 12px; }
+
+.ptier-lbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 9px; }
+.ptier-lbl::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.ptier-lbl b { color: var(--fg); font-weight: 600; letter-spacing: 0.04em; }
+.ptier-cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 9px; }
+
+.pcard { border: 1px solid var(--line-2); background: color-mix(in oklab, var(--surface), var(--bg) 45%); padding: 11px 12px; display: flex; flex-direction: column; gap: 8px; }
+.pcard .pc-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pcard .pc-n { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--fg); letter-spacing: -0.005em; }
+.pcard .pc-k { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); line-height: 1.45; }
+.pcard .pc-impls { display: flex; flex-direction: column; gap: 5px; }
+.impl { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10px; background: var(--surface); border: 1px solid var(--border); padding: 5px 8px; }
+.impl .im-n { color: var(--fg); font-weight: 600; }
+.impl .im-d { color: var(--muted); }
+.impl .im-to { color: var(--accent); margin-left: auto; letter-spacing: 0.02em; white-space: nowrap; }
+.impl.mem .im-to { color: var(--muted); }
+
+.pmap { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 0; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.pmap .gl { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
+.pmap .gl .l { width: 2px; height: 13px; background: var(--line-2); }
+.pmap .gl .h { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--line-2); }
+.pmap .mp-t { max-width: 76ch; line-height: 1.5; text-align: center; }
+.pmap .mp-t b { color: var(--fg); font-weight: 600; }
+
+.pcard.sub { background: var(--fg); border-color: var(--fg); gap: 6px; }
+.pcard.sub .pc-tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: color-mix(in oklab, var(--surface), transparent 55%); }
+.pcard.sub .pc-n { color: var(--surface); font-size: 13.5px; }
+.pcard.sub .pc-k { color: color-mix(in oklab, var(--surface), transparent 42%); }
+.pcard.sub .pc-from { font-family: var(--font-mono); font-size: 9.5px; color: color-mix(in oklab, var(--surface), transparent 30%); line-height: 1.6; margin-top: 2px; }
+.pcard.sub .pc-from b { color: var(--surface); font-weight: 600; }
+
+.runtime { border: 1px solid var(--line-2); background: var(--ink-03); padding: 16px 20px; }
+.rt-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rt-comp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 13px; }
+.rtcell { border: 1px solid var(--border); background: var(--surface); padding: 11px 13px; }
+.rtcell.key { border-color: var(--accent-line); background: var(--accent-06); }
+.rtcell .rt-t { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--fg); display: flex; align-items: center; gap: 6px; }
+.rtcell.key .rt-t { color: var(--accent); }
+.rtcell .rt-d { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 5px; line-height: 1.45; }
+.rt-note { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); line-height: 1.6; margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 11px; }
+.rt-note b { color: var(--fg); font-weight: 600; }
+.rt-note .star { color: var(--accent); }
+
+.out-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 11px; }
+.outcell { border: 1px solid var(--border); background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.outcell .ot { font-weight: 600; font-size: 13px; letter-spacing: -0.005em; line-height: 1.25; }
+.outcell .os { font-family: var(--font-mono); font-size: 10px; color: var(--muted); line-height: 1.45; }
+.outcell .ofrom { font-family: var(--font-mono); font-size: 9.5px; color: var(--accent); margin-top: auto; letter-spacing: 0.02em; }
+
+.poster-foot {
+  padding: 22px 56px 34px; border-top: 1.5px solid var(--line-3);
+  display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted);
+}
+.poster-foot .brand { color: var(--fg); font-weight: 600; letter-spacing: 0.05em; }
+
+@media print {
+  body { background: var(--surface); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .stage { padding: 0 !important; }
+  .fitbox { width: auto !important; height: auto !important; overflow: visible !important; }
+  .poster { transform: none !important; width: auto !important; border: 0 !important; }
+  @page { margin: 8mm; }
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="fitbox" style="width: 1600px; height: 3715px;">
+    <div class="poster" data-od-id="poster" style="transform: scale(1);">
+
+      <header class="poster-head" data-od-id="poster-head">
+        <p class="kicker">Master System Diagram · System Architecture</p>
+        <h1 class="poster-title">Ech0 Architecture Atlas <span>/ Single Go Binary · Self-Hosted Timeline Platform</span></h1>
+        <p class="poster-sub">A single <b>synchronous request spine</b> runs down the center (handler → service → repository → DB); the <b>Agent subsystem</b> and the <b>event-driven subsystem</b> hang off the left and right wings as peer subsystems; four foundations — <b>config · tools · in-house libraries · local disk</b> — sit beneath the binary. Infrastructure is placed where it actually acts, not stacked into one uniform grid.</p>
+
+        <div class="head-foot">
+          <div class="metawrap">
+            <span class="meta-chip"><b>Language</b> Go 1.27+ · CGO</span>
+            <span class="meta-chip"><b>Web</b> Gin</span>
+            <span class="meta-chip"><b>DI</b> Google Wire</span>
+            <span class="meta-chip"><b>Storage</b> GORM + SQLite</span>
+            <span class="meta-chip"><b>Vectors</b> sqlite-vec</span>
+            <span class="meta-chip"><b>Cache</b> Ristretto</span>
+            <span class="meta-chip"><b>Scheduler</b> gocron v2</span>
+            <span class="meta-chip"><b>Object store</b> AWS SDK v2 · S3</span>
+            <span class="meta-chip"><b>Frontend</b> Vue 3 · Vite · TS</span>
+            <span class="meta-chip"><b>Form</b> Single binary · self-hosted</span>
+          </div>
+          <div class="legend">
+            <span class="li"><span class="sw sync"></span> Synchronous request spine</span>
+            <span class="li"><span class="sw async"></span> Async events · Notify by Go type</span>
+            <span class="li"><span class="sw dep"></span> Dependency / I/O / outbound</span>
+            <span class="li"><span class="sw key"></span> Key node / protection band</span>
+            <span class="li"><span class="sw star">★</span> Top-level shared singleton (injected once)</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="diagram" data-od-id="diagram">
+
+        <div class="rgn">
+          <span class="ix">1</span><span class="t">Entry points / clients</span>
+          <span class="d">Three inbound classes + one outbound delivery</span><span class="rule"></span>
+        </div>
+        <div class="clients4">
+          <div class="node"><div class="nt">Browser · Vue 3 SPA</div><div class="ns">Public timeline + admin panel · embedded web/dist</div></div>
+          <div class="node"><div class="nt">REST API client</div><div class="ns">/api · access token · scope / audience</div></div>
+          <div class="node key"><div class="nt">External LLM (via /mcp)</div><div class="ns">Calls internal APIs as MCP tools · inbound</div></div>
+          <div class="node"><div class="nt">Webhook receiver</div><div class="ns">Outbound · HMAC-signed delivery (see right-wing subscribers)</div></div>
+        </div>
+
+        <div class="down"><span class="t">HTTP + SSE · WebSocket /ws · JSON-RPC /mcp</span><span class="l"></span><span class="h"></span></div>
+
+        <div class="hostframe" data-od-id="host">
+          <span class="frame-tab">Host / container · self-hosted <span class="dim">· data/ persistent volume · :6277</span></span>
+
+          <div class="binary" data-od-id="binary">
+            <span class="frame-tab">Single Go binary <span class="dim">· cmd/ech0 · Gin</span></span>
+
+            <div class="rgn">
+              <span class="ix">2</span><span class="t">Ingress / routing · cross-cutting middleware</span>
+              <span class="d">internal/server · router.SetupRouter assembles by module</span><span class="rule"></span>
+            </div>
+            <div class="gate">
+              <div class="gatecard">
+                <div class="gate-h"><span class="gate-n">Route groups · RouterGroup</span><span class="gate-d">Prefix + auth policy</span></div>
+                <div class="chips">
+                  <span class="chip">/ <span class="cd">SPA + /api/files</span></span>
+                  <span class="chip">/api <span class="cd">Public</span></span>
+                  <span class="chip">/api <span class="cd">RequireAuth</span></span>
+                  <span class="chip">/api <span class="cd">OptionalAuth</span></span>
+                  <span class="chip">/ws <span class="cd">WebSocket</span></span>
+                  <span class="chip">/mcp <span class="cd">RequireAuth</span></span>
+                  <span class="chip soft">POST /api/comments/integration <span class="cd">scope+audience · bypasses captcha</span></span>
+                </div>
+              </div>
+              <div class="gatecard mw">
+                <div class="gate-h"><span class="gate-n">middleware · Deps{ TokenRevoker }</span><span class="gate-d">Cross-cutting: auth / rate-limit / anti-abuse</span></div>
+                <div class="chips">
+                  <span class="chip soft">auth</span><span class="chip soft">scope</span><span class="chip soft">cors</span>
+                  <span class="chip soft">origin</span><span class="chip soft">ratelimit</span>
+                  <span class="chip soft">captcha <span class="cd">pkg/gocap · PoW</span></span>
+                  <span class="chip soft">maintenance</span><span class="chip soft">nocache</span><span class="chip soft">staticfile</span>
+                  <span class="chip soft">i18n locale <span class="cd">go-i18n/v2 · Accept-Language / X-Locale</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="down"><span class="t">handler.Bundle dispatch · 14 domain handlers + MCP</span><span class="l"></span><span class="h"></span></div>
+
+            <div class="rgn">
+              <span class="ix">3</span><span class="t">Business domains · 15 domains / 4 clusters</span>
+              <span class="d">Each domain spans handler / service / repository / model · cross-layer imports use aliases</span><span class="rule"></span>
+            </div>
+            <div class="clusters">
+              <div class="cluster">
+                <div class="ch">Content &amp; interaction</div>
+                <div class="chips">
+                  <span class="chip key">echo <span class="cd">timeline core</span></span>
+                  <span class="chip">comment</span><span class="chip">file</span><span class="chip">connect</span>
+                </div>
+              </div>
+              <div class="cluster">
+                <div class="ch">Identity &amp; config</div>
+                <div class="chips">
+                  <span class="chip">user</span><span class="chip">auth <span class="cd">JWT/OAuth2/Passkey</span></span>
+                  <span class="chip">init</span><span class="chip">setting <span class="cd">↓ foundation</span></span>
+                </div>
+              </div>
+              <div class="cluster intel">
+                <div class="ch">Intelligence &amp; retrieval</div>
+                <div class="chips">
+                  <span class="chip">embedding</span>
+                  <span class="chip key">copilot <span class="cd">→ left wing Agent</span></span>
+                  <span class="chip">mcp <span class="cd">→ left wing inbound</span></span>
+                </div>
+              </div>
+              <div class="cluster">
+                <div class="ch">Ops &amp; observability</div>
+                <div class="chips">
+                  <span class="chip">dashboard</span><span class="chip">migrator</span>
+                  <span class="chip">common</span><span class="chip">web</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="down sync"><span class="t">Request axis · synchronous ↓ &nbsp;domains descend through four layers, subsystems hang on the wings</span><span class="l"></span><span class="h"></span></div>
+
+            <div class="core" data-od-id="core">
+              <div class="core3">
+
+                <div class="wing agent" data-od-id="agent">
+                  <span class="wing-tab">Agent subsystem</span>
+                  <div class="wing-sub">internal/agent · zero domain deps · tools injected by copilot</div>
+                  <div class="wdiv" style="border-top:none;padding-top:0;margin-top:0">Outbound · LLM</div>
+                  <div class="wn"><div class="wt">copilot.service</div><div class="wd">Builds prompt + injects 3 domain tools:<br>search_echos · summarize_echos · stats_overview</div></div>
+                  <div class="wmini"><span class="l"></span><span class="h"></span></div>
+                  <div class="wn key"><div class="wt">agent.Run · ReAct loop</div><div class="wd">Model decides how many retrievals per turn<br>agent.Run(ctx) → &lt;-chan AgentEvent</div></div>
+                  <div class="wmini"><span class="l"></span><span class="h"></span></div>
+                  <div class="wn"><div class="wt">Provider abstraction</div><div class="wd">Unifies OpenAI-compatible / Anthropic protocols</div></div>
+                  <div class="wmini out"><span class="l"></span><span class="h"></span></div>
+                  <div class="wn soft"><div class="wt">⟶ Outbound LLM (see Outbound §)</div><div class="wd">Generation + embedding retrieval via internal/embedding</div></div>
+                  <div class="wdiv">Inbound · MCP (mirror)</div>
+                  <div class="wn"><div class="wt">/mcp → viewer → Registry</div><div class="wd">Reads scope/audience, then dispatches <b>back to domain services</b></div></div>
+                </div>
+
+                <div class="bind">
+                  <span class="glyph">⇄</span>
+                  <span class="lbl"><b>copilot</b> injects tools<br>MCP back to services</span>
+                </div>
+
+                <div class="spine" data-od-id="spine">
+                  <div class="spine-cap">Request spine · handler → service → repository → DB</div>
+                  <div class="snode"><div class="st">handler/&lt;x&gt;</div><div class="ss">Thin shell · parse request / auth context / build DTO</div></div>
+                  <div class="sflow"><span class="l"></span><span class="h"></span><span class="t">calls</span></div>
+                  <div class="snode hub">
+                    <span class="port l"></span><span class="port r"></span>
+                    <div class="st">service/&lt;x&gt;</div><div class="ss">Orchestration hub · transactions / cache / cross-domain / emit events</div>
+                  </div>
+                  <div class="shield" data-od-id="cache-shield">
+                    <div class="sh-top">cache · Ristretto · ICache[K,V] · in-process</div>
+                    <div class="sh-rules">
+                      <div><b>Hit</b> return directly, bypass repository / DB</div>
+                      <div><b>Miss</b> fall back to repository, then backfill</div>
+                      <div><b>After write</b> invalidate matching key (event-driven)</div>
+                      <div><b>Per domain</b> summary / settings / hot-read protection</div>
+                    </div>
+                    <div class="sh-tx"><b>transaction · Transactor.Run</b>: the write path wraps a GORM transaction in service; cache invalidation moves in lockstep with the DB write.</div>
+                  </div>
+                  <div class="snode"><div class="st">repository/&lt;x&gt;</div><div class="ss">GORM query wrapper · falls back only on cache miss</div></div>
+                  <div class="sflow"><span class="l"></span><span class="h"></span><span class="t">persist</span></div>
+                  <div class="snode term"><div class="st">database → SQLite · sqlite-vec</div><div class="ss">Write lock · auto-migrate · HotChangeDatabase hot-swap → ↓ persistence base</div></div>
+                </div>
+
+                <div class="bind">
+                  <span class="glyph evt">⇢</span>
+                  <span class="lbl">service <b>Notify[T]</b><br>best-effort</span>
+                </div>
+
+                <div class="wing" data-od-id="events">
+                  <span class="wing-tab">Event-driven subsystem</span>
+                  <div class="wing-sub">Prefer emitting events for side effects over calling services directly in the handler</div>
+                  <div class="wdiv" style="border-top:none;padding-top:0;margin-top:0">Contract · pure vocabulary</div>
+                  <div class="wn"><div class="wt">internal/event</div><div class="wd">Imports only domain models, <b>unaware of busen</b><br>self-describing EventName() / OrderingKey()</div></div>
+                  <div class="wmini"><span class="l"></span><span class="h"></span></div>
+                  <div class="wdiv" style="border-top:none;padding-top:0">Routing · by Go type</div>
+                  <div class="wn key"><div class="wt">event/bus · Busen singleton</div><div class="wd">Emit / Notify / On[T] · generic routing by type<br>AsyncParallel · AsyncSequential(FIFO)</div></div>
+                  <div class="wmini"><span class="l"></span><span class="h"></span></div>
+                  <div class="wdiv" style="border-top:none;padding-top:0">Subscribers · side effects</div>
+                  <div class="wn"><div class="wt">webhook.Dispatcher</div><div class="wd">13 event types → worker pool → HMAC outbound delivery</div></div>
+                  <div class="wn"><div class="wt">EmbeddingProcessor</div><div class="wd">Echo* → incremental vector index</div></div>
+                  <div class="wn"><div class="wt">AgentProcessor</div><div class="wd">Echo*/UserDeleted → clear summary cache (write-invalidate)</div></div>
+                  <div class="wn"><div class="wt">snapshot scheduler</div><div class="wd">UpdateSnapshotSchedule → reload cron</div></div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="down"><span class="t">data access · storage.Manager / kvstore / migrator ↓ &nbsp;service persists state into the four foundations</span><span class="l"></span><span class="h"></span></div>
+
+            <div class="rgn">
+              <span class="ix">4</span><span class="t">System foundations · config / tools / in-house libraries</span>
+              <span class="d">Cross-cutting substrate consumed by every layer, not a row of peer singletons</span><span class="rule"></span>
+            </div>
+
+            <div class="fdn" data-od-id="fdn-setting">
+              <div class="fdn-tab"><span class="ft">Config foundation</span><span class="fp">internal/setting · system settings hub</span></div>
+              <div class="fdn-body">
+                <div class="fdn-cells c4">
+                  <div class="fdc"><div class="ft2">Spec[T]</div><div class="fd2">default / normalize / migrate · self-describing</div></div>
+                  <div class="fdc"><div class="ft2">Registry + Seed</div><div class="fd2">BeforeStart idempotently seeds all settings</div></div>
+                  <div class="fdc"><div class="ft2">Persist to KV</div><div class="fd2">durableKV → keyvalue repo (see persistence)</div></div>
+                  <div class="fdc"><div class="ft2">Read by all domains</div><div class="fd2">branding / OAuth2 / S3 / Agent / CORS / custom CSS·JS</div></div>
+                </div>
+                <div class="fdn-note">Changing the snapshot plan emits <b>UpdateSnapshotSchedule</b> → right-wing snapshot scheduler reloads cron; changing S3 goes through <b>ApplyS3Setting</b> → storage.Manager ★ reloads. Settings are a read-heavy, write-rare global substrate that broadcasts on change.</div>
+              </div>
+            </div>
+
+            <div class="fdn" data-od-id="fdn-util">
+              <div class="fdn-tab"><span class="ft">Tooling foundation</span><span class="fp">util/* + pkg/ in-house libraries</span></div>
+              <div class="fdn-body">
+                <div class="fdn-cells c4" style="margin-bottom:8px">
+                  <div class="fdc"><div class="ft2">util/* toolkit</div><div class="fd2">log(zap·module) / crypto / jwt / img / md / timezone / egress / cookie / err / format / url</div></div>
+                  <div class="fdc"><div class="ft2">pkg/busen</div><div class="fd2">Type-safe bounded async event bus → event/bus</div></div>
+                  <div class="fdc"><div class="ft2">pkg/virefs</div><div class="fd2">Key-addressed file system LocalFS ⇄ ObjectFS → storage</div></div>
+                  <div class="fdc"><div class="ft2">pkg/viewer</div><div class="fd2">Request-scoped identity/scope context → auth · mcp · service</div></div>
+                </div>
+                <div class="fdn-cells c4">
+                  <div class="fdc"><div class="ft2">pkg/gocap</div><div class="fd2">Embedded PoW captcha engine → captcha middleware</div></div>
+                  <div class="fdc"><div class="ft2">internal/i18n</div><div class="fd2">Gin locale middleware · go-i18n/v2 · 4 locales (zh-CN / en-US / de-DE / ja-JP) · priority: X-Locale → user pref → site default → en-US · CVE-2022-32149 guard</div></div>
+                  <div class="fdc"><div class="ft2">common · KeyValue</div><div class="fd2">Shared DTO / pagination / heatmap / enum constants</div></div>
+                  <div class="fdc"><div class="ft2">config (env singleton)</div><div class="fd2">caarlos0/env · sync.Once · loaded at bootstrap</div></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="down"><span class="t">Local-first persistence · service targets only the abstraction layer (database/GORM · storage.Manager★ · kvstore · migrator) ↓ &nbsp;abstractions then land bytes on the physical substrate</span><span class="l"></span><span class="h"></span></div>
+
+          <div class="rgn">
+            <span class="ix">5</span><span class="t">Persistence base · high-level abstraction over physical storage</span>
+            <span class="d">Only three physical substrates exist: SQLite · local FS · S3; VireFS / kvstore / snapshot are merely abstractions on top</span><span class="rule"></span>
+          </div>
+          <div class="persist" data-od-id="filesystem">
+            <div class="fdn-tab"><span class="ft">Persistence data/</span><span class="fp">Host persistent volume · single-process local-first · no separate backup (all via snapshot export)</span></div>
+            <div class="fdn-body">
+
+              <div class="ptier-lbl"><b>High-level abstraction</b>&nbsp;&nbsp;addressing / routing / serialization — holds no bytes itself</div>
+              <div class="ptier-cells">
+                <div class="pcard">
+                  <div class="pc-h"><span class="pc-n">VireFS</span><span class="pc-k">pkg/virefs · unified key-addressed FS abstraction · two backends</span></div>
+                  <div class="pc-impls">
+                    <div class="impl"><span class="im-n">LocalFS</span><span class="im-d">local backend</span><span class="im-to">→ local FS</span></div>
+                    <div class="impl"><span class="im-n">ObjectFS</span><span class="im-d">S3 backend</span><span class="im-to">→ S3</span></div>
+                  </div>
+                </div>
+                <div class="pcard">
+                  <div class="pc-h"><span class="pc-n">kvstore</span><span class="pc-k">Unified KV abstraction · two implementations</span></div>
+                  <div class="pc-impls">
+                    <div class="impl mem"><span class="im-n">Memory</span><span class="im-d">in-process · volatile</span><span class="im-to">· no disk</span></div>
+                    <div class="impl"><span class="im-n">Persistent</span><span class="im-d">durableKV · settings to DB</span><span class="im-to">→ SQLite</span></div>
+                  </div>
+                </div>
+                <div class="pcard">
+                  <div class="pc-h"><span class="pc-n">snapshot</span><span class="pc-k">Full pack of data/ → zip · depends on local FS</span></div>
+                  <div class="pc-impls">
+                    <div class="impl"><span class="im-n">Read data/</span><span class="im-d">walk full state</span><span class="im-to">← local FS</span></div>
+                    <div class="impl"><span class="im-n">Write zip</span><span class="im-d">migrator · job/cron</span><span class="im-to">→ local FS</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pmap">
+                <span class="gl"><span class="l"></span><span class="h"></span></span>
+                <span class="mp-t">The abstraction layer only handles <b>addressing · routing · serialization</b>; storage.Manager ★ decides whether VireFS uses LocalFS or ObjectFS. Bytes ultimately land on the <b>three physical substrates</b> below</span>
+                <span class="gl"><span class="l"></span><span class="h"></span></span>
+              </div>
+
+              <div class="ptier-lbl"><b>Physical substrate</b>&nbsp;&nbsp;actually holds bytes · to disk / to object store</div>
+              <div class="ptier-cells">
+                <div class="pcard sub">
+                  <span class="pc-tag">Local disk</span>
+                  <div class="pc-h"><span class="pc-n">Local FS · data/</span></div>
+                  <div class="pc-k">Host persistent volume · root of all state</div>
+                  <div class="pc-from">← VireFS.LocalFS media · ← snapshot zip · <b>the SQLite file itself lives here too</b></div>
+                </div>
+                <div class="pcard sub">
+                  <span class="pc-tag">Single-file database</span>
+                  <div class="pc-h"><span class="pc-n">SQLite</span></div>
+                  <div class="pc-k">Single file + sqlite-vec vector index</div>
+                  <div class="pc-from">← database/GORM main store (echo / user / comment / setting / job…) · ← kvstore.Persistent KV</div>
+                </div>
+                <div class="pcard sub">
+                  <span class="pc-tag">Object store · optional</span>
+                  <div class="pc-h"><span class="pc-n">S3-compatible</span></div>
+                  <div class="pc-k">AWS SDK v2 · remote</div>
+                  <div class="pc-from">← VireFS.ObjectFS (enabled via storage.Manager ★ switch)</div>
+                </div>
+              </div>
+
+              <div class="fdn-note"><b>Swappable object store:</b> the file domain knows only the VireFS abstraction; storage.Manager ★ switches wholesale between <b>LocalFS ⇄ ObjectFS(S3)</b> via <code>ApplyS3Setting / ReloadFromConfigAndDB</code>. File serving / settings page / migration share one Manager singleton, so changing S3 never reloads just one copy.</div>
+            </div>
+          </div>
+
+          <div class="rgn">
+            <span class="ix">6</span><span class="t">Outbound dependencies · external services</span>
+            <span class="d">Connect on demand · outbound HTTPS · failures don't block the main request</span><span class="rule"></span>
+          </div>
+          <div class="out-grid">
+            <div class="outcell"><div class="ot">LLM Provider</div><div class="os">OpenAI-compatible / Anthropic · generation + embedding</div><div class="ofrom">← left wing agent · embedding</div></div>
+            <div class="outcell"><div class="ot">OAuth2 / OIDC</div><div class="os">GitHub · Google · QQ · custom IdP</div><div class="ofrom">← auth</div></div>
+            <div class="outcell"><div class="ot">Object store · S3-compatible</div><div class="os">virefs ObjectFS · AWS SDK v2 · optional</div><div class="ofrom">← storage.Manager ★</div></div>
+            <div class="outcell"><div class="ot">Webhook receiver</div><div class="os">HMAC-signed delivery · retries · worker pool</div><div class="ofrom">← right wing webhook.Dispatcher</div></div>
+            <div class="outcell"><div class="ot">Federated Ech0 instances</div><div class="os">discovery / health check / aggregated timeline</div><div class="ofrom">← connect</div></div>
+          </div>
+
+          <div class="rgn">
+            <span class="ix">7</span><span class="t">Runtime / lifecycle orchestration</span>
+            <span class="d">Wire assembles the dependency graph · app.App starts/stops Components uniformly · ★ three shared singletons injected once</span><span class="rule"></span>
+          </div>
+          <div class="runtime" data-od-id="runtime">
+            <div class="rt-flow">
+              <span class="chip soft">cmd/ech0 main</span><span class="harrow">→</span>
+              <span class="chip soft">bootstrap <span class="cd">config singleton + zap</span></span><span class="harrow">→</span>
+              <span class="chip soft">cli <span class="cd">Cobra · serve/tui/version/hello</span></span><span class="harrow">→</span>
+              <span class="chip soft">di.BuildApp <span class="cd">Wire assembles dependency graph (make wire)</span></span><span class="harrow">→</span>
+              <span class="chip key">app.App <span class="cd">starts/stops Components + Hooks</span></span>
+            </div>
+            <div class="rt-comp">
+              <div class="rtcell"><div class="rt-t">server.Server</div><div class="rt-d">Gin HTTP · Start listen / Stop graceful shutdown</div></div>
+              <div class="rtcell key"><div class="rt-t"><span class="star">★</span> job.Manager</div><div class="rt-d">Submit → goroutine Runner · Reindex / Migration / Export · sweeps stale running jobs at startup</div></div>
+              <div class="rtcell"><div class="rt-t">task.Manager</div><div class="rt-d">gocron v2 · Cleanup / Snapshot / VisitorSnapshot · StopHook flush</div></div>
+              <div class="rtcell"><div class="rt-t">EventRegistrar</div><div class="rt-d">BeforeStart attaches all subscriptions · AfterStop unsubscribes + drains Draining</div></div>
+            </div>
+            <div class="rt-note">
+              <b>Start/stop order&nbsp;&nbsp;</b>BeforeStart: setting.Seed idempotent seeding · attach subscriptions · sweep stale jobs&nbsp;&nbsp;|&nbsp;&nbsp;Start (in order): job → task → server&nbsp;&nbsp;|&nbsp;&nbsp;Stop (graceful): HTTP graceful → task StopHook (flush <b>visitor.Tracker ★</b> visitor snapshot) → unsubscribe + drain webhook worker pool.<br>
+              <span class="star">★</span> <b>The three shared singletons may only be injected once at the top level</b> — don't let Wire clone a second copy: <b>visitor.Tracker</b> (actor model; otherwise writes hit #1 / reads from #2 stay 0) · <b>storage.Manager</b> (otherwise changing S3 leaves file serving on the old backend) · <b>job.Manager</b> (Runner registers once at construction, no construction cycle).
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <footer class="poster-foot" data-od-id="poster-foot">
+        <span class="brand">ECH0 · MASTER ARCHITECTURE MAP</span>
+        <span>Spine + two wings + four foundations · source architecture-overview.md · single master map · static view · 2026-06-14</span>
+      </footer>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var poster = document.querySelector('.poster');
+  var fitbox = document.querySelector('.fitbox');
+  var W = 1600, MARGIN = 40;
+  function fit() {
+    var avail = window.innerWidth - MARGIN * 2;
+    var scale = Math.min(1, avail / W);
+    poster.style.transform = 'scale(' + scale + ')';
+    fitbox.style.width = (W * scale) + 'px';
+    fitbox.style.height = (poster.offsetHeight * scale) + 'px';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('load', fit);
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fit); }
+  fit();
+})();
+</script>
+
+
+</body></html>

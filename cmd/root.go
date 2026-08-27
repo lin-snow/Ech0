@@ -10,20 +10,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// rootCmd 是 Ech0 的根命令
-// 默认启动CLI With TUI
 var rootCmd = &cobra.Command{
 	Use:   "ech0",
 	Short: "A self-hosted, lightweight microblog platform for personal thoughts",
 	Long:  `Ech0 is a new-generation open-source, self-hosted, lightweight publishing platform focused on the flow of personal thoughts.`,
 
-	// 这个 Run 会在没有子命令时执行
 	Run: func(cmd *cobra.Command, args []string) {
 		cli.DoTui()
 	},
 }
 
-// tuiCmd 是启动 Ech0 TUI 的命令
 var tuiCmd = &cobra.Command{
 	Use:   "tui",
 	Short: "Launch the Ech0 TUI",
@@ -32,7 +28,6 @@ var tuiCmd = &cobra.Command{
 	},
 }
 
-// versionCmd 是查看当前版本信息的命令
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
@@ -41,7 +36,6 @@ var versionCmd = &cobra.Command{
 	},
 }
 
-// helloCmd 是输出 Ech0 Logo 的命令
 var helloCmd = &cobra.Command{
 	Use:   "hello",
 	Short: "Print the Ech0 logo",
@@ -50,16 +44,13 @@ var helloCmd = &cobra.Command{
 	},
 }
 
-// init 函数用于初始化根命令和子命令
 func init() {
-	// 解决Windows下使用 Cobra 触发 mousetrap 提示
 	cobra.MousetrapHelpText = ""
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(helloCmd)
 }
 
-// Execute 是根命令的入口函数
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

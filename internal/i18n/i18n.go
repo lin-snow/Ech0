@@ -49,10 +49,19 @@ func newBundle() *goi18n.Bundle {
 	return b
 }
 
+const maxAcceptLanguageSeparators = 32
+
+func sanitizeAcceptLanguage(v string) string {
+	if strings.Count(v, "-")+strings.Count(v, "_") > maxAcceptLanguageSeparators {
+		return ""
+	}
+	return v
+}
+
 func ResolveLocale(raw ...string) string {
 	parts := make([]string, 0, len(raw))
 	for _, v := range raw {
-		v = strings.TrimSpace(v)
+		v = sanitizeAcceptLanguage(strings.TrimSpace(v))
 		if v != "" {
 			parts = append(parts, v)
 		}
@@ -62,8 +71,6 @@ func ResolveLocale(raw ...string) string {
 	}
 	tag, _, _ := language.ParseAcceptLanguage(strings.Join(parts, ","))
 	best, _, confidence := matcher.Match(tag...)
-	// 没有任何被支持的语言能匹配上时（matcher 会返回列表中的第一项作占位），
-	// 用 FallbackLocale = en-US 作为更国际化的兜底，而不是默默退到 zh-CN。
 	if confidence == language.No {
 		return string(commonModel.FallbackLocale)
 	}
@@ -76,7 +83,7 @@ func ResolveLocale(raw ...string) string {
 }
 
 func NewLocalizer(locale, acceptLanguage string) *goi18n.Localizer {
-	return goi18n.NewLocalizer(bundle, locale, acceptLanguage)
+	return goi18n.NewLocalizer(bundle, locale, sanitizeAcceptLanguage(acceptLanguage))
 }
 
 func Localize(localizer *goi18n.Localizer, messageID string, defaultText string, templateData map[string]any) string {
@@ -141,6 +148,8 @@ func explicitLocaleFromRequest(ctx *gin.Context) string {
 	}
 	return strings.TrimSpace(ctx.GetHeader("X-Locale"))
 }
+
+func SystemDefaultLocale() string { return systemDefaultLocale() }
 
 func systemDefaultLocale() string {
 	defaultLocale := string(commonModel.DefaultLocale)

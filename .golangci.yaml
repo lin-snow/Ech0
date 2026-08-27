@@ -1,26 +1,22 @@
-# Defines the configuration version.
-# The only possible value is "2".
 version: "2"
 
 linters:
-  # Default set of linters.
-  # The value can be:
-  # - `standard`: https://golangci-lint.run/docs/linters/#enabled-by-default
-  # - `all`: enables all linters by default.
-  # - `none`: disables all linters by default.
-  # - `fast`: enables only linters considered as "fast" (`golangci-lint help linters --json | jq '[ .[] | select(.fast==true) ] | map(.name)'`).
-  # Default: standard
   default: standard
   exclusions:
     rules:
-      # pkg/virefs 内化自上游 VireFS，沿用其原有的 errcheck 习惯（defer Close() 等惯用法）。
       - path: ^pkg/virefs/
         linters:
           - errcheck
+      - path: ^pkg/log/tint/
+        linters:
+          - errcheck
+          - staticcheck
+      - path: ^internal/agent/provider_openai\.go$
+        linters:
+          - staticcheck
+        text: SA1019.*MaxTokens
 
 formatters:
-  # Enable specific formatter.
-  # Default: [] (uses standard Go formatting)
   enable:
     - gci
     - gofmt

@@ -45,7 +45,7 @@ describe('settingStore.init', () => {
     apiMocks.fetchGetS3Settings.mockResolvedValue({ code: 1, data: { enable: false } })
     apiMocks.fetchGetAgentInfo.mockResolvedValue({
       code: 1,
-      data: { enable: false, model: '', provider: 'openai' },
+      data: { enable: false, model: '', protocol: 'openai' },
     })
     apiMocks.fetchHelloEch0.mockResolvedValue({ code: 1, data: {} })
   })

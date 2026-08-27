@@ -12,11 +12,8 @@
     "done": "完成",
     "add": "添加",
     "actions": "操作",
-    "none": "暂无",
-    "localeZhCN": "简体中文",
-    "localeEnUS": "English",
-    "localeDeDe": "Deutsch",
-    "localeJaJP": "日本語"
+    "optional": "可选",
+    "none": "暂无"
   },
   "editor": {
     "tagPickerTooltip": "选择标签",
@@ -28,17 +25,24 @@
     "showPreview": "显示预览",
     "hidePreview": "隐藏预览",
     "imageLayoutPlaceholder": "请选择布局方式",
-    "imageUrlPlaceholder": "请输入图片链接...",
-    "imageSectionTitle": "插入图片（支持直链、本地、S3存储）",
-    "imageAddMethod": "选择添加方式：",
+    "imageUrlPlaceholder": "请输入附件链接...",
+    "mediaSectionTitle": "插入媒体（图片 / 音频 / 视频）",
+    "mediaTypeLabel": "媒体类型：",
+    "mediaTypeImage": "图片",
+    "mediaTypeAudio": "音频",
+    "mediaTypeVideo": "视频",
+    "mixedCategoryRejected": "一条 Echo 只能包含同一类型的文件",
+    "categoryLockedHint": "已有文件，需先移除后才能切换类型",
+    "singleMediaLimit": "音频 / 视频每条 Echo 只能有一个，替换前请先移除当前文件",
+    "imageAddMethod": "选择存储方式：",
     "imageSourceExternal": "直链",
     "imageSourceLocal": "本地存储",
     "imageSourceObject": "S3存储",
     "imageLayout": "选择布局方式：",
     "imageSmartCompress": "智能压缩：",
-    "currentUploadMode": "当前上传方式为",
+    "currentUploadMode": "当前存储方式为",
     "uploadingSuffix": "，正在上传中...",
-    "addMoreImages": "添加更多图片",
+    "addMoreImages": "添加更多附件",
     "layoutWaterfall": "瀑布流",
     "layoutGrid": "九宫格",
     "layoutCarousel": "单图轮播",
@@ -107,7 +111,7 @@
     "extLocation": "位置",
     "more": "更多",
     "backToEditor": "返回编辑器",
-    "addImage": "添加图片",
+    "addImage": "添加附件",
     "publishEcho": "发布Echo",
     "publishEchoPublic": "公开发布",
     "publishEchoPrivate": "私密发布",
@@ -121,17 +125,17 @@
     "extText": "文字",
     "extImage": "图片",
     "extGeneric": "扩展",
-    "removeImage": "移除图片",
-    "invalidImageIndex": "当前图片索引无效，无法删除！",
-    "removeImageConfirmTitle": "确定要移除图片吗？",
-    "removeImageRemoteFailed": "图片已从编辑器移除，但服务器删除失败，可能存在残留文件",
+    "removeImage": "移除附件",
+    "invalidImageIndex": "当前附件索引无效，无法删除！",
+    "removeImageConfirmTitle": "确定要移除附件吗？",
+    "removeImageRemoteFailed": "附件已从编辑器移除，但服务器删除失败，可能存在残留文件",
     "restoreDraftTitle": "恢复本地草稿",
     "restoreDraftDesc": "检测到你有未发布的本地草稿，是否恢复？",
     "restoreDraftRecovered": "已恢复本地草稿",
-    "imageUrlRequired": "图片链接不能为空",
+    "imageUrlRequired": "附件链接不能为空",
     "externalRegisterFailed": "直链入库失败，请重试",
     "uploadNoPreviewUrl": "上传完成但未拿到可预览地址，请重试",
-    "fileUploadingWait": "图片仍在上传中，请等待上传完成后再发布",
+    "fileUploadingWait": "附件仍在上传中，请等待上传完成后再发布",
     "attachmentMissingFileId": "存在未绑定 file_id 的附件",
     "updateEchoEmpty": "待更新的Echo不能为空！",
     "addEchoEmpty": "待添加的Echo不能为空！",
@@ -161,8 +165,12 @@
     "noContentAdded": "尚未添加内容"
   },
   "commentManager": {
+    "tabSetting": "评论设置",
+    "tabManage": "评论管理",
     "title": "评论系统设置",
     "subtitle": "统一管理评论开关、审核策略与验证码配置。",
+    "listTitle": "评论管理",
+    "listSubtitle": "查看、审核和管理所有评论。",
     "enableCommentTitle": "启用评论系统",
     "enableCommentDesc": "关闭后前台将不展示评论区。",
     "requireApprovalTitle": "游客评论需审核",
@@ -184,8 +192,6 @@
     "hotAll": "全部 Hot",
     "hotOnly": "仅 Hot",
     "hotOnlyNot": "仅非 Hot",
-    "yes": "是",
-    "no": "否",
     "nickname": "昵称",
     "email": "邮箱",
     "time": "时间",
@@ -246,6 +252,9 @@
     "downloading": "下载中",
     "downloadFailed": "下载失败",
     "downloadFailedResponse": "下载失败：服务端返回异常内容"
+  },
+  "staticSite": {
+    "likeUnavailable": "当前为静态归档站点，无法点赞。"
   },
   "auth": {
     "loginSuccess": "登录成功,欢迎回来！🎉",
@@ -354,11 +363,12 @@
   },
   "homeNav": {
     "themeToggleTitle": "切换主题（下一个：{mode}）",
+    "localeToggleTitle": "切换显示语言",
+    "localeSyncFailed": "语言偏好同步失败",
     "themeLight": "浅色",
     "themeDark": "深色",
     "themeSunny": "晴日",
-    "themeSystem": "跟随系统",
-    "githubAction": "Github"
+    "themeSystem": "跟随系统"
   },
   "homeTop": {
     "searchTitle": "搜索",
@@ -371,6 +381,8 @@
     "openDetail": "打开详情",
     "bwOn": "切换为黑白模式（hover 卡片恢复彩色）",
     "bwOff": "恢复彩色",
+    "bwToastOn": "已切换到黑白模式",
+    "bwToastOff": "已切换到彩色模式",
     "empty": "暂无内容",
     "noMore": "已经到底了"
   },
@@ -385,6 +397,11 @@
     "dateRangeLast7Days": "最近 7 天",
     "dateRangeLast30Days": "最近 30 天",
     "dateRangeThisYear": "今年",
+    "visibilityLabel": "可见性",
+    "visibilityAll": "全部",
+    "visibilityPublic": "仅公开",
+    "visibilityPrivate": "仅私密",
+    "activeChipVisibilityPrefix": "可见性",
     "tagsLabel": "标签",
     "tagsHint": "任一匹配",
     "tagsEmpty": "暂无标签",
@@ -462,14 +479,19 @@
     "publishComment": "发表评论",
     "commentCount": "{count} 条评论",
     "markdownSupported": "支持 Markdown 语法",
+    "verifiedUser": "实例内的注册用户",
     "livePreview": "实时预览",
-    "previewPlaceholder": "在这里输入评论内容，将实时预览贴纸效果。",
     "nicknameRequired": "昵称（必填）",
     "emailRequired": "邮箱（必填）",
     "websiteOptional": "网址（可选）",
     "commentPlaceholder": "写下你的评论...",
     "submitting": "提交中...",
     "submitComment": "提交评论",
+    "reply": "回复",
+    "replyingTo": "正在回复 {'@'}{nickname}",
+    "cancelReply": "取消回复",
+    "inReplyTo": "回复 {'@'}{nickname}",
+    "inReplyToFloor": "回复 #{floor}",
     "commentPublished": "评论已发布",
     "commentSubmittedPending": "评论已提交，等待审核",
     "you": "你",
@@ -510,10 +532,6 @@
     "email": "邮箱",
     "password": "密码",
     "locale": "语言",
-    "localeZhShort": "简中",
-    "localeEnShort": "EN",
-    "localeDeShort": "DE",
-    "localeJaShort": "JA",
     "usernamePlaceholder": "请输入用户名",
     "emailPlaceholder": "请输入邮箱",
     "passwordPlaceholder": "请输入密码",
@@ -563,6 +581,8 @@
     "enableS3": "启用S3存储",
     "enableSsl": "启用SSL",
     "s3Provider": "S3 服务",
+    "usePathStyle": "Path-Style 访问",
+    "usePathStyleHint": "以 endpoint/bucket/key 形式访问对象（MinIO 类自建服务通常需要开启）",
     "endpoint": "S3 Endpoint",
     "endpointPlaceholder": "S3 Endpoint地址",
     "accessKey": "Access Key",
@@ -576,7 +596,10 @@
     "region": "S3 Region",
     "regionPlaceholder": "S3 Region",
     "cdnDomain": "CDN 域名",
-    "cdnPlaceholder": "S3 CDN 域名（可选）"
+    "cdnPlaceholder": "S3 CDN 域名（可选）",
+    "testConnection": "测试连接",
+    "testSuccess": "S3 连接正常",
+    "testFailed": "S3 连接失败：{detail}"
   },
   "passkeySetting": {
     "description": "使用 Passkey（WebAuthn）可在不同设备上无密码登录",
@@ -652,19 +675,32 @@
     "bindSuccess": "OAuth2账号绑定成功",
     "bindFailed": "OAuth2账号绑定失败，请重试"
   },
-  "backupSetting": {
+  "exportSetting": {
     "title": "数据导出",
-    "description": "导出当前系统快照，便于离线归档与迁移。",
+    "description": "选择导出格式：备份实例，或带走内容。",
     "exportSnapshot": "导出快照",
+    "exportCapsule": "导出胶囊",
+    "formatSnapshotTitle": "快照",
+    "formatSnapshotDesc": "完整备份，含账号与凭据",
+    "formatCapsuleTitle": "胶囊",
+    "formatCapsuleDesc": "仅内容，可分享或生成静态站",
+    "includePrivate": "包含私密内容",
     "loginRequired": "请登录后使用",
     "exporting": "导出中...请稍等",
-    "exportStarted": "备份导出开始！",
-    "exportFailed": "导出失败"
+    "exportStarted": "导出已开始！",
+    "exportFailed": "导出失败",
+    "jobTitle": "快照导出",
+    "jobTitleCapsule": "胶囊导出",
+    "artifactLabel": "产物",
+    "redownload": "重新下载"
   },
   "agentSetting": {
-    "title": "Agent 设置",
+    "title": "模型",
     "enableAgent": "启用 Agent",
-    "provider": "提供商",
+    "protocol": "接口协议",
+    "protocolOpenAI": "OpenAI 兼容",
+    "protocolOpenAIResponses": "OpenAI Responses",
+    "protocolAnthropic": "Anthropic",
     "modelName": "模型名称",
     "modelPlaceholder": "输入模型名称",
     "apiKey": "API Key",
@@ -672,7 +708,16 @@
     "baseUrl": "Base URL",
     "baseUrlPlaceholder": "输入自定义 Base URL",
     "prompt": "Prompt",
-    "promptPlaceholder": "输入自定义 Prompt"
+    "promptPlaceholder": "输入自定义 Prompt",
+    "promptHint": "自定义 Prompt 仅作用于「近期总结」，Chat 对话不会使用它",
+    "multimodal": "多模态支持",
+    "multimodalHint": "开启后，Chat 检索命中带图片的 Echo 时会把配图一并交给模型理解（需所配模型支持图片输入）",
+    "contextWindow": "上下文窗口",
+    "contextWindowPlaceholder": "如 256k、1m，留空默认 256k",
+    "contextWindowHint": "窗口越大越倾向一次性读入全部内容，越小越早转为分层总结。支持 k / m 单位（256k=256000、1m=1000000），留空按 256k 处理。",
+    "testConnection": "测试连接",
+    "testSuccess": "连接正常",
+    "testFailed": "连接失败：{detail}"
   },
   "webhookSetting": {
     "title": "Webhook",
@@ -764,6 +809,7 @@
     "detail": "详情",
     "viewDetail": "查看 Token 详情",
     "detailTitle": "Access Token 详情",
+    "detailOverview": "概览",
     "closeDetail": "关闭",
     "neverExpire": "永不过期",
     "expiryOption8Hours": "8 小时",
@@ -785,9 +831,34 @@
     "deleteConfirmTitle": "确认删除此 Access Token 吗？",
     "deleteSuccess": "Access Token 删除成功"
   },
+  "dataManagement": {
+    "tabImport": "导入",
+    "tabExport": "导出",
+    "tabSnapshot": "快照"
+  },
+  "storageManagement": {
+    "tabObjectStorage": "对象存储",
+    "tabFiles": "文件管理"
+  },
+  "ssoManagement": {
+    "tabOAuth2": "OAuth2",
+    "tabPasskey": "Passkey"
+  },
+  "extensionManagement": {
+    "tabConnect": "Connect",
+    "tabCopilot": "Copilot"
+  },
+  "userManagement": {
+    "tabAccount": "账户设置",
+    "tabManage": "用户管理"
+  },
+  "settingManagement": {
+    "tabSystem": "系统设置",
+    "tabAccessToken": "访问令牌"
+  },
   "migrationSetting": {
     "title": "数据导入",
-    "description": "支持从 Ech0 v4、Memos 导入数据。",
+    "description": "支持从 Ech0 v4、Memos 以及 Ech0 胶囊导入数据。",
     "inDevelopment": "开发中",
     "sourceZip": "来源压缩包",
     "pickZip": "选择 zip 文件",
@@ -826,8 +897,12 @@
     "cancelled": "迁移已取消",
     "cleanupFailed": "清理迁移失败",
     "cleaned": "迁移记录已清理",
-    "sourceEch0v4": "支持最新版 Ech0 v4 及以后",
+    "sourceEch0": "支持从 Ech0 导入",
     "sourceMemos": "支持 Memos（开发中）",
+    "sourceCapsuleTitle": "Ech0 胶囊",
+    "sourceCapsule": "支持从 Ech0 胶囊导入",
+    "capsuleNote": "追加导入，按 id 去重，不覆盖现有内容",
+    "capsuleIncludePrivate": "包含私密内容",
     "statusIdle": "空闲",
     "statusPending": "等待中",
     "statusRunning": "迁移中",
@@ -853,15 +928,17 @@
     "invalidUrl": "Connect 地址格式无效，仅支持 http/https",
     "disconnectConfirmTitle": "确定要断开连接吗？"
   },
-  "backupScheduleSetting": {
-    "title": "快照设置",
+  "snapshotScheduleSetting": {
+    "title": "定时快照",
     "description": "配置自动创建快照计划，也可手动触发创建。",
-    "createSnapshot": "创建快照",
-    "creatingSnapshot": "创建中...",
-    "createSnapshotSuccess": "快照创建成功",
-    "createSnapshotFailed": "快照创建失败",
-    "enableAutoBackup": "自动创建快照",
-    "crontab": "快照计划"
+    "enableAutoSnapshot": "自动创建快照",
+    "crontab": "快照计划",
+    "manualLabel": "手动创建",
+    "createNow": "立即创建快照",
+    "creating": "创建中...",
+    "jobTitle": "快照创建",
+    "createSuccess": "快照创建成功",
+    "createFailed": "快照创建失败"
   },
   "cronEditor": {
     "frequency": "频率",
@@ -893,7 +970,10 @@
   },
   "uploader": {
     "dropHere": "拖拽 / 粘贴 / 点击选择图片",
+    "dropHereAudio": "拖拽 / 点击选择音频",
+    "dropHereVideo": "拖拽 / 点击选择视频",
     "dropHint": "支持多选，最多 {max} 张",
+    "dropHintSingle": "最多 {max} 个",
     "cancelAll": "取消全部",
     "retry": "重试",
     "removeItem": "移除",
@@ -909,8 +989,8 @@
     "uploadingProgress": "正在上传 {active} 个文件...",
     "maxFilesReached": "最多 {max} 个文件，已忽略多余的",
     "fileTooLarge": "{name} 超过单文件 {max} 上限，已跳过",
-    "uploadError": "上传图片时发生错误 😢",
-    "loginRequired": "请先登录再上传图片 😢",
+    "uploadError": "上传文件时发生错误 😢",
+    "loginRequired": "请先登录再上传 😢",
     "missingFileIdentifier": "上传响应缺少文件标识，无法绑定到 Echo，请重试",
     "fileMetaFillbackFailed": "文件元数据回填失败"
   },
@@ -931,16 +1011,10 @@
   },
   "about": {
     "linkAriaLabel": "关于本 Ech0 实例",
-    "copyrightHeading": "版权",
-    "licenseLine": "开源协议：",
-    "authorHeading": "作者",
-    "authorGithub": "GitHub 主页",
-    "sourceHeading": "源代码",
+    "fieldSource": "源码",
     "viewSource": "在 GitHub 上查看源代码",
     "viewSourceAtCommit": "在 GitHub 上查看 commit {'@'} {commit} 的源代码",
-    "viewRelease": "v{version} 发布说明",
-    "buildTime": "构建时间 {time}",
-    "poweredBy": "用❤️打造 · Powered by Ech0"
+    "poweredBy": "Powered by Ech0"
   },
   "echoPage": {
     "loadingDetail": "正在加载 Echo 详情..."
@@ -961,11 +1035,34 @@
     "nextImage": "下一张图片",
     "scrollHint": "← 左右滑动查看更多 →"
   },
+  "audioPlayer": {
+    "unsupported": "您的浏览器不支持音频播放",
+    "play": "播放",
+    "pause": "暂停",
+    "seek": "拖动调整播放进度",
+    "label": "音频"
+  },
+  "videoPlayer": {
+    "unsupported": "您的浏览器不支持视频播放",
+    "play": "播放视频",
+    "close": "关闭",
+    "label": "视频",
+    "fullscreen": "全屏",
+    "paused": "已暂停"
+  },
   "githubCard": {
     "avatarAlt": "头像"
   },
   "extensionCard": {
     "music": "音乐",
+    "musicPlayer": "音乐播放器",
+    "musicPlay": "播放",
+    "musicPause": "暂停",
+    "musicProgress": "播放进度",
+    "musicArtistUnknown": "未知歌手",
+    "musicCoverAlt": "{title} 的封面",
+    "musicUnavailable": "该音乐播放源暂时不可用",
+    "musicUnavailableHint": "请检查音乐链接或 Meting API 配置",
     "github": "GitHub",
     "website": "网站",
     "location": "位置",
@@ -980,5 +1077,85 @@
   },
   "websocket": {
     "invalidMessage": "收到无效的 WebSocket 消息"
+  },
+  "copilotSetting": {
+    "title": "Ech0 Copilot"
+  },
+  "embeddingSetting": {
+    "title": "向量索引",
+    "optionalHint": "（可选）向量索引用于让 Copilot 检索历史 Echo 的语义内容，不配置也能正常对话。",
+    "enable": "启用索引",
+    "modelName": "Embedding 模型",
+    "modelPlaceholder": "如 text-embedding-3-small",
+    "dim": "向量维度",
+    "dimPlaceholder": "需与所选模型一致，如 1536",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "请输入 API Key（本地服务可留空）",
+    "baseUrl": "自定义 API 地址",
+    "baseUrlPlaceholder": "https://api.openai.com/v1",
+    "baseUrlHint": "填写服务的 API 根地址即可，系统会自动补全 /embeddings，请勿手动添加。",
+    "batchSize": "单批条数",
+    "batchSizePlaceholder": "默认 64（部分提供商限制 64 或 25）",
+    "batchSizeHint": "重建索引时每次请求向量化的文本条数。部分提供商限制单次最多 64 或 25 条，超限会报错；填 0 使用默认值 64。",
+    "batchSizeDefault": "默认（64）",
+    "reindex": "重建索引",
+    "reindexHint": "为全部历史 Echo 重新生成向量。更换模型或维度后需执行一次。",
+    "reindexAction": "开始重建",
+    "reindexResult": "已索引 {indexed}/{total} 条，失败 {failed} 条。",
+    "reindexCancel": "取消重建",
+    "reindexRunning": "正在重建…",
+    "reindexProgress": "正在重建：已索引 {indexed}/{total} 条",
+    "reindexFailed": "重建失败：{error}",
+    "reindexCancelled": "已取消重建。",
+    "reindexConfirmTitle": "重建向量索引？",
+    "reindexConfirmDesc": "模型或维度已变更，历史索引已失效，需要为全部历史 Echo 重新生成向量。是否立即重建？"
+  },
+  "chatPanel": {
+    "suggestionsTitle": "试试这样问：",
+    "suggestion1": "总结我最近一段时间在关注和思考什么",
+    "suggestion2": "我这段时间的心情有什么变化",
+    "suggestion3": "把我记过的零散想法汇总一下",
+    "inputPlaceholder": "和你的 Echo 对话",
+    "send": "发送",
+    "clear": "清空",
+    "clearConfirmTitle": "清除所有对话？",
+    "clearConfirmDesc": "将删除当前会话的全部对话记录，且无法恢复。",
+    "clearSuccess": "已清除对话",
+    "searching": "正在检索：{query}",
+    "coverage": "📚 已覆盖该区间 {total} 条 Echo",
+    "coverageTruncated": "📚 条数较多，已覆盖最近 {returned} 条 Echo",
+    "errorGeneric": "对话出错了，请稍后再试或检查模型与索引设置。",
+    "noResponse": "这次没有得到回复",
+    "retry": "重新发送",
+    "sourcesMore": "展开其余 {count} 条来源",
+    "sourcesLess": "收起来源",
+    "sourceNoContent": "无正文",
+    "reasoningThinking": "深度思考中…",
+    "reasoningDone": "已思考（用时 {seconds} 秒）",
+    "navLabel": "问题导航"
+  },
+  "chatLauncher": {
+    "title": "对话",
+    "greeting": "想聊点什么？",
+    "placeholder": "问点什么…",
+    "kbdEnter": "进入对话",
+    "kbdClose": "关闭"
+  },
+  "jobProgress": {
+    "statusIdle": "空闲",
+    "statusPending": "排队中",
+    "statusRunning": "进行中",
+    "statusSuccess": "已完成",
+    "statusFailed": "失败",
+    "statusCancelled": "已取消",
+    "importPhaseExtracting": "解析",
+    "importPhaseLoading": "写入",
+    "importPhaseReporting": "汇总",
+    "importPhaseCompleted": "完成",
+    "importPhaseChecking": "校验",
+    "importPhaseImporting": "导入",
+    "exportPhasePending": "准备",
+    "exportPhasePacking": "打包",
+    "exportPhaseCompleted": "完成"
   }
 }

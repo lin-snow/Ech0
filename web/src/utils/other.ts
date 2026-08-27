@@ -30,17 +30,13 @@ const resolveFileUrl = (
   baseUrl?: string,
 ) => resolveFileUrlByPath(file.url || file.image_url, baseUrl)
 
-// 获取图片链接
 export const getFileUrl = (file: App.Api.Ech0.FileObject) => resolveFileUrl(file)
 
-// 获取待添加图片链接
 export const getFileToAddUrl = (file: App.Api.Ech0.FileToAdd) => resolveFileUrl(file)
 
-// backward-compatible aliases
 export const getImageUrl = (image: App.Api.Ech0.FileObject) => getFileUrl(image)
 export const getImageToAddUrl = (image: App.Api.Ech0.FileToAdd) => getFileToAddUrl(image)
 
-// 精确到分钟的绝对时间，按当前 locale 渲染。用于详情页等需要确切时间戳的位置。
 export const formatDateTime = (dateInput: string | number | null | undefined) => {
   const ms = timeValueToMs(dateInput)
   if (ms <= 0) return ''
@@ -56,11 +52,6 @@ export const formatDateTime = (dateInput: string | number | null | undefined) =>
 }
 
 export const formatDate = (dateInput: string | number | null | undefined) => {
-  // <24h：刚刚 / N 分钟前 / N 小时前（按实际经过时间）
-  // 24h～48h：1 天前；48h～72h：2 天前；≥72h：Intl 按 locale 显示完整日期
-
-  // 统一走 timeValueToMs：兼容 number（秒/毫秒）、ISO 字符串、纯数字字符串；
-  // 无效/缺失时返回 0，此处兜底避免渲染成 1970-01-01。
   const ms = timeValueToMs(dateInput)
   if (ms <= 0) return ''
   const date = new Date(ms)
@@ -113,15 +104,10 @@ export const formatDate = (dateInput: string | number | null | undefined) => {
   return longFormatter()
 }
 
-// 解析音乐链接（网易云、QQ音乐、Apple Music）
 export const parseMusicURL = (url: string) => {
   url = url.trim()
 
-  /* =======================
-   * 网易云音乐
-   * ======================= */
   if (/^https:\/\/([a-z0-9-]+\.)*music\.163\.com/i.test(url)) {
-    // id：永远从 query 拿
     const idMatch = url.match(/[?&]id=(\d+)/)
     if (!idMatch) return null
 
@@ -132,9 +118,6 @@ export const parseMusicURL = (url: string) => {
     } else if (/(\/|#\/|\/m\/)playlist/.test(url)) {
       type = 'playlist'
     }
-    // else if (/(\/|#\/|\/m\/)album/.test(url)) {
-    //   type = 'album'
-    // }
 
     if (!type) return null
 
@@ -145,11 +128,7 @@ export const parseMusicURL = (url: string) => {
     }
   }
 
-  /* =======================
-   * QQ 音乐
-   * ======================= */
   if (/^https:\/\/([a-z0-9-]+\.)*qq\.com/i.test(url)) {
-    // 新版 songDetail（字母数字混合）
     const newSongMatch = url.match(/songDetail\/([a-zA-Z0-9]+)/)
     if (newSongMatch) {
       return {
@@ -159,7 +138,6 @@ export const parseMusicURL = (url: string) => {
       }
     }
 
-    // 旧版 songid（纯数字）
     const oldSongMatch = url.match(/[?&]songid=(\d+)/)
     if (oldSongMatch) {
       return {
@@ -169,7 +147,6 @@ export const parseMusicURL = (url: string) => {
       }
     }
 
-    // 匹配 /playlist/ 后面的数字ID
     const playlistMatch = url.match(/\/playlist\/(\d+)/i)
     if (playlistMatch) {
       return {
@@ -181,9 +158,6 @@ export const parseMusicURL = (url: string) => {
     return null
   }
 
-  /* =======================
-   * Apple Music
-   * ======================= */
   if (/^https:\/\/music\.apple\.com/i.test(url)) {
     const appleMatch = url.match(/\/(song|album)\/[^/]+\/(\d+)/)
     if (!appleMatch) return null
@@ -197,46 +171,35 @@ export const parseMusicURL = (url: string) => {
   return null
 }
 
-/**
- * 从一段文本中提取并返回最短、规范的音乐链接
- */
 export const extractAndCleanMusicURL = (input: string): string | null => {
   const text = input.trim()
 
-  // 粗暴提取第一个 URL（足够鲁棒）
   const urlMatch = text.match(/https?:\/\/[^\s]+/i)
   if (!urlMatch) return null
 
   const rawUrl = urlMatch[0]
 
-  // 复用统一解析函数
   const parsed = parseMusicURL(rawUrl)
   if (!parsed) return null
 
-  // 规范化重组
   switch (parsed.server) {
     case MusicProvider.NETEASE: {
-      // 统一为 PC 可打开的最短链接
       return `https://music.163.com/#/${parsed.type}?id=${parsed.id}`
     }
 
     case MusicProvider.QQ: {
-      // 根据 type 分别生成歌曲或歌单的规范化链接
       if (parsed.type === 'song') {
         return `https://y.qq.com/n/ryqq_v2/songDetail/${parsed.id}`
       }
 
       if (parsed.type === 'playlist') {
-        // 使用统一的歌单路径格式
         return `https://y.qq.com/n/ryqq_v2/playlist/${parsed.id}`
       }
 
-      // 如果是其他未知类型，则返回 null
       return null
     }
 
     case MusicProvider.APPLE: {
-      // 去掉后面的参数
       const cleanUrl = rawUrl.split('?')[0]
       return cleanUrl ?? rawUrl
     }
@@ -246,15 +209,14 @@ export const extractAndCleanMusicURL = (input: string): string | null => {
   }
 }
 
-// 获取 HubEcho 的图片
 export const getHubImageUrl = (image: App.Api.Ech0.FileObject, baseurl: string) => {
   return resolveFileUrl(image, baseurl)
 }
 
-/**
- * Base64URL to Uint8Array
- * 用于解析服务端返回的 WebAuthn publicKey
- */
+export const getHubFileUrl = (file: App.Api.Ech0.FileObject, baseurl: string) => {
+  return resolveFileUrl(file, baseurl)
+}
+
 export function base64urlToUint8Array(input: string): Uint8Array {
   const base64 = input.replace(/-/g, '+').replace(/_/g, '/')
   const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4))
@@ -265,10 +227,6 @@ export function base64urlToUint8Array(input: string): Uint8Array {
   return bytes
 }
 
-/**
- * Uint8Array to Base64URL
- * 用于生成客户端返回的 WebAuthn publicKey
- */
 export function uint8ArrayToBase64url(bytes: ArrayBuffer | Uint8Array): string {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
   let binary = ''
@@ -279,7 +237,6 @@ export function uint8ArrayToBase64url(bytes: ArrayBuffer | Uint8Array): string {
 
 export function isSafari(): boolean {
   const ua = navigator.userAgent
-  // Exclude Chrome, Chromium-based Edge, and iOS Chrome/Firefox
   return (
     ua.includes('Safari') &&
     !ua.includes('Chrome') &&

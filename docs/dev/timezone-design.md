@@ -179,7 +179,6 @@ flowchart TB
 | `file.TempFile` (`temp_files`) | `expire_at`, `created_at` | `expire_at` 业务层按 UTC 计算；`created_at` 自动时间戳 | 统一 UTC（业务+自动） |
 | `comment.Comment` (`comments`) | `created_at`, `updated_at` | 自动时间戳 | 统一 UTC（自动） |
 | `webhook.Webhook` (`webhooks`) | `created_at`, `updated_at`, `last_trigger` | `last_trigger` 业务层 UTC；其余自动时间戳 | 统一 UTC（业务+自动） |
-| `queue.DeadLetter` (`dead_letters`) | `next_retry`, `created_at`, `updated_at` | `next_retry` 业务层 UTC；其余自动时间戳 | 统一 UTC（业务+自动） |
 | `migration.MigrationJob` (`migration_jobs`) | `started_at`, `finished_at`, `created_at`, `updated_at` | 迁移状态时间使用 UTC；自动时间戳 | 统一 UTC（业务+自动） |
 | `setting.AccessTokenSetting` (`access_token_settings`) | `created_at`, `expiry`, `last_used_at` | `expiry` 业务层 UTC；`created_at` 自动时间戳 | 统一 UTC（业务+自动） |
 | `auth.Passkey` (`passkeys`) | `created_at`, `updated_at`, `last_used_at` | 自动时间戳 | 统一 UTC（自动） |

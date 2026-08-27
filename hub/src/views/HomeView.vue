@@ -20,10 +20,6 @@ const toastMessage = ref<string | null>(null)
 
 const abortCtrl = new AbortController()
 
-/**
- * 把 probe + connect 融合成单实例任务，方便用 pMapLimit 流式 settle —
- * 每个实例就绪后立刻冒泡到 Active creators，而不是等所有实例都返回。
- */
 async function loadInstanceSummary(
   inst: HubInstance,
   signal: AbortSignal,
@@ -66,7 +62,6 @@ onMounted(async () => {
       toastMessage.value = `Loaded ${n} instance${n === 1 ? '' : 's'}`
     }
   } catch {
-    /* home: omit noisy errors; explore shows full diagnostics */
   }
 })
 

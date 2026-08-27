@@ -77,6 +77,7 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useSettingStore, useZenStore } from '@/stores'
 import { resolveAvatarUrl } from '@/service/request/shared'
+import { theToast } from '@/utils/toast'
 import TheZenEchoCard from '@/components/advanced/echo/cards/TheZenEchoCard.vue'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import Close from '@/components/icons/close.vue'
@@ -97,8 +98,8 @@ let sentinelObserver: IntersectionObserver | null = null
 const bwMode = ref<boolean>(false)
 const toggleBW = () => {
   bwMode.value = !bwMode.value
+  theToast.success(String(bwMode.value ? t('zenMode.bwToastOn') : t('zenMode.bwToastOff')))
 }
-// 用两个静态 t() 调用，让 i18n unused-check 能识别 key 被引用。
 const bwOnLabel = computed(() => t('zenMode.bwOn'))
 const bwOffLabel = computed(() => t('zenMode.bwOff'))
 const bwToggleLabel = computed(() => (bwMode.value ? bwOffLabel.value : bwOnLabel.value))
@@ -129,11 +130,6 @@ const teardownSentinelObserver = () => {
   sentinelObserver = null
 }
 
-// ─────────────────────────────────────────────
-// Masonry：CSS Grid + ResizeObserver 测高分配 row span
-// 比 CSS columns 可靠：每张卡片测自己的高，按 1px 行单位算 span，
-// 图片懒加载完成时自动重排，永远不会出现"右列空、左列堆满"的失衡。
-// ─────────────────────────────────────────────
 const ROW_HEIGHT_PX = 1
 const ROW_GAP_PX = 16
 
@@ -159,8 +155,6 @@ const ensureResizeObserver = () => {
   })
 }
 
-// Vue ref function：每张卡的 cell wrapper mount/unmount 都会调一次。
-// 用一个 Set 去重，避免对同一元素重复 observe（v-for 重渲染时 Vue 会先卸再装）。
 const registerItem = (el: HTMLElement | null) => {
   if (!el) return
   if (observedItems.has(el)) return
@@ -233,12 +227,10 @@ onBeforeUnmount(() => {
   padding: 0.875rem 1.25rem;
   margin: 0 -1.25rem 0.75rem;
 
-  /* 同 canvas 色，纯色不透明；横向拉满抵消父容器 padding，避免边缘漏出卡片 */
   background-color: var(--color-bg-canvas);
   isolation: isolate;
 }
 
-/* 左侧胶囊：logo + 黑白切换按钮 */
 .zen-view__pill {
   display: inline-flex;
   align-items: center;
@@ -291,7 +283,6 @@ onBeforeUnmount(() => {
   outline-offset: 2px;
 }
 
-/* 右上角退出按钮 */
 .zen-view__exit {
   display: inline-flex;
   align-items: center;
@@ -320,9 +311,6 @@ onBeforeUnmount(() => {
   outline-offset: 2px;
 }
 
-/* JS-driven masonry：每个 cell 的 grid-row span 由脚本按真实高度算
-   minmax(min(100%, 22rem), 1fr)：列至少 22rem，否则一行一列；
-   配合 grid-auto-rows 1px + 1rem gap，让 span 数学正好对齐 */
 .zen-view__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
@@ -332,11 +320,9 @@ onBeforeUnmount(() => {
 }
 
 .zen-view__cell {
-  /* gridRowEnd 由 JS 设置；此处只声明默认占位，避免首帧抖动 */
   grid-row-end: span 30;
 }
 
-/* 黑白模式：所有卡片 grayscale，hover 单卡恢复彩色（"对比聚焦"效果） */
 .zen-view__grid--bw .zen-view__cell {
   filter: grayscale(1);
   transition: filter 0.3s ease;

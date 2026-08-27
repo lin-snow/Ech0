@@ -62,9 +62,7 @@ const updateWebsiteJsonLd = (name: string, description: string, canonicalUrl: st
     jsonLd.description = description
     jsonLd.url = canonicalUrl
     script.textContent = JSON.stringify(jsonLd)
-  } catch {
-    // JSON-LD 非关键路径，解析失败时静默跳过
-  }
+  } catch {}
 }
 
 export const useSeoHead = (systemSetting: Ref<SeoSystemSetting>) => {
@@ -75,9 +73,7 @@ export const useSeoHead = (systemSetting: Ref<SeoSystemSetting>) => {
     if (configuredUrl) {
       try {
         return new URL(configuredUrl).origin
-      } catch {
-        // 配置非法时回退当前域名
-      }
+      } catch {}
     }
     return window.location.origin
   }

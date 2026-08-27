@@ -5,9 +5,6 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { fetchQueryEchos } from '@/service/api'
 
-// Zen Mode 专用 store：与 useEchoStore 完全隔离。
-// 与首页时间线不同，Zen 走 append 模式，每页累积到 echoList 末尾，
-// 由 IntersectionObserver 触底自动调用 loadNextPage。
 export const useZenStore = defineStore('zenStore', () => {
   const normalizeId = (echo: App.Api.Ech0.Echo): string => String(echo?.id ?? '').trim()
 
@@ -37,7 +34,6 @@ export const useZenStore = defineStore('zenStore', () => {
           ...item,
           id: normalizeId(item),
         }))
-        // 去重防御：用户翻页期间他人发新 echo 会让分页边界出现重复。
         const seen = new Set(echoList.value.map((e) => e.id))
         const fresh = incoming.filter((item) => item.id && !seen.has(item.id))
         echoList.value.push(...fresh)

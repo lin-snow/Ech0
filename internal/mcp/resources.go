@@ -12,6 +12,8 @@ type ResourceDefinition struct {
 }
 
 type ResourcesListResult struct {
+	ResultEnvelope
+	CacheInfo
 	Resources []ResourceDefinition `json:"resources"`
 }
 
@@ -26,5 +28,7 @@ type ResourceContent struct {
 }
 
 type ResourceReadResult struct {
+	ResultEnvelope
+	CacheInfo
 	Contents []ResourceContent `json:"contents"`
 }

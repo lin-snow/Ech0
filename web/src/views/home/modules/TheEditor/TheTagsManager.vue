@@ -35,9 +35,9 @@
     >
       {{ t('editor.tagManagerEmpty') }}
     </div>
-    <div v-else class="flex flex-wrap gap-2">
+    <div v-else ref="listRef" class="flex flex-wrap gap-2">
       <Popover
-        v-for="(tag, index) in tagList"
+        v-for="tag in tagList"
         :key="tag.id"
         class="relative overflow-visible"
         v-slot="{ close }"
@@ -45,6 +45,7 @@
         <PopoverButton
           class="flex items-center gap-1 border rounded-sm border-[var(--color-border-subtle)] border-dashed py-0.5 px-1 mb-1 outline-none transition-colors duration-150 hover:text-[var(--color-text-secondary)]"
           style="white-space: nowrap"
+          @click="resolvePanelSide($event, tag.id)"
         >
           <div
             class="hover:cursor-pointer text-[var(--color-text-muted)] flex items-center justify-start gap-2"
@@ -62,8 +63,8 @@
           leave-from-class="translate-y-0 opacity-100"
           leave-to-class="translate-y-1 opacity-0"
         >
-          <PopoverPanel :class="getPopoverPanelClass(index)">
-            <div class="overflow-hidden rounded-lg shadow-lg ring-1 ring-black/5">
+          <PopoverPanel :class="getPopoverPanelClass(tag.id)">
+            <div class="overflow-hidden rounded-md shadow-sm ring-black/5">
               <div
                 class="relative flex justify-around gap-2 bg-[var(--color-bg-surface)] p-1 text-[var(--color-text-secondary)]"
               >
@@ -103,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useEchoStore, useUserStore } from '@/stores'
 import { fetchDeleteTagById } from '@/service/api'
 import { storeToRefs } from 'pinia'
@@ -148,25 +149,46 @@ onMounted(() => {
 })
 
 const { openConfirm } = useBaseDialog()
-const getPopoverPanelClass = (index: number) => {
-  const total = tagList.value.length
-  if (index <= 1) return 'absolute left-0 z-40 mt-1'
-  if (index >= total - 2) return 'absolute right-0 z-40 mt-1'
-  return 'absolute left-1/2 z-40 mt-1 -translate-x-1/2 transform'
+
+const listRef = ref<HTMLElement | null>(null)
+const panelSides = reactive<Record<string, 'left' | 'center' | 'right'>>({})
+
+const resolvePanelSide = (event: MouseEvent, tagId: string) => {
+  const button = event.currentTarget as HTMLElement | null
+  const container = listRef.value
+  if (!button || !container) {
+    panelSides[tagId] = 'center'
+    return
+  }
+  const buttonRect = button.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+  const halfPanel = 96 / 2
+  const buttonCenter = buttonRect.left + buttonRect.width / 2
+  if (buttonCenter - halfPanel < containerRect.left) {
+    panelSides[tagId] = 'left'
+  } else if (buttonCenter + halfPanel > containerRect.right) {
+    panelSides[tagId] = 'right'
+  } else {
+    panelSides[tagId] = 'center'
+  }
 }
 
-// 按标签过滤内容
+const getPopoverPanelClass = (tagId: string) => {
+  const side = panelSides[tagId] ?? 'center'
+  if (side === 'left') return 'absolute left-0 z-[60] mt-1'
+  if (side === 'right') return 'absolute right-0 z-[60] mt-1'
+  return 'absolute left-1/2 z-[60] mt-1 -translate-x-1/2 transform'
+}
+
 const handleFilterByTag = (tag: App.Api.Ech0.Tag) => {
   if (!tag) return
 
   echoStore.filteredTag = tag
   echoStore.isFilteringMode = true
-  // 从标签管理页切回首页时，时间线组件尚未挂载；这里先主动刷新一次，避免过滤状态丢失。
   echoStore.refreshEchos()
   router.push({ name: 'home' })
 }
 
-// 删除标签
 const handleDeleteTag = (tagId: string) => {
   openConfirm({
     title: String(t('editor.deleteTagConfirmTitle')),

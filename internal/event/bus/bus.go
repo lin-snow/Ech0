@@ -4,12 +4,12 @@
 package bus
 
 import (
+	"log/slog"
 	"sync"
 
 	"github.com/lin-snow/ech0/internal/config"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
 	"github.com/lin-snow/ech0/pkg/busen"
-	"go.uber.org/zap"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 const (
@@ -24,49 +24,49 @@ func New() *busen.Bus {
 	hooks := busen.Hooks{
 		OnHandlerError: func(info busen.HandlerError) {
 			logUtil.GetLogger().Error("busen handler error",
-				zap.String("event_type", safeTypeString(info.EventType)),
-				zap.String("topic", info.Topic),
-				zap.String("key", info.Key),
-				zap.Bool("async", info.Async),
-				zap.Error(info.Err))
+				slog.String("event_type", safeTypeString(info.EventType)),
+				slog.String("topic", info.Topic),
+				slog.String("key", info.Key),
+				slog.Bool("async", info.Async),
+				logUtil.Err(info.Err))
 		},
 		OnHandlerPanic: func(info busen.HandlerPanic) {
 			logUtil.GetLogger().Error("busen handler panic",
-				zap.String("event_type", safeTypeString(info.EventType)),
-				zap.String("topic", info.Topic),
-				zap.String("key", info.Key),
-				zap.Bool("async", info.Async),
-				zap.Any("panic", info.Value))
+				slog.String("event_type", safeTypeString(info.EventType)),
+				slog.String("topic", info.Topic),
+				slog.String("key", info.Key),
+				slog.Bool("async", info.Async),
+				slog.Any("panic", info.Value))
 		},
 		OnPublishDone: func(info busen.PublishDone) {
 			if info.Err == nil {
 				return
 			}
 			logUtil.GetLogger().Warn("busen publish done with errors",
-				zap.String("event_type", safeTypeString(info.EventType)),
-				zap.String("topic", info.Topic),
-				zap.String("key", info.Key),
-				zap.Int("matched_subscribers", info.MatchedSubscribers),
-				zap.Int("delivered_subscribers", info.DeliveredSubscribers),
-				zap.Error(info.Err))
+				slog.String("event_type", safeTypeString(info.EventType)),
+				slog.String("topic", info.Topic),
+				slog.String("key", info.Key),
+				slog.Int("matched_subscribers", info.MatchedSubscribers),
+				slog.Int("delivered_subscribers", info.DeliveredSubscribers),
+				logUtil.Err(info.Err))
 		},
 		OnEventDropped: func(info busen.DroppedEvent) {
 			logUtil.GetLogger().Warn("busen event dropped",
-				zap.String("event_type", safeTypeString(info.EventType)),
-				zap.String("topic", info.Topic),
-				zap.String("key", info.Key),
-				zap.Int("queue_len", info.QueueLen),
-				zap.Int("queue_cap", info.QueueCap),
-				zap.Error(info.Reason))
+				slog.String("event_type", safeTypeString(info.EventType)),
+				slog.String("topic", info.Topic),
+				slog.String("key", info.Key),
+				slog.Int("queue_len", info.QueueLen),
+				slog.Int("queue_cap", info.QueueCap),
+				logUtil.Err(info.Reason))
 		},
 		OnEventRejected: func(info busen.RejectedEvent) {
 			logUtil.GetLogger().Warn("busen event rejected",
-				zap.String("event_type", safeTypeString(info.EventType)),
-				zap.String("topic", info.Topic),
-				zap.String("key", info.Key),
-				zap.Int("queue_len", info.QueueLen),
-				zap.Int("queue_cap", info.QueueCap),
-				zap.Error(info.Reason))
+				slog.String("event_type", safeTypeString(info.EventType)),
+				slog.String("topic", info.Topic),
+				slog.String("key", info.Key),
+				slog.Int("queue_len", info.QueueLen),
+				slog.Int("queue_cap", info.QueueCap),
+				logUtil.Err(info.Reason))
 		},
 	}
 

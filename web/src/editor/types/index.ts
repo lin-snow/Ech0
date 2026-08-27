@@ -2,11 +2,4 @@
 // Copyright (C) 2025-2026 lin-snow
 
 export type MarkdownEditorAction =
-  | 'bold'
-  | 'italic'
-  | 'heading'
-  | 'quote'
-  | 'unorderedList'
-  | 'orderedList'
-  | 'codeBlock'
-  | 'link'
+  'bold' | 'italic' | 'heading' | 'quote' | 'unorderedList' | 'orderedList' | 'codeBlock' | 'link'

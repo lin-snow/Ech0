@@ -68,7 +68,7 @@ func TestRistrettoCacheSetWithTTL(t *testing.T) {
 		}
 	}()
 
-	ok := c.SetWithTTL("ttl-k", 7, 1, 40_000_000) // 40ms
+	ok := c.SetWithTTL("ttl-k", 7, 1, 40_000_000)
 	if !ok {
 		t.Fatalf("set with ttl should return true")
 	}

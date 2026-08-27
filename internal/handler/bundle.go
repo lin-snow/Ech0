@@ -4,24 +4,23 @@
 package handler
 
 import (
-	agentHandler "github.com/lin-snow/ech0/internal/handler/agent"
 	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
-	backupHandler "github.com/lin-snow/ech0/internal/handler/backup"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
+	copilotHandler "github.com/lin-snow/ech0/internal/handler/copilot"
 	dashboardHandler "github.com/lin-snow/ech0/internal/handler/dashboard"
 	echoHandler "github.com/lin-snow/ech0/internal/handler/echo"
+	embeddingHandler "github.com/lin-snow/ech0/internal/handler/embedding"
 	fileHandler "github.com/lin-snow/ech0/internal/handler/file"
 	initHandler "github.com/lin-snow/ech0/internal/handler/init"
-	migrationHandler "github.com/lin-snow/ech0/internal/handler/migration"
+	migratorHandler "github.com/lin-snow/ech0/internal/handler/migrator"
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/mcp"
 )
 
-// Bundle 聚合各业务 Handler。
 type Bundle struct {
 	WebHandler       *webHandler.WebHandler
 	UserHandler      *userHandler.UserHandler
@@ -33,14 +32,13 @@ type Bundle struct {
 	CommonHandler    *commonHandler.CommonHandler
 	SettingHandler   *settingHandler.SettingHandler
 	ConnectHandler   *connectHandler.ConnectHandler
-	BackupHandler    *backupHandler.BackupHandler
-	MigrationHandler *migrationHandler.MigrationHandler
+	MigrationHandler *migratorHandler.MigrationHandler
 	DashboardHandler *dashboardHandler.DashboardHandler
-	AgentHandler     *agentHandler.AgentHandler
+	CopilotHandler   *copilotHandler.CopilotHandler
+	EmbeddingHandler *embeddingHandler.EmbeddingHandler
 	MCPHandler       *mcp.Handler
 }
 
-// NewBundle 创建 Handler 聚合实例。
 func NewBundle(
 	webHandler *webHandler.WebHandler,
 	userHandler *userHandler.UserHandler,
@@ -52,10 +50,10 @@ func NewBundle(
 	commonHandler *commonHandler.CommonHandler,
 	settingHandler *settingHandler.SettingHandler,
 	connectHandler *connectHandler.ConnectHandler,
-	backupHandler *backupHandler.BackupHandler,
-	migrationHandler *migrationHandler.MigrationHandler,
+	migratorHandler *migratorHandler.MigrationHandler,
 	dashboardHandler *dashboardHandler.DashboardHandler,
-	agentHandler *agentHandler.AgentHandler,
+	copilotHandler *copilotHandler.CopilotHandler,
+	embeddingHandler *embeddingHandler.EmbeddingHandler,
 	mcpHandler *mcp.Handler,
 ) *Bundle {
 	return &Bundle{
@@ -69,10 +67,10 @@ func NewBundle(
 		CommonHandler:    commonHandler,
 		SettingHandler:   settingHandler,
 		ConnectHandler:   connectHandler,
-		BackupHandler:    backupHandler,
-		MigrationHandler: migrationHandler,
+		MigrationHandler: migratorHandler,
 		DashboardHandler: dashboardHandler,
-		AgentHandler:     agentHandler,
+		CopilotHandler:   copilotHandler,
+		EmbeddingHandler: embeddingHandler,
 		MCPHandler:       mcpHandler,
 	}
 }

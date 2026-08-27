@@ -162,6 +162,10 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id str
 	var echo model.Echo
 	echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&fileModel.EchoFile{})
 
+	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&model.EchoExtension{}).Error; err != nil {
+		return err
+	}
+
 	result := echoRepository.getDB(ctx).Where("id = ?", id).Delete(&echo)
 	if result.Error != nil {
 		return result.Error
@@ -232,13 +236,17 @@ func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *mode
 		return err
 	}
 
+	updates := map[string]any{
+		"content": echo.Content,
+		"private": echo.Private,
+		"layout":  echo.Layout,
+	}
+	if echo.CreatedAt != 0 {
+		updates["created_at"] = echo.CreatedAt
+	}
 	if err := echoRepository.getDB(ctx).Model(&model.Echo{}).
 		Where("id = ?", echo.ID).
-		Updates(map[string]interface{}{
-			"content": echo.Content,
-			"private": echo.Private,
-			"layout":  echo.Layout,
-		}).Error; err != nil {
+		Updates(updates).Error; err != nil {
 		return err
 	}
 
@@ -392,6 +400,11 @@ func (echoRepository *EchoRepository) QueryEchos(
 		}
 		if !showPrivate {
 			db = db.Where("echos.private = ?", false)
+		} else if queryDto.Private != nil {
+			db = db.Where("echos.private = ?", *queryDto.Private)
+		}
+		if queryDto.UserID != "" {
+			db = db.Where("echos.user_id = ?", queryDto.UserID)
 		}
 		if queryDto.Search != "" {
 			db = db.Where("echos.content LIKE ?", "%"+queryDto.Search+"%")
@@ -596,4 +609,97 @@ func (echoRepository *EchoRepository) GetHotEchos(limit int, showPrivate bool) (
 	}
 
 	return sorted, nil
+}
+
+func (echoRepository *EchoRepository) GetRandomEcho(showPrivate bool) (*model.Echo, error) {
+	randomExpr := "RANDOM()"
+	if echoRepository.db().Name() == "mysql" {
+		randomExpr = "RAND()"
+	}
+
+	query := echoRepository.db().Model(&model.Echo{})
+	if !showPrivate {
+		query = query.Where("private = ?", false)
+	}
+
+	var echos []model.Echo
+	if err := query.
+		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
+			return db.Order("echo_files.sort_order ASC")
+		}).
+		Preload("EchoFiles.File").
+		Preload("Extension").
+		Preload("Tags").
+		Order(randomExpr).
+		Limit(1).
+		Find(&echos).Error; err != nil {
+		return nil, err
+	}
+
+	if len(echos) == 0 {
+		return nil, nil
+	}
+	return &echos[0], nil
+}
+
+func (echoRepository *EchoRepository) GetOnThisDayEchos(showPrivate bool, timezone string) []model.Echo {
+	loc := timezoneUtil.LoadLocationOrUTC(timezoneUtil.NormalizeTimezone(timezone))
+	now := time.Now().In(loc)
+	month, day, currentYear := now.Month(), now.Day(), now.Year()
+
+	minQuery := echoRepository.db().Model(&model.Echo{})
+	if !showPrivate {
+		minQuery = minQuery.Where("private = ?", false)
+	}
+	var minTs int64
+	if err := minQuery.Select("MIN(created_at)").Scan(&minTs).Error; err != nil || minTs == 0 {
+		return []model.Echo{}
+	}
+	earliestYear := time.Unix(minTs, 0).In(loc).Year()
+
+	unixRanges := onThisDayUnixRanges(earliestYear, currentYear, month, day, loc)
+	if len(unixRanges) == 0 {
+		return []model.Echo{}
+	}
+
+	conds := make([]string, 0, len(unixRanges))
+	args := make([]any, 0, len(unixRanges)*2+1)
+	for _, r := range unixRanges {
+		conds = append(conds, "(created_at >= ? AND created_at < ?)")
+		args = append(args, r[0], r[1])
+	}
+
+	where := "(" + strings.Join(conds, " OR ") + ")"
+	if !showPrivate {
+		where += " AND private = ?"
+		args = append(args, false)
+	}
+
+	var echos []model.Echo
+	if err := echoRepository.db().
+		Where(where, args...).
+		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
+			return db.Order("echo_files.sort_order ASC")
+		}).
+		Preload("EchoFiles.File").
+		Preload("Extension").
+		Preload("Tags").
+		Order("created_at DESC").
+		Find(&echos).Error; err != nil {
+		return []model.Echo{}
+	}
+	return echos
+}
+
+func onThisDayUnixRanges(earliestYear, currentYear int, month time.Month, day int, loc *time.Location) [][2]int64 {
+	var ranges [][2]int64
+	for y := earliestYear; y < currentYear; y++ {
+		start := time.Date(y, month, day, 0, 0, 0, 0, loc)
+		if start.Month() != month || start.Day() != day {
+			continue
+		}
+		end := start.AddDate(0, 0, 1)
+		ranges = append(ranges, [2]int64{start.Unix(), end.Unix()})
+	}
+	return ranges
 }

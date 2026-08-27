@@ -10,9 +10,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import UnoCSS from 'unocss/vite'
 import viteCompression from 'vite-plugin-compression'
 
-import { welcomePlugin } from './src/plugins/welcome-plugin'
+import { fingerprintPlugin } from './src/plugins/fingerprint-plugin.ts'
+import { welcomePlugin } from './src/plugins/welcome-plugin.ts'
 
-// https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [
     vue({
@@ -29,7 +29,8 @@ export default defineConfig(({ command }) => ({
       threshold: 10240,
       filter: (file) => /\.(js|mjs|css|html|svg)$/i.test(file),
     }),
-    welcomePlugin(), // 欢迎横幅插件
+    fingerprintPlugin(),
+    welcomePlugin(),
   ],
   resolve: {
     alias: {
@@ -45,13 +46,15 @@ export default defineConfig(({ command }) => ({
     restoreMocks: true,
   },
   build: {
-    // 当使用embed时则调整构建输出到后端的template/dist目录
     outDir: '../template/dist',
     emptyOutDir: true,
     reportCompressedSize: false,
     rollupOptions: {
+      checks: {
+        invalidAnnotation: false,
+        pluginTimings: false,
+      },
       output: {
-        // 代码分割：将重型库打包到单独的 chunk 中，利用浏览器缓存
         manualChunks(id) {
           const normalizedId = id.replaceAll('\\', '/')
           if (normalizedId.includes('/node_modules/floating-vue/')) {

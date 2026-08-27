@@ -11,13 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Cors 跨域配置中间件
 func Cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
 		origin := c.Request.Header.Get("Origin")
-		// 默认允许任意站点跨域：只要 Origin 格式合法，就回写该 Origin。
-		// 通过回写请求 Origin（而不是 "*"）来保持 credentials 场景兼容。
 		if origin != "" && isValidOrigin(origin) {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Credentials", "true")

@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// Redeem verifies a challenge solution set and issues one redeem token.
 func (s *Service) Redeem(siteKey string, req RedeemRequest) (*RedeemResponse, error) {
 	if req.Token == "" || len(req.Solutions) == 0 {
 		return nil, NewBadRequest("Missing required fields")
@@ -60,10 +59,7 @@ func (s *Service) Redeem(siteKey string, req RedeemRequest) (*RedeemResponse, er
 		return nil, NewForbidden("Invalid solution")
 	}
 
-	ttl := time.Until(time.UnixMilli(claims.ExpiresAtMS))
-	if ttl < time.Second {
-		ttl = time.Second
-	}
+	ttl := max(time.Until(time.UnixMilli(claims.ExpiresAtMS)), time.Second)
 	marked, err := s.Store.TryMarkChallengeSigUsed(sig, now.Add(ttl), now)
 	if err != nil {
 		return nil, NewInternal("Failed to mark challenge token as used")

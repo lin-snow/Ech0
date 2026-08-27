@@ -4,32 +4,60 @@
 package router
 
 import (
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/handler"
-	"github.com/lin-snow/ech0/internal/middleware"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-// setupConnectRoutes 设置连接路由
-func setupConnectRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
-	// Public
-	appRouterGroup.PublicRouterGroup.GET("/connect", h.ConnectHandler.GetConnect())
-	appRouterGroup.PublicRouterGroup.GET("/connect/list", h.ConnectHandler.GetConnects())
-	appRouterGroup.PublicRouterGroup.GET("/connects/info", h.ConnectHandler.GetConnectsInfo())
+func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
+	route(api, public(), huma.Operation{
+		OperationID: "connect-self",
+		Method:      http.MethodGet,
+		Path:        "/connect",
+		Summary:     "获取当前实例的连接信息",
+		Tags:        []string{"Connect"},
+	}, h.ConnectHandler.GetConnect)
 
-	// Auth
-	appRouterGroup.AuthRouterGroup.GET(
-		"/connects/health",
-		middleware.RequireScopes(authModel.ScopeConnectRead),
-		h.ConnectHandler.GetConnectsHealth(),
-	)
-	appRouterGroup.AuthRouterGroup.POST(
-		"/connects",
-		middleware.RequireScopes(authModel.ScopeConnectWrite),
-		h.ConnectHandler.AddConnect(),
-	)
-	appRouterGroup.AuthRouterGroup.DELETE(
-		"/connects/:id",
-		middleware.RequireScopes(authModel.ScopeConnectWrite),
-		h.ConnectHandler.DeleteConnect(),
-	)
+	route(api, public(), huma.Operation{
+		OperationID: "connect-list",
+		Method:      http.MethodGet,
+		Path:        "/connect/list",
+		Summary:     "获取当前实例添加的所有连接",
+		Tags:        []string{"Connect"},
+	}, h.ConnectHandler.GetConnects)
+
+	route(api, public(), huma.Operation{
+		OperationID: "connect-info",
+		Method:      http.MethodGet,
+		Path:        "/connects/info",
+		Summary:     "获取所有已添加连接的详细信息",
+		Tags:        []string{"Connect"},
+	}, h.ConnectHandler.GetConnectsInfo)
+
+	route(api, secured(revoker, authModel.ScopeConnectRead), huma.Operation{
+		OperationID: "connect-health",
+		Method:      http.MethodGet,
+		Path:        "/connects/health",
+		Summary:     "获取互联健康状态",
+		Tags:        []string{"Connect"},
+	}, h.ConnectHandler.GetConnectsHealth)
+
+	route(api, secured(revoker, authModel.ScopeConnectWrite), huma.Operation{
+		OperationID: "connect-add",
+		Method:      http.MethodPost,
+		Path:        "/connects",
+		Summary:     "添加连接",
+		Tags:        []string{"Connect"},
+	}, h.ConnectHandler.AddConnect)
+
+	route(api, secured(revoker, authModel.ScopeConnectWrite), huma.Operation{
+		OperationID: "connect-delete",
+		Method:      http.MethodDelete,
+		Path:        "/connects/{id}",
+		Summary:     "删除连接",
+		Tags:        []string{"Connect"},
+	}, h.ConnectHandler.DeleteConnect)
 }

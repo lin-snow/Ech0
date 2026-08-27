@@ -22,7 +22,6 @@ let confirmDialogRef: ConfirmDialogInstance | null = null
 let pendingOpenOptions: ConfirmOptions | null = null
 
 export function useBaseDialog() {
-  // 注册全局 ConfirmDialog 的引用
   function register(refInstance: ConfirmDialogInstance) {
     confirmDialogRef = refInstance
     if (pendingOpenOptions) {

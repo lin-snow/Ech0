@@ -6,8 +6,8 @@ This document describes how to cut a new release of Ech0.
 
 ```bash
 # starting from a clean tree on main, in sync with origin
-make check                                              # full pre-release lint pass
-make bump NEW_VERSION=4.6.5                             # edits internal/version/version.go
+just check                                              # full pre-release lint pass
+just bump 4.6.5                             # edits internal/version/version.go
 $EDITOR CHANGELOG.md                                    # rename [Unreleased] → [4.6.5] - YYYY-MM-DD; add a fresh empty [Unreleased]
 git commit -am 'chore(release): v4.6.5'
 git tag -a v4.6.5 -m 'Release v4.6.5'
@@ -38,7 +38,7 @@ const (
 )
 ```
 
-Everywhere else (`/hello`, `/healthz`, the About page, `ech0 version`, MCP server identification, connect federation) reads from this single const. Build-time metadata (`Commit`, `BuildTime`) is injected via `-ldflags -X` from the Makefile / Dockerfile / release workflow.
+Everywhere else (`/hello`, `/healthz`, the About page, `ech0 version`, MCP server identification, connect federation) reads from this single const. Build-time metadata (`Commit`, `BuildTime`) is injected via `-ldflags -X` from the justfile / Dockerfile / release workflow.
 
 **Never edit the version string in any other file.** If you find a hardcoded version anywhere, that is a bug to fix, not a place to also bump.
 
@@ -57,7 +57,7 @@ Before bumping the version, make sure the working state is releasable:
 
 3. **Full local check passes.**
    ```bash
-   make check   # backend fmt/lint + swagger drift check + web format/lint/i18n/style
+   just check   # backend fmt/lint + openapi drift check + web format/lint/i18n/style
    go test ./...
    pnpm -C web test:unit   # if you've changed anything frontend
    ```
@@ -71,7 +71,7 @@ Before bumping the version, make sure the working state is releasable:
 ## Bumping the version
 
 ```bash
-make bump NEW_VERSION=4.6.5
+just bump 4.6.5
 ```
 
 This target:
@@ -82,7 +82,7 @@ This target:
 - Runs `go build ./...` as a sanity check; reverts the file automatically if the build fails.
 - Prints the diff plus the next-step commands to run.
 
-`make bump` **never** auto-commits, never tags, never pushes — those are deliberate human actions. Eyeball the diff before proceeding.
+`just bump` **never** auto-commits, never tags, never pushes — those are deliberate human actions. Eyeball the diff before proceeding.
 
 ## Updating CHANGELOG.md
 
@@ -162,7 +162,7 @@ If a critical bug is discovered post-release:
 For breaking changes you want validated before stable:
 
 ```bash
-make bump NEW_VERSION=5.0.0-rc.1
+just bump 5.0.0-rc.1
 # ... commit / tag / push as v5.0.0-rc.1
 ```
 
@@ -171,7 +171,7 @@ GitHub will mark the release as "pre-release" if the workflow detects the suffix
 After the RC bakes in real environments for a week or two, promote with a stable tag:
 
 ```bash
-make bump NEW_VERSION=5.0.0
+just bump 5.0.0
 # ... commit / tag / push as v5.0.0
 ```
 

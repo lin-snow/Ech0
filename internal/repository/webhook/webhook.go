@@ -32,7 +32,6 @@ func (webhookRepository *WebhookRepository) getDB(ctx context.Context) *gorm.DB 
 	return webhookRepository.db()
 }
 
-// CreateWebhook 创建一个webhook
 func (webhookRepository *WebhookRepository) CreateWebhook(
 	ctx context.Context,
 	webhook *model.Webhook,
@@ -44,7 +43,6 @@ func (webhookRepository *WebhookRepository) CreateWebhook(
 	return nil
 }
 
-// UpdateWebhookByID 根据ID更新 webhook
 func (webhookRepository *WebhookRepository) UpdateWebhookByID(
 	ctx context.Context,
 	id string,
@@ -68,7 +66,6 @@ func (webhookRepository *WebhookRepository) UpdateWebhookByID(
 	return nil
 }
 
-// GetAllWebhooks 获取所有webhooks
 func (webhookRepository *WebhookRepository) GetAllWebhooks(ctx context.Context) ([]model.Webhook, error) {
 	var webhooks []model.Webhook
 	if err := webhookRepository.getDB(ctx).Find(&webhooks).Error; err != nil {
@@ -78,7 +75,6 @@ func (webhookRepository *WebhookRepository) GetAllWebhooks(ctx context.Context) 
 	return webhooks, nil
 }
 
-// GetWebhookByID 根据 ID 获取 webhook
 func (webhookRepository *WebhookRepository) GetWebhookByID(ctx context.Context, id string) (*model.Webhook, error) {
 	var webhook model.Webhook
 	err := webhookRepository.getDB(ctx).Where("id = ?", id).First(&webhook).Error
@@ -88,7 +84,6 @@ func (webhookRepository *WebhookRepository) GetWebhookByID(ctx context.Context, 
 	return &webhook, nil
 }
 
-// DeleteWebhookByID 根据ID删除webhook
 func (webhookRepository *WebhookRepository) DeleteWebhookByID(ctx context.Context, id string) error {
 	if err := webhookRepository.getDB(ctx).Where("id = ?", id).Delete(&model.Webhook{}).Error; err != nil {
 		return err
@@ -97,7 +92,6 @@ func (webhookRepository *WebhookRepository) DeleteWebhookByID(ctx context.Contex
 	return nil
 }
 
-// ListActiveWebhooks 列出所有激活的 webhook
 func (webhookRepository *WebhookRepository) ListActiveWebhooks(ctx context.Context) ([]model.Webhook, error) {
 	var webhooks []model.Webhook
 	if err := webhookRepository.getDB(ctx).Where("is_active = ?", true).Find(&webhooks).Error; err != nil {
@@ -107,7 +101,6 @@ func (webhookRepository *WebhookRepository) ListActiveWebhooks(ctx context.Conte
 	return webhooks, nil
 }
 
-// UpdateWebhookDeliveryStatus 更新 webhook 最近投递状态
 func (webhookRepository *WebhookRepository) UpdateWebhookDeliveryStatus(
 	ctx context.Context,
 	id string,

@@ -6,12 +6,8 @@ import { useInitStore } from '@/stores/init'
 import { useUserStore } from '@/stores/user'
 import { useEchoStore } from '@/stores/echo'
 
-// 所有路由组件使用懒加载，优化首屏加载性能
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  // 浏览器前进/后退时恢复滚动位置；其它跳转回到顶部。
-  // home 路由由 HomePage 自己在 echo 列表渲染完成后恢复滚动，避免内容未撑开时
-  // savedPosition 被夹到 0、出现一次"跳到顶部再跳回"的闪烁。
   scrollBehavior(to, _from, savedPosition) {
     if (to.name === 'home' || to.name === 'zen') {
       return false
@@ -100,14 +96,6 @@ const router = createRouter({
           component: () => import('../views/panel/modules/TheSystemLog.vue'),
         },
       ],
-      // beforeEnter: (to, from, next) => {
-      //   const userStore = useUserStore()
-      //   if (userStore.isLogin) {
-      //     next()
-      //   } else {
-      //     next({ name: 'auth' })
-      //   }
-      // },
     },
     {
       path: '/auth',
@@ -149,6 +137,17 @@ const router = createRouter({
       },
     },
     {
+      path: '/chat',
+      name: 'chat',
+      component: () => import('../views/chat/ChatView.vue'),
+      meta: {
+        title: 'Chat',
+        description: 'Reflect on and summarize your past echos with AI.',
+        requiresAuth: true,
+        noindex: true,
+      },
+    },
+    {
       path: '/zen',
       name: 'zen',
       component: () => import('../views/zen/ZenView.vue'),
@@ -163,8 +162,6 @@ const router = createRouter({
       path: '/echo/:echoId',
       name: 'echo',
       component: () => import('../views/echo/EchoView.vue'),
-      // 路由解析阶段就触发 echo API，与 EchoView chunk 下载并行，
-      // 让分享链接直达场景少等一次串行的网络往返。
       beforeEnter: (to) => {
         const echoId = String(to.params.echoId ?? '').trim()
         if (echoId) {
@@ -199,7 +196,6 @@ const router = createRouter({
   ],
 })
 
-// 全局路由守卫
 router.beforeEach(async (to) => {
   const initStore = useInitStore()
   const userStore = useUserStore()
@@ -218,7 +214,6 @@ router.beforeEach(async (to) => {
     return { name: 'auth' }
   }
 
-  // 等待用户信息初始化完成
   if (!userStore.initialized) {
     await userStore.init()
   }

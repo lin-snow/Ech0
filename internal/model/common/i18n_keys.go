@@ -3,12 +3,19 @@
 
 package model
 
+import (
+	"errors"
+	"strings"
+)
+
 const (
 	MsgKeyCommonSuccess               = "common.success"
 	MsgKeyCommonRequestFailed         = "common.request_failed"
+	MsgKeyCommonInvalidRequest        = "common.invalid_request"
 	MsgKeyInvalidQueryParams          = "common.invalid_query_params"
 	MsgKeySettingUpdateOK             = "setting.update_success"
 	MsgKeyAgentModelMissing           = "agent.model_missing"
+	MsgKeyEchoMixedFileCategories     = "echo.mixed_file_categories"
 	MsgKeyAuthTokenMissing            = "auth.token_missing"
 	MsgKeyAuthTokenInvalid            = "auth.token_invalid"
 	MsgKeyAuthTokenParse              = "auth.token_parse_error"
@@ -21,6 +28,7 @@ const (
 	MsgKeyAuthTokenGenerateFailed     = "auth.token_generate_failed"
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
+	MsgKeyDashboardCheckUpdateFailed  = "dashboard.check_update_failed"
 )
 
 func MessageKeyFromErrorCode(code string) string {
@@ -60,7 +68,20 @@ func MessageKeyFromMessage(msg string) string {
 		return MsgKeySettingUpdateOK
 	case AGENT_MODEL_MISSING:
 		return MsgKeyAgentModelMissing
+	case ECHO_MIXED_FILE_CATEGORIES:
+		return MsgKeyEchoMixedFileCategories
 	default:
 		return ""
 	}
+}
+
+func ResolveFailureFields(err error, base string) (code, messageKey string, params map[string]any) {
+	if bizErr, ok := errors.AsType[*BizError](err); ok {
+		key := strings.TrimSpace(bizErr.MessageKey)
+		if key == "" {
+			key = MessageKeyFromErrorCode(bizErr.Code)
+		}
+		return bizErr.Code, key, bizErr.Params
+	}
+	return "", MessageKeyFromMessage(base), nil
 }

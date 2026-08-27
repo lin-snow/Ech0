@@ -9,7 +9,6 @@ import (
 	model "github.com/lin-snow/ech0/internal/model/connect"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
-	settingService "github.com/lin-snow/ech0/internal/service/setting"
 )
 
 type Service interface {
@@ -32,7 +31,4 @@ type EchoRepository interface {
 	GetEchosByPage(page, pageSize int, search string, showPrivate bool) ([]echoModel.Echo, int64)
 }
 
-type (
-	CommonService  = commonService.Service
-	SettingService = settingService.Service
-)
+type CommonService = commonService.Service

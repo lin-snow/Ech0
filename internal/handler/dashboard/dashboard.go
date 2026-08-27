@@ -4,20 +4,19 @@
 package handler
 
 import (
-	"errors"
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	res "github.com/lin-snow/ech0/internal/handler/response"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/dashboard"
 	githubUtil "github.com/lin-snow/ech0/internal/util/github"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
-	"go.uber.org/zap"
+	"github.com/lin-snow/ech0/internal/visitor"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"golang.org/x/mod/semver"
 )
 
@@ -31,55 +30,81 @@ func NewDashboardHandler(dashboardService service.Service) *DashboardHandler {
 	}
 }
 
-// GetSystemLogs 获取系统历史日志
-func (dashboardHandler *DashboardHandler) GetSystemLogs() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		tail := 200
-		if rawTail := strings.TrimSpace(ctx.Query("tail")); rawTail != "" {
-			n, err := strconv.Atoi(rawTail)
-			if err != nil || n <= 0 {
-				if err == nil {
-					err = errors.New("tail must be greater than zero")
-				}
-				return res.Response{
-					Msg:        commonModel.INVALID_QUERY_PARAMS,
-					ErrorCode:  commonModel.ErrCodeInvalidQuery,
-					MessageKey: commonModel.MsgKeyDashboardTailBad,
-					Err:        err,
-				}
-			}
-			tail = n
-		}
+type (
+	CheckUpdateInput   struct{}
+	GetSystemLogsInput struct {
+		Tail    string `query:"tail" doc:"返回最近多少条（默认 200）"`
+		Level   string `query:"level" doc:"日志级别过滤"`
+		Keyword string `query:"keyword" doc:"关键词过滤"`
+	}
+	GetVisitorStatsInput struct{}
 
-		logs, err := dashboardHandler.dashboardService.GetSystemLogs(service.SystemLogQuery{
-			Tail:    tail,
-			Level:   ctx.Query("level"),
-			Keyword: ctx.Query("keyword"),
-		})
-		if err != nil {
-			return res.Response{Err: err}
+	CheckUpdateResponse struct {
+		CurrentVersion string `json:"current_version"`
+		LatestVersion  string `json:"latest_version"`
+		HasUpdate      bool   `json:"has_update"`
+	}
+)
+
+type (
+	CheckUpdateOutput  = commonModel.Result[CheckUpdateResponse]
+	LogsOutput         = commonModel.Result[[]logUtil.LogEntry]
+	VisitorStatsOutput = commonModel.Result[[]visitor.DayStat]
+)
+
+func (dashboardHandler *DashboardHandler) CheckUpdate(ctx context.Context, _ *CheckUpdateInput) (CheckUpdateOutput, error) {
+	latestVersion, err := githubUtil.GetLatestVersion()
+	if err != nil {
+		return CheckUpdateOutput{}, &commonModel.BizError{
+			Code:       commonModel.ErrCodeInternal,
+			Msg:        commonModel.CHECK_UPDATE_FAILED,
+			MessageKey: commonModel.MsgKeyDashboardCheckUpdateFailed,
+			Err:        err,
 		}
-		return res.Response{
-			Data:       logs,
-			Msg:        "获取系统日志成功",
-			MessageKey: commonModel.MsgKeyDashboardLogsOk,
-		}
-	})
+	}
+
+	cur := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(versionPkg.Version), "v"))
+	lat := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(latestVersion), "v"))
+	hasUpdate := cur != "" && lat != "" && semver.Compare(lat, cur) > 0
+
+	return commonModel.OK(CheckUpdateResponse{
+		CurrentVersion: versionPkg.Version,
+		LatestVersion:  latestVersion,
+		HasUpdate:      hasUpdate,
+	}), nil
 }
 
-// GetVisitorStats 获取近七天访客统计
-func (dashboardHandler *DashboardHandler) GetVisitorStats() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		return res.Response{
-			Data: dashboardHandler.dashboardService.GetVisitorStats(),
-			Msg:  commonModel.SUCCESS_MESSAGE,
+func (dashboardHandler *DashboardHandler) GetSystemLogs(ctx context.Context, in *GetSystemLogsInput) (LogsOutput, error) {
+	tail := 200
+	if rawTail := strings.TrimSpace(in.Tail); rawTail != "" {
+		n, err := strconv.Atoi(rawTail)
+		if err != nil || n <= 0 {
+			return LogsOutput{}, commonModel.NewBizErrorWithMessageKey(
+				commonModel.ErrCodeInvalidQuery, commonModel.INVALID_QUERY_PARAMS, commonModel.MsgKeyDashboardTailBad, nil,
+			)
 		}
+		tail = n
+	}
+
+	logs, err := dashboardHandler.dashboardService.GetSystemLogs(service.SystemLogQuery{
+		Tail:    tail,
+		Level:   in.Level,
+		Keyword: in.Keyword,
 	})
+	if err != nil {
+		return LogsOutput{}, err
+	}
+	result := commonModel.OK(logs, "获取系统日志成功")
+	result.MessageKey = commonModel.MsgKeyDashboardLogsOk
+	return result, nil
 }
 
-// WSSubscribeSystemLogs 通过 WebSocket 订阅系统日志
+func (dashboardHandler *DashboardHandler) GetVisitorStats(ctx context.Context, _ *GetVisitorStatsInput) (VisitorStatsOutput, error) {
+	return commonModel.OK(dashboardHandler.dashboardService.GetVisitorStats()), nil
+}
+
 func (dashboardHandler *DashboardHandler) WSSubscribeSystemLogs() gin.HandlerFunc {
-	return gin.HandlerFunc(func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
 		token := ctx.Query("token")
 		if token == "" {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"msg": "missing token"})
@@ -101,37 +126,13 @@ func (dashboardHandler *DashboardHandler) WSSubscribeSystemLogs() gin.HandlerFun
 			},
 		)
 		if err != nil {
-			logUtil.GetLogger().Error("WebSocket Subscribe System Logs Failed", zap.Error(err))
+			logUtil.GetLogger().Error("WebSocket Subscribe System Logs Failed", logUtil.Err(err))
 		}
-	})
+	}
 }
 
-// CheckUpdate 检查 Ech0 版本更新
-func (dashboardHandler *DashboardHandler) CheckUpdate() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		latestVersion, err := githubUtil.GetLatestVersion()
-		if err != nil {
-			return res.Response{Msg: "检查更新失败", Err: err}
-		}
-
-		cur := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(versionPkg.Version), "v"))
-		lat := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(latestVersion), "v"))
-		hasUpdate := cur != "" && lat != "" && semver.Compare(lat, cur) > 0
-
-		return res.Response{
-			Data: gin.H{
-				"current_version": versionPkg.Version,
-				"latest_version":  latestVersion,
-				"has_update":      hasUpdate,
-			},
-			Msg: commonModel.SUCCESS_MESSAGE,
-		}
-	})
-}
-
-// SSESubscribeSystemLogs 通过 SSE 订阅系统日志（WS 兜底）。
 func (dashboardHandler *DashboardHandler) SSESubscribeSystemLogs() gin.HandlerFunc {
-	return gin.HandlerFunc(func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
 		token := ctx.Query("token")
 		if token == "" {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"msg": "missing token"})
@@ -153,7 +154,7 @@ func (dashboardHandler *DashboardHandler) SSESubscribeSystemLogs() gin.HandlerFu
 			},
 		)
 		if err != nil {
-			logUtil.GetLogger().Error("SSE Subscribe System Logs Failed", zap.Error(err))
+			logUtil.GetLogger().Error("SSE Subscribe System Logs Failed", logUtil.Err(err))
 		}
-	})
+	}
 }

@@ -4,39 +4,61 @@
 package router
 
 import (
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/handler"
-	"github.com/lin-snow/ech0/internal/middleware"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-// setupUserRoutes 设置用户路由
-func setupUserRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
-	appRouterGroup.PublicRouterGroup.POST("/register", middleware.NoCache(), h.UserHandler.Register())
+func registerUser(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
+	route(api, public(), huma.Operation{
+		OperationID: "user-register",
+		Method:      http.MethodPost,
+		Path:        "/register",
+		Summary:     "用户注册",
+		Tags:        []string{"User"},
+		Middlewares: noCache(),
+	}, h.UserHandler.Register)
 
-	// Auth
-	appRouterGroup.AuthRouterGroup.GET(
-		"/users",
-		middleware.RequireScopes(authModel.ScopeAdminUser),
-		h.UserHandler.GetAllUsers(),
-	)
-	appRouterGroup.AuthRouterGroup.GET(
-		"/user",
-		middleware.RequireScopes(authModel.ScopeProfileRead),
-		h.UserHandler.GetUserInfo(),
-	)
-	appRouterGroup.AuthRouterGroup.PUT(
-		"/user",
-		middleware.RequireScopes(authModel.ScopeProfileWrite),
-		h.UserHandler.UpdateUser(),
-	)
-	appRouterGroup.AuthRouterGroup.DELETE(
-		"/user/:id",
-		middleware.RequireScopes(authModel.ScopeAdminUser),
-		h.UserHandler.DeleteUser(),
-	)
-	appRouterGroup.AuthRouterGroup.PUT(
-		"/user/admin/:id",
-		middleware.RequireScopes(authModel.ScopeAdminUser),
-		h.UserHandler.UpdateUserAdmin(),
-	)
+	route(api, secured(revoker, authModel.ScopeAdminUser), huma.Operation{
+		OperationID: "user-list",
+		Method:      http.MethodGet,
+		Path:        "/users",
+		Summary:     "获取所有用户",
+		Tags:        []string{"User"},
+	}, h.UserHandler.GetAllUsers)
+
+	route(api, secured(revoker, authModel.ScopeProfileRead), huma.Operation{
+		OperationID: "user-info",
+		Method:      http.MethodGet,
+		Path:        "/user",
+		Summary:     "获取当前用户信息",
+		Tags:        []string{"User"},
+	}, h.UserHandler.GetUserInfo)
+
+	route(api, secured(revoker, authModel.ScopeProfileWrite), huma.Operation{
+		OperationID: "user-update",
+		Method:      http.MethodPut,
+		Path:        "/user",
+		Summary:     "更新当前用户信息",
+		Tags:        []string{"User"},
+	}, h.UserHandler.UpdateUser)
+
+	route(api, secured(revoker, authModel.ScopeAdminUser), huma.Operation{
+		OperationID: "user-delete",
+		Method:      http.MethodDelete,
+		Path:        "/user/{id}",
+		Summary:     "删除用户",
+		Tags:        []string{"User"},
+	}, h.UserHandler.DeleteUser)
+
+	route(api, secured(revoker, authModel.ScopeAdminUser), huma.Operation{
+		OperationID: "user-set-admin",
+		Method:      http.MethodPut,
+		Path:        "/user/admin/{id}",
+		Summary:     "切换用户管理员权限",
+		Tags:        []string{"User"},
+	}, h.UserHandler.UpdateUserAdmin)
 }

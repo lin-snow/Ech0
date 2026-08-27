@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-#
-# scripts/check.sh — Orchestrate the `make check` / `make dev-lint` pipeline.
-#
-# Each step runs even if a prior step fails, so a single pass surfaces every
-# problem at once. A summary table is printed at the end. Exits non-zero if
-# any step failed.
 
 set -u
 
@@ -19,16 +13,15 @@ else
   C_HDR=""; C_HDR_WEB=""; C_HDR_ALL=""; C_OK=""; C_FAIL=""; C_RESET=""
 fi
 
-# step_key | banner_color | banner | shell command
 STEPS=(
   "spdx|$C_HDR_ALL|全仓：SPDX/Copyright 头补齐 (scripts/add-spdx-headers.mjs)|node scripts/add-spdx-headers.mjs"
   "go-fmt|$C_HDR|后端：格式化 (golangci-lint fmt)|golangci-lint fmt"
   "go-lint|$C_HDR|后端：Lint (golangci-lint run)|golangci-lint run"
-  "swagger|$C_HDR|后端：Swagger 文档生成 (swag init)|swag init -g internal/server/server.go -o internal/swagger --parseInternal"
-  "web-format|$C_HDR_WEB|前端 web：格式化 (prettier --write src/)|pnpm -C web format"
-  "web-lint|$C_HDR_WEB|前端 web：Lint (eslint . --fix)|pnpm -C web lint"
-  "web-style|$C_HDR_WEB|前端 web：Stylelint (stylelint --fix)|pnpm -C web lint:style"
-  "web-i18n|$C_HDR_WEB|前端 web：i18n 校验 (key / unused / hardcoded / pseudo-smoke)|pnpm -C web run i18n:check"
+  "openapi|$C_HDR|后端：OpenAPI 规格生成 (Huma, just openapi)|go run ./cmd/openapi-gen"
+  "web-format|$C_HDR_WEB|前端 web：格式化 (prettier --write src/)|(cd web && pnpm format)"
+  "web-lint|$C_HDR_WEB|前端 web：Lint (eslint . --fix)|(cd web && pnpm lint)"
+  "web-style|$C_HDR_WEB|前端 web：Stylelint (stylelint --fix)|(cd web && pnpm lint:style)"
+  "web-i18n|$C_HDR_WEB|前端 web：i18n 校验 (key / unused / hardcoded / pseudo-smoke)|(cd web && pnpm run i18n:check)"
 )
 
 keys=()
@@ -63,13 +56,12 @@ done
 
 total_elapsed=$(fmt_dur $(($(date +%s) - total_start)))
 
-# Column widths.
-key_w=4      # "Step"
+key_w=4
 for k in "${keys[@]}"; do
   if [ "${#k}" -gt "$key_w" ]; then key_w=${#k}; fi
 done
-status_w=6   # "Status"
-dur_w=8      # "Duration"
+status_w=6
+dur_w=8
 for d in "${durations[@]}"; do
   if [ "${#d}" -gt "$dur_w" ]; then dur_w=${#d}; fi
 done
@@ -107,7 +99,6 @@ for i in "${!keys[@]}"; do
     color="$C_FAIL"
     fail_count=$((fail_count + 1))
   fi
-  # Pad status manually so embedded color codes don't skew the column width.
   pad=$((status_w - ${#s}))
   printf '| %-*s | %s%s%s%*s | %*s |\n' \
     "$key_w" "${keys[$i]}" \

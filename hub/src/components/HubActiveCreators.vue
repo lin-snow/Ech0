@@ -27,7 +27,6 @@ function seed(s: InstanceConnectSummary) {
   return `${s.urlKey}-${s.username || s.serverName}`
 }
 
-/** Same as web `TheConnectWidget` — heatmap greens by today’s post count */
 function dotColor(todayEchos: number): string {
   const n = todayEchos ?? 0
   if (n >= 4) return 'var(--heatmap-bg-color-4)'

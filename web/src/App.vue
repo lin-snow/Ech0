@@ -18,7 +18,6 @@ import { useSeoHead } from '@/composables/useSeoHead'
 const { register, title, description, handleConfirm, handleCancel } = useBaseDialog()
 const dialogRef = ref()
 
-// 路由切换动画
 const router = useRouter()
 const transitionName = ref('fade')
 const { isBfCacheRestore } = useBfCacheRestore({
@@ -28,14 +27,12 @@ const { isBfCacheRestore } = useBfCacheRestore({
   },
 })
 
-// 监听路由变化，根据导航方向选择动画
 router.afterEach((to, from) => {
   if (isBfCacheRestore.value) {
     transitionName.value = 'none'
     return
   }
 
-  // Panel 子页面之间切换不使用动画
   const toName = to.name as string
   const fromName = from.name as string
   if (toName?.startsWith('panel-') && fromName?.startsWith('panel-')) {
@@ -43,7 +40,6 @@ router.afterEach((to, from) => {
     return
   }
 
-  // 定义路由层级（用于判断前进/后退）
   const routeDepth: Record<string, number> = {
     home: 0,
     echo: 1,
@@ -142,7 +138,6 @@ const upsertCustomScript = (script: string) => {
     return
   }
 
-  // 重新创建 script 节点可确保内容被重新执行
   const scriptTag = document.createElement('script')
   scriptTag.id = CUSTOM_SCRIPT_ID
   scriptTag.textContent = normalized
@@ -165,7 +160,6 @@ watch(
   { immediate: true },
 )
 
-// 性能优化：仅在切换到 sunny 主题时加载落叶视频资源
 watch(
   theme,
   async (nextTheme) => {
@@ -184,12 +178,11 @@ watch(
 )
 
 onMounted(() => {
-  register(dialogRef.value) // 全局注册弹窗对话框
+  register(dialogRef.value)
 })
 </script>
 
 <template>
-  <!-- 落叶层仅用于画布氛围，置于主体之下，避免影响正文可读性 -->
   <div v-if="theme === 'sunny' && sunnyVideoSrc" class="sunny-atmosphere" aria-hidden="true">
     <video
       class="sunny-atmosphere__leaves"
@@ -202,17 +195,13 @@ onMounted(() => {
     />
   </div>
   <div class="app-stack">
-    <!-- 路由顶部进度条 - 慢网络下给点击立即视觉反馈 -->
     <TheRouteProgress />
-    <!-- 路由视图 - 带切换动画 -->
     <RouterView v-slot="{ Component }">
       <Transition :name="transitionName" mode="out-in">
         <component :is="Component" />
       </Transition>
     </RouterView>
-    <!-- 通知组件 -->
     <Toaster :theme="toasterTheme" position="top-right" :expand="false" richColors />
-    <!-- 全局弹窗对话框 -->
     <BaseDialog
       ref="dialogRef"
       :title="title"
@@ -248,7 +237,6 @@ onMounted(() => {
   isolation: isolate;
 }
 
-/* 路由切换动画 - 淡入淡出 + 轻微滑动 */
 .fade-enter-active,
 .fade-leave-active {
   transition:
@@ -266,7 +254,6 @@ onMounted(() => {
   transform: translateY(-8px);
 }
 
-/* 滑动动画 - 用于前进后退 */
 .slide-left-enter-active,
 .slide-left-leave-active,
 .slide-right-enter-active,

@@ -94,9 +94,90 @@ func TestEngineHTTPFlow(t *testing.T) {
 	}
 }
 
+func TestEngineSiteVerifyInProcess(t *testing.T) {
+	engine, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = engine.Close()
+	}()
+
+	if err := engine.RegisterSite(SiteRegistration{
+		SiteKey:        "my-site",
+		Secret:         "my-secret",
+		Difficulty:     1,
+		ChallengeCount: 1,
+		SaltSize:       8,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	token := redeemViaHTTP(t, engine.Handler())
+	ok, err := engine.SiteVerify("my-site", "my-secret", token)
+	if err != nil {
+		t.Fatalf("in-process siteverify error: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected redeem token to verify in-process")
+	}
+
+	ok, err = engine.SiteVerify("my-site", "my-secret", token)
+	if err != nil {
+		t.Fatalf("second siteverify error: %v", err)
+	}
+	if ok {
+		t.Fatal("expected redeem token to be consumed after first verify")
+	}
+
+	fresh := redeemViaHTTP(t, engine.Handler())
+	ok, err = engine.SiteVerify("my-site", "wrong-secret", fresh)
+	if err != nil {
+		t.Fatalf("wrong-secret siteverify error: %v", err)
+	}
+	if ok {
+		t.Fatal("expected wrong secret to fail verification")
+	}
+}
+
+func redeemViaHTTP(t *testing.T, h http.Handler) string {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, "/my-site/challenge", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("challenge status: %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var ch challengeResp
+	if err := json.Unmarshal(rec.Body.Bytes(), &ch); err != nil {
+		t.Fatal(err)
+	}
+	sol := bruteSolution(ch.Token, ch.Challenge.C, ch.Challenge.S, ch.Challenge.D)
+	redeemBody, _ := json.Marshal(map[string]any{
+		"token":     ch.Token,
+		"solutions": []int{sol},
+	})
+	req = httptest.NewRequest(http.MethodPost, "/my-site/redeem", bytes.NewReader(redeemBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("redeem status: %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var rdm redeemResp
+	if err := json.Unmarshal(rec.Body.Bytes(), &rdm); err != nil {
+		t.Fatal(err)
+	}
+	if !rdm.Success || rdm.Token == "" {
+		t.Fatalf("invalid redeem response: %s", rec.Body.String())
+	}
+	return rdm.Token
+}
+
 func bruteSolution(seed string, _ int, saltSize, difficulty int) int {
 	salt, target := buildPair(seed, 1, saltSize, difficulty)
-	for nonce := 0; nonce < 10_000_000; nonce++ {
+	for nonce := range 10_000_000 {
 		sum := sha256.Sum256([]byte(salt + strconv.Itoa(nonce)))
 		h := hex.EncodeToString(sum[:])
 		if h[:len(target)] == target {

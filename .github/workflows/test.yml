@@ -1,0 +1,80 @@
+name: Backend Tests
+
+on:
+  pull_request:
+    paths: &backend-paths
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".mockery.yaml"
+      - "justfile"
+      - ".github/workflows/test.yml"
+  push:
+    branches: [main]
+    paths: *backend-paths
+  workflow_dispatch:
+
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: go test (race + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.0"
+          cache-dependency-path: "**/go.sum"
+
+      - name: Set Go proxy
+        run: go env -w GOPROXY=https://proxy.golang.org,direct
+
+      - name: Setup just
+        uses: extractions/setup-just@v4
+
+      # 但 template 包用 //go:embed all:dist，dist 为空会编译失败；故放一个最小占位 index.html，
+      - name: Provide placeholder embedded frontend
+        run: |
+          mkdir -p template/dist
+          [ -f template/dist/index.html ] || printf '<!doctype html><title>ech0 test</title>' > template/dist/index.html
+
+      - name: Verify generated mocks are up-to-date
+        run: just mocks-check
+
+      - name: Run tests (race + coverage)
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage.out ]; then
+            grep -v -E 'internal/test/mocks/|/wire_gen\.go:' coverage.out > coverage.calibrated.out
+            RAW=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')
+            CAL=$(go tool cover -func=coverage.calibrated.out | tail -1 | awk '{print $NF}')
+            {
+              echo "### Backend coverage";
+              echo '```';
+              echo "RAW        (incl. generated): $RAW";
+              echo "CALIBRATED (excl. generated): $CAL";
+              echo '```';
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: coverage.out
+          if-no-files-found: ignore

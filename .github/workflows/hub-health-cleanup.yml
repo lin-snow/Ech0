@@ -1,0 +1,204 @@
+name: Hub health cleanup
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hub-health-cleanup
+  cancel-in-progress: false
+
+jobs:
+  health-cleanup:
+    if: github.repository_owner == 'lin-snow'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Probe instances and update health state
+        id: health
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+
+            const hubPath = 'hub/public/hub.json';
+            const statePath = '.github/hub-health.json';
+
+            // 与 hub/src/services/healthz.ts 保持一致
+            const MIN_VERSION = '4.4.0';
+            const HEALTHZ_TIMEOUT_MS = 5000;
+            const RETRIES = 3;
+            const RETRY_DELAY_MS = 2000;
+            // 连续不健康超过该时长才移除（= 3 天）
+            const THRESHOLD_MS = 72 * 60 * 60 * 1000;
+
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+            function parseSemver(s) {
+              const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(s).trim());
+              return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+            }
+            function isVersionAtLeast(current, minimum) {
+              const a = parseSemver(current);
+              const b = parseSemver(minimum);
+              if (!a || !b) return false;
+              for (let i = 0; i < 3; i++) {
+                if (a[i] > b[i]) return true;
+                if (a[i] < b[i]) return false;
+              }
+              return true;
+            }
+
+            // GET {url}/healthz，期望 { code: 1, data: { version } }
+            async function fetchHealthz(instanceUrl) {
+              try {
+                // 只直连已登记的 host：禁止跟随跳转，防止实例用 3xx 把请求导向内网地址（SSRF）
+                const res = await fetch(`${instanceUrl}/healthz`, {
+                  method: 'GET',
+                  redirect: 'manual',
+                  signal: AbortSignal.timeout(HEALTHZ_TIMEOUT_MS),
+                });
+                // 跳转响应（3xx，或 manual 下的 opaqueredirect status 0）一律视为不健康
+                if (!res.ok || res.status >= 300) return { ok: false, message: `HTTP ${res.status}` };
+                const json = await res.json();
+                if (typeof json !== 'object' || json === null) return { ok: false, message: 'invalid JSON' };
+                if (json.code !== 1 || !json.data) return { ok: false, message: json.msg || 'healthz failed' };
+                const version = json.data.version;
+                if (typeof version !== 'string' || !version.trim()) return { ok: false, message: 'missing version' };
+                return { ok: true, version: version.trim() };
+              } catch (e) {
+                return { ok: false, message: e instanceof Error ? e.message : String(e) };
+              }
+            }
+
+            // 网络/HTTP 失败会重试；版本过低是确定性失败，不重试。
+            async function probe(url) {
+              let lastMessage = 'unknown';
+              for (let i = 0; i < RETRIES; i++) {
+                const r = await fetchHealthz(url);
+                if (r.ok) {
+                  if (isVersionAtLeast(r.version, MIN_VERSION)) return { ok: true };
+                  return { ok: false, message: `version ${r.version} < ${MIN_VERSION}` };
+                }
+                lastMessage = r.message;
+                if (i < RETRIES - 1) await sleep(RETRY_DELAY_MS);
+              }
+              return { ok: false, message: lastMessage };
+            }
+
+            async function mapLimit(items, limit, fn) {
+              const ret = new Array(items.length);
+              let idx = 0;
+              async function worker() {
+                while (idx < items.length) {
+                  const i = idx++;
+                  ret[i] = await fn(items[i], i);
+                }
+              }
+              const n = Math.min(limit, items.length) || 0;
+              await Promise.all(Array.from({ length: n }, worker));
+              return ret;
+            }
+
+            // 读取实例清单
+            if (!fs.existsSync(hubPath)) {
+              core.setFailed(`${hubPath} not found`);
+              return;
+            }
+            const data = JSON.parse(fs.readFileSync(hubPath, 'utf8'));
+            const instances = Array.isArray(data.instances) ? data.instances : [];
+
+            // 读取既有健康状态：{ "<id>": { url, unhealthy_since } }，仅记录当前不健康的实例
+            let state = {};
+            if (fs.existsSync(statePath)) {
+              try {
+                state = JSON.parse(fs.readFileSync(statePath, 'utf8')) || {};
+              } catch {
+                state = {};
+              }
+            }
+
+            const nowIso = new Date().toISOString();
+            const nowMs = Date.parse(nowIso);
+
+            const results = await mapLimit(instances, 10, async (inst) => {
+              const r = await probe(inst.url);
+              return { inst, ok: r.ok, message: r.message };
+            });
+
+            for (const { inst, ok, message } of results) {
+              if (ok) {
+                if (state[inst.id]) {
+                  core.info(`recovered: ${inst.id}`);
+                  delete state[inst.id];
+                }
+              } else {
+                core.warning(`unhealthy: ${inst.id} (${inst.url}) — ${message}`);
+                if (!state[inst.id]) {
+                  state[inst.id] = { url: inst.url, unhealthy_since: nowIso };
+                }
+              }
+            }
+
+            // 清掉已不在清单里的陈旧条目
+            const liveIds = new Set(instances.map((i) => i.id));
+            for (const id of Object.keys(state)) {
+              if (!liveIds.has(id)) delete state[id];
+            }
+
+            // 不健康超过阈值 → 移除
+            const toRemove = [];
+            for (const inst of instances) {
+              const s = state[inst.id];
+              if (s && nowMs - Date.parse(s.unhealthy_since) > THRESHOLD_MS) {
+                toRemove.push(inst.id);
+              }
+            }
+
+            if (toRemove.length) {
+              const removeSet = new Set(toRemove);
+              data.instances = instances.filter((i) => !removeSet.has(i.id));
+              data.instances.sort((a, b) => a.id.localeCompare(b.id));
+              for (const id of toRemove) delete state[id];
+              fs.writeFileSync(hubPath, JSON.stringify(data, null, 2) + '\n');
+            }
+
+            // 稳定的 key 排序，避免无意义 diff
+            const sortedState = {};
+            for (const k of Object.keys(state).sort()) sortedState[k] = state[k];
+            fs.writeFileSync(statePath, JSON.stringify(sortedState, null, 2) + '\n');
+
+            const commitMessage = toRemove.length
+              ? `chore(hub): remove ${toRemove.length} dead instance(s): ${toRemove.join(', ')}`
+              : 'chore(hub): update instance health state';
+            core.setOutput('commit_message', commitMessage);
+
+            await core.summary
+              .addHeading('Hub health cleanup', 3)
+              .addList([
+                `checked: ${instances.length}`,
+                `unhealthy (tracked): ${Object.keys(sortedState).length}`,
+                `removed (>72h): ${toRemove.length}${toRemove.length ? ' — ' + toRemove.join(', ') : ''}`,
+              ])
+              .write();
+
+      - name: Commit changes
+        env:
+          COMMIT_MSG: ${{ steps.health.outputs.commit_message }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- hub/public/hub.json .github/hub-health.json; then
+            echo "no changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hub/public/hub.json .github/hub-health.json
+          git commit -m "$COMMIT_MSG"
+          git push origin HEAD:main

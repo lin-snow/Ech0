@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="base-input w-full">
-    <!-- Label -->
     <label
       v-if="label"
       :for="id"
@@ -11,7 +10,6 @@
       {{ label }}
     </label>
 
-    <!-- Input Wrapper -->
     <div class="flex items-center">
       <slot name="prefix" />
       <input
@@ -42,7 +40,7 @@ const props = defineProps<{
   id?: string
   label?: string
   placeholder?: string
-  type?: string // 默认值为 'text'
+  type?: string
   disabled?: boolean
   readonly?: boolean
   class?: string

@@ -265,7 +265,6 @@ const handleAddConnect = async () => {
 }
 
 const handleDisconnect = async (connect_id: string) => {
-  // 弹出确认框
   openConfirm({
     title: String(t('connectSetting.disconnectConfirmTitle')),
     description: '',
@@ -332,7 +331,6 @@ onMounted(() => {
   background: var(--connect-status-checking-bg);
 }
 
-/* 版本：与状态 pill 同形，黄色系 */
 .version-pill-yellow,
 .version-pill-muted {
   max-width: 100%;

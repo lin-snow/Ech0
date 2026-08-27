@@ -22,7 +22,6 @@ func TestRecordIP_UsesUTCDayBoundary(t *testing.T) {
 		lastPVAt: make(map[string]time.Time),
 	}
 
-	// 2026-01-02 01:00:00 +0800 == 2026-01-01 17:00:00 UTC
 	ev := recordEvent{
 		ipHash: "ip1",
 		at:     time.Date(2026, 1, 2, 1, 0, 0, 0, time.FixedZone("CST", 8*3600)),
@@ -53,7 +52,6 @@ func TestTrackerLoadHistory_ResumesTodayFromPersistedStats(t *testing.T) {
 	if todayStat.Date != today {
 		t.Fatalf("expected today date %s, got %s", today, todayStat.Date)
 	}
-	// 重启后应从持久化值继续累计,否则下一次快照会用较小的新值覆盖 DB。
 	if todayStat.PV != 7 || todayStat.UV != 3 {
 		t.Fatalf("expected today stat resumed pv=7 uv=3, got pv=%d uv=%d", todayStat.PV, todayStat.UV)
 	}

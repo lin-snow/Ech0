@@ -28,15 +28,18 @@ ech0 tui
 
 在菜单中执行备份相关操作（具体项以 TUI 为准）。
 
-也可使用：
+也可以直接用命令行，适合写 **cron** 或 CI 做定时打包：
 
 ```bash
-ech0 backup
+ech0 export snapshot -o ./snapshot.zip     # 整库快照
+ech0 import snapshot ./snapshot.zip --yes  # 破坏性恢复，必须显式确认
 ```
 
-（子命令以 `ech0 --help` 为准。）
+若你要的是**可读、可搬家、能长期保存**的内容备份，而不是整库镜像，请看
+[胶囊与静态站](/docs/guide/capsule)——`ech0 export capsule` 产出的是一棵
+Markdown 目录树，还能一键编译成静态归档站。
 
-适合写 **cron** 或 CI 做定时打包。
+完整子命令以 `ech0 --help` 为准。
 
 ---
 

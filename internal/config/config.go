@@ -21,6 +21,7 @@ var (
 
 type AppConfig struct {
 	Server    ServerConfig
+	OpenAPI   OpenAPIConfig
 	Database  DatabaseConfig
 	Log       LogConfig
 	Auth      AuthConfig
@@ -32,32 +33,38 @@ type AppConfig struct {
 	Comment   CommentConfig
 	Security  SecurityConfig
 	Web       WebConfig
+	Agent     AgentConfig
 }
 
 type StorageConfig struct {
-	ObjectEnabled bool   `env:"ECH0_OBJECT_ENABLED"`    // enable object storage alongside local
-	DataRoot      string `env:"ECH0_STORAGE_DATA_ROOT"` // local root directory, default "data/files"
-	Endpoint      string `env:"ECH0_S3_ENDPOINT"`       // S3-compatible endpoint
+	ObjectEnabled bool   `env:"ECH0_OBJECT_ENABLED"`
+	DataRoot      string `env:"ECH0_STORAGE_DATA_ROOT"`
+	Endpoint      string `env:"ECH0_S3_ENDPOINT"`
 	AccessKey     string `env:"ECH0_S3_ACCESS_KEY"`
 	SecretKey     string `env:"ECH0_S3_SECRET_KEY"`
 	BucketName    string `env:"ECH0_S3_BUCKET"`
 	Region        string `env:"ECH0_S3_REGION"`
-	Provider      string `env:"ECH0_S3_PROVIDER"` // "aws", "r2", "minio", "other"
+	Provider      string `env:"ECH0_S3_PROVIDER"`
 	UseSSL        bool   `env:"ECH0_S3_USE_SSL"`
+	UsePathStyle  bool   `env:"ECH0_S3_USE_PATH_STYLE"`
 	CDNURL        string `env:"ECH0_S3_CDN_URL"`
 	PathPrefix    string `env:"ECH0_S3_PATH_PREFIX"`
 }
 
 type ServerConfig struct {
-	Port string `env:"ECH0_SERVER_PORT"` // 服务器端口
-	Host string `env:"ECH0_SERVER_HOST"` // 服务器主机地址
-	Mode string `env:"ECH0_SERVER_MODE"` // 运行模式，可能的值为 "debug" 或 "release"
+	Port string `env:"ECH0_SERVER_PORT"`
+	Host string `env:"ECH0_SERVER_HOST"`
+	Mode string `env:"ECH0_SERVER_MODE"`
+}
+
+type OpenAPIConfig struct {
+	DocsRenderer string `env:"ECH0_OPENAPI_DOCS_RENDERER"`
 }
 
 type DatabaseConfig struct {
-	Type    string `env:"ECH0_DB_TYPE"`    // 数据库类型
-	Path    string `env:"ECH0_DB_PATH"`    // 数据库文件路径
-	LogMode string `env:"ECH0_DB_LOGMODE"` // 数据库日志模式
+	Type    string `env:"ECH0_DB_TYPE"`
+	Path    string `env:"ECH0_DB_PATH"`
+	LogMode string `env:"ECH0_DB_LOGMODE"`
 }
 
 type LogConfig struct {
@@ -84,10 +91,10 @@ type AuthConfig struct {
 }
 
 type JWTConfig struct {
-	Expires        int    `env:"ECH0_JWT_EXPIRES"`         // Access Token 过期时间，单位为秒
-	RefreshExpires int    `env:"ECH0_JWT_REFRESH_EXPIRES"` // Refresh Token 过期时间，单位为秒
-	Issuer         string `env:"ECH0_JWT_ISSUER"`          // JWT的发行者
-	Audience       string `env:"ECH0_JWT_AUDIENCE"`        // JWT的受众
+	Expires        int    `env:"ECH0_JWT_EXPIRES"`
+	RefreshExpires int    `env:"ECH0_JWT_REFRESH_EXPIRES"`
+	Issuer         string `env:"ECH0_JWT_ISSUER"`
+	Audience       string `env:"ECH0_JWT_AUDIENCE"`
 }
 
 type RedirectConfig struct {
@@ -100,29 +107,31 @@ type WebAuthnConfig struct {
 }
 
 type UploadConfig struct {
-	ImageMaxSize int      `env:"ECH0_UPLOAD_IMAGE_MAX_SIZE"` // 图片文件的最大上传大小，单位为字节
-	AudioMaxSize int      `env:"ECH0_UPLOAD_AUDIO_MAX_SIZE"` // 音频文件的最大上传大小，单位为字节
-	AllowedTypes []string // 允许上传的文件类型
-	ImagePath    string   `env:"ECH0_UPLOAD_IMAGE_PATH"` // 图片文件存储路径
-	AudioPath    string   `env:"ECH0_UPLOAD_AUDIO_PATH"` // 音频文件存储路径
+	AllowedTypes []string
+	ImageMaxSize int    `env:"ECH0_UPLOAD_IMAGE_MAX_SIZE"`
+	AudioMaxSize int    `env:"ECH0_UPLOAD_AUDIO_MAX_SIZE"`
+	VideoMaxSize int    `env:"ECH0_UPLOAD_VIDEO_MAX_SIZE"`
+	ImagePath    string `env:"ECH0_UPLOAD_IMAGE_PATH"`
+	AudioPath    string `env:"ECH0_UPLOAD_AUDIO_PATH"`
+	VideoPath    string `env:"ECH0_UPLOAD_VIDEO_PATH"`
 }
 
 type SettingConfig struct {
-	SiteTitle     string `env:"ECH0_SETTING_SITE_TITLE"`     // 网站标题
-	ServerLogo    string `env:"ECH0_SETTING_SERVER_LOGO"`    // 服务器Logo
-	Servername    string `env:"ECH0_SETTING_SERVER_NAME"`    // 服务器名称
-	Serverurl     string `env:"ECH0_SETTING_SERVER_URL"`     // 服务器 URL
-	AllowRegister bool   `env:"ECH0_SETTING_ALLOW_REGISTER"` // 是否允许注册
-	Icpnumber     string `env:"ECH0_SETTING_ICP_NUMBER"`     // ICP 备案号
-	FooterContent string `env:"ECH0_SETTING_FOOTER_CONTENT"` // 自定义页脚内容
-	FooterLink    string `env:"ECH0_SETTING_FOOTER_LINK"`    // 自定义页脚链接
-	MetingAPI     string `env:"ECH0_SETTING_METING_API"`     // Meting API 地址
-	CustomCSS     string `env:"ECH0_SETTING_CUSTOM_CSS"`     // 自定义 CSS 样式
-	CustomJS      string `env:"ECH0_SETTING_CUSTOM_JS"`      // 自定义 JS 脚本
+	SiteTitle     string `env:"ECH0_SETTING_SITE_TITLE"`
+	ServerLogo    string `env:"ECH0_SETTING_SERVER_LOGO"`
+	Servername    string `env:"ECH0_SETTING_SERVER_NAME"`
+	Serverurl     string `env:"ECH0_SETTING_SERVER_URL"`
+	AllowRegister bool   `env:"ECH0_SETTING_ALLOW_REGISTER"`
+	Icpnumber     string `env:"ECH0_SETTING_ICP_NUMBER"`
+	FooterContent string `env:"ECH0_SETTING_FOOTER_CONTENT"`
+	FooterLink    string `env:"ECH0_SETTING_FOOTER_LINK"`
+	MetingAPI     string `env:"ECH0_SETTING_METING_API"`
+	CustomCSS     string `env:"ECH0_SETTING_CUSTOM_CSS"`
+	CustomJS      string `env:"ECH0_SETTING_CUSTOM_JS"`
 }
 
 type CommentConfig struct {
-	EnableComment         bool   `env:"ECH0_COMMENT_ENABLE"` // 是否启用评论
+	EnableComment         bool   `env:"ECH0_COMMENT_ENABLE"`
 	CaptchaSiteKey        string `env:"ECH0_COMMENT_CAPTCHA_SITE_KEY"`
 	CaptchaSecret         string `env:"ECH0_COMMENT_CAPTCHA_SECRET"`
 	CaptchaDifficulty     int    `env:"ECH0_COMMENT_CAPTCHA_DIFFICULTY"`
@@ -156,7 +165,6 @@ type CORSConfig struct {
 type EventConfig struct {
 	DefaultBuffer      int    `env:"ECH0_EVENT_DEFAULT_BUFFER"`
 	DefaultOverflow    string `env:"ECH0_EVENT_DEFAULT_OVERFLOW"`
-	DeadLetterBuffer   int    `env:"ECH0_EVENT_DEADLETTER_BUFFER"`
 	SystemBuffer       int    `env:"ECH0_EVENT_SYSTEM_BUFFER"`
 	AgentBuffer        int    `env:"ECH0_EVENT_AGENT_BUFFER"`
 	AgentParallelism   int    `env:"ECH0_EVENT_AGENT_PARALLELISM"`
@@ -171,7 +179,11 @@ type MigrationConfig struct {
 	RateLimitPerSec int  `env:"ECH0_MIGRATION_RATE_LIMIT_PER_SEC"`
 }
 
-// Config 返回全局配置中心
+type AgentConfig struct {
+	TimeoutSeconds int `env:"ECH0_AGENT_TIMEOUT_SECONDS"`
+	MaxRounds      int `env:"ECH0_AGENT_MAX_ROUNDS"`
+}
+
 func Config() *AppConfig {
 	once.Do(func() {
 		if err := godotenv.Load(); err != nil {
@@ -192,6 +204,9 @@ func defaultConfig() *AppConfig {
 			Port: "6277",
 			Host: "0.0.0.0",
 			Mode: "release",
+		},
+		OpenAPI: OpenAPIConfig{
+			DocsRenderer: "stoplight",
 		},
 		Database: DatabaseConfig{
 			Type:    "sqlite",
@@ -236,8 +251,10 @@ func defaultConfig() *AppConfig {
 		Upload: UploadConfig{
 			ImageMaxSize: 20971520,
 			AudioMaxSize: 20971520,
+			VideoMaxSize: 67108864,
 			ImagePath:    "data/files/images/",
 			AudioPath:    "data/files/audios/",
+			VideoPath:    "data/files/videos/",
 			AllowedTypes: []string{
 				"image/jpeg",
 				"image/png",
@@ -248,12 +265,12 @@ func defaultConfig() *AppConfig {
 				"audio/flac",
 				"audio/wav",
 				"audio/mp4",
+				"video/mp4",
 			},
 		},
 		Event: EventConfig{
 			DefaultBuffer:      512,
 			DefaultOverflow:    "block",
-			DeadLetterBuffer:   64,
 			SystemBuffer:       64,
 			AgentBuffer:        128,
 			AgentParallelism:   2,
@@ -303,14 +320,16 @@ func defaultConfig() *AppConfig {
 				AllowedOrigins: []string{},
 			},
 		},
+		Agent: AgentConfig{
+			TimeoutSeconds: 120,
+			MaxRounds:      4,
+		},
 	}
 }
 
-// getJWTSecret 加载JWT密钥
 func getJWTSecret() []byte {
-	// 从环境变量中获取JWT密钥
 	secret := os.Getenv("JWT_SECRET")
-	if secret == "" { // 如果没有设置环境变量，则使用UUID生成默认密钥
+	if secret == "" {
 		b := make([]byte, 16)
 		_, err := rand.Read(b)
 		if err != nil {

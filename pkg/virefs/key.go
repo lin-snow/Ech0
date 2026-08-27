@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-// CleanKey normalises a key: trims leading/trailing slashes, collapses
-// repeated slashes, resolves "." segments and rejects ".." traversals.
 func CleanKey(raw string) (string, error) {
 	if raw == "" {
 		return "", nil

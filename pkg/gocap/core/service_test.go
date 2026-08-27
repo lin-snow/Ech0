@@ -115,24 +115,22 @@ func TestRedeemConcurrentReplayOnlyOneSuccess(t *testing.T) {
 	}
 	solutions := bruteSolutions(chal.Token, chal.Challenge.C, chal.Challenge.S, chal.Challenge.D)
 
-	var success int32
+	var success atomic.Int32
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			_, err := svc.Redeem("site1", RedeemRequest{
 				Token:     chal.Token,
 				Solutions: solutions,
 			})
 			if err == nil {
-				atomic.AddInt32(&success, 1)
+				success.Add(1)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 
-	if got := atomic.LoadInt32(&success); got != 1 {
+	if got := success.Load(); got != 1 {
 		t.Fatalf("expected exactly 1 success, got %d", got)
 	}
 }
@@ -185,7 +183,7 @@ func bruteSolutions(seed string, count, saltSize, difficulty int) []int {
 }
 
 func bruteOne(salt, target string) int {
-	for nonce := 0; nonce < 10_000_000; nonce++ {
+	for nonce := range 10_000_000 {
 		sum := sha256.Sum256([]byte(salt + intToString(nonce)))
 		h := hex.EncodeToString(sum[:])
 		if len(target) <= len(h) && h[:len(target)] == target {

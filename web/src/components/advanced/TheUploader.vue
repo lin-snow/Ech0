@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="rounded-md overflow-hidden">
-    <!-- Drop zone (also click-to-pick) -->
     <button
       type="button"
       class="w-full flex flex-col items-center justify-center gap-1 py-5 px-3 rounded-md border-1 border-dashed transition-colors cursor-pointer text-center select-none"
@@ -18,11 +17,11 @@
       @drop.prevent="handleDrop"
     >
       <span class="text-[var(--color-text-primary)] font-medium">
-        <slot name="drop-title">{{ t('uploader.dropHere') }}</slot>
+        <slot name="drop-title">{{ dropTitle }}</slot>
       </span>
       <span class="text-xs text-[var(--color-text-muted)]">
         <slot name="drop-hint" :max="maxFiles" :max-file-size="maxFileSize">
-          {{ t('uploader.dropHint', { max: maxFiles }) }}
+          {{ dropHintText }}
         </slot>
       </span>
     </button>
@@ -36,7 +35,6 @@
       @change="handleInputChange"
     />
 
-    <!-- Per-file rows -->
     <ul v-if="items.length > 0" class="mt-2 flex flex-col gap-1.5">
       <li
         v-for="item in items"
@@ -57,16 +55,20 @@
         @drop.prevent="onItemDrop(item)"
         @dragend="onItemDragEnd"
       >
-        <!-- Thumbnail -->
         <img
+          v-if="isImageItem(item)"
           :src="item.preview"
           alt=""
           class="w-10 h-10 object-cover rounded-sm shrink-0 bg-[var(--color-bg-muted)]"
         />
+        <span
+          v-else
+          class="w-10 h-10 flex items-center justify-center rounded-sm shrink-0 bg-[var(--color-bg-muted)] text-[var(--color-text-muted)]"
+        >
+          <component :is="isVideoItem(item) ? VideoIcon : AudioIcon" class="w-5 h-5" />
+        </span>
 
-        <!-- Info column -->
         <div class="flex-1 min-w-0">
-          <!-- Filename (left) | size + compression badge + status (right) -->
           <div class="flex items-center justify-between gap-2">
             <span
               class="flex-1 min-w-0 text-sm truncate text-[var(--color-text-primary)]"
@@ -98,7 +100,6 @@
             </div>
           </div>
 
-          <!-- Progress bar / error text -->
           <div
             v-if="
               item.status === UPLOAD_STATUS.UPLOADING || item.status === UPLOAD_STATUS.COMPRESSING
@@ -121,7 +122,6 @@
           </div>
         </div>
 
-        <!-- Actions -->
         <div class="flex items-center gap-1 shrink-0">
           <button
             v-if="item.status === UPLOAD_STATUS.ERROR || item.status === UPLOAD_STATUS.CANCELLED"
@@ -134,7 +134,7 @@
           <button
             type="button"
             class="text-xs px-2 py-0.5 rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-border-subtle)]"
-            @click.stop="remove(item.id)"
+            @click.stop="handleRemoveItem(item)"
             :title="t('uploader.removeItem')"
           >
             ✕
@@ -143,7 +143,6 @@
       </li>
     </ul>
 
-    <!-- Global status -->
     <div
       v-if="isUploading"
       class="mt-2 flex items-center justify-between text-xs text-[var(--color-text-muted)]"
@@ -158,7 +157,6 @@
       </button>
     </div>
 
-    <!-- Reorder hint (only once any image is uploaded) -->
     <div
       v-else-if="hasReorderable"
       class="mt-1.5 text-xs text-[var(--color-text-muted)] text-center"
@@ -174,6 +172,11 @@ import { useI18n } from 'vue-i18n'
 import { useEditorStore } from '@/stores'
 import { useUpload, UPLOAD_STATUS, type QueueItem, type UploadStatus } from '@/lib/file/useUpload'
 import { formatBytes } from '@/utils/file'
+import { theToast } from '@/utils/toast'
+import { deleteFileById } from '@/lib/file'
+import AudioIcon from '@/components/icons/audio.vue'
+import VideoIcon from '@/components/icons/videomedia.vue'
+import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 
 const props = withDefaults(
   defineProps<{
@@ -181,9 +184,7 @@ const props = withDefaults(
     EnableCompressor: boolean
     fileCategory?: App.Api.File.Category
     allowedFileTypes?: string[]
-    /** Cap on the number of files in the queue (rejected entries beyond this are skipped). */
     maxFiles?: number
-    /** Per-file size cap in bytes; files above this are rejected with a toast. Unset = no cap. */
     maxFileSize?: number
   }>(),
   {
@@ -205,6 +206,25 @@ const acceptAttr = computed(() => allowedTypes.value.join(','))
 
 const maxFiles = computed(() => props.maxFiles)
 const maxFileSize = computed(() => props.maxFileSize)
+
+const isSingleMedia = computed(
+  () => props.fileCategory === FILE_CATEGORY.AUDIO || props.fileCategory === FILE_CATEGORY.VIDEO,
+)
+const dropTitle = computed(() => {
+  switch (props.fileCategory) {
+    case FILE_CATEGORY.AUDIO:
+      return t('uploader.dropHereAudio')
+    case FILE_CATEGORY.VIDEO:
+      return t('uploader.dropHereVideo')
+    default:
+      return t('uploader.dropHere')
+  }
+})
+const dropHintText = computed(() =>
+  isSingleMedia.value
+    ? t('uploader.dropHintSingle', { max: maxFiles.value })
+    : t('uploader.dropHint', { max: maxFiles.value }),
+)
 
 const { items, isUploading, totalActive, addFiles, retry, remove, moveItem, cancelAll } = useUpload(
   {
@@ -229,6 +249,44 @@ watch(
   { immediate: true },
 )
 
+async function handleRemoveItem(item: QueueItem) {
+  const fileId = item.result?.id
+  const storageType = item.result?.storage_type
+  remove(item.id)
+  if (!fileId) return
+
+  if (storageType === FILE_STORAGE_TYPE.LOCAL || storageType === FILE_STORAGE_TYPE.OBJECT) {
+    try {
+      await deleteFileById(fileId)
+    } catch {
+      theToast.error(String(t('editor.removeImageRemoteFailed')))
+    }
+  }
+
+  const idx = editorStore.filesToAdd.findIndex((f) => f.id === fileId)
+  if (idx >= 0) editorStore.removeFileAt(idx)
+
+  if (editorStore.isUpdateMode) {
+    await editorStore.handleAddOrUpdateEcho(true)
+  }
+}
+
+watch(
+  () => editorStore.filesToAdd.map((f) => f.id ?? '').join('|'),
+  () => {
+    const present = new Set(editorStore.filesToAdd.map((f) => f.id).filter(Boolean))
+    for (const item of [...items.value]) {
+      if (
+        item.status === UPLOAD_STATUS.SUCCESS &&
+        item.result?.id &&
+        !present.has(item.result.id)
+      ) {
+        remove(item.id)
+      }
+    }
+  },
+)
+
 const hasReorderable = computed(
   () => items.value.filter((i) => i.status === UPLOAD_STATUS.SUCCESS).length >= 2,
 )
@@ -237,13 +295,19 @@ function isReorderable(item: QueueItem): boolean {
   return item.status === UPLOAD_STATUS.SUCCESS
 }
 
+function isImageItem(item: QueueItem): boolean {
+  return item.file.type.startsWith('image/')
+}
+
+function isVideoItem(item: QueueItem): boolean {
+  return item.file.type.startsWith('video/')
+}
+
 function openFilePicker() {
   fileInputRef.value?.click()
 }
 
 function onZoneDragOver(e: DragEvent) {
-  // Show "drop to add" highlight only when external files are being dragged in,
-  // not when the user is reordering an internal queue item.
   if (draggingId.value) return
   if (e.dataTransfer?.types?.includes('Files')) {
     isDropOverZone.value = true
@@ -260,7 +324,6 @@ function handleInputChange(e: Event) {
 
 function handleDrop(e: DragEvent) {
   isDropOverZone.value = false
-  // Internal reorder drag should never be treated as a "drop to add" event.
   if (draggingId.value) return
   const dt = e.dataTransfer
   if (!dt) return
@@ -285,7 +348,6 @@ function handlePaste(e: ClipboardEvent) {
     if (item.kind === 'file' && item.type.startsWith('image/')) {
       const f = item.getAsFile()
       if (f) {
-        // Preserve lastModified so the dedup id matches across paste + pick of the same image.
         files.push(new File([f], f.name, { type: f.type, lastModified: f.lastModified }))
       }
     }
@@ -299,9 +361,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('paste', handlePaste)
   cancelAll()
+  editorStore.fileUploading = false
 })
-
-// ---------- Drag-to-reorder ----------
 
 const draggingId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
@@ -314,7 +375,6 @@ function onItemDragStart(item: QueueItem, e: DragEvent) {
   draggingId.value = item.id
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
-    // Some browsers require setData for the drag to fire.
     e.dataTransfer.setData('text/plain', item.id)
   }
 }
@@ -340,7 +400,6 @@ function onItemDrop(target: QueueItem) {
   dragOverId.value = null
   if (!fromId || fromId === target.id || !isReorderable(target)) return
   moveItem(fromId, target.id)
-  // Propagate to the editor's filesToAdd so the post payload reflects the new order.
   const orderedIds = items.value
     .filter((i) => i.status === UPLOAD_STATUS.SUCCESS && i.result?.id)
     .map((i) => i.result!.id!)
@@ -352,17 +411,11 @@ function onItemDragEnd() {
   dragOverId.value = null
 }
 
-// ---------- Display helpers ----------
-
 type CompressionBadge =
   | { tone: 'savings'; label: string; tooltip: string }
   | { tone: 'none'; label: string; tooltip: string }
   | null
 
-// Three states for the compression badge:
-//   - savings: compressor ran AND output was meaningfully smaller → "−42%"
-//   - none:    compressor ran but no benefit (already optimal, or format unsupported) → "原始"
-//   - null:    compressor was off for this item → no badge
 function compressionBadge(item: QueueItem): CompressionBadge {
   if (!item.compressionAttempted) return null
   const before = item.originalSize

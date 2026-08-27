@@ -8,16 +8,12 @@ import { fetchQueryEchos, fetchGetTags, fetchGetEchoById, fetchCreateTag } from 
 export const useEchoStore = defineStore('echoStore', () => {
   const normalizeEchoId = (echo: App.Api.Ech0.Echo): string => String(echo?.id ?? '').trim()
 
-  // ─────────────────────────────────────────────
-  //  统一查询状态（普通时间线与标签过滤共享同一套状态）
-  // ─────────────────────────────────────────────
-
-  const echoList = ref<App.Api.Ech0.Echo[]>([]) // 当前页展示的 Echo 列表
-  const echoIndexMap = ref(new Map<string, number>()) // id → echoList 下标，用于快速定位
+  const echoList = ref<App.Api.Ech0.Echo[]>([])
+  const echoIndexMap = ref(new Map<string, number>())
   const isLoading = ref<boolean>(true)
-  const total = ref<number>(0) // 当前查询条件下的总条数
-  const pageSize = ref<number>(7) // 每页数量
-  const currentPage = ref<number>(1) // 当前页码（从 1 开始）
+  const total = ref<number>(0)
+  const pageSize = ref<number>(7)
+  const currentPage = ref<number>(1)
   const searchValue = ref<string>('')
   const searchingMode = computed(() => searchValue.value.length > 0)
   const totalPages = computed(() =>
@@ -28,32 +24,24 @@ export const useEchoStore = defineStore('echoStore', () => {
   const tagList = ref<App.Api.Ech0.Tag[]>([])
   const tagOptions = computed<string[]>(() => tagList.value.map((tag) => tag.name))
 
-  // ── 标签过滤模式 ──
   const isFilteringMode = ref<boolean>(false)
   const filteredTag = ref<App.Api.Ech0.Tag | null>(null)
 
-  // ── 日期范围过滤（由高级搜索面板驱动；单位：Unix 秒） ──
   const dateFrom = ref<number | null>(null)
   const dateTo = ref<number | null>(null)
   const isDateRangeActive = computed(() => dateFrom.value !== null || dateTo.value !== null)
 
-  // ── 多标签过滤（由高级搜索面板驱动）──
   const selectedTagIds = ref<string[]>([])
   const isTagSelectionActive = computed(() => selectedTagIds.value.length > 0)
 
-  // ─────────────────────────────────────────────
-  //  watchers
-  // ─────────────────────────────────────────────
+  const visibilityFilter = ref<App.Api.Ech0.EchoVisibilityFilter>('all')
+  const isVisibilityFilterActive = computed(() => visibilityFilter.value !== 'all')
 
   watch(searchingMode, (newValue, oldValue) => {
     if (newValue === false && oldValue === true) {
       refreshEchos()
     }
   })
-
-  // ─────────────────────────────────────────────
-  //  核心查询 actions
-  // ─────────────────────────────────────────────
 
   function buildQueryParams(): App.Api.Ech0.EchoQueryParams {
     const params: App.Api.Ech0.EchoQueryParams = {
@@ -75,6 +63,9 @@ export const useEchoStore = defineStore('echoStore', () => {
     if (dateTo.value !== null) {
       params.dateTo = dateTo.value
     }
+    if (visibilityFilter.value !== 'all') {
+      params.private = visibilityFilter.value === 'private'
+    }
     return params
   }
 
@@ -87,6 +78,10 @@ export const useEchoStore = defineStore('echoStore', () => {
     selectedTagIds.value = []
   }
 
+  const resetVisibilityFilter = () => {
+    visibilityFilter.value = 'all'
+  }
+
   const removeSelectedTag = (tagId: string) => {
     selectedTagIds.value = selectedTagIds.value.filter((id) => id !== tagId)
     if (filteredTag.value?.id === tagId && isFilteringMode.value) {
@@ -95,10 +90,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     }
   }
 
-  /**
-   * 拉取当前页数据，整页替换 echoList。
-   * 同一查询条件并发调用复用同一个 Promise，避免重复请求。
-   */
   let pendingFetch: Promise<void> | null = null
   async function fetchCurrentPage() {
     if (pendingFetch) return pendingFetch
@@ -128,10 +119,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     return pendingFetch
   }
 
-  /**
-   * 跳转到指定页（页码会被夹到 [1, totalPages]）。
-   * 若与当前页相同则跳过请求。
-   */
   async function goToPage(page: number) {
     const target = Math.max(1, Math.floor(page) || 1)
     if (target === currentPage.value && echoList.value.length > 0) return
@@ -139,7 +126,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     await fetchCurrentPage()
   }
 
-  /** 重置分页指针并重新拉取第一页。 */
   const refreshEchos = () => {
     currentPage.value = 1
     total.value = 0
@@ -148,7 +134,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     return fetchCurrentPage()
   }
 
-  /** 清空列表但不发起请求（用于登出 / 卸载等场景）。 */
   const clearEchos = () => {
     currentPage.value = 1
     total.value = 0
@@ -156,7 +141,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     echoIndexMap.value = new Map()
   }
 
-  /** 仅重置分页指针与列表，不触发加载（搜索场景由调用方控制加载时机）。 */
   const refreshForSearch = () => {
     currentPage.value = 1
     total.value = 0
@@ -182,8 +166,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     }
   }
 
-  // 单条 Echo 的飞行中请求池：让 echo API 与 EchoView chunk 下载并行，
-  // 避免分享链接首次访问的串行等待。命中当前页缓存时立即返回。
   const pendingEchoMap = new Map<string, Promise<App.Api.Ech0.Echo | null>>()
 
   const prefetchEcho = (echoId: string): Promise<App.Api.Ech0.Echo | null> => {
@@ -241,7 +223,6 @@ export const useEchoStore = defineStore('echoStore', () => {
   }
 
   return {
-    // 状态
     echoList,
     echoIndexMap,
     isLoading,
@@ -255,20 +236,19 @@ export const useEchoStore = defineStore('echoStore', () => {
     tagList,
     tagOptions,
 
-    // 标签过滤
     isFilteringMode,
     filteredTag,
 
-    // 日期范围过滤
     dateFrom,
     dateTo,
     isDateRangeActive,
 
-    // 多标签过滤
     selectedTagIds,
     isTagSelectionActive,
 
-    // actions
+    visibilityFilter,
+    isVisibilityFilterActive,
+
     fetchCurrentPage,
     goToPage,
     refreshEchos,
@@ -276,6 +256,7 @@ export const useEchoStore = defineStore('echoStore', () => {
     refreshForSearch,
     resetDateRange,
     resetSelectedTags,
+    resetVisibilityFilter,
     removeSelectedTag,
     updateEcho,
     updateLikeCount,

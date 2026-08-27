@@ -78,7 +78,6 @@ export function httpUpload(
       }
     } else {
       xhr.open('PUT', target.presignUrl, true)
-      // Content-Type must equal the value used at presign time, otherwise S3 rejects.
       xhr.setRequestHeader('Content-Type', target.contentType)
     }
 

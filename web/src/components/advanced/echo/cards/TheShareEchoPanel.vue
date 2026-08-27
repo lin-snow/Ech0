@@ -2,16 +2,19 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <Popover class="relative flex items-center">
-    <PopoverButton
-      v-tooltip="t('echoDetail.share')"
-      :aria-label="t('echoDetail.share')"
-      :class="[
-        'flex items-center justify-center transform transition-transform duration-150 outline-none',
-        isShareAnimating ? 'scale-160' : 'scale-100',
-      ]"
-      @click="triggerAnimation"
-    >
-      <Share class="w-4 h-4" />
+    <PopoverButton as="template">
+      <button
+        v-tooltip="t('echoDetail.share')"
+        type="button"
+        :aria-label="t('echoDetail.share')"
+        :class="[
+          'flex items-center justify-center transform transition-transform duration-150 outline-none',
+          isShareAnimating ? 'scale-160' : 'scale-100',
+        ]"
+        @click="triggerAnimation"
+      >
+        <Share class="w-4 h-4" />
+      </button>
     </PopoverButton>
 
     <transition
@@ -140,9 +143,7 @@ const handleSystemShare = async () => {
       text: props.echoContent ?? '',
       url: shareUrl.value,
     })
-  } catch {
-    // user cancellation is a rejected promise — ignore silently
-  }
+  } catch {}
 }
 </script>
 

@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="w-full px-2">
-    <!-- Webhook 设置 -->
     <TheWebhookSetting class="mb-3" />
   </div>
 </template>

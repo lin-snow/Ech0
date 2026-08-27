@@ -8,19 +8,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
-	contracts "github.com/lin-snow/ech0/internal/event/contracts"
-	publisher "github.com/lin-snow/ech0/internal/event/publisher"
+	"github.com/lin-snow/ech0/internal/event"
+	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
-	httpUtil "github.com/lin-snow/ech0/internal/util/http"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	urlUtil "github.com/lin-snow/ech0/internal/util/url"
+	"github.com/lin-snow/ech0/pkg/busen"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
-	"go.uber.org/zap"
 )
 
 type EchoService struct {
@@ -28,7 +29,7 @@ type EchoService struct {
 	commonService  CommonService
 	fileService    FileService
 	echoRepository Repository
-	publisher      *publisher.Publisher
+	bus            *busen.Bus
 }
 
 func NewEchoService(
@@ -36,14 +37,14 @@ func NewEchoService(
 	commonService CommonService,
 	fileService FileService,
 	echoRepository Repository,
-	publisher *publisher.Publisher,
+	busProvider func() *busen.Bus,
 ) *EchoService {
 	return &EchoService{
 		transactor:     tx,
 		commonService:  commonService,
 		fileService:    fileService,
 		echoRepository: echoRepository,
-		publisher:      publisher,
+		bus:            busProvider(),
 	}
 }
 
@@ -65,7 +66,8 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		layout != model.LayoutGrid &&
 		layout != model.LayoutHorizontal &&
 		layout != model.LayoutCarousel &&
-		layout != model.LayoutStack) {
+		layout != model.LayoutStack &&
+		layout != model.LayoutNone) {
 		newEcho.Layout = model.LayoutWaterfall
 	}
 
@@ -79,6 +81,10 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 
 	if isEchoEmpty(newEcho) {
 		return errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+	}
+
+	if err := echoService.validateSingleFileCategory(ctx, newEcho); err != nil {
+		return err
 	}
 
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
@@ -97,21 +103,15 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		return fetchErr
 	}
 	if savedEcho != nil {
-		if pubErr := echoService.publisher.EchoCreated(
-			context.Background(),
-			contracts.EchoCreatedEvent{Echo: *savedEcho, User: user},
-		); pubErr != nil {
-			logUtil.GetLogger().Error("publish echo created event failed", zap.Error(pubErr))
-		}
+		eventbus.Notify(context.Background(), echoService.bus, event.EchoCreated{Echo: *savedEcho, User: user})
 	}
 	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(newEcho)); err != nil {
-		logUtil.GetLogger().Warn("confirm temp files after post echo failed", zap.Error(err))
+		logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
 	}
 
 	return nil
 }
 
-// GetEchosByPage Deprecated: use QueryEchos instead. Kept for backward compatibility.
 func (echoService *EchoService) GetEchosByPage(
 	ctx context.Context,
 	pageQueryDto commonModel.PageQueryDto,
@@ -168,15 +168,18 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 
 	echoService.echoRepository.InvalidateEchoCaches(id)
 
-	if pubErr := echoService.publisher.EchoDeleted(
-		context.Background(),
-		contracts.EchoDeletedEvent{Echo: model.Echo{ID: id}, User: user},
-	); pubErr != nil {
-		logUtil.GetLogger().Error("publish echo deleted event failed", zap.Error(pubErr))
-	}
+	eventbus.Notify(context.Background(), echoService.bus, event.EchoDeleted{Echo: model.Echo{ID: id}, User: user})
 
 	for _, file := range deletableFiles {
-		_ = echoService.fileService.DeleteStoredFile(file.storageType, file.key)
+		if err := echoService.fileService.DeleteStoredFile(file.storageType, file.key); err != nil {
+			logUtil.GetLogger().Warn(
+				"delete stored file after echo delete failed",
+				slog.String("echo_id", id),
+				slog.String("file_key", file.key),
+				slog.String("storage_type", file.storageType),
+				logUtil.Err(err),
+			)
+		}
 	}
 
 	return nil
@@ -210,6 +213,32 @@ func (echoService *EchoService) GetHotEchos(ctx context.Context, limit int) ([]m
 	return echoService.echoRepository.GetHotEchos(limit, showPrivate)
 }
 
+func (echoService *EchoService) GetRandomEcho(ctx context.Context) (*model.Echo, error) {
+	userid := viewer.MustFromContext(ctx).UserID()
+	showPrivate := false
+	if userid != "" {
+		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
+		if err != nil {
+			return nil, err
+		}
+		showPrivate = user.IsAdmin
+	}
+	return echoService.echoRepository.GetRandomEcho(showPrivate)
+}
+
+func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
+	userid := viewer.MustFromContext(ctx).UserID()
+	showPrivate := false
+	if userid != "" {
+		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
+		if err != nil {
+			return nil, err
+		}
+		showPrivate = user.IsAdmin
+	}
+	return echoService.echoRepository.GetOnThisDayEchos(showPrivate, timezone), nil
+}
+
 func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo) error {
 	userid := viewer.MustFromContext(ctx).UserID()
 	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
@@ -225,7 +254,8 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		layout != model.LayoutGrid &&
 		layout != model.LayoutHorizontal &&
 		layout != model.LayoutCarousel &&
-		layout != model.LayoutStack) {
+		layout != model.LayoutStack &&
+		layout != model.LayoutNone) {
 		echo.Layout = model.LayoutWaterfall
 	}
 
@@ -243,6 +273,10 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
 	}
 
+	if err := echoService.validateSingleFileCategory(ctx, echo); err != nil {
+		return err
+	}
+
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
 		if err := echoService.ProcessEchoTags(txCtx, echo); err != nil {
 			return err
@@ -254,14 +288,9 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 
 	echoService.echoRepository.InvalidateEchoCaches(echo.ID)
 
-	if pubErr := echoService.publisher.EchoUpdated(
-		context.Background(),
-		contracts.EchoUpdatedEvent{Echo: *echo, User: user},
-	); pubErr != nil {
-		logUtil.GetLogger().Error("publish echo updated event failed", zap.Error(pubErr))
-	}
+	eventbus.Notify(context.Background(), echoService.bus, event.EchoUpdated{Echo: *echo, User: user})
 	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(echo)); err != nil {
-		logUtil.GetLogger().Warn("confirm temp files after update echo failed", zap.Error(err))
+		logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
 	}
 
 	return nil
@@ -275,8 +304,6 @@ func (echoService *EchoService) LikeEcho(ctx context.Context, id string) error {
 	if echo == nil {
 		return errors.New(commonModel.ECHO_NOT_FOUND)
 	}
-	// 与 GetEchoById 的可见性规则保持一致：匿名调用方禁止点赞私密 echo，
-	// 已认证非管理员同样禁止；管理员（含 MCP 路径）允许。
 	if echo.Private {
 		userID := viewer.MustFromContext(ctx).UserID()
 		if userID == "" {
@@ -427,7 +454,6 @@ func (echoService *EchoService) ProcessEchoTags(ctx context.Context, echo *model
 	return nil
 }
 
-// GetEchosByTagId Deprecated: use QueryEchos instead. Kept for backward compatibility.
 func (echoService *EchoService) GetEchosByTagId(
 	ctx context.Context,
 	tagId string,
@@ -448,8 +474,11 @@ func (echoService *EchoService) QueryEchos(
 	if queryDto.Page < 1 {
 		queryDto.Page = 1
 	}
-	if queryDto.PageSize < 1 || queryDto.PageSize > 100 {
+	if queryDto.PageSize < 1 {
 		queryDto.PageSize = 10
+	}
+	if queryDto.PageSize > 100 {
+		queryDto.PageSize = 100
 	}
 	queryDto.Search = strings.TrimSpace(queryDto.Search)
 
@@ -481,8 +510,6 @@ func (echoService *EchoService) QueryEchos(
 	}, nil
 }
 
-// isSafeTagName 拒绝包含 HTML 元字符的标签名，配合 RSS 渲染端的 HTML 转义形成纵深防御
-// （GHSA-3v85-fqvh-7rxf）。即使后续新增其他出口忘记转义，含 <>"'& 的标签也无法落库。
 func isSafeTagName(name string) bool {
 	return !strings.ContainsAny(name, "<>\"'&")
 }
@@ -507,28 +534,28 @@ func normalizeEchoExtension(ext *model.EchoExtension) (*model.EchoExtension, err
 		if url == "" {
 			return nil, fmt.Errorf("extension payload.url is required for MUSIC")
 		}
-		ext.Payload = map[string]interface{}{"url": httpUtil.TrimURL(url)}
+		ext.Payload = map[string]any{"url": urlUtil.TrimURL(url)}
 	case model.Extension_VIDEO:
 		videoID := strings.TrimSpace(getPayloadString(ext.Payload, "videoId"))
 		if videoID == "" {
 			return nil, fmt.Errorf("extension payload.videoId is required for VIDEO")
 		}
-		ext.Payload = map[string]interface{}{"videoId": videoID}
+		ext.Payload = map[string]any{"videoId": videoID}
 	case model.Extension_GITHUBPROJ:
 		repoURL := strings.TrimSpace(getPayloadString(ext.Payload, "repoUrl"))
 		if repoURL == "" {
 			return nil, fmt.Errorf("extension payload.repoUrl is required for GITHUBPROJ")
 		}
-		ext.Payload = map[string]interface{}{"repoUrl": httpUtil.TrimURL(repoURL)}
+		ext.Payload = map[string]any{"repoUrl": urlUtil.TrimURL(repoURL)}
 	case model.Extension_WEBSITE:
 		title := strings.TrimSpace(getPayloadString(ext.Payload, "title"))
 		site := strings.TrimSpace(getPayloadString(ext.Payload, "site"))
 		if title == "" || site == "" {
 			return nil, fmt.Errorf("extension payload.title and payload.site are required for WEBSITE")
 		}
-		ext.Payload = map[string]interface{}{
+		ext.Payload = map[string]any{
 			"title": title,
-			"site":  httpUtil.TrimURL(site),
+			"site":  urlUtil.TrimURL(site),
 		}
 	case model.Extension_LOCATION:
 		lat, okLat := getPayloadFloat(ext.Payload, "latitude")
@@ -543,7 +570,7 @@ func normalizeEchoExtension(ext *model.EchoExtension) (*model.EchoExtension, err
 		if placeholder == "" {
 			return nil, fmt.Errorf("extension payload.placeholder is required for LOCATION")
 		}
-		ext.Payload = map[string]interface{}{
+		ext.Payload = map[string]any{
 			"latitude":    lat,
 			"longitude":   lng,
 			"placeholder": placeholder,
@@ -555,8 +582,8 @@ func normalizeEchoExtension(ext *model.EchoExtension) (*model.EchoExtension, err
 		if url == "" || username == "" || statusID == "" {
 			return nil, fmt.Errorf("extension payload.url, payload.username and payload.statusId are required for TWEET")
 		}
-		ext.Payload = map[string]interface{}{
-			"url":      httpUtil.TrimURL(url),
+		ext.Payload = map[string]any{
+			"url":      urlUtil.TrimURL(url),
 			"username": username,
 			"statusId": statusID,
 		}
@@ -567,7 +594,7 @@ func normalizeEchoExtension(ext *model.EchoExtension) (*model.EchoExtension, err
 	return ext, nil
 }
 
-func getPayloadString(payload map[string]interface{}, key string) string {
+func getPayloadString(payload map[string]any, key string) string {
 	raw, ok := payload[key]
 	if !ok || raw == nil {
 		return ""
@@ -579,9 +606,7 @@ func getPayloadString(payload map[string]interface{}, key string) string {
 	return value
 }
 
-// getPayloadFloat extracts a float64 from a JSON-decoded payload.
-// JSON numbers land as float64 by default; accept int and string-encoded numbers as fallbacks.
-func getPayloadFloat(payload map[string]interface{}, key string) (float64, bool) {
+func getPayloadFloat(payload map[string]any, key string) (float64, bool) {
 	raw, ok := payload[key]
 	if !ok || raw == nil {
 		return 0, false
@@ -613,6 +638,33 @@ func isEchoEmpty(echo *model.Echo) bool {
 	}
 	content := strings.TrimSpace(echo.Content)
 	return content == "" && len(echo.EchoFiles) == 0 && echo.Extension == nil
+}
+
+func (echoService *EchoService) validateSingleFileCategory(ctx context.Context, echo *model.Echo) error {
+	ids := collectEchoFileIDs(echo)
+	if len(ids) == 0 {
+		return nil
+	}
+
+	files, err := echoService.fileService.GetFilesByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	counts := make(map[storage.Category]int, len(files))
+	for _, f := range files {
+		counts[storage.NormalizeCategory(f.Category)]++
+	}
+
+	if len(counts) > 1 {
+		return errors.New(commonModel.ECHO_MIXED_FILE_CATEGORIES)
+	}
+	for cat, count := range counts {
+		if (cat == storage.CategoryAudio || cat == storage.CategoryVideo) && count > 1 {
+			return errors.New(commonModel.ECHO_MIXED_FILE_CATEGORIES)
+		}
+	}
+	return nil
 }
 
 func collectEchoFileIDs(echo *model.Echo) []string {

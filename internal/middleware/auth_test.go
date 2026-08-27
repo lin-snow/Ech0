@@ -21,10 +21,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestJWTAuthMiddleware_RejectsTokenWithoutType(t *testing.T) {
+func TestRequireAuth_RejectsTokenWithoutType(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware(nil))
+	r.Use(RequireAuth(nil))
 	r.GET("/api/user", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -48,10 +48,10 @@ func TestJWTAuthMiddleware_RejectsTokenWithoutType(t *testing.T) {
 	}
 }
 
-func TestJWTAuthMiddleware_AllowsAnonymousPublicEchoEvenWithInvalidToken(t *testing.T) {
+func TestOptionalAuth_AllowsAnonymousWithInvalidToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware(nil))
+	r.Use(OptionalAuth(nil))
 	r.GET("/api/echo/page", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -65,10 +65,10 @@ func TestJWTAuthMiddleware_AllowsAnonymousPublicEchoEvenWithInvalidToken(t *test
 	}
 }
 
-func TestJWTAuthMiddleware_RejectsAnonymousS3Settings(t *testing.T) {
+func TestRequireAuth_RejectsMissingToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware(nil))
+	r.Use(RequireAuth(nil))
 	r.GET("/api/s3/settings", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -81,10 +81,10 @@ func TestJWTAuthMiddleware_RejectsAnonymousS3Settings(t *testing.T) {
 	}
 }
 
-func TestJWTAuthMiddleware_RejectsAdminScopeTokenFromQuery(t *testing.T) {
+func TestRequireAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware(nil))
+	r.Use(RequireAuth(nil))
 	r.GET("/api/settings", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -113,12 +113,44 @@ func TestJWTAuthMiddleware_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	}
 }
 
-func TestJWTAuthMiddleware_AllowsSessionType(t *testing.T) {
+func TestOptionalAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(OptionalAuth(nil))
+	r.GET("/api/echo/page", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	user := userModel.User{ID: "admin-1", Username: "admin"}
+	claims := jwtUtil.CreateAccessClaimsWithExpiry(
+		user,
+		int64(time.Hour),
+		[]string{authModel.ScopeAdminSettings},
+		authModel.AudiencePublic,
+		"jti-admin-query-optional",
+	)
+	tokenString, err := jwtUtil.GenerateToken(claims)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/echo/page?token="+tokenString, nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "TOKEN_TRANSPORT_FORBIDDEN" {
+		t.Fatalf("expected error code TOKEN_TRANSPORT_FORBIDDEN, got %s", got)
+	}
+}
+
+func TestRequireAuth_AllowsSessionType(t *testing.T) {
 	initMiddlewareTestDB(t)
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(JWTAuthMiddleware(nil))
+	r.Use(RequireAuth(nil))
 	r.GET("/api/user", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})

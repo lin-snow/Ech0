@@ -3,7 +3,6 @@
 
 package model
 
-// Panic Constants
 const (
 	INIT_LOGGER_PANIC          = "初始化 Logger 失败"
 	READ_CONFIG_PANIC          = "读取配置文件失败"
@@ -12,7 +11,7 @@ const (
 	INIT_DATABASE_PANIC        = "数据库初始化失败"
 	MIGRATE_DB_PANIC           = "数据库迁移失败"
 	INIT_HANDLERS_PANIC        = "初始化 Handlers 失败"
-	INIT_TASKER_PANIC          = "初始化 Tasker 失败"
+	INIT_TASKER_PANIC          = "初始化 Task Manager 失败"
 	INIT_EVENT_REGISTRAR_PANIC = "初始化 EventRegistrar 失败"
 	GIN_RUN_FAILED             = "启动 GIN 服务器失败"
 )

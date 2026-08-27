@@ -78,7 +78,6 @@ runs:
         set -euo pipefail
         toolchain_bin="${{ steps.paths.outputs.toolchain_root }}/${{ steps.paths.outputs.toolchain_dir }}/bin"
         echo "${toolchain_bin}" >> "$GITHUB_PATH"
-        # GITHUB_PATH only takes effect in subsequent steps; export for current-step verification.
         export PATH="${toolchain_bin}:${PATH}"
         test -x "${toolchain_bin}/aarch64-linux-musl-gcc"
         command -v aarch64-linux-musl-gcc

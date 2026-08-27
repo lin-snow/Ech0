@@ -5,6 +5,7 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
@@ -110,12 +111,7 @@ func containsValidAudience(audiences []string) bool {
 	if len(audiences) == 0 {
 		return false
 	}
-	for _, audience := range audiences {
-		if authModel.IsValidAudience(audience) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(audiences, authModel.IsValidAudience)
 }
 
 func containsAllScopes(actual, required []string) bool {

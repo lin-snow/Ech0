@@ -1,9 +1,11 @@
 [
   { "id": "common.success", "translation": "リクエストに成功しました" },
   { "id": "common.request_failed", "translation": "リクエストに失敗しました" },
+  { "id": "common.invalid_request", "translation": "無効なリクエストです" },
   { "id": "common.invalid_query_params", "translation": "クエリパラメータが無効です" },
   { "id": "setting.update_success", "translation": "設定を更新しました！" },
   { "id": "agent.model_missing", "translation": "Agent のモデル名が未設定か、空です" },
+  { "id": "echo.mixed_file_categories", "translation": "1 つの Echo には同じ種類のファイルしか含められません" },
   { "id": "auth.token_missing", "translation": "トークンが見つかりません。右上からログインしてください" },
   { "id": "auth.token_invalid", "translation": "トークンが無効です。再ログインしてください" },
   { "id": "auth.token_parse_error", "translation": "トークンの解析に失敗しました。再ログインを試してください" },
@@ -17,5 +19,6 @@
   { "id": "comment_manager.title", "translation": "コメントシステム設定" },
   { "id": "comment_manager.subtitle", "translation": "コメントの有効化、審査ポリシー、キャプチャを一括管理します。" },
   { "id": "dashboard.logs.success", "translation": "システムログを取得しました" },
-  { "id": "dashboard.logs.tail_invalid", "translation": "tail は 0 より大きい数値である必要があります" }
+  { "id": "dashboard.logs.tail_invalid", "translation": "tail は 0 より大きい数値である必要があります" },
+  { "id": "dashboard.check_update_failed", "translation": "アップデートの確認に失敗しました" }
 ]

@@ -9,7 +9,6 @@ import (
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	model "github.com/lin-snow/ech0/internal/model/user"
 	fileService "github.com/lin-snow/ech0/internal/service/file"
-	settingService "github.com/lin-snow/ech0/internal/service/setting"
 )
 
 type Service interface {
@@ -23,10 +22,7 @@ type Service interface {
 	GetUserByID(userId string) (model.User, error)
 }
 
-type (
-	SettingService = settingService.Service
-	FileService    = fileService.Service
-)
+type FileService = fileService.Service
 
 type UserRepo interface {
 	GetUserByID(ctx context.Context, id string) (model.User, error)
@@ -35,6 +31,7 @@ type UserRepo interface {
 	CreateUser(ctx context.Context, newUser *model.User) error
 	GetOwner(ctx context.Context) (model.User, error)
 	UpdateUser(ctx context.Context, user *model.User) error
+	UpsertLocalAuth(ctx context.Context, localAuth *model.UserLocalAuth) error
 	DeleteUser(ctx context.Context, id string) error
 }
 

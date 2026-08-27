@@ -3,7 +3,6 @@
 
 import { timeValueToMs } from './timeValue'
 
-/** Hub 卡片底部时间展示（不依赖 web/utils/other 的 i18n 相对时间链） */
 export function formatHubDate(ts: number | string): string {
   const ms = timeValueToMs(ts)
   const d = new Date(ms)

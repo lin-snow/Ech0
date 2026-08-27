@@ -18,16 +18,13 @@ var readOnlySafeMethods = map[string]struct{}{
 	http.MethodOptions: {},
 }
 
-// WriteGuard 在数据库写锁开启时阻止所有写请求
 func WriteGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 如果没有写锁，直接放行
 		if !database.IsWriteLocked() {
 			c.Next()
 			return
 		}
 
-		// 允许只读方法通过
 		if _, ok := readOnlySafeMethods[c.Request.Method]; ok {
 			c.Next()
 			return

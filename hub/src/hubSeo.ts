@@ -3,7 +3,6 @@
 
 import type { RouteLocationNormalized } from 'vue-router'
 
-/** Public origin for canonical, Open Graph, and sitemap (override via `VITE_HUB_SITE_ORIGIN`). */
 export const HUB_SITE_ORIGIN = (
   import.meta.env.VITE_HUB_SITE_ORIGIN ?? 'https://hub.ech0.app'
 ).replace(/\/+$/, '')
@@ -64,10 +63,6 @@ function ensureJsonLd(content: string) {
   el.textContent = content
 }
 
-/**
- * Updates document title and social / SEO tags after client navigation (SPA).
- * Initial values also exist in `index.html` for crawlers and first paint.
- */
 export function applyHubRouteMeta(to: RouteLocationNormalized): void {
   const isExplore = to.name === 'explore' || to.path.startsWith('/explore')
   const cfg = isExplore ? ROUTES.explore : ROUTES.home

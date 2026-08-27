@@ -13,49 +13,28 @@ import (
 	"strings"
 )
 
-// LocalOption configures a LocalFS instance.
 type LocalOption func(*LocalFS)
 
-// WithDirPerm sets the permission bits used when auto-creating directories.
-// Default is 0755.
 func WithDirPerm(perm os.FileMode) LocalOption {
 	return func(l *LocalFS) { l.dirPerm = perm }
 }
 
-// WithCreateRoot creates the root directory if it does not already exist.
 func WithCreateRoot() LocalOption {
 	return func(l *LocalFS) { l.createRoot = true }
 }
 
-// WithLocalKeyFunc sets a KeyFunc that transforms every key after CleanKey
-// and before the key is mapped to a local path.
 func WithLocalKeyFunc(fn KeyFunc) LocalOption {
 	return func(l *LocalFS) { l.keyFunc = fn }
 }
 
-// WithAtomicWrite enables atomic writes: Put writes to a temporary file in
-// the same directory and then renames it to the target path. This prevents
-// data corruption from concurrent writes to the same key.
 func WithAtomicWrite() LocalOption {
 	return func(l *LocalFS) { l.atomicWrite = true }
 }
 
-// WithLocalAccessFunc sets a custom function for Access URL generation.
-// The function receives the cleaned key (after CleanKey + KeyFunc) and
-// returns an AccessInfo. The returned URL field is merged with the
-// disk Path that LocalFS always provides, so both Path and URL can be
-// set simultaneously.
-//
-// This is useful for mapping virtual paths to HTTP URLs, e.g.:
-//
-//	WithLocalAccessFunc(func(key string) *AccessInfo {
-//	    return &AccessInfo{URL: "https://cdn.example.com/files/" + key}
-//	})
 func WithLocalAccessFunc(fn AccessFunc) LocalOption {
 	return func(l *LocalFS) { l.accessFunc = fn }
 }
 
-// LocalFS implements FS backed by a local directory.
 type LocalFS struct {
 	root        string
 	dirPerm     os.FileMode
@@ -65,8 +44,6 @@ type LocalFS struct {
 	accessFunc  AccessFunc
 }
 
-// NewLocalFS creates a LocalFS rooted at the given directory.
-// It returns an error if the absolute path cannot be resolved.
 func NewLocalFS(root string, opts ...LocalOption) (*LocalFS, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
@@ -85,8 +62,6 @@ func NewLocalFS(root string, opts ...LocalOption) (*LocalFS, error) {
 	return l, nil
 }
 
-// fullPath resolves a cleaned key to an absolute local path and ensures it
-// stays within root (preventing symlink escapes).
 func (l *LocalFS) fullPath(key string) (string, error) {
 	cleaned, err := CleanKey(key)
 	if err != nil {
@@ -106,7 +81,6 @@ func (l *LocalFS) fullPath(key string) (string, error) {
 	return abs, nil
 }
 
-// Get implements FS.
 func (l *LocalFS) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, &OpError{Op: "Get", Key: key, Err: err}
@@ -122,7 +96,6 @@ func (l *LocalFS) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	return f, nil
 }
 
-// Put implements FS.
 func (l *LocalFS) Put(ctx context.Context, key string, r io.Reader, _ ...PutOption) error {
 	if err := ctx.Err(); err != nil {
 		return &OpError{Op: "Put", Key: key, Err: err}
@@ -174,7 +147,6 @@ func (l *LocalFS) putAtomic(target, dir, key string, r io.Reader) error {
 	return nil
 }
 
-// Delete implements FS.
 func (l *LocalFS) Delete(ctx context.Context, key string) error {
 	if err := ctx.Err(); err != nil {
 		return &OpError{Op: "Delete", Key: key, Err: err}
@@ -189,7 +161,6 @@ func (l *LocalFS) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// List implements FS.
 func (l *LocalFS) List(ctx context.Context, prefix string) (*ListResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, &OpError{Op: "List", Key: prefix, Err: err}
@@ -229,7 +200,6 @@ func (l *LocalFS) List(ctx context.Context, prefix string) (*ListResult, error) 
 	return result, nil
 }
 
-// Stat implements FS.
 func (l *LocalFS) Stat(ctx context.Context, key string) (*FileInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, &OpError{Op: "Stat", Key: key, Err: err}
@@ -251,7 +221,6 @@ func (l *LocalFS) Stat(ctx context.Context, key string) (*FileInfo, error) {
 	}, nil
 }
 
-// Exists implements FS.
 func (l *LocalFS) Exists(ctx context.Context, key string) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, &OpError{Op: "Exists", Key: key, Err: err}
@@ -270,9 +239,6 @@ func (l *LocalFS) Exists(ctx context.Context, key string) (bool, error) {
 	return false, &OpError{Op: "Exists", Key: key, Err: err}
 }
 
-// Access implements FS.
-// When an AccessFunc is configured, the returned AccessInfo contains both
-// the absolute disk Path and any URL produced by the AccessFunc.
 func (l *LocalFS) Access(ctx context.Context, key string) (*AccessInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, &OpError{Op: "Access", Key: key, Err: err}
@@ -295,7 +261,6 @@ func (l *LocalFS) Access(ctx context.Context, key string) (*AccessInfo, error) {
 	return info, nil
 }
 
-// Copy implements Copier for same-backend file copy.
 func (l *LocalFS) Copy(ctx context.Context, srcKey, dstKey string) error {
 	if err := ctx.Err(); err != nil {
 		return &OpError{Op: "Copy", Key: srcKey, Err: err}
@@ -328,13 +293,11 @@ func (l *LocalFS) Copy(ctx context.Context, srcKey, dstKey string) error {
 	return nil
 }
 
-// Compile-time interface checks.
 var (
 	_ FS     = (*LocalFS)(nil)
 	_ Copier = (*LocalFS)(nil)
 )
 
-// mapOSError converts common os errors to virefs sentinel errors.
 func mapOSError(err error) error {
 	if os.IsNotExist(err) {
 		return ErrNotFound

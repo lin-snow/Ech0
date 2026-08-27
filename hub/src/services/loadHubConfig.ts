@@ -11,7 +11,6 @@ function isNonEmptyString(s: unknown): s is string {
   return typeof s === 'string' && s.trim().length > 0
 }
 
-/** 拉取 /hub.json 并校验；每项 url 去掉尾部斜杠 */
 export async function loadHubConfig(signal?: AbortSignal): Promise<HubInstance[]> {
   const res = await fetch('/hub.json', { signal })
   if (!res.ok) {

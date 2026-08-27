@@ -27,12 +27,10 @@ func TestLocalFS_PutGetDeleteStat(t *testing.T) {
 	fs := mustNewLocalFS(t, dir)
 	ctx := context.Background()
 
-	// Put
 	if err := fs.Put(ctx, "hello.txt", strings.NewReader("world")); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 
-	// Get
 	rc, err := fs.Get(ctx, "hello.txt")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
@@ -43,7 +41,6 @@ func TestLocalFS_PutGetDeleteStat(t *testing.T) {
 		t.Fatalf("Get content = %q, want %q", data, "world")
 	}
 
-	// Stat
 	info, err := fs.Stat(ctx, "hello.txt")
 	if err != nil {
 		t.Fatalf("Stat: %v", err)
@@ -52,12 +49,10 @@ func TestLocalFS_PutGetDeleteStat(t *testing.T) {
 		t.Fatalf("Stat size = %d, want 5", info.Size)
 	}
 
-	// Delete
 	if err := fs.Delete(ctx, "hello.txt"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
-	// Get after delete → ErrNotFound
 	_, err = fs.Get(ctx, "hello.txt")
 	if err == nil {
 		t.Fatal("Get after delete should fail")

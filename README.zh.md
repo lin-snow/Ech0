@@ -8,21 +8,21 @@
 
 <a title="en-US" href="./README.md"><img src="https://img.shields.io/badge/-English-545759?style=for-the-badge" alt="English"></a> <img src="https://img.shields.io/badge/-简体中文-F54A00?style=for-the-badge" alt="简体中文"> <a title="de" href="./README.de.md"><img src="https://img.shields.io/badge/-Deutsch-545759?style=for-the-badge" alt="Deutsch"></a> <a title="ja" href="./README.ja.md"><img src="https://img.shields.io/badge/-日本語-545759?style=for-the-badge" alt="日本語"></a>
 
-[![GitHub release](https://img.shields.io/github/v/release/lin-snow/Ech0?style=flat-square&logo=github&color=blue)](https://github.com/lin-snow/Ech0/releases)
-[![License](https://img.shields.io/github/license/lin-snow/Ech0?style=flat-square&color=orange)](./LICENSE)
-[![Go Report](https://goreportcard.com/badge/github.com/lin-snow/Ech0?style=flat-square)](https://goreportcard.com/report/github.com/lin-snow/Ech0)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/lin-snow/Ech0?style=flat-square&logo=go&logoColor=white)](./go.mod)
-[![Release Build](https://img.shields.io/github/actions/workflow/status/lin-snow/Ech0/release.yml?style=flat-square&logo=github&label=build)](https://github.com/lin-snow/Ech0/actions/workflows/release.yml)
-[![i18n](https://img.shields.io/badge/i18n-4_locales-orange?style=flat-square&logo=googletranslate&logoColor=white)](./web/src/locales/messages)
+[![GitHub release](https://img.shields.io/github/v/release/lin-snow/Ech0?logo=github&logoColor=white&labelColor=%20%23528BFF&color=%20%23155EEF)](https://github.com/lin-snow/Ech0/releases)
+[![License](https://img.shields.io/github/license/lin-snow/Ech0?labelColor=%20%237D89B0&color=%20%235D6B98)](./LICENSE)
+[![Go Report](https://goreportcard.com/badge/github.com/lin-snow/Ech0?style=flat)](https://goreportcard.com/report/github.com/lin-snow/Ech0)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/lin-snow/Ech0?logo=go&logoColor=white&labelColor=%20%235FD4EC&color=%20%2300ADD8)](./go.mod)
+[![Release Build](https://img.shields.io/github/actions/workflow/status/lin-snow/Ech0/release.yml?logo=github&logoColor=white&label=build&labelColor=%20%2332B583&color=%20%2312B76A)](https://github.com/lin-snow/Ech0/actions/workflows/release.yml)
+[![i18n](https://img.shields.io/badge/i18n-4_locales-7A5AF8?logo=googletranslate&logoColor=white&labelColor=%20%239B8AFB)](./web/src/locales/messages)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/lin-snow/Ech0)
-[![Docker Pulls](https://img.shields.io/docker/pulls/sn0wl1n/ech0?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/sn0wl1n/ech0)
-[![Docker Image Size](https://img.shields.io/docker/image-size/sn0wl1n/ech0/latest?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/sn0wl1n/ech0)
-[![Stars](https://img.shields.io/github/stars/lin-snow/Ech0?style=flat-square&logo=github)](https://github.com/lin-snow/Ech0/stargazers)
-[![Forks](https://img.shields.io/github/forks/lin-snow/Ech0?style=flat-square&logo=github)](https://github.com/lin-snow/Ech0/network/members)
-[![Discussions](https://img.shields.io/github/discussions/lin-snow/Ech0?style=flat-square&logo=github)](https://github.com/lin-snow/Ech0/discussions)
-[![Last Commit](https://img.shields.io/github/last-commit/lin-snow/Ech0?style=flat-square&logo=github)](https://github.com/lin-snow/Ech0/commits/main)
-[![Contributors](https://img.shields.io/github/contributors/lin-snow/Ech0?style=flat-square&logo=github)](https://github.com/lin-snow/Ech0/graphs/contributors)
-[![Sponsor](https://img.shields.io/badge/sponsor-Afdian-FF7878?style=flat-square&logo=githubsponsors&logoColor=white)](https://afdian.com/a/l1nsn0w)
+[![Docker Pulls](https://img.shields.io/docker/pulls/sn0wl1n/ech0?logo=docker&logoColor=white&labelColor=%20%235CADF6&color=%20%232496ED)](https://hub.docker.com/r/sn0wl1n/ech0)
+[![Docker Image Size](https://img.shields.io/docker/image-size/sn0wl1n/ech0/latest?logo=docker&logoColor=white&labelColor=%20%235CADF6&color=%20%231570EF)](https://hub.docker.com/r/sn0wl1n/ech0)
+[![Stars](https://img.shields.io/github/stars/lin-snow/Ech0?logo=github&logoColor=white&labelColor=%20%23FDB022&color=%20%23DC6803)](https://github.com/lin-snow/Ech0/stargazers)
+[![Forks](https://img.shields.io/github/forks/lin-snow/Ech0?logo=github&logoColor=white&labelColor=%20%232ED3B7&color=%20%2315B79E)](https://github.com/lin-snow/Ech0/network/members)
+[![Discussions](https://img.shields.io/github/discussions/lin-snow/Ech0?logo=github&logoColor=white&labelColor=%20%23B692F6&color=%20%239E77ED)](https://github.com/lin-snow/Ech0/discussions)
+[![Last Commit](https://img.shields.io/github/last-commit/lin-snow/Ech0?logo=github&logoColor=white&labelColor=%20%238098F9&color=%20%23444CE7)](https://github.com/lin-snow/Ech0/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/lin-snow/Ech0?logo=github&logoColor=white&labelColor=%20%23FDA29B&color=%20%23F04438)](https://github.com/lin-snow/Ech0/graphs/contributors)
+[![Sponsor](https://img.shields.io/badge/sponsor-Afdian-EE46BC?logo=githubsponsors&logoColor=white&labelColor=%20%23FD8FB8)](https://afdian.com/a/l1nsn0w)
 
 <br />
 
@@ -47,7 +47,7 @@
 **不太适合你，如果你需要：**
 - 双链知识库式的笔记工作流（例如 Obsidian 风格）
 - 团队优先的协作文档平台（例如 Notion 风格）
-- 纯私密备忘且不关注发布/时间线场景
+- 纯备忘/笔记工具，完全不需要时间线与发布
 
 ![界面预览](./docs/imgs/screenshot.png)
 
@@ -99,13 +99,14 @@ docker run -d \
 - 🚀 **极速部署体验**：开箱即用 Docker 部署，从安装到运行一条命令即可启动。
 - 📦 **自包含部署包**：提供完整二进制与容器镜像，无需额外依赖。
 - 💻 **跨平台支持**：支持 Linux、Windows 与 ARM 架构设备（如 Raspberry Pi）。
+- 🧳 **可携带内容胶囊**：把写过的内容导出为自包含[胶囊](./docs/usage/capsule.md)，可导入另一个实例，也可一条命令编译成静态站部署到任意托管平台。
 
 ### Storage & Data
 
 - 🗂️ **VireFS 统一存储抽象层**：以 **VireFS** 统一本地存储与 S3 兼容对象存储的挂载与管理。
 - ☁️ **S3 对象存储支持**：原生支持 S3 兼容对象存储，便于云端资源扩展。
 - 📦 **数据主权架构**：内容与元数据由用户掌控，并支持 RSS 输出。
-- 🔄 **数据迁移机制**：支持迁移导入历史数据，配合快照导出实现迁移与归档。
+- 🔄 **数据迁移机制**：支持迁移导入历史数据，配合快照与胶囊导出实现迁移与归档，面板与 CLI 皆可操作。
 - 🔐 **自动备份系统**：支持 Web、CLI、TUI 三种导出/备份方式与后台自动备份。
 
 ### Writing & Content
@@ -117,6 +118,7 @@ docker run -d \
 
 ### Media & Assets
 
+- 🎬 **多格式媒体附件**：可为每条 Echo 直接附加图片、音频与视频，内置画廊与音视频播放器行内呈现。
 - 📁 **可视化文件管理器**：内建文件上传、浏览与资源管理能力。
 
 ### Social & Interaction
@@ -140,6 +142,7 @@ docker run -d \
 - 🧰 **CLI 工具链**：提供 CLI 工具，支持自动化管理与脚本集成。
 - 🔗 **开放 API 与 Webhook**：提供完整 API 与 Webhook，便于外部系统集成和自动化工作流。
 - 🤖 **MCP（模型上下文协议）**：内建 [MCP Server](./docs/usage/mcp-usage.md)，**近乎完整覆盖**核心功能，帖子、文件与统计等能力通过 **Streamable HTTP** 以 **Tools / Resources** 交给上层 AI 工作流，**Scoped JWT** 鉴权。
+- 🧠 **Ech0 Copilot（AI 副驾）**：内建于时间线的 AI 助手——**近况总结**一键把你最近的内容凝练成精炼摘要，**Chat** 让你直接与自己的内容对话、随问随答。底层基于**向量 RAG** 检索与**流式（SSE）**输出，每个回答都扎根于*你自己的*数据。
 
 ### Experience
 
@@ -265,21 +268,11 @@ docker run -d \
 
 衷心感谢每一位赞助者、贡献者与用户 — 完整赞助名单见 [SPONSOR.md](./SPONSOR.md)。
 
+特别感谢 [LinuxDO](https://linux.do/) 社区的认可与支持。
+
 [![Contributors](https://contrib.rocks/image?repo=lin-snow/Ech0)](https://contrib.rocks/image?repo=lin-snow/Ech0)
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/d69b9177e4a121e31aaed95354ff862c928ca22d.svg "Repobeats analytics image")
-
----
-
-## Star 增长曲线
-
-<a href="https://www.star-history.com/#lin-snow/Ech0&Timeline">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lin-snow/Ech0&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lin-snow/Ech0&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lin-snow/Ech0&type=Timeline" />
- </picture>
-</a>
 
 ---
 

@@ -346,7 +346,6 @@ body.md-editor-full-open {
     grid-template-rows: none;
     gap: 0;
 
-    /* 无预览时保留轻微呼吸边距，同时兼容设备安全区 */
     padding-right: max(env(safe-area-inset-right, 0px), 0.4rem);
     padding-left: max(env(safe-area-inset-left, 0px), 0.4rem);
   }

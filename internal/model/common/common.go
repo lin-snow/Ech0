@@ -3,25 +3,23 @@
 
 package model
 
-// Heatmap 用于存储热力图数据
 type Heatmap struct {
-	Date  string `json:"date"`  // 日期
-	Count int    `json:"count"` // Echo数量
+	Date  string `json:"date"`
+	Count int    `json:"count"`
 }
 
 type (
 	UploadFileType string
 	S3Provider     string
 	OAuth2Provider string
-	AgentProvider  string
+	AgentProtocol  string
 	Locale         string
 )
 
 const (
-	// ImageType  图片类型
 	ImageType UploadFileType = "image"
-	// AudioType  音频类型
 	AudioType UploadFileType = "audio"
+	VideoType UploadFileType = "video"
 )
 
 const (
@@ -41,12 +39,9 @@ const (
 )
 
 const (
-	// OpenAI 协议（覆盖 OpenAI 官方、DeepSeek、Qwen、Ollama 以及任意 OpenAI 兼容服务）
-	OpenAI AgentProvider = "openai"
-	// Anthropic 协议
-	Anthropic AgentProvider = "anthropic"
-	// Gemini 原生协议
-	Gemini AgentProvider = "gemini"
+	OpenAI          AgentProtocol = "openai"
+	OpenAIResponses AgentProtocol = "openai-responses"
+	Anthropic       AgentProtocol = "anthropic"
 )
 
 const (
@@ -57,55 +52,40 @@ const (
 	FallbackLocale        = LocaleEnUS
 )
 
-// key value表
 type KeyValue struct {
 	Key   string `json:"key"   gorm:"primaryKey"`
 	Value string `json:"value"`
 }
 
-// 键值对相关
 const (
-	// SystemSettingsKey 是系统设置的键
-	SystemSettingsKey = "system_settings"
-	// CommentSettingKey 是评论设置的建
-	CommentSettingKey = "comment_setting"
-	// S3SettingKey 是 S3 存储设置的键
-	S3SettingKey = "s3_setting"
-	// OAuth2SettingKey 是 OAuth2 设置的键
-	OAuth2SettingKey = "oauth2_setting"
-	// PasskeySettingKey 是 Passkey 设置的键
-	PasskeySettingKey = "passkey_setting"
-	// ServerURLKey 是服务器URL设置的键
-	ServerURLKey = "server_url"
-	// BackupScheduleKey 是备份计划设置的键
-	BackupScheduleKey = "backup_schedule"
-	// AgentSettingKey 是 Agent 设置的键
-	AgentSettingKey = "agent_setting"
-	// ReleaseVersionKey 是发布版本号的键
-	ReleaseVersionKey = "release_version"
-	// InstallInitializedKey 是安装流程完成状态键
-	InstallInitializedKey = "install_initialized"
-	// MigrationGlobalJobStateKey 是全局迁移作业状态键
-	MigrationGlobalJobStateKey = "migration_global_job_state"
-	// StorageTimeUTCNormalizedKey 是存储层时间统一为 UTC 的幂等标记键
-	StorageTimeUTCNormalizedKey = "storage_time_utc_normalized_v1"
-	// StorageTimeSanitizedKey 是存储层时间脏数据安全修复阶段的幂等标记键
-	StorageTimeSanitizedKey = "storage_time_sanitized_v1"
-	// StorageTimeValidatedKey 是存储层时间可转换性校验阶段的幂等标记键
-	StorageTimeValidatedKey = "storage_time_validated_v1"
-	// StorageTimeUnixMigratedKey 是存储层时间迁移为 Unix 秒级时间戳的幂等标记键
-	StorageTimeUnixMigratedKey = "storage_time_unix_migrated_v1"
-	// StorageTimeSchemaRebuiltKey 是存储层时间字段 schema 对齐阶段的幂等标记键
-	StorageTimeSchemaRebuiltKey = "storage_time_schema_rebuilt_v1"
-	// OAuthBindingsDroppedKey 是历史 oauth_bindings 表清理迁移的幂等标记键
-	OAuthBindingsDroppedKey = "oauth_bindings_dropped_v1"
-	// LegacyInboxesDroppedKey 是已废弃的 inboxes 表清理迁移的幂等标记键
-	LegacyInboxesDroppedKey = "legacy_inboxes_dropped_v1"
-	// AgentProviderCollapsedKey 是 Agent provider 枚举从 7 项收敛为 3 项的幂等标记键
-	AgentProviderCollapsedKey = "agent_provider_collapsed_v1"
+	SystemSettingsKey              = "system_settings"
+	CommentSettingKey              = "comment_setting"
+	S3SettingKey                   = "s3_setting"
+	OAuth2SettingKey               = "oauth2_setting"
+	PasskeySettingKey              = "passkey_setting"
+	ServerURLKey                   = "server_url"
+	SnapshotScheduleKey            = "snapshot_schedule"
+	AgentSettingKey                = "agent_setting"
+	EmbeddingSettingKey            = "embedding_setting"
+	EmbeddingIndexStateKey         = "embedding_index_state"
+	ReleaseVersionKey              = "release_version"
+	InstallInitializedKey          = "install_initialized"
+	MigrationGlobalJobStateKey     = "migration_global_job_state"
+	StorageTimeUTCNormalizedKey    = "storage_time_utc_normalized_v1"
+	StorageTimeSanitizedKey        = "storage_time_sanitized_v1"
+	StorageTimeValidatedKey        = "storage_time_validated_v1"
+	StorageTimeUnixMigratedKey     = "storage_time_unix_migrated_v1"
+	StorageTimeSchemaRebuiltKey    = "storage_time_schema_rebuilt_v1"
+	OAuthBindingsDroppedKey        = "oauth_bindings_dropped_v1"
+	LegacyInboxesDroppedKey        = "legacy_inboxes_dropped_v1"
+	EchoExtensionOrphansCleanedKey = "echo_extension_orphans_cleaned_v1"
+	AgentProtocolCollapsedKey      = "agent_provider_collapsed_v1"
+	AgentSettingProtocolRenamedKey = "agent_setting_protocol_renamed_v1"
+	UserLocalAuthBackfilledKey     = "user_local_auth_backfilled_v1"
+	UsersPasswordColumnDroppedKey  = "users_password_column_dropped_v1"
+	ChatSessionKeyPrefix           = "chat_session:"
 )
 
-// PageQueryResult 用于分页查询的结果数据传输对象
 type PageQueryResult[T any] struct {
 	Total int64 `json:"total"`
 	Items T     `json:"items"`

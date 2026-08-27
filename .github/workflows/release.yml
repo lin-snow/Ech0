@@ -3,7 +3,7 @@ name: Release with Embedded Frontend
 on:
   push:
     tags:
-      - "v*" # 触发条件：打 Tag，比如 v1.0.0
+      - "v*"
 
 permissions:
   contents: write
@@ -11,21 +11,18 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  ARM64_TOOLCHAIN: "zigcc" # options: zigcc | musl
+  ARM64_TOOLCHAIN: "zigcc"
   ZIG_VERSION: "latest"
   MUSL_TOOLCHAIN_VERSION: "2025-6-20"
   MUSL_TOOLCHAIN_ARCHIVE: "aarch64-linux-musl-cross.tgz"
   MUSL_TOOLCHAIN_SHA256: ""
 
 jobs:
-  # Refuse to build a release when the tag (vX.Y.Z) and the Version constant
-  # in internal/version/version.go disagree. Otherwise the published artifacts
-  # would lie about their own version in /hello, /healthz, the About page, etc.
   verify-version:
     name: Verify tag matches internal/version.Version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Compare tag and source version
         run: |
           set -euo pipefail
@@ -63,27 +60,25 @@ jobs:
             goarch: arm64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
-      # --- Frontend Build Steps ---
       - name: Setup Node.js Environment
         uses: pnpm/action-setup@v6
         with:
-          version: 10
-      - uses: actions/setup-node@v6
+          version: 11
+      - uses: actions/setup-node@v7
         with:
-          node-version: 25
+          node-version: 26
           cache: "pnpm"
           cache-dependency-path: "web/pnpm-lock.yaml"
       - name: Install dependencies and build frontend
         working-directory: ./web
         run: pnpm install --frozen-lockfile && pnpm build --mode production
 
-      # --- Backend Build Steps ---
       - name: Setup Go Environment
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
-          go-version: "1.26.2"
+          go-version: "1.27.0"
           cache-dependency-path: "**/go.sum"
       - name: Set Go proxy
         run: go env -w GOPROXY=https://proxy.golang.org,direct
@@ -110,7 +105,6 @@ jobs:
           ARM64_TOOLCHAIN: ${{ env.ARM64_TOOLCHAIN }}
         run: |
           set -euo pipefail
-          # Define linker flags for a static build + inject commit / build time so /hello returns the real values.
           GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
           BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           VERSION_PKG="github.com/lin-snow/ech0/internal/version"
@@ -124,19 +118,26 @@ jobs:
             else
               export CC="aarch64-linux-musl-gcc"
             fi
+            SQLITE_INC="${RUNNER_TEMP}/sqlite-include"
+            mkdir -p "${SQLITE_INC}"
+            go mod download github.com/mattn/go-sqlite3
+            MATTN_DIR="$(go list -m -f '{{.Dir}}' github.com/mattn/go-sqlite3)"
+            if [ -z "${MATTN_DIR}" ] || [ ! -f "${MATTN_DIR}/sqlite3-binding.h" ]; then
+              echo "::error::could not locate go-sqlite3 header (MATTN_DIR='${MATTN_DIR}')" >&2
+              exit 1
+            fi
+            cp "${MATTN_DIR}/sqlite3-binding.h" "${SQLITE_INC}/sqlite3.h"
+            export CGO_CFLAGS="-I${SQLITE_INC} -Du_int8_t=uint8_t -Du_int16_t=uint16_t -Du_int64_t=uint64_t -Wno-typedef-redefinition -fno-sanitize=undefined"
           else
             export CC="gcc"
           fi
 
-          # Build the binary. Go's 'embed' will automatically find the frontend
-          # files built in the previous steps.
           test -f cmd/ech0/main.go
           go build -tags netgo -ldflags "$STATIC_LDFLAGS" -o "${OUTPUT_NAME}" ./cmd/ech0/main.go
 
       - name: List output files
         run: ls -lh .
 
-      # --- Artifact Uploading ---
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
@@ -149,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download artifacts
         uses: actions/download-artifact@v8
@@ -168,7 +169,6 @@ jobs:
             tar -czf "${bin}.tar.gz" "$bin"
           done
 
-      # ✅ 创建 GitHub Release
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
@@ -185,12 +185,12 @@ jobs:
     needs: [build]
     steps:
       - name: 🔄 Checkout source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: 📦 Download backend artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: ech0-* # 下载后端构建产物（裸二进制：ech0-linux-amd64 / ech0-linux-arm64）
+          pattern: ech0-*
           path: ./backend-artifacts
           merge-multiple: true
 

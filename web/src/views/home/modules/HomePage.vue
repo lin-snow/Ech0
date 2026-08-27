@@ -15,6 +15,7 @@
             v-model:mobile-search-open="mobileSearchOpen"
             class="home-shell__mobile-nav"
             @open-palette="paletteOpen = true"
+            @open-chat="chatLauncherOpen = true"
           />
         </div>
 
@@ -44,9 +45,14 @@
       </main>
 
       <!-- 右栏：搜索 + 常驻 widgets + version（≥1100px 显示） -->
-      <HomeRightRail class="home-shell__right" @open-palette="paletteOpen = true" />
+      <HomeRightRail
+        class="home-shell__right"
+        @open-palette="paletteOpen = true"
+        @open-chat="chatLauncherOpen = true"
+      />
     </div>
     <TheCommandPalette v-model="paletteOpen" />
+    <TheChatLauncher v-model="chatLauncherOpen" />
   </div>
 </template>
 
@@ -58,6 +64,7 @@ import HomeLeftRail from './HomeLeftRail.vue'
 import HomeRightRail from './HomeRightRail.vue'
 import TheEchos from './TheEchos.vue'
 import TheCommandPalette from './TheCommandPalette.vue'
+import TheChatLauncher from './TheChatLauncher.vue'
 import { defineAsyncComponent, onMounted, ref, onBeforeUnmount, computed, watch } from 'vue'
 import { useEchoStore, useUserStore, useSettingStore } from '@/stores'
 import { useRoute } from 'vue-router'
@@ -96,17 +103,26 @@ const WINDOW_SCROLL_KEY = 'home:window:scrollTop'
 let windowScrollRaf: number | null = null
 
 const paletteOpen = ref<boolean>(false)
+const chatLauncherOpen = ref<boolean>(false)
+const chatAvailable = computed(() => isLogin.value && AgentSetting.value.enable)
 
 const handleGlobalKeydown = (event: KeyboardEvent) => {
-  const isSearchShortcut =
-    (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key === 'k'
+  const withModifier = (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+  const isSearchShortcut = withModifier && event.key === 'k'
   if (isSearchShortcut) {
     event.preventDefault()
     paletteOpen.value = !paletteOpen.value
     return
   }
-  if (event.key === 'Escape' && paletteOpen.value) {
-    paletteOpen.value = false
+  const isChatShortcut = withModifier && event.key === 'j'
+  if (isChatShortcut && chatAvailable.value) {
+    event.preventDefault()
+    chatLauncherOpen.value = !chatLauncherOpen.value
+    return
+  }
+  if (event.key === 'Escape') {
+    if (paletteOpen.value) paletteOpen.value = false
+    if (chatLauncherOpen.value) chatLauncherOpen.value = false
   }
 }
 

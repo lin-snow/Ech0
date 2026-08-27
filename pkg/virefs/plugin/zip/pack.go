@@ -11,9 +11,6 @@ import (
 	virefs "github.com/lin-snow/ech0/pkg/virefs"
 )
 
-// Pack reads the listed keys from fsys and writes them into a zip archive
-// streamed to w. Keys are used as entry names inside the archive after
-// normalisation via virefs.CleanKey.
 func Pack(ctx context.Context, fsys virefs.FS, keys []string, w io.Writer) (retErr error) {
 	zw := zip.NewWriter(w)
 	defer func() {

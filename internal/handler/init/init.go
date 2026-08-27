@@ -4,10 +4,11 @@
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
-	res "github.com/lin-snow/ech0/internal/handler/response"
+	"context"
+
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	initModel "github.com/lin-snow/ech0/internal/model/init"
 	service "github.com/lin-snow/ech0/internal/service/init"
 )
 
@@ -19,41 +20,29 @@ func NewInitHandler(initService service.Service) *InitHandler {
 	return &InitHandler{initService: initService}
 }
 
-func (h *InitHandler) GetInitStatus() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		status, err := h.initService.GetStatus()
-		if err != nil {
-			return res.Response{
-				Msg: "",
-				Err: err,
-			}
-		}
-		return res.Response{
-			Data: status,
-			Msg:  commonModel.SUCCESS_MESSAGE,
-		}
-	})
+type (
+	GetInitStatusInput struct{}
+	InitOwnerInput     struct {
+		Body authModel.RegisterDto
+	}
+)
+
+type (
+	StatusOutput = commonModel.Result[initModel.Status]
+	EmptyOutput  = commonModel.Result[any]
+)
+
+func (h *InitHandler) GetInitStatus(ctx context.Context, _ *GetInitStatusInput) (StatusOutput, error) {
+	status, err := h.initService.GetStatus()
+	if err != nil {
+		return StatusOutput{}, err
+	}
+	return commonModel.OK(status), nil
 }
 
-func (h *InitHandler) InitOwner() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto authModel.RegisterDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{
-				Msg: commonModel.INVALID_REQUEST_BODY,
-				Err: err,
-			}
-		}
-
-		if err := h.initService.InitOwner(&dto); err != nil {
-			return res.Response{
-				Msg: "",
-				Err: err,
-			}
-		}
-
-		return res.Response{
-			Msg: commonModel.INIT_OWNER_SUCCESS,
-		}
-	})
+func (h *InitHandler) InitOwner(ctx context.Context, in *InitOwnerInput) (EmptyOutput, error) {
+	if err := h.initService.InitOwner(&in.Body); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.INIT_OWNER_SUCCESS), nil
 }

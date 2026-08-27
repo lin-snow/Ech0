@@ -2,10 +2,11 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { FILE_STORAGE_TYPE } from '@/constants/file'
-import { filterFiles, type FileSelectorOptions } from '@/lib/file'
+import { filterFiles, type FileSelectorOptions } from '@/lib/file/selectors/file-selectors'
 
 type EchoLike = {
   id?: string
+  layout?: string | null
   echo_files?: Array<{
     echo_id?: string
     file_id?: string
@@ -51,9 +52,15 @@ export function getEchoFilesBy(
   return filterFiles(getEchoFiles(echo), options)
 }
 
-// backward-compatible alias
 export const getEchoImages = (echo?: EchoLike | null) =>
   getEchoFilesBy(echo, { categories: ['image'] })
+
+const CONTENT_LEADING_LAYOUTS = ['grid', 'horizontal', 'stack']
+
+export function isContentLeadingEcho(echo?: EchoLike | null): boolean {
+  const layout = echo?.layout
+  return !!layout && CONTENT_LEADING_LAYOUTS.includes(layout)
+}
 
 function normalizeStorageType(raw: unknown): App.Api.File.StorageType {
   const value = String(raw || '').toLowerCase()
@@ -62,8 +69,6 @@ function normalizeStorageType(raw: unknown): App.Api.File.StorageType {
   return FILE_STORAGE_TYPE.LOCAL
 }
 
-// 估算 markdown 内容的"字数"。中文按字符计、英文按空白分词。
-// 目标只是给读者一个量级，不追求精确。
 export function countWords(content: string | null | undefined): number {
   if (!content) return 0
   const stripped = content

@@ -11,6 +11,8 @@ type ToolDefinition struct {
 }
 
 type ToolsListResult struct {
+	ResultEnvelope
+	CacheInfo
 	Tools []ToolDefinition `json:"tools"`
 }
 
@@ -25,6 +27,7 @@ type ContentItem struct {
 }
 
 type ToolCallResult struct {
+	ResultEnvelope
 	Content []ContentItem `json:"content"`
 	IsError bool          `json:"isError"`
 }

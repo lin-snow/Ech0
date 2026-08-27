@@ -31,4 +31,7 @@ const (
 	ErrCodeMethodNotFound = -32601
 	ErrCodeInvalidParams  = -32602
 	ErrCodeInternal       = -32603
+
+	ErrCodeHeaderMismatch             = -32020
+	ErrCodeUnsupportedProtocolVersion = -32022
 )

@@ -9,26 +9,23 @@ import {
   fetchGetOAuth2Settings,
   fetchGetAllWebhooks,
   fetchListAccessTokens,
-  fetchGetBackupScheduleSetting,
-  fetchCreateSnapshot,
-  fetchGetSnapshotStatus,
+  fetchGetSnapshotScheduleSetting,
+  fetchStartExport,
+  fetchGetExportStatus,
   fetchGetAgentSettings,
   fetchGetAgentInfo,
   fetchHelloEch0,
 } from '@/service/api'
-import { S3Provider, OAuth2Provider, AgentProvider } from '@/enums/enums'
+import type { ExportFormat, ExportStatusPayload } from '@/service/api'
+import { S3Provider, OAuth2Provider, AgentProtocol } from '@/enums/enums'
 import { useUserStore } from './user'
 
-const SNAPSHOT_TASK_ID_STORAGE_KEY = 'backup_snapshot_task_id'
 const SNAPSHOT_STATUS_POLL_INTERVAL_MS = 3000
-type SnapshotUIStatus = App.Api.Setting.SnapshotTaskStatus | 'idle'
+type SnapshotUIStatus = 'idle' | 'pending' | 'running' | 'success' | 'failed' | 'cancelled'
 
 export const useSettingStore = defineStore('settingStore', () => {
   const userStore = useUserStore()
 
-  /**
-   * State
-   */
   const SystemSetting = ref<App.Api.Setting.SystemSetting>({
     site_title: import.meta.env.VITE_APP_TITLE,
     server_logo: '/Ech0.svg',
@@ -56,6 +53,7 @@ export const useSettingStore = defineStore('settingStore', () => {
     cdn_url: '',
     path_prefix: '',
     public_read: true,
+    use_path_style: false,
   })
   const OAuth2Setting = ref<App.Api.Setting.OAuth2Setting>({
     enable: false,
@@ -78,30 +76,34 @@ export const useSettingStore = defineStore('settingStore', () => {
   const webhooksLoading = ref<boolean>(false)
   const webhooksError = ref<string>('')
   const AccessTokens = ref<App.Api.Setting.AccessToken[]>([])
-  const BackupSchedule = ref<App.Api.Setting.BackupSchedule>({
+  const SnapshotSchedule = ref<App.Api.Setting.SnapshotSchedule>({
     enable: false,
     cron_expression: '0 2 * * 0',
   })
   const AgentSetting = ref<App.Api.Setting.AgentSetting>({
     enable: false,
-    provider: AgentProvider.OPENAI,
+    protocol: AgentProtocol.OPENAI,
     model: '',
     api_key: '',
     prompt: '',
     base_url: '',
+    multimodal: false,
+    context_window: 0,
   })
   const hello = ref<App.Api.Ech0.HelloEch0>()
   const loading = ref<boolean>(true)
-  const snapshotTaskId = ref<string>('')
   const snapshotStatus = ref<SnapshotUIStatus>('idle')
   const snapshotError = ref<string>('')
+  const snapshotPhase = ref<string>('')
+  const snapshotFileName = ref<string>('')
+  const snapshotSize = ref<number>(0)
+  const exportFormat = ref<ExportFormat>('snapshot')
+  const exportIncludePrivate = ref<boolean>(false)
+  const snapshotFormat = ref<ExportFormat>('snapshot')
   const snapshotPolling = ref<boolean>(false)
   const snapshotPollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const snapshotPollInFlight = ref<boolean>(false)
 
-  /**
-   * Actions
-   */
   const getSystemSetting = async () => {
     await fetchGetSettings().then((res) => {
       if (res.code === 1) {
@@ -155,10 +157,10 @@ export const useSettingStore = defineStore('settingStore', () => {
     }
   }
 
-  const getBackupSchedule = async () => {
-    const res = await fetchGetBackupScheduleSetting()
+  const getSnapshotSchedule = async () => {
+    const res = await fetchGetSnapshotScheduleSetting()
     if (res.code === 1) {
-      BackupSchedule.value = res.data
+      SnapshotSchedule.value = res.data
     }
   }
 
@@ -170,74 +172,68 @@ export const useSettingStore = defineStore('settingStore', () => {
     }
   }
 
-  const persistSnapshotTaskId = (taskId: string) => {
-    if (typeof window === 'undefined') return
-    if (taskId) {
-      window.localStorage.setItem(SNAPSHOT_TASK_ID_STORAGE_KEY, taskId)
-      return
-    }
-    window.localStorage.removeItem(SNAPSHOT_TASK_ID_STORAGE_KEY)
+  const applyExportState = (data: ExportStatusPayload) => {
+    snapshotStatus.value = data.status
+    snapshotError.value = data.error_message || ''
+    snapshotPhase.value = data.phase || ''
+    snapshotFileName.value = data.file_name || ''
+    snapshotSize.value = data.size || 0
+    snapshotFormat.value = data.format || 'snapshot'
   }
 
-  const setSnapshotTaskState = (taskId: string, status: SnapshotUIStatus, error = '') => {
-    snapshotTaskId.value = taskId
-    snapshotStatus.value = status
-    snapshotError.value = error
-  }
+  const isExportTerminal = (status: SnapshotUIStatus) =>
+    status === 'idle' || status === 'success' || status === 'failed' || status === 'cancelled'
 
   const scheduleSnapshotPoll = () => {
-    if (!snapshotPolling.value || !snapshotTaskId.value) return
+    if (!snapshotPolling.value) return
     if (snapshotPollTimer.value) clearTimeout(snapshotPollTimer.value)
-    snapshotPollTimer.value = setTimeout(async () => {
-      await pollSnapshotStatus(snapshotTaskId.value)
+    snapshotPollTimer.value = setTimeout(() => {
+      void pollSnapshotStatus()
     }, SNAPSHOT_STATUS_POLL_INTERVAL_MS)
   }
 
-  const pollSnapshotStatus = async (taskId?: string) => {
-    const id = taskId || snapshotTaskId.value
-    if (!id || snapshotPollInFlight.value) return
+  const pollSnapshotStatus = async () => {
+    if (snapshotPollInFlight.value) return
     snapshotPollInFlight.value = true
     try {
-      const res = await fetchGetSnapshotStatus(id)
+      const res = await fetchGetExportStatus()
       if (res.code === 1) {
-        const status = res.data.status
-        setSnapshotTaskState(id, status, res.data.error || '')
-        if (status === 'success' || status === 'failed') {
+        applyExportState(res.data)
+        if (isExportTerminal(res.data.status)) {
           stopSnapshotPolling()
-          persistSnapshotTaskId('')
-          snapshotTaskId.value = ''
           return
         }
       }
     } catch (error) {
-      snapshotError.value =
-        error instanceof Error ? error.message : 'Failed to poll snapshot status'
+      snapshotError.value = error instanceof Error ? error.message : 'Failed to poll export status'
     } finally {
       snapshotPollInFlight.value = false
     }
     scheduleSnapshotPoll()
   }
 
-  const startSnapshotTask = async () => {
+  const startSnapshotTask = async (
+    format: ExportFormat = 'snapshot',
+    includePrivate: boolean = false,
+  ) => {
     if (snapshotStatus.value === 'pending' || snapshotStatus.value === 'running') return null
-    const res = await fetchCreateSnapshot()
-    if (res.code === 1 && res.data?.task_id) {
-      const taskId = res.data.task_id
-      setSnapshotTaskState(taskId, res.data.status, '')
-      persistSnapshotTaskId(taskId)
+    const res = await fetchStartExport({ format, include_private: includePrivate })
+    if (res.code === 1 && res.data) {
+      applyExportState(res.data)
+      if (!res.data.format) snapshotFormat.value = format
       snapshotPolling.value = true
-      await pollSnapshotStatus(taskId)
+      scheduleSnapshotPoll()
     }
     return res
   }
 
-  const restoreSnapshotTaskFromStorage = async () => {
-    if (typeof window === 'undefined') return
-    const taskId = (window.localStorage.getItem(SNAPSHOT_TASK_ID_STORAGE_KEY) || '').trim()
-    if (!taskId) return
-    setSnapshotTaskState(taskId, 'running', '')
-    snapshotPolling.value = true
-    await pollSnapshotStatus(taskId)
+  const restoreSnapshotTask = async () => {
+    const res = await fetchGetExportStatus()
+    if (res.code === 1 && (res.data.status === 'pending' || res.data.status === 'running')) {
+      applyExportState(res.data)
+      snapshotPolling.value = true
+      scheduleSnapshotPoll()
+    }
   }
 
   const getHelloEch0 = async () => {
@@ -259,7 +255,7 @@ export const useSettingStore = defineStore('settingStore', () => {
     if (res.code === 1) {
       AgentSetting.value.enable = res.data.enable
       AgentSetting.value.model = res.data.model
-      AgentSetting.value.provider = res.data.provider
+      AgentSetting.value.protocol = res.data.protocol
     }
   }
 
@@ -280,7 +276,7 @@ export const useSettingStore = defineStore('settingStore', () => {
     webhooksLoading,
     webhooksError,
     AccessTokens,
-    BackupSchedule,
+    SnapshotSchedule,
     AgentSetting,
     hello,
     loading,
@@ -291,17 +287,22 @@ export const useSettingStore = defineStore('settingStore', () => {
     getOAuth2Setting,
     getAllWebhooks,
     getHelloEch0,
-    getBackupSchedule,
+    getSnapshotSchedule,
     startSnapshotTask,
     pollSnapshotStatus,
-    restoreSnapshotTaskFromStorage,
+    restoreSnapshotTask,
     stopSnapshotPolling,
     getAgentSetting,
     getAgentInfo,
     init,
-    snapshotTaskId,
     snapshotStatus,
     snapshotError,
+    snapshotPhase,
+    snapshotFileName,
+    snapshotSize,
     snapshotPolling,
+    snapshotFormat,
+    exportFormat,
+    exportIncludePrivate,
   }
 })

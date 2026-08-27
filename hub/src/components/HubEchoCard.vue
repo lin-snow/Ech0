@@ -1,28 +1,20 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <script setup lang="ts">
-/** 结构与 web/src/components/advanced/echo/cards/TheHubEcho.vue 一致（Hub 聚合侧不展示 Extension）。 */
 import Verified from '@/components/icons/verified.vue'
 import GrayLike from '@/components/icons/graylike.vue'
 import LinkTo from '@/components/icons/linkto.vue'
 import BaseAvatar from '@/components/common/BaseAvatar.vue'
-// 直接点到 .vue 文件，绕开 md/index.ts 这个 barrel：barrel 同时再导出 TheMdEditor，
-// 而 TheMdEditor → @/stores → @/router 会把整个 web 入口拽回 hub 的 entry chunk，
-// 形成 index ↔ TheMdEditor 静态循环 → 运行时 `A is not a function`。
 import TheMdPreview from '@/components/advanced/md/TheMdPreview.vue'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { ImageLayout } from '@/enums/enums'
-import { getEchoFilesBy } from '../utils/echoFiles'
 import { useFetch } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { localStg } from '../utils/storage'
 import { formatHubDate } from '../utils/formatHubDate'
 
-// 必须保持 defineAsyncComponent。改回静态 import 会让 TheImageGallery 进入 entry chunk
-// 的静态依赖图，与 index 形成循环引用 → 运行时 `A is not a function`（Vue 的 isFunction
-// 在 var 提升后尚未赋值时被调用）。详见 commit 51630d20 之后的 hub.ech0.app 事故。
-const TheImageGallery = defineAsyncComponent({
-  loader: () => import('@/components/advanced/gallery/TheImageGallery.vue'),
+const TheMediaPlayer = defineAsyncComponent({
+  loader: () => import('@/components/advanced/media/TheMediaPlayer.vue'),
   onError(error, retry, fail, attempts) {
     if (attempts <= 3) {
       retry()
@@ -37,7 +29,6 @@ type Echo = App.Api.Hub.Echo
 const props = withDefaults(
   defineProps<{
     echo: Echo
-    /** `masonry`: full column width for multi-column feed */
     variant?: 'default' | 'masonry'
   }>(),
   { variant: 'default' },
@@ -46,9 +37,6 @@ const props = withDefaults(
 const { t } = useI18n()
 
 const fav_count = ref<number>(props.echo.fav_count)
-const echoImageFiles = computed(() =>
-  getEchoFilesBy(props.echo, { categories: ['image'], dedupeBy: 'id' }),
-)
 const server_url = computed(() => props.echo.server_url)
 const echo_id = computed(() => props.echo.id)
 const isLikeAnimating = ref(false)
@@ -61,7 +49,6 @@ watch(
   },
 )
 
-/** 与评论区 TheComment 一致：Dicebear micah；src 为空或图片加载失败时使用生成头像 */
 const logoUrl = computed(() => props.echo.logo?.trim() ?? '')
 const avatarFailed = ref(false)
 const avatarSeed = computed(
@@ -157,15 +144,15 @@ const handleLikeEcho = async () => {
           <div class="mx-auto w-11/12 pl-1 mb-3">
             <TheMdPreview :content="props.echo.content" />
           </div>
-          <TheImageGallery
-            :images="echoImageFiles"
+          <TheMediaPlayer
+            :echo="props.echo"
             :base-url="echo.server_url"
             :layout="props.echo.layout"
           />
         </template>
         <template v-else>
-          <TheImageGallery
-            :images="echoImageFiles"
+          <TheMediaPlayer
+            :echo="props.echo"
             :base-url="echo.server_url"
             :layout="props.echo.layout"
           />

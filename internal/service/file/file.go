@@ -9,30 +9,32 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
-	contracts "github.com/lin-snow/ech0/internal/event/contracts"
-	publisher "github.com/lin-snow/ech0/internal/event/publisher"
+	"github.com/lin-snow/ech0/internal/event"
+	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
-	httpUtil "github.com/lin-snow/ech0/internal/util/http"
 	imgUtil "github.com/lin-snow/ech0/internal/util/img"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	urlUtil "github.com/lin-snow/ech0/internal/util/url"
+	"github.com/lin-snow/ech0/pkg/busen"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
 	"github.com/lin-snow/ech0/pkg/virefs"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -46,31 +48,40 @@ const (
 )
 
 type FileService struct {
-	transactor         transaction.Transactor
-	commonRepository   CommonRepository
-	storageManager     *storage.Manager
-	keyvalueRepository KeyValueRepository
-	fileRepository     FileRepository
-	publisher          *publisher.Publisher
-	keyGen             storage.KeyGenerator
+	transactor       transaction.Transactor
+	commonRepository CommonRepository
+	storageManager   *storage.Manager
+	fileRepository   FileRepository
+	bus              *busen.Bus
+	keyGen           storage.KeyGenerator
 }
 
 func NewFileService(
 	tx transaction.Transactor,
 	commonRepository CommonRepository,
-	kvRepo KeyValueRepository,
 	fileRepo FileRepository,
 	storageManager *storage.Manager,
-	publisher *publisher.Publisher,
+	busProvider func() *busen.Bus,
 ) *FileService {
 	return &FileService{
-		transactor:         tx,
-		commonRepository:   commonRepository,
-		keyvalueRepository: kvRepo,
-		fileRepository:     fileRepo,
-		storageManager:     storageManager,
-		publisher:          publisher,
-		keyGen:             storage.NewRandomKeyGenerator(),
+		transactor:       tx,
+		commonRepository: commonRepository,
+		fileRepository:   fileRepo,
+		storageManager:   storageManager,
+		bus:              busProvider(),
+		keyGen:           storage.NewRandomKeyGenerator(),
+	}
+}
+
+func uploadPolicyFor(category storage.Category) (maxSize int, uploadType commonModel.UploadFileType) {
+	upload := config.Config().Upload
+	switch category {
+	case storage.CategoryAudio:
+		return upload.AudioMaxSize, commonModel.AudioType
+	case storage.CategoryVideo:
+		return upload.VideoMaxSize, commonModel.VideoType
+	default:
+		return upload.ImageMaxSize, commonModel.ImageType
 	}
 }
 
@@ -103,16 +114,10 @@ func (s *FileService) UploadFile(
 		return commonModel.FileDto{}, err
 	}
 
-	// Use the canonical MIME for the extension rather than the raw sniffed
-	// value (which may be "application/octet-stream" for formats Go cannot
-	// identify by magic bytes alone, e.g. AVIF, FLAC).
 	contentType := resolveContentType(file.Filename, detectedMIME)
 
-	limit := int64(config.Config().Upload.ImageMaxSize)
-	if category == storage.CategoryAudio {
-		limit = int64(config.Config().Upload.AudioMaxSize)
-	}
-	if file.Size > limit {
+	maxSize, uploadType := uploadPolicyFor(category)
+	if file.Size > int64(maxSize) {
 		return commonModel.FileDto{}, errors.New(commonModel.FILE_SIZE_EXCEED_LIMIT)
 	}
 
@@ -181,24 +186,19 @@ func (s *FileService) UploadFile(
 		return commonModel.FileDto{}, err
 	}
 
-	uploadType := commonModel.ImageType
-	if category == storage.CategoryAudio {
-		uploadType = commonModel.AudioType
-	}
-
-	user.Password = ""
-	if err := s.publisher.ResourceUploaded(
+	if err := eventbus.Emit(
 		context.Background(),
-		contracts.ResourceUploadedEvent{
+		s.bus,
+		event.ResourceUploaded{
 			User:     user,
 			FileName: file.Filename,
 			URL:      fileURL,
 			Size:     file.Size,
 			Type:     string(uploadType),
+			Key:      key,
 		},
-		key,
 	); err != nil {
-		logUtil.GetLogger().Error("Failed to publish resource uploaded event", zap.Error(err))
+		logUtil.GetLogger().Error("Failed to publish resource uploaded event", logUtil.Err(err))
 	}
 
 	return commonModel.FileDto{
@@ -228,7 +228,7 @@ func (s *FileService) CreateExternalFile(
 		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	rawURL := httpUtil.TrimURL(dto.URL)
+	rawURL := urlUtil.TrimURL(dto.URL)
 	if rawURL == "" {
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
 	}
@@ -243,7 +243,10 @@ func (s *FileService) CreateExternalFile(
 
 	contentType := strings.TrimSpace(dto.ContentType)
 	if contentType == "" {
-		contentType = httpUtil.GetMIMETypeFromFilenameOrURL(rawURL)
+		contentType = canonicalMIMEForExt(rawURL)
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
 	}
 
 	category := storage.NormalizeCategory(dto.Category)
@@ -311,7 +314,16 @@ func (s *FileService) CreateExternalFile(
 		Height:      dto.Height,
 		UserID:      user.ID,
 	}
+	nowUTC := time.Now().UTC()
 	if err := s.fileRepository.Create(context.Background(), fileRecord); err != nil {
+		return commonModel.FileDto{}, err
+	}
+	if err := s.fileRepository.CreateTemp(context.Background(), &fileModel.TempFile{
+		FileID:     fileRecord.ID,
+		UploaderID: user.ID,
+		ExpireAt:   nowUTC.Add(tempFileTTL).Unix(),
+	}); err != nil {
+		_ = s.fileRepository.Delete(context.Background(), fileRecord.ID)
 		return commonModel.FileDto{}, err
 	}
 
@@ -353,7 +365,15 @@ func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 		return err
 	}
 	if storage.NormalizeStorageType(fileRecord.StorageType) != storage.StorageTypeExternal {
-		_ = s.DeleteStoredFile(fileRecord.StorageType, fileRecord.Key)
+		if err := s.DeleteStoredFile(fileRecord.StorageType, fileRecord.Key); err != nil {
+			logUtil.GetLogger().Warn(
+				"Failed to delete stored file after removing file record",
+				slog.String("file_id", fileRecord.ID),
+				slog.String("file_key", fileRecord.Key),
+				slog.String("storage_type", fileRecord.StorageType),
+				logUtil.Err(err),
+			)
+		}
 	}
 	return nil
 }
@@ -385,6 +405,35 @@ func (s *FileService) GetFileByID(ctx context.Context, id string) (commonModel.F
 		Width:       fileRecord.Width,
 		Height:      fileRecord.Height,
 	}, nil
+}
+
+func (s *FileService) GetFilesByIDs(ctx context.Context, ids []string) ([]commonModel.FileDto, error) {
+	if len(ids) == 0 {
+		return []commonModel.FileDto{}, nil
+	}
+
+	files, err := s.fileRepository.ListByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	dtos := make([]commonModel.FileDto, 0, len(files))
+	for i := range files {
+		f := files[i]
+		dtos = append(dtos, commonModel.FileDto{
+			ID:          f.ID,
+			Name:        f.Name,
+			Key:         f.Key,
+			StorageType: f.StorageType,
+			URL:         f.URL,
+			ContentType: f.ContentType,
+			Category:    f.Category,
+			Size:        f.Size,
+			Width:       f.Width,
+			Height:      f.Height,
+		})
+	}
+	return dtos, nil
 }
 
 func (s *FileService) UpdateFileMeta(
@@ -573,7 +622,6 @@ func (s *FileService) ListFileTree(
 			idByKey[f.Key] = f.ID
 		}
 	}
-	// Compatibility fallback: keep URL mapping as last resort.
 	idByURL := map[string]string{}
 	urlByPath := make(map[string]string, len(nodes))
 	fileURLs := make([]string, 0, len(nodes))
@@ -625,9 +673,9 @@ func (s *FileService) ListFileTree(
 			if item.FileID == "" {
 				logUtil.GetLogger().Warn(
 					"Tree key mapping missing file id, fallback to url mapping",
-					zap.String("path", node.Path),
-					zap.Strings("key_candidates", candidates),
-					zap.String("storage_type", string(storageType)),
+					slog.String("path", node.Path),
+					slog.Any("key_candidates", candidates),
+					slog.String("storage_type", string(storageType)),
 				)
 				if url, ok := urlByPath[node.Path]; ok {
 					item.FileID = idByURL[url]
@@ -752,9 +800,9 @@ func (s *FileService) streamReader(
 	if _, err := io.Copy(ctx.Writer, reader); err != nil {
 		logUtil.GetLogger().Warn(
 			"stream file copy failed",
-			zap.String("file_id", fileID),
-			zap.String("storage_type", storageType),
-			zap.Error(err),
+			slog.String("file_id", fileID),
+			slog.String("storage_type", storageType),
+			logUtil.Err(err),
 		)
 	}
 }
@@ -790,6 +838,9 @@ func (s *FileService) GetFilePresignURL(
 	category := storage.CategoryImage
 	if strings.HasPrefix(contentType, "audio/") {
 		category = storage.CategoryAudio
+	}
+	if strings.HasPrefix(contentType, "video/") {
+		category = storage.CategoryVideo
 	}
 	if err := validateFileUploadByName(dto.FileName, contentType, config.Config().Upload.AllowedTypes); err != nil {
 		return result, err
@@ -863,17 +914,17 @@ func (s *FileService) CleanupOrphanFiles() error {
 				_ = s.fileRepository.DeleteTempByID(ctx, temp.ID)
 				continue
 			}
-			logUtil.GetLogger().Warn("Failed to load temp file record", zap.String("temp_id", temp.ID), zap.Error(err))
+			logUtil.GetLogger().Warn("Failed to load temp file record", slog.String("temp_id", temp.ID), logUtil.Err(err))
 			continue
 		}
 
 		if dryRun {
 			logUtil.GetLogger().Info(
 				"Temp cleanup candidate(dry-run)",
-				zap.String("temp_id", temp.ID),
-				zap.String("file_id", temp.FileID),
-				zap.String("file_key", fileRecord.Key),
-				zap.String("storage_type", fileRecord.StorageType),
+				slog.String("temp_id", temp.ID),
+				slog.String("file_id", temp.FileID),
+				slog.String("file_key", fileRecord.Key),
+				slog.String("storage_type", fileRecord.StorageType),
 			)
 			continue
 		}
@@ -882,9 +933,9 @@ func (s *FileService) CleanupOrphanFiles() error {
 			if err := s.DeleteStoredFile(fileRecord.StorageType, fileRecord.Key); err != nil {
 				logUtil.GetLogger().Warn(
 					"Failed to delete temp stored file",
-					zap.String("temp_id", temp.ID),
-					zap.String("file_id", temp.FileID),
-					zap.Error(err),
+					slog.String("temp_id", temp.ID),
+					slog.String("file_id", temp.FileID),
+					logUtil.Err(err),
 				)
 				continue
 			}
@@ -892,28 +943,28 @@ func (s *FileService) CleanupOrphanFiles() error {
 		if err := s.fileRepository.Delete(ctx, temp.FileID); err != nil {
 			logUtil.GetLogger().Warn(
 				"Failed to delete temp file record",
-				zap.String("temp_id", temp.ID),
-				zap.String("file_id", temp.FileID),
-				zap.Error(err),
+				slog.String("temp_id", temp.ID),
+				slog.String("file_id", temp.FileID),
+				logUtil.Err(err),
 			)
 			continue
 		}
 		if err := s.fileRepository.DeleteTempByID(ctx, temp.ID); err != nil {
 			logUtil.GetLogger().Warn(
 				"Failed to delete temp tracking record",
-				zap.String("temp_id", temp.ID),
-				zap.String("file_id", temp.FileID),
-				zap.Error(err),
+				slog.String("temp_id", temp.ID),
+				slog.String("file_id", temp.FileID),
+				logUtil.Err(err),
 			)
 			continue
 		}
 		deletedCount++
 	}
 	if dryRun {
-		logUtil.GetLogger().Info("Temp cleanup dry-run completed", zap.Int("candidates", len(temps)))
+		logUtil.GetLogger().Info("Temp cleanup dry-run completed", slog.Int("candidates", len(temps)))
 		return nil
 	}
-	logUtil.GetLogger().Info("Temp cleanup completed", zap.Int("deleted", deletedCount), zap.Int("candidates", len(temps)))
+	logUtil.GetLogger().Info("Temp cleanup completed", slog.Int("deleted", deletedCount), slog.Int("candidates", len(temps)))
 
 	return nil
 }
@@ -970,15 +1021,9 @@ func isTempCleanupDryRun() bool {
 }
 
 func isAllowedType(contentType string, allowedTypes []string) bool {
-	for _, allowed := range allowedTypes {
-		if contentType == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowedTypes, contentType)
 }
 
-// Extensions that must never be stored, regardless of allowlist configuration.
 var dangerousExtensions = map[string]struct{}{
 	".html": {}, ".htm": {}, ".xhtml": {},
 	".svg": {},
@@ -987,7 +1032,6 @@ var dangerousExtensions = map[string]struct{}{
 	".php": {}, ".asp": {}, ".aspx": {}, ".jsp": {},
 }
 
-// Safe extension-to-MIME mapping. Only these extensions are accepted for upload.
 var safeExtMIME = map[string][]string{
 	".jpg":  {"image/jpeg"},
 	".jpeg": {"image/jpeg"},
@@ -1000,10 +1044,9 @@ var safeExtMIME = map[string][]string{
 	".wav":  {"audio/wav", "audio/x-wav"},
 	".m4a":  {"audio/mp4", "audio/x-m4a"},
 	".ogg":  {"audio/ogg"},
+	".mp4":  {"video/mp4"},
 }
 
-// MIME types that indicate executable/document content; files whose magic
-// bytes resolve to these must always be rejected regardless of extension.
 var executableMIMEs = map[string]struct{}{
 	"text/html":               {},
 	"text/xml":                {},
@@ -1015,8 +1058,6 @@ var executableMIMEs = map[string]struct{}{
 	"application/x-httpd-php": {},
 }
 
-// detectContentType reads the first 512 bytes of f to sniff MIME via
-// http.DetectContentType, then rewinds f back to the start.
 func detectContentType(f multipart.File) (string, error) {
 	buf := make([]byte, 512)
 	n, err := f.Read(buf)
@@ -1029,10 +1070,6 @@ func detectContentType(f multipart.File) (string, error) {
 	return http.DetectContentType(buf[:n]), nil
 }
 
-// validateFileUpload performs server-side file type validation:
-//  1. Reject dangerous extensions unconditionally.
-//  2. Require extension to be in the safe whitelist.
-//  3. Require the config allowlist MIME to match the extension's expected set.
 func validateFileUpload(filename string, detectedMIME string, allowedTypes []string) error {
 	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
 
@@ -1045,30 +1082,20 @@ func validateFileUpload(filename string, detectedMIME string, allowedTypes []str
 		return errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
 	}
 
-	// If magic-bytes detection resolved to an executable MIME, reject even if
-	// the extension looks safe (e.g. an HTML file renamed to .jpg).
 	if _, exec := executableMIMEs[detectedMIME]; exec {
 		return errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
 	}
 
-	// The detected MIME must either match one of the extension's expected
-	// types, or be "application/octet-stream" (meaning the sniffer could not
-	// determine a more specific type — common for AVIF, FLAC, etc.).
 	mimeOK := detectedMIME == "application/octet-stream"
 	if !mimeOK {
-		for _, m := range expectedMIMEs {
-			if detectedMIME == m {
-				mimeOK = true
-				break
-			}
+		if slices.Contains(expectedMIMEs, detectedMIME) {
+			mimeOK = true
 		}
 	}
 	if !mimeOK {
 		return errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
 	}
 
-	// At least one of the extension's expected MIMEs must be on the config
-	// allowlist so administrators retain control.
 	configOK := false
 	for _, m := range expectedMIMEs {
 		if isAllowedType(m, allowedTypes) {
@@ -1083,8 +1110,6 @@ func validateFileUpload(filename string, detectedMIME string, allowedTypes []str
 	return nil
 }
 
-// validateFileUploadByName validates filename + declared MIME without file
-// body (used by presign URL flow where no file content is available).
 func validateFileUploadByName(filename string, declaredMIME string, allowedTypes []string) error {
 	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
 
@@ -1101,29 +1126,27 @@ func validateFileUploadByName(filename string, declaredMIME string, allowedTypes
 		return errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
 	}
 
-	mimeMatchesExt := false
-	for _, m := range expectedMIMEs {
-		if declaredMIME == m {
-			mimeMatchesExt = true
-			break
-		}
-	}
+	mimeMatchesExt := slices.Contains(expectedMIMEs, declaredMIME)
 	if !mimeMatchesExt {
 		return errors.New(commonModel.FILE_TYPE_NOT_ALLOWED)
 	}
 	return nil
 }
 
-// resolveContentType returns the canonical MIME for the file extension. If the
-// detected MIME is specific (not application/octet-stream), it is returned
-// directly; otherwise the first expected MIME for the extension is used.
+func canonicalMIMEForExt(name string) string {
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(name)))
+	if mimes, ok := safeExtMIME[ext]; ok && len(mimes) > 0 {
+		return mimes[0]
+	}
+	return ""
+}
+
 func resolveContentType(filename string, detected string) string {
 	if detected != "" && detected != "application/octet-stream" {
 		return detected
 	}
-	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
-	if mimes, ok := safeExtMIME[ext]; ok && len(mimes) > 0 {
-		return mimes[0]
+	if mime := canonicalMIMEForExt(filename); mime != "" {
+		return mime
 	}
 	return detected
 }

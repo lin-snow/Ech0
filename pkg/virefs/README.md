@@ -164,9 +164,14 @@ fs, err := virefs.NewObjectFSFromConfig(ctx, &virefs.S3Config{
 
 | Provider | 行为 |
 |---|---|
-| `ProviderAWS` | 默认配置，虚拟主机风格，默认 region `us-east-1` |
+| `ProviderAWS` | 默认配置，虚拟主机风格，默认 region `us-east-1`；保留 SDK 默认的 checksum 完整性校验 |
 | `ProviderMinIO` | 自动启用 `UsePathStyle` |
 | `ProviderR2` | 自动启用 `UsePathStyle`，默认 region `auto` |
+
+> 所有非 AWS 目标（任意非 `ProviderAWS`，或带自定义 `Endpoint` 的 `ProviderAWS`）都会把
+> `RequestChecksumCalculation` 与 `ResponseChecksumValidation` 降为 `WhenRequired`，
+> 关闭 aws-sdk-go-v2 (s3 v1.74.1+) 默认的 aws-chunked trailer checksum —— 多数 S3 兼容服务
+> （MinIO / R2 / Backblaze / Ceph …）会以 `XAmzContentSHA256Mismatch` 或 "chunk too big" 拒收它。
 
 也可以自行构建 `*s3.Client`（完全控制）：
 

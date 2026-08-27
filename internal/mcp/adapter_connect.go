@@ -69,8 +69,6 @@ func (a *Adapter) registerConnectResources(reg *Registry) {
 	}, a.resourceConnectSelf, authModel.ScopeConnectRead)
 }
 
-// --- Tool handlers ---
-
 func (a *Adapter) listConnects(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {
 	connects, err := a.connectSvc.GetConnects()
 	if err != nil {
@@ -109,8 +107,6 @@ func (a *Adapter) deleteConnect(ctx context.Context, args map[string]any) (*Tool
 	}
 	return jsonResult(map[string]string{"id": id, "message": "connect deleted successfully"})
 }
-
-// --- Resource handler ---
 
 func (a *Adapter) resourceConnectSelf(_ context.Context, _ string) (*ResourceReadResult, error) {
 	info, err := a.connectSvc.GetConnect()

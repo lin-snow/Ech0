@@ -32,7 +32,6 @@ func (m *oauthBindingsDropMigrator) Migrate(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
-	// 兼容历史命名：GORM 默认表名为 oauth_bindings，旧实现曾误写为 o_auth_bindings
 	for _, stmt := range []string{
 		`DROP TABLE IF EXISTS oauth_bindings`,
 		`DROP TABLE IF EXISTS o_auth_bindings`,

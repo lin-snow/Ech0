@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-/**
- * 与 web/src/stores/hub.ts 对齐的多源归并：
- * 每实例独立缓冲池 + 按 createdTs 全局多路归并取数（batchSize 条/批）。
- * 请求使用 POST /api/echo/query（对应 web 中已 deprecated 的 echo/page 分页语义）。
- */
 import { ref } from 'vue'
 import type { HubInstance } from '../types/hub'
 import type { EchoPost } from '../types/echo'
@@ -15,7 +10,6 @@ import { HUB_FAN_OUT_LIMIT, pMapLimit } from '../utils/pMapLimit'
 import { resolveHubInstanceLogo } from '../utils/resolveHubLogoUrl'
 import { timeValueToMs } from '../utils/timeValue'
 
-/** Hub 聚合不展示带 Extension 的 Echo（音乐/视频/GitHub/网站卡片等） */
 function hasNoExtension(post: EchoPost): boolean {
   return post.extension == null
 }
@@ -66,7 +60,6 @@ export function useHubMergeFeed() {
   const hasMore = ref(true)
 
   const fetchErrors = ref<{ instance: HubInstance; message: string }[]>([])
-  /** 规范化实例 URL → `/api/connect` 返回的 logo 字段（在 toHubEcho 内再 resolve 为绝对 URL） */
   const instanceLogosByUrl = ref<Map<string, string>>(new Map())
 
   function setInstanceLogos(map: Map<string, string>) {
@@ -126,9 +119,6 @@ export function useHubMergeFeed() {
     }
   }
 
-  /**
-   * 初始化各实例状态并并行拉取第一页填入缓冲池（与 web getHubInfoList 末尾一致）。
-   */
   async function prepareInstances(instances: HubInstance[], signal?: AbortSignal) {
     isPreparing.value = true
     hasTriedInitialLoad.value = false

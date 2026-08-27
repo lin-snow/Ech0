@@ -4,30 +4,28 @@
 package uuid
 
 import (
-	"fmt"
-
-	"github.com/google/uuid"
+	"crypto/sha1"
+	"uuid"
 )
 
-// NewV7 returns a string UUIDv7 identifier.
-func NewV7() (string, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return "", err
-	}
-	return id.String(), nil
+var NameSpaceURL = uuid.MustParse("6ba7b811-9dad-11d1-80b4-00c04fd430c8")
+
+func NewV7() string {
+	return uuid.NewV7().String()
 }
 
-// MustNewV7 returns a UUIDv7 string and panics on error.
-func MustNewV7() string {
-	id, err := NewV7()
-	if err != nil {
-		panic(fmt.Errorf("generate uuid v7: %w", err))
-	}
+func NewV5(namespace uuid.UUID, name []byte) uuid.UUID {
+	buf := make([]byte, 0, len(namespace)+len(name))
+	buf = append(buf, namespace[:]...)
+	buf = append(buf, name...)
+	sum := sha1.Sum(buf)
+
+	id := uuid.UUID(sum[:16])
+	id[6] = id[6]&0x0f | 0x50
+	id[8] = id[8]&0x3f | 0x80
 	return id
 }
 
-// IsValid reports whether s is a valid UUID string.
 func IsValid(s string) bool {
 	_, err := uuid.Parse(s)
 	return err == nil

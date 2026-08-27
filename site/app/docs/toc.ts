@@ -22,9 +22,6 @@ function makeUniqueId(text: string, used: Map<string, number>): string {
   return n === 1 ? base : `${base}-${n}`;
 }
 
-/**
- * Extract h2 / h3 headings for in-page TOC (skips fenced code blocks).
- */
 export function extractTocFromMarkdown(md: string): TocItem[] {
   const lines = md.split(/\r?\n/);
   let inFence = false;

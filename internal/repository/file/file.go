@@ -191,3 +191,12 @@ func (r *FileRepository) GetByCategory(ctx context.Context, category string) ([]
 	err := r.getDB(ctx).Where("category = ?", category).Find(&files).Error
 	return files, err
 }
+
+func (r *FileRepository) ListByIDs(ctx context.Context, ids []string) ([]model.File, error) {
+	if len(ids) == 0 {
+		return []model.File{}, nil
+	}
+	var files []model.File
+	err := r.getDB(ctx).Where("id IN ?", ids).Find(&files).Error
+	return files, err
+}

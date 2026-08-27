@@ -23,10 +23,6 @@ import (
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 )
 
-// ---------------------------------------------------------------------------
-// Fakes
-// ---------------------------------------------------------------------------
-
 type fakeAuthService struct {
 	isTokenRevokedFn    func(jti string) bool
 	revokeTokenFn       func(jti string, ttl time.Duration)
@@ -97,6 +93,8 @@ func (f *fakeAuthService) UpdatePasskeyDeviceName(context.Context, string, strin
 	panic("not called")
 }
 
+func (f *fakeAuthService) PasskeyBoundary(context.Context) (string, []string) { return "", nil }
+
 type fakeUserService struct {
 	getUserByIDFn func(id string) (userModel.User, error)
 }
@@ -122,14 +120,9 @@ func (f *fakeUserService) DeleteUser(context.Context, string) error {
 	panic("not called")
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 var testUser = userModel.User{
 	ID:       "test-user-id-001",
 	Username: "testuser",
-	Password: "hashed",
 }
 
 func init() {
@@ -191,10 +184,6 @@ func assertRefreshCookieCleared(t *testing.T, rec *httptest.ResponseRecorder) {
 	}
 	t.Fatal("expected refresh token cookie to be cleared on failure")
 }
-
-// ---------------------------------------------------------------------------
-// Refresh Tests
-// ---------------------------------------------------------------------------
 
 func TestRefresh_NoCookie(t *testing.T) {
 	h := NewAuthHandler(&fakeAuthService{}, &fakeUserService{})
@@ -351,10 +340,6 @@ func TestRefresh_AccessTokenCookie_Rejected(t *testing.T) {
 	assertRefreshCookieCleared(t, rec)
 }
 
-// ---------------------------------------------------------------------------
-// Logout Tests
-// ---------------------------------------------------------------------------
-
 func TestLogout_NoCookieNoHeader(t *testing.T) {
 	h := NewAuthHandler(&fakeAuthService{}, &fakeUserService{})
 	r := gin.New()
@@ -428,9 +413,6 @@ func TestLogout_WithBothTokens_RevokesBoth(t *testing.T) {
 	}
 }
 
-// TestLogout_LegacyNeverExpireAccessToken_DoesNotPanic 防止回归：
-// 历史版本签发的访问令牌（NEVER_EXPIRY 选项）没有 exp claim；旧 logout 直接
-// .Time 解引用导致 panic+500，JTI 永远进不了黑名单 (GHSA-fpw6-hrg5-q5x5)。
 func TestLogout_LegacyNeverExpireAccessToken_DoesNotPanic(t *testing.T) {
 	var revoked []string
 	var revokedTTL time.Duration
@@ -444,14 +426,11 @@ func TestLogout_LegacyNeverExpireAccessToken_DoesNotPanic(t *testing.T) {
 	r := gin.New()
 	r.POST("/api/auth/logout", h.Logout())
 
-	// 手工签一个无 exp 的 access token，模拟升级前签发的 NEVER_EXPIRY 令牌。
 	legacy := jwt.NewWithClaims(jwt.SigningMethodHS256, authModel.MyClaims{
 		Userid:   "u",
 		Username: "u",
 		Type:     authModel.TokenTypeAccess,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID: "legacy-jti",
-		},
+		ID:       "legacy-jti",
 	})
 	signed, err := legacy.SignedString(config.Config().Security.JWTSecret)
 	if err != nil {
@@ -490,10 +469,6 @@ func TestLogout_InvalidTokens_StillOK(t *testing.T) {
 		t.Fatalf("logout should be best-effort, expected %d, got %d", http.StatusOK, rec.Code)
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Exchange Tests
-// ---------------------------------------------------------------------------
 
 func TestExchange_InvalidBody(t *testing.T) {
 	h := NewAuthHandler(&fakeAuthService{}, &fakeUserService{})

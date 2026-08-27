@@ -6,15 +6,9 @@
       <h1 class="text-[var(--color-text-primary)] font-bold text-lg">
         {{ t('userManager.title') }}
       </h1>
-      <div class="flex flex-row items-center justify-end gap-2 w-14">
-        <!-- <button @click="userEditMode = !userEditMode">
-          <Edit v-if="!userEditMode" class="w-5 h-5 text-[var(--color-text-muted)] hover:w-6 hover:h-6" />
-          <Close v-else class="w-5 h-5 text-[var(--color-text-muted)] hover:w-6 hover:h-6" />
-        </button> -->
-      </div>
+      <div class="flex flex-row items-center justify-end gap-2 w-14"></div>
     </div>
 
-    <!-- 用户列表 -->
     <div v-if="loading" class="flex justify-center py-4 text-[var(--color-text-muted)]">
       {{ t('userManager.loading') }}
     </div>
@@ -80,8 +74,6 @@
 
 <script setup lang="ts">
 import PanelCard from '@/layout/PanelCard.vue'
-// import Edit from '@/components/icons/edit.vue'
-// import Close from '@/components/icons/close.vue'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/BaseButton.vue'
@@ -97,7 +89,6 @@ const loading = ref<boolean>(true)
 import { fetchGetAllUsers, fetchUpdateUserPermission, fetchDeleteUser } from '@/service/api'
 
 const allusers = ref<App.Api.User.User[]>([])
-// const userEditMode = ref<boolean>(false)
 
 const handleDeleteUser = async (userId: string) => {
   openConfirm({
@@ -121,7 +112,6 @@ const handleUpdateUserPermission = async (userId: string) => {
       }
     })
     .finally(() => {
-      // 重新获取设置
       getAllUsers()
     })
 }

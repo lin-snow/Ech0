@@ -4,7 +4,11 @@
   <aside class="home-right-rail">
     <!-- 搜索 + 标签/日期 chip -->
     <div class="home-right-rail__filter">
-      <TheFilter @open-palette="emit('openPalette')" />
+      <TheFilter
+        show-chat-trigger
+        @open-palette="emit('openPalette')"
+        @open-chat="emit('openChat')"
+      />
     </div>
 
     <!-- 常驻 widget：每个 widget 自带视觉装饰，直接渲染避免 PanelCard 内边距裁剪 -->
@@ -59,6 +63,7 @@ const TheTagPileWidget = defineAsyncComponent(
 
 const emit = defineEmits<{
   (e: 'openPalette'): void
+  (e: 'openChat'): void
 }>()
 
 const settingStore = useSettingStore()

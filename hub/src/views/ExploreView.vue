@@ -50,15 +50,12 @@ const toastMessage = ref<string | null>(null)
 
 const exploreLayout = ref<'list' | 'masonry'>(readExploreLayout())
 
-/** 与 Tailwind `md` 一致；以下视口不展示瀑布流，避免窄屏多列 */
 const masonryViewportMd = useMediaQuery('(min-width: 768px)')
 
-/** 用户选瀑布流且视口足够宽时才启用多列 */
 const feedLayoutIsMasonry = computed(
   () => exploreLayout.value === 'masonry' && masonryViewportMd.value,
 )
 
-/** 切换条高亮：移动端始终表现为「单列」选中，避免与真实布局不一致 */
 const layoutToggleListActive = computed(
   () => exploreLayout.value === 'list' || !masonryViewportMd.value,
 )
@@ -292,7 +289,6 @@ onBeforeUnmount(() => {
         </section>
 
         <template v-else>
-          <!-- Mutually exclusive with #explore-feed so "Checking" and feed "Loading" never spin together -->
           <section v-if="loadingProbe" class="hub-explore-mono my-8">
             <TheLoadingIndicator label="Checking instances…" />
           </section>
@@ -369,7 +365,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* layout only: `paint` can interfere with per-row filter + hover stacking */
 .hub-item-wrap {
   contain: layout;
 }

@@ -3,7 +3,6 @@
 
 import { request, requestWithDirectUrlAndData } from '../request'
 
-// 统一查询 Echos（支持分页、搜索、标签过滤、排序）
 export async function fetchQueryEchos(params: App.Api.Ech0.EchoQueryParams) {
   return request<App.Api.Ech0.PaginationResult>({
     url: `/echo/query`,
@@ -12,7 +11,6 @@ export async function fetchQueryEchos(params: App.Api.Ech0.EchoQueryParams) {
   })
 }
 
-// @deprecated 请使用 fetchQueryEchos
 export async function fetchGetEchosByPage(searchParams: App.Api.Ech0.ParamsByPagination) {
   return request<App.Api.Ech0.PaginationResult>({
     url: `/echo/page`,
@@ -21,7 +19,6 @@ export async function fetchGetEchosByPage(searchParams: App.Api.Ech0.ParamsByPag
   })
 }
 
-// 添加Echo
 export function fetchAddEcho(echoToAdd: App.Api.Ech0.EchoToAdd) {
   return request({
     url: `/echo`,
@@ -30,7 +27,6 @@ export function fetchAddEcho(echoToAdd: App.Api.Ech0.EchoToAdd) {
   })
 }
 
-// 删除Echo
 export function fetchDeleteEcho(echoId: string) {
   return request({
     url: `/echo/${echoId}`,
@@ -38,7 +34,6 @@ export function fetchDeleteEcho(echoId: string) {
   })
 }
 
-// 更新Echo
 export function fetchUpdateEcho(echo: App.Api.Ech0.EchoToUpdate) {
   return request({
     url: `/echo`,
@@ -47,7 +42,6 @@ export function fetchUpdateEcho(echo: App.Api.Ech0.EchoToUpdate) {
   })
 }
 
-// 点赞Echo
 export function fetchLikeEcho(echoId: string) {
   return request({
     url: `/echo/like/${echoId}`,
@@ -69,7 +63,6 @@ export function fetchGetHotEchos(limit = 5) {
   })
 }
 
-// 获取Echo详情
 export async function fetchGetEchoById(echoId: string) {
   return request<App.Api.Ech0.Echo>({
     url: `/echo/${echoId}`,
@@ -77,7 +70,6 @@ export async function fetchGetEchoById(echoId: string) {
   })
 }
 
-// 获取一个月内的热力图
 export function fetchGetHeatMap() {
   return request<App.Api.Ech0.HeatMap>({
     url: `/heatmap`,
@@ -85,7 +77,6 @@ export function fetchGetHeatMap() {
   })
 }
 
-// 获取Github仓库数据
 export function fetchGetGithubRepo(githubRepo: { owner: string; repo: string }) {
   return requestWithDirectUrlAndData<App.Api.Ech0.GithubCardData>({
     dirrectUrlAndData: `https://api.github.com/repos/${githubRepo.owner}/${githubRepo.repo}`,
@@ -94,7 +85,6 @@ export function fetchGetGithubRepo(githubRepo: { owner: string; repo: string }) 
   })
 }
 
-// 获取标签列表
 export function fetchGetTags() {
   return request<App.Api.Ech0.Tag[]>({
     url: `/tags`,
@@ -102,7 +92,6 @@ export function fetchGetTags() {
   })
 }
 
-// 删除某个标签
 export function fetchDeleteTagById(tagId: string) {
   return request({
     url: `/tag/${tagId}`,
@@ -110,7 +99,6 @@ export function fetchDeleteTagById(tagId: string) {
   })
 }
 
-// 创建标签（管理员显式创建，独立于 Echo 内容里的 #tag）
 export function fetchCreateTag(name: string) {
   return request<App.Api.Ech0.Tag>({
     url: `/tag`,
@@ -119,7 +107,6 @@ export function fetchCreateTag(name: string) {
   })
 }
 
-// @deprecated 请使用 fetchQueryEchos
 export async function fetchGetEchosByTagId(
   tagId: string,
   searchParams: App.Api.Ech0.ParamsByPagination,

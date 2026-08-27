@@ -6,18 +6,19 @@ import { MarkdownDoc } from "../../docs/MarkdownDoc";
 import { extractTocFromMarkdown } from "../../docs/toc";
 import { absoluteUrl } from "../../site";
 
-export function meta({ data }: Route.MetaArgs) {
-  if (!data?.title) {
+export function meta({ loaderData }: Route.MetaArgs) {
+  if (!loaderData?.title) {
     return [{ title: "Documentation — Ech0" }];
   }
   return [
-    { title: `${data.title} — Ech0 Docs` },
+    { title: `${loaderData.title} — Ech0 Docs` },
     {
       name: "description",
-      content: data.description || `${data.title} — Ech0 documentation.`,
+      content:
+        loaderData.description || `${loaderData.title} — Ech0 documentation.`,
     },
-    { property: "og:title", content: `${data.title} — Ech0 Docs` },
-    { property: "og:url", content: absoluteUrl(`/docs/${data.slug}`) },
+    { property: "og:title", content: `${loaderData.title} — Ech0 Docs` },
+    { property: "og:url", content: absoluteUrl(`/docs/${loaderData.slug}`) },
   ];
 }
 

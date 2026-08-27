@@ -41,12 +41,12 @@ Please keep this PR focused on a single change. For larger work, split into smal
 
 ## Pre-submission checklist
 
-- [ ] `make check` (or `make dev-lint`) passes locally.
+- [ ] `just check` passes locally.
 - [ ] `go build ./...` passes.
 - [ ] `pnpm build` passes (when frontend is touched).
 - [ ] Tests added / updated when behavior changed.
-- [ ] `make wire` re-run when DI providers/bindings changed; `wire_gen.go` committed.
-- [ ] `make swagger` re-run when routes or request/response shapes changed; `internal/swagger/` committed.
+- [ ] `just wire` re-run when DI providers/bindings changed; `wire_gen.go` committed.
+- [ ] `just openapi` re-run when routes or request/response shapes changed; `internal/openapi/openapi.yaml` committed.
 - [ ] Docs updated when changes affect users or deployment.
 - [ ] No hardcoded UI strings — i18n keys used; `pnpm i18n:check` passes.
 - [ ] No secrets, tokens, or personal data in diffs, logs, or screenshots.

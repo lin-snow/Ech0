@@ -11,9 +11,6 @@ import (
 	virefs "github.com/lin-snow/ech0/pkg/virefs"
 )
 
-// Unpack reads a zip archive from r and writes every file entry into dst
-// under the given prefix. Directory entries are skipped. Each entry name is
-// normalised via virefs.CleanKey before being joined with prefix.
 func Unpack(ctx context.Context, r io.ReaderAt, size int64, dst virefs.FS, prefix string, opts ...virefs.PutOption) error {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {

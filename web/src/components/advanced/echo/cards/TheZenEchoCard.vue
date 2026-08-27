@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div
-    class="zen-echo-card relative w-full bg-[var(--color-bg-surface)] h-auto p-3 sm:p-3.5 shadow rounded-lg"
+    class="zen-echo-card relative w-full bg-[var(--color-bg-surface)] h-auto p-3 sm:p-3.5 shadow rounded-md"
   >
     <div class="flex flex-row items-center justify-between gap-2 mt-1 mb-3">
       <div class="flex flex-row items-center gap-2 min-w-0">
@@ -48,28 +48,18 @@
     </div>
 
     <div class="zen-echo-body py-1.5">
-      <template
-        v-if="
-          echo.layout === ImageLayout.GRID ||
-          echo.layout === ImageLayout.HORIZONTAL ||
-          echo.layout === ImageLayout.STACK
-        "
-      >
+      <template v-if="isContentLeadingEcho(echo)">
         <div v-if="echo.content" class="mb-2.5">
           <TheMdPreview :content="echo.content" />
         </div>
 
-        <div v-if="images.length > 0">
-          <TheImageGallery :images="images" :layout="echo.layout" />
-        </div>
+        <TheMediaPlayer :echo="echo" :layout="echo.layout" />
       </template>
 
       <template v-else>
-        <div v-if="images.length > 0">
-          <TheImageGallery :images="images" :layout="echo.layout" />
-        </div>
+        <TheMediaPlayer :echo="echo" :layout="echo.layout" />
 
-        <div v-if="echo.content" :class="images.length > 0 ? 'mt-2.5' : ''">
+        <div v-if="echo.content" :class="hasMedia ? 'mt-2.5' : ''">
           <TheMdPreview :content="echo.content" />
         </div>
       </template>
@@ -93,13 +83,12 @@ import Lock from '@/components/icons/lock.vue'
 import { useSettingStore } from '@/stores'
 import { resolveAvatarUrl } from '@/service/request/shared'
 import { formatDate } from '@/utils/other'
-import { getEchoFilesBy } from '@/utils/echo'
-import { ImageLayout } from '@/enums/enums'
+import { getEchoFilesBy, isContentLeadingEcho } from '@/utils/echo'
 
 const { t } = useI18n()
 
-const TheImageGallery = defineAsyncComponent(
-  () => import('@/components/advanced/gallery/TheImageGallery.vue'),
+const TheMediaPlayer = defineAsyncComponent(
+  () => import('@/components/advanced/media/TheMediaPlayer.vue'),
 )
 
 const props = defineProps<{
@@ -113,7 +102,7 @@ const { SystemSetting } = storeToRefs(settingStore)
 
 const siteName = computed(() => String(SystemSetting.value?.server_name ?? 'Ech0'))
 const avatarUrl = computed(() => resolveAvatarUrl(SystemSetting.value?.server_logo))
-const images = computed(() => getEchoFilesBy(props.echo, { categories: ['image'], dedupeBy: 'id' }))
+const hasMedia = computed(() => getEchoFilesBy(props.echo, { dedupeBy: 'id' }).length > 0)
 
 const goDetail = () => {
   router.push({ name: 'echo', params: { echoId: String(props.echo.id) } })
@@ -122,16 +111,13 @@ const goDetail = () => {
 
 <style scoped lang="css">
 .zen-echo-card {
-  /* 图片懒加载完成后高度变化触发 ResizeObserver 重排相邻 cell，contain 减少级联代价 */
   contain: layout paint;
 }
 
-/* 与 HubEcho 同款左侧 accent 竖条，紧贴头像水平中线 */
 .zen-echo-card::before {
   content: '';
   position: absolute;
 
-  /* card padding-top (p-3 = 0.75rem) + header mt-1 (0.25rem) + (avatar 1.5rem - bar 1rem) / 2 */
   top: 1.25rem;
   left: 0;
   width: 2px;
@@ -143,7 +129,6 @@ const goDetail = () => {
 
 @media (width >= 640px) {
   .zen-echo-card::before {
-    /* sm: padding-top 0.875rem + mt-1 0.25rem + (avatar 1.75rem - bar 1.125rem) / 2 */
     top: 1.4375rem;
     height: 1.125rem;
   }
@@ -163,8 +148,6 @@ const goDetail = () => {
   margin-bottom: 0;
 }
 
-/* Gallery 内部硬编码了 w-[88%] mx-auto + mb-4，
-   在 zen 卡片里需要拉满到与正文同宽，并去掉外层多余下边距 */
 .zen-echo-body :deep(.image-gallery-container) > div {
   width: 100%;
   margin-left: 0;

@@ -3,26 +3,22 @@
 <template>
   <div class="editor-actions">
     <div class="editor-actions__left">
-      <!-- ShowMore -->
       <BaseButton
         :icon="currentMode === Mode.ECH0 ? Advance : Back"
         @click="handleChangeMode"
         :class="['w-8 h-8 sm:w-9 sm:h-9 rounded-xs'].join(' ')"
         :tooltip="currentMode === Mode.ECH0 ? t('editor.more') : t('editor.backToEditor')"
       />
-      <!-- Photo Upload -->
       <BaseButton
         v-if="currentMode === Mode.ECH0"
-        :icon="ImageUpload"
-        @click="handleAddImageMode"
+        :icon="AttachmentIcon"
+        @click="handleAddMediaMode"
         class="w-8 h-8 sm:w-9 sm:h-9 rounded-xs"
         :tooltip="t('editor.addImage')"
       />
-      <!-- Tag Multi-Select -->
       <div v-if="currentMode === Mode.ECH0" class="editor-actions__tag">
         <Popover>
           <PopoverButton
-            v-tooltip="tagTriggerTooltip"
             :aria-label="tagTriggerTooltip"
             class="cursor-pointer p-1.5 w-8 h-8 sm:w-9 sm:h-9 rounded-xs ring-inset ring-1 ring-[var(--btn-ring-color)] text-[var(--btn-text-color)] outline-none shadow-[var(--btn-shadow)] bg-[var(--btn-bg-color)] hover:bg-[var(--btn-hover-bg-color)] hover:ring-[var(--btn-hover-border-color)] focus-visible:ring-2 focus-visible:ring-[var(--btn-focus-ring-color)] transition-colors duration-200 relative inline-flex items-center justify-center"
           >
@@ -70,7 +66,6 @@
     </div>
 
     <div class="editor-actions__right">
-      <!-- Published Info -->
       <div v-if="hasContent || hasFile || hasExtension" class="relative group">
         <Info class="w-6 h-6 text-[var(--color-text-muted)] hover:text-[var(--color-text-muted)]" />
         <div class="editor-actions__info-pop">
@@ -91,7 +86,6 @@
         </div>
       </div>
 
-      <!-- Exit Update -->
       <div v-if="currentMode !== Mode.Panel && isUpdateMode === true">
         <BaseButton
           :icon="ExitUpdate"
@@ -100,13 +94,11 @@
           :tooltip="t('editor.exitUpdateMode')"
         />
       </div>
-      <!-- Publish / Update with privacy choice -->
       <Popover
         v-if="currentMode !== Mode.Panel && currentMode !== Mode.TagManage"
         class="editor-actions__publish"
       >
         <PopoverButton
-          v-tooltip="publishTriggerTooltip"
           :aria-label="publishTriggerTooltip"
           :disabled="isSubmitting"
           :class="[
@@ -153,7 +145,7 @@
 
 <script setup lang="ts">
 import Advance from '@/components/icons/advance.vue'
-import ImageUpload from '@/components/icons/image.vue'
+import AttachmentIcon from '@/components/icons/attachment.vue'
 import ImageIcon from '@/components/icons/image.vue'
 import Public from '@/components/icons/public.vue'
 import Private from '@/components/icons/private.vue'
@@ -248,16 +240,15 @@ const handleChangeMode = () => {
   editorStore.toggleMode()
 }
 
-const handleAddImageMode = () => {
+const handleAddMediaMode = () => {
   fileToAdd.value.storage_type = FILE_STORAGE_TYPE.LOCAL
 
-  // 检查localStg中是否有记忆的上传方式
   const rememberedSource = localStg.getItem<App.Api.File.StorageType>('file_storage_type')
   if (rememberedSource) {
     fileToAdd.value.storage_type = rememberedSource
   }
 
-  editorStore.setMode(Mode.Image)
+  editorStore.setMode(Mode.Media)
 }
 
 const handleExitUpdateMode = () => {

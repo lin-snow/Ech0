@@ -16,7 +16,7 @@
           </div>
           <button
             type="button"
-            class="echo-open-btn flex items-center justify-center w-6 h-6 rounded-sm text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-[var(--color-text-primary)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-border-subtle)]"
+            class="echo-open-btn flex items-center justify-center w-6 h-6 rounded-sm text-[var(--color-text-muted)] opacity-0 transition-opacity duration-150 hover:text-[var(--color-text-primary)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-border-subtle)]"
             :aria-label="t('echoCard.openDetail')"
             v-tooltip="t('echoCard.openDetail')"
             @click="handleExpandEcho(echo.id)"
@@ -106,30 +106,28 @@
 
     <div class="timeline-content">
       <div class="px-4 py-3">
-        <template
-          v-if="
-            props.echo.layout === ImageLayout.GRID ||
-            props.echo.layout === ImageLayout.HORIZONTAL ||
-            props.echo.layout === ImageLayout.STACK
-          "
-        >
+        <template v-if="isContentLeadingEcho(props.echo)">
           <div class="mx-auto w-11/12 pl-1 mb-3">
             <TheMdPreview :content="props.echo.content" />
           </div>
 
-          <TheImageGallery
-            :images="echoImageFiles"
-            :layout="props.echo.layout"
-            :priority="props.index === 0"
-          />
+          <div :class="{ 'mx-auto w-11/12 pl-1': isAvEcho }">
+            <TheMediaPlayer
+              :echo="props.echo"
+              :layout="props.echo.layout"
+              :priority="props.index === 0"
+            />
+          </div>
         </template>
 
         <template v-else>
-          <TheImageGallery
-            :images="echoImageFiles"
-            :layout="props.echo.layout"
-            :priority="props.index === 0"
-          />
+          <div :class="{ 'mx-auto w-11/12 pl-1': isAvEcho }">
+            <TheMediaPlayer
+              :echo="props.echo"
+              :layout="props.echo.layout"
+              :priority="props.index === 0"
+            />
+          </div>
 
           <div class="mx-auto w-11/12 pl-1 mt-3">
             <TheMdPreview :content="props.echo.content" />
@@ -147,9 +145,6 @@
 <script lang="ts">
 import { ref } from 'vue'
 
-// Module-scoped: whichever echo id is currently showing its action menu.
-// Declared in a non-setup <script> so it runs once per module, not per instance.
-// Setting this id auto-closes any other card's menu (only one open at a time).
 const activeMenuId = ref<string | null>(null)
 </script>
 
@@ -165,14 +160,13 @@ import More from '@/components/icons/more.vue'
 import EditEcho from '@/components/icons/editecho.vue'
 import Open from '@/components/icons/open.vue'
 import { useRouter } from 'vue-router'
-import { ImageLayout } from '@/enums/enums'
+import { getEchoFilesBy, isContentLeadingEcho } from '@/utils/echo'
 import { formatDate } from '@/utils/other'
-import { getEchoFilesBy } from '@/utils/echo'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useI18n } from 'vue-i18n'
 
-const TheImageGallery = defineAsyncComponent(
-  () => import('@/components/advanced/gallery/TheImageGallery.vue'),
+const TheMediaPlayer = defineAsyncComponent(
+  () => import('@/components/advanced/media/TheMediaPlayer.vue'),
 )
 const TheExtensionRenderer = defineAsyncComponent(
   () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
@@ -190,10 +184,11 @@ const props = defineProps<{
   index?: number
 }>()
 
-const userStore = useUserStore()
-const echoImageFiles = computed(() =>
-  getEchoFilesBy(props.echo, { categories: ['image'], dedupeBy: 'id' }),
+const isAvEcho = computed(
+  () => getEchoFilesBy(props.echo, { categories: ['audio', 'video'] }).length > 0,
 )
+
+const userStore = useUserStore()
 
 const echoStore = useEchoStore()
 const editorStore = useEditorStore()
@@ -229,7 +224,7 @@ const handleUpdateEcho = async () => {
   editorStore.isUpdateMode = true
   await router.push({
     name: 'home',
-    query: { tab: 'publish' },
+    query: { ...router.currentRoute.value.query, tab: 'publish' },
   })
 }
 
@@ -277,8 +272,6 @@ const handleEscape = (event: KeyboardEvent) => {
   if (event.key === 'Escape') closeMenu()
 }
 
-// scroll 用 capture 是因为内层 .home-main 容器滚动不会冒泡到 window；
-// passive 让浏览器知道我们只读坐标、不会 preventDefault，可与合成并行。
 const SCROLL_LISTENER_OPTIONS: AddEventListenerOptions = { passive: true, capture: true }
 
 const bindGlobalListeners = () => {
@@ -329,8 +322,6 @@ onBeforeUnmount(() => {
 
   max-width: 100%;
   overflow: clip visible;
-
-  /* 纵向允许溢出绘制，避免时间线内图片（如照片流 hover 放大）被裁切 */
 }
 
 .timeline-marker {
@@ -363,8 +354,11 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.echo-timeline:hover .echo-open-btn {
-  animation: echo-open-nudge-left 1200ms ease-out both;
+@media (hover: hover) {
+  .echo-timeline:hover .echo-open-btn {
+    opacity: 1;
+    animation: echo-open-nudge-left 1200ms ease-out both;
+  }
 }
 
 .echo-open-btn:focus-visible {

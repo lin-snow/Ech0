@@ -3,7 +3,6 @@
 <template>
   <div>
     <PanelCard class="mb-3">
-      <!-- OAuth2 设置 -->
       <div class="w-full">
         <div class="flex flex-row items-center justify-between mb-3">
           <h1 class="text-[var(--color-text-primary)] font-bold text-lg">
@@ -66,7 +65,6 @@
           </div>
         </div>
 
-        <!-- 开启OAuth2 -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] h-10"
         >
@@ -76,7 +74,6 @@
           <BaseSwitch v-model="OAuth2Setting.enable" :disabled="!oauth2EditMode" />
         </div>
 
-        <!-- OAuth2 Provider -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -91,7 +88,6 @@
           />
         </div>
 
-        <!-- Client ID -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -115,7 +111,6 @@
           />
         </div>
 
-        <!-- Client Secret -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -141,7 +136,6 @@
           />
         </div>
 
-        <!-- Callback URL -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -163,7 +157,6 @@
           />
         </div>
 
-        <!-- Auth URL -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -185,7 +178,6 @@
           />
         </div>
 
-        <!-- Token URL -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -209,7 +201,6 @@
           />
         </div>
 
-        <!-- User Info URL -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -235,7 +226,6 @@
           />
         </div>
 
-        <!-- Scopes -->
         <div
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
         >
@@ -262,7 +252,6 @@
           />
         </div>
 
-        <!-- Is OIDC -->
         <div
           v-if="OAuth2Setting.enable"
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] h-10"
@@ -273,7 +262,6 @@
           <BaseSwitch v-model="OAuth2Setting.is_oidc" :disabled="!oauth2EditMode" />
         </div>
 
-        <!-- Issuer -->
         <div
           v-if="OAuth2Setting.is_oidc"
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
@@ -296,7 +284,6 @@
           />
         </div>
 
-        <!-- JWKS URL -->
         <div
           v-if="OAuth2Setting.is_oidc"
           class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 h-10"
@@ -319,7 +306,6 @@
           />
         </div>
 
-        <!-- 认证安全边界（Panel 主配置） -->
         <div class="mt-3 border border-dashed border-[var(--color-border-strong)] rounded-md p-3">
           <h3 class="text-[var(--color-text-primary)] font-semibold mb-2">
             {{ t('oauth2Setting.securityBoundary') }}
@@ -369,7 +355,6 @@
     </PanelCard>
 
     <PanelCard v-if="OAuth2Setting.enable && OAuth2Setting.provider" class="mb-3">
-      <!-- OAuth2 账号绑定 -->
       <div class="w-full border border-dashed border-[var(--color-border-strong)] rounded-md p-3">
         <div>
           <h1 class="text-[var(--color-text-primary)] font-semibold text-lg">
@@ -497,9 +482,7 @@ const parseList = (input: string) =>
     .filter((s) => s.length > 0)
 
 const handleUpdateOAuth2Setting = async () => {
-  // 修改Scopes
   OAuth2Setting.value.scopes = scopeString.value.split(',').map((s) => s.trim())
-  // 修改回调地址为当前域名加上固定路径
   OAuth2Setting.value.redirect_uri =
     redirect_uri.value || `${window.location.origin}/oauth/${OAuth2Setting.value.provider}/callback`
   OAuth2Setting.value.auth_redirect_allowed_return_urls = parseList(redirectAllowlistString.value)
@@ -514,7 +497,6 @@ const handleUpdateOAuth2Setting = async () => {
     return
   }
 
-  // 提交更新
   await fetchUpdateOAuth2Settings(OAuth2Setting.value)
     .then((res) => {
       if (res.code === 1) {
@@ -523,10 +505,8 @@ const handleUpdateOAuth2Setting = async () => {
     })
     .finally(async () => {
       oauth2EditMode.value = false
-      // 重新获取OAuth2设置
       await getOAuth2Setting()
       await refreshHealthCheck()
-      // 重新获取OAuth信息
       if (OAuth2Setting.value.provider) {
         const infoRes = await fetchGetOAuthInfo(OAuth2Setting.value.provider)
         if (infoRes.code === 1) {
@@ -541,7 +521,6 @@ const handleBindOAuth2 = async () => {
   if (res.code !== 1) {
     theToast.error(res.msg)
   } else {
-    // 成功，跳转到授权URL
     window.location.href = res.data
   }
 }
@@ -582,7 +561,6 @@ const handleAutoFillBoundary = () => {
   theToast.success(String(t('oauth2Setting.autofillDone')))
 }
 
-// 监听 OAuth2Setting.provider 变化，更新必填设置模板
 watch(
   () => OAuth2Setting.value.provider,
   (newProvider) => {
@@ -619,7 +597,7 @@ function getProviderTemplate(provider: string) {
       auth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
       token_url: 'https://oauth2.googleapis.com/token',
       user_info_url: 'https://openidconnect.googleapis.com/v1/userinfo',
-      scopes: ['openid'], // 只要OAuth ID
+      scopes: ['openid'],
     }
   } else if (provider === String(OAuth2Provider.QQ)) {
     scopeString.value = 'get_user_info'

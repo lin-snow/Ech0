@@ -118,10 +118,8 @@ func TestReadThroughTypedSingleflight(t *testing.T) {
 	var calls int32
 	var wg sync.WaitGroup
 
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 20 {
+		wg.Go(func() {
 			v, err := ReadThroughTyped[string](c, "shared", 1, func() (string, error) {
 				atomic.AddInt32(&calls, 1)
 				time.Sleep(30 * time.Millisecond)
@@ -134,7 +132,7 @@ func TestReadThroughTypedSingleflight(t *testing.T) {
 			if v != "value" {
 				t.Errorf("unexpected value: %q", v)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

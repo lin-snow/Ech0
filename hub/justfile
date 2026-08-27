@@ -1,0 +1,20 @@
+
+set shell := ["bash", "-cu"]
+
+default:
+    @just --list
+
+install:
+    pnpm install --frozen-lockfile
+
+dev:
+    pnpm dev
+
+build:
+    pnpm build
+
+preview:
+    pnpm preview
+
+seo-assets:
+    pnpm generate:seo-assets

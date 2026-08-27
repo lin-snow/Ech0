@@ -6,40 +6,32 @@ package migrator
 import (
 	"fmt"
 
-	ech0v4Extractor "github.com/lin-snow/ech0/internal/migrator/extractor/ech0v4"
-	memosExtractor "github.com/lin-snow/ech0/internal/migrator/extractor/memos"
-	"github.com/lin-snow/ech0/internal/migrator/load"
-	"github.com/lin-snow/ech0/internal/migrator/transform"
-	"github.com/lin-snow/ech0/internal/migrator/validate"
-	migrationModel "github.com/lin-snow/ech0/internal/model/migration"
+	fsExporter "github.com/lin-snow/ech0/internal/migrator/exporter/fs"
+	s3Exporter "github.com/lin-snow/ech0/internal/migrator/exporter/s3"
+	ech0Importer "github.com/lin-snow/ech0/internal/migrator/importer/ech0"
+	memosImporter "github.com/lin-snow/ech0/internal/migrator/importer/memos"
+	"github.com/lin-snow/ech0/internal/migrator/spec"
+	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 )
 
-func BuildRunner(sourceType string, createdBy string) (*Runner, error) {
-	var extractor Extractor
-	switch sourceType {
-	case migrationModel.MigrationSourceEch0V4:
-		extractor = ech0v4Extractor.NewExtractor()
-	case migrationModel.MigrationSourceMemos:
-		extractor = memosExtractor.NewExtractor()
+func BuildImporter(source string) (spec.Importer, error) {
+	switch source {
+	case migratorModel.MigrationSourceEch0:
+		return ech0Importer.New(), nil
+	case migratorModel.MigrationSourceMemos:
+		return memosImporter.New(), nil
 	default:
-		return nil, fmt.Errorf("unsupported migration source type: %s", sourceType)
+		return nil, fmt.Errorf("unsupported import source: %s", source)
 	}
-
-	return NewRunner(
-		extractor,
-		transform.NewDefaultTransformer(),
-		validate.NewDefaultValidator(),
-		load.NewEchoLoader(createdBy),
-	), nil
 }
 
-func BuildSourceMigrator(sourceType string) (SourceMigrator, error) {
-	switch sourceType {
-	case migrationModel.MigrationSourceEch0V4:
-		return ech0v4Extractor.NewExtractor(), nil
-	case migrationModel.MigrationSourceMemos:
-		return memosExtractor.NewExtractor(), nil
+func BuildExporter(dest string, storageManager StorageManager) (spec.Exporter, error) {
+	switch dest {
+	case migratorModel.ExportDestFS:
+		return fsExporter.New(), nil
+	case migratorModel.ExportDestS3:
+		return s3Exporter.New(storageManager), nil
 	default:
-		return nil, fmt.Errorf("unsupported migration source type: %s", sourceType)
+		return nil, fmt.Errorf("unsupported export destination: %s", dest)
 	}
 }

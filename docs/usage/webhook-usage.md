@@ -21,7 +21,7 @@ Webhook 是 Ech0 的事件推送能力。当系统内发生关键事件（如用
 - 支持启用开关（`is_active`）
 - 支持签名头（HMAC-SHA256，`X-Ech0-Signature`）
 - 支持状态记录（`last_status`、`last_trigger`）
-- 支持失败重试与死信恢复
+- 支持失败即时重试（单次发送内指数退避）
 - 支持事件主题白名单（非白名单事件不会发 webhook）
 
 ---
@@ -86,7 +86,7 @@ Webhook 是 Ech0 的事件推送能力。当系统内发生关键事件（如用
 ```json
 {
   "topic": "echo.created",
-  "event_name": "EchoCreatedEvent",
+  "event_name": "EchoCreated",
   "payload_raw": {
     "...": "具体事件载荷"
   },
@@ -120,15 +120,13 @@ Webhook 是 Ech0 的事件推送能力。当系统内发生关键事件（如用
 - `comment.status.updated`
 - `comment.deleted`
 - `resource.uploaded`
-- `system.backup`
+- `system.snapshot`
 - `system.export`
-- `system.backup_schedule.updated`
-
-说明：`deadletter.retried` 不是对外 webhook 事件，它是内部死信重放事件。
+- `system.snapshot_schedule.updated`
 
 ---
 
-## 7. 成功判定、重试与死信机制
+## 7. 成功判定与重试机制
 
 ### 7.1 一次投递何时算成功
 
@@ -142,15 +140,7 @@ Webhook 发送内置指数退避重试：
 - 每次失败后等待：`500ms` -> `1s` -> `2s`（测试接口为更短间隔）
 - 请求超时：5 秒
 
-### 7.3 死信（Dead Letter）
-
-当即时重试仍失败时，事件会进入死信队列：
-- 初始 `next_retry`：6 小时后
-- 后台任务每 5 分钟扫描可重试死信（`next_retry <= now`）
-- 失败后继续延后重试（例如 15 分钟）
-- 重试次数达到阈值后会标记丢弃
-
-### 7.4 状态回写
+### 7.3 状态回写
 
 每次投递结束都会更新：
 - `last_status`：`success` / `failed`
@@ -235,7 +225,7 @@ curl -X POST "https://<your-ech0-domain>/api/webhook/<webhook-id>/test" \
 
 Webhook 接收端建议：
 - 只要接收并落库成功就返回 `2xx`
-- 后续异步处理失败不要返回 `5xx`，否则会触发重试和死信
+- 后续异步处理失败不要返回 `5xx`，否则会触发即时重试
 
 ---
 

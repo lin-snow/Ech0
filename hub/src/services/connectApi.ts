@@ -7,10 +7,8 @@ import { timeoutSignal } from '../utils/fetchTimeout'
 import { normalizeHubInstanceUrl } from '../utils/hubUrl'
 import { HUB_FAN_OUT_LIMIT, pMapLimit } from '../utils/pMapLimit'
 
-/** /api/connect 仅返回站点元信息（logo / server_name / today_echos），6s 足够。 */
 const CONNECT_TIMEOUT_MS = 6000
 
-/** 与 web `GET {origin}/api/connect` 一致，用于取站点 logo（见 internal/handler/connect） */
 export async function fetchInstanceConnect(
   instanceUrl: string,
   signal?: AbortSignal,
@@ -34,7 +32,6 @@ export interface InstanceConnectSummary {
   serverName: string
   username: string
   rawLogo: string
-  /** Mirrors `GET /api/connect` `today_echos` (Connect widget heatmap dot). */
   todayEchos: number
 }
 
@@ -44,7 +41,6 @@ interface InstanceConnectFetched {
   summary: InstanceConnectSummary
 }
 
-/** 受限并发请求：logo Map（供聚合）+ 各实例摘要（供「活跃创作者」等） */
 export async function fetchInstancesConnectBundle(
   instances: HubInstance[],
   signal?: AbortSignal,

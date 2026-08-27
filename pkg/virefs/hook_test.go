@@ -258,10 +258,6 @@ func TestWithHooks_MultipleHooks(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Chain + BaseFS tests
-// ---------------------------------------------------------------------------
-
 func TestChain_Order(t *testing.T) {
 	dir := t.TempDir()
 	base := mustNewLocalFS(t, dir)
@@ -296,9 +292,6 @@ func TestChain_Order(t *testing.T) {
 	}
 	rc.Close()
 
-	// Chain applies mw1 first (innermost), then mw2 (outermost).
-	// WrapGet fires after the inner Get returns, so mw1's hook runs
-	// before mw2's.
 	if len(order) != 2 || order[0] != "mw1" || order[1] != "mw2" {
 		t.Fatalf("execution order = %v, want [mw1 mw2]", order)
 	}
@@ -348,7 +341,6 @@ func TestBaseFS_Override(t *testing.T) {
 		t.Fatalf("Get = %q, want %q", data, "HELLO")
 	}
 
-	// Non-overridden methods should still work via BaseFS forwarding
 	info, err := fs.Stat(ctx, "msg.txt")
 	if err != nil {
 		t.Fatalf("Stat: %v", err)
@@ -375,7 +367,7 @@ func TestChain_WithHooksInterop(t *testing.T) {
 
 	var logged bool
 	logMW := func(next FS) FS {
-		return &logTestFS{BaseFS: BaseFS{Inner: next}, logged: &logged}
+		return &logTestFS{Inner: next, logged: &logged}
 	}
 
 	encryptMW := func(next FS) FS {

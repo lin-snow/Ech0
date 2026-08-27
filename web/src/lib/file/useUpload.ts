@@ -25,7 +25,6 @@ export const UPLOAD_STATUS = {
 
 export type UploadStatus = (typeof UPLOAD_STATUS)[keyof typeof UPLOAD_STATUS]
 
-// Statuses representing work in progress — anything else is settled (success/error/cancelled).
 const ACTIVE_STATUSES = [
   UPLOAD_STATUS.PENDING,
   UPLOAD_STATUS.COMPRESSING,
@@ -36,9 +35,6 @@ function isActiveStatus(status: UploadStatus): boolean {
   return (ACTIVE_STATUSES as readonly UploadStatus[]).includes(status)
 }
 
-// Pick the first non-empty string field from `obj` for any of the candidate keys.
-// Used for resilient parsing of upload responses where backend snake/camel/Pascal naming
-// has varied historically (id vs file_id vs ID, key vs object_key, …).
 function pickField(obj: Record<string, unknown>, keys: readonly string[]): string {
   for (const k of keys) {
     const v = obj[k]
@@ -51,13 +47,7 @@ export interface QueueItem {
   id: string
   file: File
   originalFile: File
-  /** Pre-compression size in bytes; used to render the original→compressed delta. */
   originalSize: number
-  /**
-   * True if the compression branch ran for this item (regardless of whether it produced
-   * smaller bytes). Lets the UI distinguish "compressor was off" from "compressor ran
-   * but the file was already optimal / format wasn't supported".
-   */
   compressionAttempted?: boolean
   status: UploadStatus
   progress: number
@@ -74,7 +64,6 @@ export interface UseUploadOptions {
   category?: App.Api.File.Category
   allowedTypes?: string[]
   maxFiles?: number
-  /** Optional per-file size cap in bytes; files above this are rejected with a toast. */
   maxFileSize?: number
   concurrency?: number
   onAllComplete: (files: App.Api.Ech0.FileToAdd[]) => void
@@ -217,7 +206,6 @@ export function useUpload(opts: UseUploadOptions) {
           working = await compressImage(working)
           item.file = working
         } catch (err) {
-          // Compression failure must not block upload — fall back to the original file.
           console.warn('[uploader] compression failed, using original file:', err)
         }
       }
@@ -350,9 +338,7 @@ export function useUpload(opts: UseUploadOptions) {
         const dim = await getImageSize(item.preview)
         width = dim.width
         height = dim.height
-      } catch {
-        // Best-effort; backend can fall back without dims.
-      }
+      } catch {}
     }
 
     let resolvedSize = file.size
@@ -402,8 +388,6 @@ export function useUpload(opts: UseUploadOptions) {
     pump()
   }
 
-  // Reorder two queue items by id. Caller is responsible for any propagation
-  // (e.g. updating the editor's filesToAdd order via reorderFilesByIds).
   function moveItem(fromId: string, toId: string) {
     if (fromId === toId) return
     const from = items.value.findIndex((i) => i.id === fromId)

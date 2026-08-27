@@ -33,7 +33,7 @@ that exposes the REST API.
 | Tests             | **Vitest 4** + `@vue/test-utils` + `jsdom`                                |
 | Package manager   | **pnpm 10** (see `packageManager` field)                                  |
 
-**Engine:** Node `>=25.9.0` (declared in [package.json:6-8](package.json#L6-L8)). Use Volta / nvm to pin.
+**Engine:** Node `>=26.0.0` (declared in [package.json:6-8](package.json#L6-L8)). Use Volta / nvm to pin.
 
 ---
 
@@ -49,9 +49,9 @@ Run the Go backend in another terminal so API requests resolve:
 
 ```bash
 # from repo root
-make dev          # Air hot-reload on :6277
+just dev          # Air hot-reload on :6277
 # or
-make run
+just run
 ```
 
 The frontend talks to the backend via the URL configured in `VITE_SERVICE_BASE_URL`
@@ -64,7 +64,7 @@ binary serves the SPA from the same origin.
 ## Scripts
 
 All scripts come from [`package.json`](package.json). Run them inside `web/` (or via the
-`make web-*` wrappers from the repo root).
+`just web …` module recipes from the repo root).
 
 | Script                  | What it does                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------- |
@@ -75,7 +75,7 @@ All scripts come from [`package.json`](package.json). Run them inside `web/` (or
 | `pnpm preview`          | Serve the built `dist` locally for smoke-testing                                 |
 | `pnpm test:unit`        | Run the Vitest suite once (CI mode)                                              |
 | `pnpm lint`             | `eslint . --fix`                                                                 |
-| `pnpm lint:style`       | `stylelint "src/**/*.{vue,css,scss}" --fix` — CSS/SCSS/Vue style blocks (runs in `make check`) |
+| `pnpm lint:style`       | `stylelint "src/**/*.{vue,css,scss}" --fix` — CSS/SCSS/Vue style blocks (runs in `just check`) |
 | `pnpm format`           | `prettier --write src/`                                                          |
 | `pnpm i18n:check`       | Composite: runs all four i18n guardrails below                                   |
 | `pnpm i18n:key-check`   | en-US / de-DE must mirror the zh-CN key tree (no missing, no extras)             |
@@ -85,7 +85,7 @@ All scripts come from [`package.json`](package.json). Run them inside `web/` (or
 | `pnpm token:check`      | Scan for hardcoded credentials / leaked tokens in source                         |
 
 The i18n scripts live at [`web/scripts/`](scripts/) and are mandatory before opening a PR
-(`make check` from the repo root chains them in).
+(`just check` from the repo root chains them in).
 
 Single test (file or by name):
 
@@ -273,7 +273,7 @@ since those ship to the browser.
 From the repo root:
 
 ```bash
-make check        # backend lint + swagger + frontend lint + i18n checks
+just check        # backend lint + openapi drift + frontend lint + i18n checks
 ```
 
 Inside `web/`, that boils down to:

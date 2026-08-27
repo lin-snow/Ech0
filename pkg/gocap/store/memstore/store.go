@@ -20,7 +20,6 @@ type rateWindow struct {
 	expiresAt time.Time
 }
 
-// Store is an in-memory implementation for single-node deployments.
 type Store struct {
 	mu sync.RWMutex
 
@@ -34,12 +33,10 @@ type Store struct {
 	once   sync.Once
 }
 
-// Options configures memstore runtime behavior.
 type Options struct {
 	GCInterval time.Duration
 }
 
-// New creates a new in-memory store with background GC enabled.
 func New(opts Options) *Store {
 	s := &Store{
 		sites:            make(map[string]store.Site),

@@ -69,7 +69,6 @@ const props = withDefaults(
   defineProps<{
     readonly?: boolean
     latLng?: LatLng | null
-    /** When true (editor), request browser geolocation on first mount. */
     autoLocate?: boolean
     class?: string
   }>(),
@@ -147,14 +146,13 @@ onMounted(() => {
   mapInstance = L.map(mapEl.value, {
     center: [initialCenter.lat, initialCenter.lng],
     zoom: initialZoom,
-    zoomControl: false, // 自定义右上角按钮替代,避免重复控件
+    zoomControl: false,
     attributionControl: true,
     scrollWheelZoom: !props.readonly,
     dragging: true,
     doubleClickZoom: !props.readonly,
   })
 
-  // 防止点击自定义控件穿透到地图:leaflet 的 DomEvent 更稳,触摸/滚轮全覆盖
   if (controlsEl.value) {
     L.DomEvent.disableClickPropagation(controlsEl.value)
     L.DomEvent.disableScrollPropagation(controlsEl.value)

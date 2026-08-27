@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
 	"github.com/lin-snow/ech0/internal/visitor"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 type DashboardService struct {

@@ -19,7 +19,6 @@
         </div>
       </section>
 
-      <!-- 移动端选择器 -->
       <div class="md:hidden mb-6 px-2 flex justify-between items-center mb-3">
         <div class="w-1/2">
           <BaseSelect
@@ -32,7 +31,6 @@
         </div>
 
         <div class="flex gap-2 items-center">
-          <!-- 退出登录 -->
           <BaseButton
             v-if="userStore.isLogin"
             :icon="Logout"
@@ -41,7 +39,6 @@
             :tooltip="t('panelPage.logout')"
           >
           </BaseButton>
-          <!-- 登录 / 注册 -->
           <BaseButton
             v-else
             :icon="Auth"
@@ -53,11 +50,8 @@
         </div>
       </div>
 
-      <!-- 主内容区 -->
       <div class="mx-auto flex my-4 w-full max-w-screen-lg rounded-md panel-main">
-        <!-- 桌面端侧边栏 -->
         <div class="hidden md:flex flex-col gap-2 w-52 pr-4 shrink-0 panel-nav">
-          <!-- Dashboard -->
           <BaseButton
             :icon="Dashboard"
             @click="router.push('/panel/dashboard')"
@@ -66,7 +60,6 @@
             {{ t('panelPageNav.dashboard') }}
           </BaseButton>
 
-          <!-- 偏好设置 -->
           <BaseButton
             :icon="Setting"
             @click="router.push('/panel/setting')"
@@ -75,7 +68,6 @@
             {{ t('panelPageNav.setting') }}
           </BaseButton>
 
-          <!-- 用户中心 -->
           <BaseButton
             :icon="User"
             @click="router.push('/panel/user')"
@@ -84,7 +76,6 @@
             {{ t('panelPageNav.userCenter') }}
           </BaseButton>
 
-          <!-- 存储管理 -->
           <BaseButton
             :icon="Storage"
             @click="router.push('/panel/storage')"
@@ -93,7 +84,6 @@
             {{ t('panelPageNav.storage') }}
           </BaseButton>
 
-          <!-- 数据管理 -->
           <BaseButton
             :icon="Data"
             @click="router.push('/panel/data-management')"
@@ -110,7 +100,6 @@
             {{ t('panelPageNav.comment') }}
           </BaseButton>
 
-          <!-- 单点登录 -->
           <BaseButton
             :icon="Sso"
             @click="router.push('/panel/sso')"
@@ -119,7 +108,6 @@
             {{ t('panelPageNav.sso') }}
           </BaseButton>
 
-          <!-- 功能扩展 -->
           <BaseButton
             :icon="Extension"
             @click="router.push('/panel/extension')"
@@ -128,7 +116,6 @@
             {{ t('panelPageNav.extension') }}
           </BaseButton>
 
-          <!-- 外部集成 -->
           <BaseButton
             :icon="Others"
             @click="router.push('/panel/advance')"
@@ -137,7 +124,6 @@
             {{ t('panelPageNav.advance') }}
           </BaseButton>
 
-          <!-- 系统日志 -->
           <BaseButton
             :icon="Log"
             @click="router.push('/panel/system-log')"
@@ -148,18 +134,15 @@
 
           <div class="h-px bg-[var(--color-border-subtle)] mx-2" />
 
-          <!-- 退出登录 -->
           <BaseButton :icon="Logout" @click="handleLogout" :class="getBottomButtonClasses()">
             {{ t('panelPage.logout') }}
           </BaseButton>
 
-          <!-- 登录 / 注册 -->
           <BaseButton :icon="Auth" @click="router.push('/auth')" :class="getBottomButtonClasses()">
             {{ t('panelPage.login') }}
           </BaseButton>
         </div>
 
-        <!-- 路由内容 -->
         <div class="flex-1 min-w-0 panel-content">
           <router-view />
         </div>
@@ -215,7 +198,6 @@ const dateText = computed(() => {
   }).format(new Date())
 })
 
-// 统一的按钮样式计算函数
 const getButtonClasses = (routeName: string) => {
   const baseClasses =
     'w-full flex items-center gap-2 pl-3 py-1.5 rounded-[var(--radius-md)] transition-all duration-200 border-none !ring-0 justify-start bg-transparent whitespace-nowrap'
@@ -227,12 +209,10 @@ const getButtonClasses = (routeName: string) => {
   return `${baseClasses} ${activeClasses}`
 }
 
-// 底部按钮样式
 const getBottomButtonClasses = () => {
   return 'w-full flex items-center gap-2 pl-3 py-1.5 rounded-[var(--radius-md)] transition-all duration-200 border-none !shadow-none !ring-0 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] justify-start bg-transparent whitespace-nowrap'
 }
 
-// 路由选项
 const routeOptions = computed(() => [
   { label: String(t('panelPageNav.dashboard')), value: '/panel/dashboard' },
   { label: String(t('panelPageNav.setting')), value: '/panel/setting' },
@@ -246,7 +226,6 @@ const routeOptions = computed(() => [
   { label: String(t('panelPageNav.systemLog')), value: '/panel/system-log' },
 ])
 
-// 监听路由变化，更新选择器
 watch(
   () => route.path,
   (newPath) => {
@@ -254,26 +233,21 @@ watch(
   },
 )
 
-// 处理选择器变化
 const handleRouteChange = () => {
   router.push(selectedRoute.value)
 }
 
 const handleLogout = () => {
-  // 检查是否登录
   if (!userStore.isLogin) {
     theToast.info(String(t('panelPage.notLogin')))
     return
   }
 
-  // 弹出浏览器确认框
   openConfirm({
     title: String(t('panelPage.logoutConfirmTitle')),
     description: '',
     onConfirm: () => {
-      // 清除用户信息
       userStore.logout()
-      // 跳转到首页
       router.push('/')
       theToast.success(String(t('panelPage.logoutSuccess')))
     },

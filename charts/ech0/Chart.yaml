@@ -2,8 +2,6 @@ apiVersion: v2
 name: ech0
 description: A Helm chart for Ech0
 type: application
-# Chart package version (ech0-<version>.tgz). CI sets both fields from the `v*` release tag on publish.
 version: 1.0.0
-# Shown by helm list; CI-synced from the same tag as `version`.
 appVersion: "4.4.4"
 icon: "https://github.com/lin-snow/Ech0/blob/main/docs/imgs/logo.svg"

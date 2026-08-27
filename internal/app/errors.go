@@ -13,7 +13,6 @@ const (
 	CodeInvalidState         = "INVALID_STATE"
 )
 
-// AppError 统一应用层生命周期错误。
 type AppError struct {
 	Code      string
 	Op        string

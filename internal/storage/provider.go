@@ -5,24 +5,25 @@ package storage
 
 import (
 	"context"
+	"log/slog"
+	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/wire"
 	"github.com/lin-snow/ech0/internal/config"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	"github.com/lin-snow/ech0/internal/kvstore"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/virefs"
-	"go.uber.org/zap"
 )
 
-func ProvideStorageManager(store S3SettingStore) *Manager { return NewStorageManager(store) }
+func ProvideStorageManager(durableKV kvstore.Store) *Manager { return NewStorageManager(durableKV) }
 
 var (
 	ManagerSet  = wire.NewSet(ProvideStorageManager)
 	ProviderSet = wire.NewSet(ManagerSet)
 )
 
-// NewFS builds a virefs.FS based on the given StorageConfig.
-// File classification (images/, audios/, etc.) is handled by VireFS Schema.
 func NewFS(cfg config.StorageConfig) virefs.FS {
 	schema := NewFileSchema()
 	if cfg.ObjectEnabled {
@@ -31,8 +32,6 @@ func NewFS(cfg config.StorageConfig) virefs.FS {
 	return buildLocalFS(cfg, schema)
 }
 
-// NewURLResolver builds a URLResolver based on the given StorageConfig.
-// It applies schema.Resolve internally so callers just pass flat keys.
 func NewURLResolver(cfg config.StorageConfig) URLResolver {
 	schema := NewFileSchema()
 	if cfg.ObjectEnabled {
@@ -52,7 +51,7 @@ func buildLocalFS(cfg config.StorageConfig, schema *virefs.Schema) virefs.FS {
 		virefs.WithLocalKeyFunc(schema.Resolve),
 	)
 	if err != nil {
-		logUtil.Warn("create local fs failed, fallback to defaults", zap.String("module", "storage"), zap.Error(err))
+		logUtil.Warn("create local fs failed, fallback to defaults", slog.String("module", "storage"), logUtil.Err(err))
 		fs, _ = virefs.NewLocalFS("data/files",
 			virefs.WithCreateRoot(),
 			virefs.WithAtomicWrite(),
@@ -80,30 +79,33 @@ func buildLocalPathURLResolver() URLResolver {
 }
 
 func buildS3FS(cfg config.StorageConfig, schema *virefs.Schema) virefs.FS {
-	provider := mapProvider(cfg.Provider)
-	region := resolveObjectRegion(cfg.Provider, cfg.Region)
-
 	var opts []virefs.ObjectOption
 	if cfg.PathPrefix != "" {
 		opts = append(opts, virefs.WithPrefix(strings.Trim(cfg.PathPrefix, "/")+"/"))
 	}
 	opts = append(opts, virefs.WithObjectKeyFunc(schema.Resolve))
 
-	endpoint := normalizeEndpoint(cfg.Endpoint, cfg.UseSSL)
-
-	fs, err := virefs.NewObjectFSFromConfig(context.Background(), &virefs.S3Config{
-		Provider:  provider,
-		Endpoint:  endpoint,
-		Region:    region,
-		Bucket:    cfg.BucketName,
-		AccessKey: cfg.AccessKey,
-		SecretKey: cfg.SecretKey,
-	}, opts...)
+	fs, err := virefs.NewObjectFSFromConfig(context.Background(), virefsS3ConfigFromStorage(cfg), opts...)
 	if err != nil {
-		logUtil.Warn("create s3 fs failed, fallback to local", zap.String("module", "storage"), zap.Error(err))
+		logUtil.Warn("create s3 fs failed, fallback to local", slog.String("module", "storage"), logUtil.Err(err))
 		return buildLocalFS(cfg, schema)
 	}
 	return fs
+}
+
+func virefsS3ConfigFromStorage(cfg config.StorageConfig) *virefs.S3Config {
+	s3cfg := &virefs.S3Config{
+		Provider:  mapProvider(cfg.Provider),
+		Endpoint:  normalizeEndpoint(cfg.Endpoint, cfg.UseSSL),
+		Region:    resolveObjectRegion(cfg.Provider, cfg.Region),
+		Bucket:    cfg.BucketName,
+		AccessKey: cfg.AccessKey,
+		SecretKey: cfg.SecretKey,
+	}
+	if cfg.UsePathStyle {
+		s3cfg.UsePathStyle = aws.Bool(true)
+	}
+	return s3cfg
 }
 
 func buildS3URLResolver(cfg config.StorageConfig, schema *virefs.Schema) URLResolver {
@@ -138,10 +140,39 @@ func buildS3PathURLResolver(cfg config.StorageConfig) URLResolver {
 
 	endpoint := normalizeEndpoint(cfg.Endpoint, cfg.UseSSL)
 	baseURL := strings.TrimRight(endpoint, "/") + "/" + cfg.BucketName
+	if !addressesPathStyle(cfg) {
+		if vh, ok := virtualHostedBaseURL(endpoint, cfg.BucketName); ok {
+			baseURL = vh
+		}
+	}
 	return func(path string) string {
 		clean := strings.Trim(strings.TrimSpace(path), "/")
 		return baseURL + "/" + prefix + clean
 	}
+}
+
+func addressesPathStyle(cfg config.StorageConfig) bool {
+	if cfg.UsePathStyle {
+		return true
+	}
+	switch mapProvider(cfg.Provider) {
+	case virefs.ProviderMinIO, virefs.ProviderR2:
+		return true
+	default:
+		return false
+	}
+}
+
+func virtualHostedBaseURL(endpoint, bucket string) (string, bool) {
+	if endpoint == "" || bucket == "" {
+		return "", false
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Host == "" {
+		return "", false
+	}
+	u.Host = bucket + "." + u.Host
+	return strings.TrimRight(u.String(), "/"), true
 }
 
 func normalizeEndpoint(endpoint string, useSSL bool) string {

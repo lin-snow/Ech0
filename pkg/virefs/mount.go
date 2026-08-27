@@ -11,22 +11,15 @@ import (
 	"sync"
 )
 
-// MountTable routes key-based operations to the correct FS by prefix.
-//
-// A key like "local/docs/a.txt" is split into mount prefix "local" and
-// sub-key "docs/a.txt", then forwarded to the FS mounted at "local".
 type MountTable struct {
 	mu     sync.RWMutex
 	mounts map[string]FS
 }
 
-// NewMountTable returns an empty MountTable.
 func NewMountTable() *MountTable {
 	return &MountTable{mounts: make(map[string]FS)}
 }
 
-// Mount registers fs under the given prefix.
-// Prefix must be a single path segment with no slashes.
 func (mt *MountTable) Mount(prefix string, fs FS) error {
 	if prefix == "" || strings.Contains(prefix, "/") {
 		return fmt.Errorf("%w: mount prefix must be a single non-empty segment, got %q", ErrInvalidKey, prefix)
@@ -37,14 +30,12 @@ func (mt *MountTable) Mount(prefix string, fs FS) error {
 	return nil
 }
 
-// Unmount removes the FS registered under prefix.
 func (mt *MountTable) Unmount(prefix string) {
 	mt.mu.Lock()
 	defer mt.mu.Unlock()
 	delete(mt.mounts, prefix)
 }
 
-// resolve splits a full key into the target FS and the sub-key.
 func (mt *MountTable) resolve(ctx context.Context, fullKey string) (FS, string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, "", err
@@ -69,7 +60,6 @@ func (mt *MountTable) resolve(ctx context.Context, fullKey string) (FS, string, 
 	return fs, subKey, nil
 }
 
-// Get implements FS.
 func (mt *MountTable) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	fs, sub, err := mt.resolve(ctx, key)
 	if err != nil {
@@ -78,7 +68,6 @@ func (mt *MountTable) Get(ctx context.Context, key string) (io.ReadCloser, error
 	return fs.Get(ctx, sub)
 }
 
-// Put implements FS.
 func (mt *MountTable) Put(ctx context.Context, key string, r io.Reader, opts ...PutOption) error {
 	fs, sub, err := mt.resolve(ctx, key)
 	if err != nil {
@@ -87,7 +76,6 @@ func (mt *MountTable) Put(ctx context.Context, key string, r io.Reader, opts ...
 	return fs.Put(ctx, sub, r, opts...)
 }
 
-// Delete implements FS.
 func (mt *MountTable) Delete(ctx context.Context, key string) error {
 	fs, sub, err := mt.resolve(ctx, key)
 	if err != nil {
@@ -96,9 +84,6 @@ func (mt *MountTable) Delete(ctx context.Context, key string) error {
 	return fs.Delete(ctx, sub)
 }
 
-// List implements FS.
-// If prefix resolves to a mount point, the sub-prefix is forwarded.
-// If prefix is empty it lists top-level mount points as virtual directories.
 func (mt *MountTable) List(ctx context.Context, prefix string) (*ListResult, error) {
 	if prefix == "" {
 		mt.mu.RLock()
@@ -116,7 +101,6 @@ func (mt *MountTable) List(ctx context.Context, prefix string) (*ListResult, err
 	return fs.List(ctx, sub)
 }
 
-// Stat implements FS.
 func (mt *MountTable) Stat(ctx context.Context, key string) (*FileInfo, error) {
 	fs, sub, err := mt.resolve(ctx, key)
 	if err != nil {
@@ -125,7 +109,6 @@ func (mt *MountTable) Stat(ctx context.Context, key string) (*FileInfo, error) {
 	return fs.Stat(ctx, sub)
 }
 
-// Exists implements FS.
 func (mt *MountTable) Exists(ctx context.Context, key string) (bool, error) {
 	fs, sub, err := mt.resolve(ctx, key)
 	if err != nil {
@@ -134,7 +117,6 @@ func (mt *MountTable) Exists(ctx context.Context, key string) (bool, error) {
 	return fs.Exists(ctx, sub)
 }
 
-// Access implements FS.
 func (mt *MountTable) Access(ctx context.Context, key string) (*AccessInfo, error) {
 	fs, sub, err := mt.resolve(ctx, key)
 	if err != nil {
@@ -143,9 +125,6 @@ func (mt *MountTable) Access(ctx context.Context, key string) (*AccessInfo, erro
 	return fs.Access(ctx, sub)
 }
 
-// Copy implements Copier. When both keys resolve to the same underlying FS
-// and that FS implements Copier, the native copy is used. Otherwise it
-// falls back to Get + Put.
 func (mt *MountTable) Copy(ctx context.Context, srcKey, dstKey string) error {
 	srcFS, srcSub, err := mt.resolve(ctx, srcKey)
 	if err != nil {
@@ -168,7 +147,6 @@ func (mt *MountTable) Copy(ctx context.Context, srcKey, dstKey string) error {
 	return dstFS.Put(ctx, dstSub, rc)
 }
 
-// Compile-time interface checks.
 var (
 	_ FS     = (*MountTable)(nil)
 	_ Copier = (*MountTable)(nil)

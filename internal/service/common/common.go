@@ -16,9 +16,11 @@ import (
 	"github.com/lin-snow/ech0/internal/cache"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
-	httpUtil "github.com/lin-snow/ech0/internal/util/http"
+	"github.com/lin-snow/ech0/internal/storage"
+	"github.com/lin-snow/ech0/internal/util/egress"
 	mdUtil "github.com/lin-snow/ech0/internal/util/md"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
+	urlUtil "github.com/lin-snow/ech0/internal/util/url"
 	"golang.org/x/net/html"
 )
 
@@ -64,7 +66,7 @@ func (s *CommonService) GetHeatMap(timezone string) ([]commonModel.Heatmap, erro
 	}
 
 	var results [30]commonModel.Heatmap
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		date := startUser.AddDate(0, 0, i).Format("2006-01-02")
 		results[i] = commonModel.Heatmap{
 			Date:  date,
@@ -108,21 +110,35 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (string, error) {
 				title := msg.Username + " - " + createdAt.Format("2006-01-02")
 
 				if len(msg.EchoFiles) > 0 {
-					var imageContent []byte
+					var mediaContent []byte
 					for _, ef := range msg.EchoFiles {
-						imageContent = fmt.Appendf(
-							imageContent,
-							"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />",
-							ef.File.URL,
-						)
+						if ef.File.URL == "" {
+							continue
+						}
+						url := stdhtml.EscapeString(ef.File.URL)
+						switch storage.NormalizeCategory(ef.File.Category) {
+						case storage.CategoryImage:
+							mediaContent = fmt.Appendf(mediaContent,
+								"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />", url)
+						case storage.CategoryVideo:
+							mediaContent = fmt.Appendf(mediaContent,
+								"<video controls src=\"%s\" style=\"max-width:100%%;\"><a href=\"%s\">打开视频</a></video>", url, url)
+						case storage.CategoryAudio:
+							mediaContent = fmt.Appendf(mediaContent,
+								"<audio controls src=\"%s\"><a href=\"%s\">打开音频</a></audio>", url, url)
+						default:
+							name := stdhtml.EscapeString(ef.File.Name)
+							if name == "" {
+								name = "下载文件"
+							}
+							mediaContent = fmt.Appendf(mediaContent, "<p>📎 <a href=\"%s\">%s</a></p>", url, name)
+						}
 					}
-					renderedContent = append(imageContent, renderedContent...)
+					renderedContent = append(mediaContent, renderedContent...)
 				}
 
 				if len(msg.Tags) > 0 {
 					for _, tag := range msg.Tags {
-						// 标签名进入 RSS Atom <summary type="html"> 后会被订阅器二次解码并渲染成 HTML，
-						// 必须先做 HTML 实体转义阻断 stored XSS（GHSA-3v85-fqvh-7rxf）。
 						renderedContent = fmt.Appendf(
 							renderedContent,
 							"<br /><span class=\"tag\">#%s</span>",
@@ -145,8 +161,6 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (string, error) {
 				return "", err
 			}
 
-			// 给 Atom XML 注入 XSLT 样式表声明：浏览器打开 /rss 时会用 /rss.xsl 渲染为
-			// 美化页面，而 RSS 阅读器仍按原始 XML 解析，订阅契约不变。
 			const xmlDecl = `<?xml version="1.0" encoding="UTF-8"?>`
 			const stylesheetPI = `<?xml-stylesheet type="text/xsl" href="/rss.xsl"?>`
 			atom = strings.Replace(atom, xmlDecl, xmlDecl+"\n"+stylesheetPI, 1)
@@ -158,9 +172,9 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (string, error) {
 }
 
 func (s *CommonService) GetWebsiteTitle(websiteURL string) (string, error) {
-	websiteURL = httpUtil.TrimURL(websiteURL)
+	websiteURL = urlUtil.TrimURL(websiteURL)
 
-	body, err := httpUtil.SendSafeRequest(websiteURL, "GET", httpUtil.Header{}, 10*time.Second)
+	body, err := egress.Fetch(websiteURL, "GET", egress.Header{}, 10*time.Second)
 	if err != nil {
 		return "", err
 	}

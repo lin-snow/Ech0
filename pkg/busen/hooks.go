@@ -7,153 +7,83 @@ import (
 	"reflect"
 )
 
-// Hooks observes publish and handler lifecycle events.
-//
-// Hooks are intentionally thin. They are not a full middleware pipeline and do
-// not change delivery semantics. They exist to observe important runtime events
-// such as async failures, panics, and dropped events.
 type Hooks struct {
-	// OnPublishStart runs before matching subscribers are evaluated.
-	OnPublishStart func(PublishStart)
-	// OnPublishDone runs after all matching deliveries have been attempted.
-	OnPublishDone func(PublishDone)
-	// OnHandlerError runs when a handler returns a non-nil error.
-	OnHandlerError func(HandlerError)
-	// OnHandlerPanic runs when a handler panic is recovered.
-	OnHandlerPanic func(HandlerPanic)
-	// OnEventDropped runs when async backpressure drops an event.
-	OnEventDropped func(DroppedEvent)
-	// OnEventRejected runs when async backpressure rejects an event.
+	OnPublishStart  func(PublishStart)
+	OnPublishDone   func(PublishDone)
+	OnHandlerError  func(HandlerError)
+	OnHandlerPanic  func(HandlerPanic)
+	OnEventDropped  func(DroppedEvent)
 	OnEventRejected func(RejectedEvent)
-	// OnHookPanic runs when another hook panics and the panic is recovered.
-	OnHookPanic func(HookPanic)
+	OnHookPanic     func(HookPanic)
 }
 
-// PublishStart describes the beginning of a publish operation.
 type PublishStart struct {
-	// EventType is the exact Go type being published.
 	EventType reflect.Type
-	// Topic is the publish topic after options have been applied.
-	Topic string
-	// Key is the publish ordering key after options have been applied.
-	Key string
-	// Headers is a copy of the publish headers.
-	Headers map[string]string
-	// Meta is structured envelope metadata.
-	Meta map[string]string
+	Topic     string
+	Key       string
+	Headers   map[string]string
+	Meta      map[string]string
 }
 
-// PublishDone describes the end of a publish operation.
 type PublishDone struct {
-	// EventType is the exact Go type that was published.
-	EventType reflect.Type
-	// Topic is the publish topic after options have been applied.
-	Topic string
-	// Key is the publish ordering key after options have been applied.
-	Key string
-	// Headers is a copy of the publish headers.
-	Headers map[string]string
-	// Meta is structured envelope metadata.
-	Meta map[string]string
-	// MatchedSubscribers is the number of subscriptions whose routing constraints
-	// matched the published event.
-	MatchedSubscribers int
-	// DeliveredSubscribers is the number of subscriptions that accepted the event
-	// for handler execution or async enqueue after lifecycle checks.
+	EventType            reflect.Type
+	Topic                string
+	Key                  string
+	Headers              map[string]string
+	Meta                 map[string]string
+	MatchedSubscribers   int
 	DeliveredSubscribers int
-	// Err joins delivery errors returned during publish, if any.
-	Err error
+	Err                  error
 }
 
-// HandlerError describes a handler error.
 type HandlerError struct {
-	// EventType is the exact Go type handled by the subscriber.
 	EventType reflect.Type
-	// Topic is the event topic seen by the handler.
-	Topic string
-	// Key is the event ordering key seen by the handler.
-	Key string
-	// Meta is structured envelope metadata seen by the handler.
-	Meta map[string]string
-	// Async reports whether the handler ran in async mode.
-	Async bool
-	// Err is the error returned by the handler.
-	Err error
+	Topic     string
+	Key       string
+	Meta      map[string]string
+	Async     bool
+	Err       error
 }
 
-// HandlerPanic describes a recovered handler panic.
 type HandlerPanic struct {
-	// EventType is the exact Go type handled by the subscriber.
 	EventType reflect.Type
-	// Topic is the event topic seen by the handler.
-	Topic string
-	// Key is the event ordering key seen by the handler.
-	Key string
-	// Meta is structured envelope metadata seen by the handler.
-	Meta map[string]string
-	// Async reports whether the handler ran in async mode.
-	Async bool
-	// Value is the recovered panic value.
-	Value any
+	Topic     string
+	Key       string
+	Meta      map[string]string
+	Async     bool
+	Value     any
 }
 
-// DroppedEvent describes a dropped event caused by backpressure.
 type DroppedEvent struct {
-	// EventType is the exact Go type that could not be queued.
-	EventType reflect.Type
-	// Topic is the event topic that was being delivered.
-	Topic string
-	// Key is the event ordering key that was being delivered.
-	Key string
-	// Meta is structured envelope metadata for the dropped event.
-	Meta map[string]string
-	// Async is always true for dropped events.
-	Async bool
-	// Policy is the overflow policy that decided the drop behavior.
-	Policy OverflowPolicy
-	// SubscriberID is the internal subscription identifier.
+	EventType    reflect.Type
+	Topic        string
+	Key          string
+	Meta         map[string]string
+	Async        bool
+	Policy       OverflowPolicy
 	SubscriberID uint64
-	// QueueLen is the queue length at observation time.
-	QueueLen int
-	// QueueCap is the queue capacity.
-	QueueCap int
-	// MailboxIndex is the selected worker mailbox index.
+	QueueLen     int
+	QueueCap     int
 	MailboxIndex int
-	// Reason reports why the event was dropped.
-	Reason error
+	Reason       error
 }
 
-// RejectedEvent describes an event rejected by backpressure policy.
 type RejectedEvent struct {
-	// EventType is the exact Go type that could not be queued.
-	EventType reflect.Type
-	// Topic is the event topic that was being delivered.
-	Topic string
-	// Key is the event ordering key that was being delivered.
-	Key string
-	// Meta is structured envelope metadata for the rejected event.
-	Meta map[string]string
-	// Async is always true for rejected events.
-	Async bool
-	// Policy is the overflow policy that rejected the event.
-	Policy OverflowPolicy
-	// SubscriberID is the internal subscription identifier.
+	EventType    reflect.Type
+	Topic        string
+	Key          string
+	Meta         map[string]string
+	Async        bool
+	Policy       OverflowPolicy
 	SubscriberID uint64
-	// QueueLen is the queue length at observation time.
-	QueueLen int
-	// QueueCap is the queue capacity.
-	QueueCap int
-	// MailboxIndex is the selected worker mailbox index.
+	QueueLen     int
+	QueueCap     int
 	MailboxIndex int
-	// Reason reports why the event was rejected.
-	Reason error
+	Reason       error
 }
 
-// HookPanic describes a recovered panic raised by another hook callback.
 type HookPanic struct {
-	// Hook is the callback name that panicked, such as "OnPublishDone".
-	Hook string
-	// Value is the recovered panic value.
+	Hook  string
 	Value any
 }
 

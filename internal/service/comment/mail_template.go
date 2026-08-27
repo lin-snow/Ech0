@@ -134,6 +134,8 @@ func notifySubject(kind string, status model.Status) string {
 	switch kind {
 	case "created":
 		return prefix + " 新评论待审核"
+	case "reply":
+		return prefix + " 有人回复了你的评论"
 	case "status":
 		if status == model.StatusApproved {
 			return prefix + " 您的评论已通过审核"
@@ -153,6 +155,8 @@ func notifyEventTitle(kind string, status model.Status) string {
 	switch kind {
 	case "created":
 		return "有新评论待处理"
+	case "reply":
+		return "有人回复了你的评论"
 	case "status":
 		if status == model.StatusApproved {
 			return "评论已审核通过"
@@ -172,6 +176,8 @@ func notifyStatusStyle(kind string, status model.Status) (label, color, bg strin
 	switch kind {
 	case "hot":
 		return "HOT", "#7c3aed", "#f3e8ff"
+	case "reply":
+		return "回复", "#0369a1", "#e0f2fe"
 	case "status":
 		if status == model.StatusApproved {
 			return "已通过", "#059669", "#ecfdf5"

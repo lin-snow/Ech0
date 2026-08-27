@@ -4,12 +4,12 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	res "github.com/lin-snow/ech0/internal/handler/response"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/comment"
@@ -26,199 +26,216 @@ func NewCommentHandler(commentService service.Service) *CommentHandler {
 	}
 }
 
-func (h *CommentHandler) GetFormMeta() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
+type commentMeta struct {
+	clientIP  string
+	userAgent string
+	baseURL   string
+}
+
+type commentMetaKey struct{}
+
+func metaFrom(ctx context.Context) commentMeta {
+	m, _ := ctx.Value(commentMetaKey{}).(commentMeta)
+	return m
+}
+
+func (h *CommentHandler) StashMeta() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		m := commentMeta{
+			clientIP:  ctx.ClientIP(),
+			userAgent: ctx.Request.UserAgent(),
+			baseURL:   resolveRequestBaseURL(ctx.Request),
+		}
+		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx.Request.Context(), commentMetaKey{}, m))
+		ctx.Next()
+	}
+}
+
+func (h *CommentHandler) OptionalViewer() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		h.attachOptionalViewer(ctx)
-		data, err := h.commentService.GetFormMeta(
-			ctx.Request.Context(),
-			ctx.ClientIP(),
-			resolveRequestBaseURL(ctx.Request),
-		)
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: data, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+		ctx.Next()
+	}
 }
 
-func (h *CommentHandler) ListCommentsByEchoID() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		echoID := strings.TrimSpace(ctx.Query("echo_id"))
-		if echoID == "" {
-			return res.Response{Msg: commonModel.INVALID_QUERY_PARAMS}
-		}
-		comments, err := h.commentService.ListPublicByEchoID(ctx.Request.Context(), echoID)
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: comments, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+type (
+	GetFormMetaInput        struct{}
+	ListCommentsByEchoInput struct {
+		EchoID string `query:"echo_id" required:"true" doc:"Echo ID"`
+	}
+	ListPublicCommentsInput struct {
+		Limit int `query:"limit" default:"30" doc:"返回数量上限"`
+	}
+	CreateCommentInput struct {
+		Body model.CreateCommentDto
+	}
+	CreateIntegrationCommentInput struct {
+		Body model.CreateIntegrationCommentDto
+	}
+	ListPanelCommentsInput struct {
+		Page     int    `query:"page" default:"1"`
+		PageSize int    `query:"page_size" default:"20"`
+		Keyword  string `query:"keyword"`
+		Status   string `query:"status"`
+		EchoID   string `query:"echo_id"`
+		Hot      string `query:"hot" doc:"true/false 过滤置顶；缺省不过滤"`
+	}
+	GetCommentByIDInput struct {
+		ID string `path:"id" doc:"评论 ID"`
+	}
+	UpdateCommentStatusInput struct {
+		ID   string `path:"id" doc:"评论 ID"`
+		Body model.UpdateCommentStatusDto
+	}
+	UpdateCommentHotInput struct {
+		ID   string `path:"id" doc:"评论 ID"`
+		Body model.UpdateCommentHotDto
+	}
+	DeleteCommentInput struct {
+		ID string `path:"id" doc:"评论 ID"`
+	}
+	BatchActionInput struct {
+		Body model.BatchCommentActionDto
+	}
+	GetCommentSettingInput    struct{}
+	UpdateCommentSettingInput struct {
+		Body model.SystemSetting
+	}
+	TestCommentEmailInput struct {
+		Body model.TestEmailRequest
+	}
+)
+
+type (
+	FormMetaOutput       = commonModel.Result[model.FormMeta]
+	PublicCommentsOutput = commonModel.Result[[]model.PublicComment]
+	CreateCommentOutput  = commonModel.Result[model.CreateCommentResult]
+	PanelCommentsOutput  = commonModel.Result[model.PageResult[model.Comment]]
+	CommentOutput        = commonModel.Result[model.Comment]
+	CommentSettingOutput = commonModel.Result[model.SystemSetting]
+	EmptyOutput          = commonModel.Result[any]
+)
+
+func (h *CommentHandler) GetFormMeta(ctx context.Context, _ *GetFormMetaInput) (FormMetaOutput, error) {
+	m := metaFrom(ctx)
+	data, err := h.commentService.GetFormMeta(ctx, m.clientIP, m.baseURL)
+	if err != nil {
+		return FormMetaOutput{}, err
+	}
+	return commonModel.OK(data), nil
 }
 
-func (h *CommentHandler) ListPublicComments() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		limit := parseQueryInt(ctx, "limit", 30)
-		comments, err := h.commentService.ListPublicComments(ctx.Request.Context(), limit)
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: comments, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) ListCommentsByEchoID(ctx context.Context, in *ListCommentsByEchoInput) (PublicCommentsOutput, error) {
+	comments, err := h.commentService.ListPublicByEchoID(ctx, strings.TrimSpace(in.EchoID))
+	if err != nil {
+		return PublicCommentsOutput{}, err
+	}
+	return commonModel.OK(comments), nil
 }
 
-func (h *CommentHandler) CreateComment() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		h.attachOptionalViewer(ctx)
-		var dto model.CreateCommentDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		result, err := h.commentService.CreateComment(
-			ctx.Request.Context(),
-			ctx.ClientIP(),
-			ctx.Request.UserAgent(),
-			&dto,
-		)
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: result, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) ListPublicComments(ctx context.Context, in *ListPublicCommentsInput) (PublicCommentsOutput, error) {
+	comments, err := h.commentService.ListPublicComments(ctx, in.Limit)
+	if err != nil {
+		return PublicCommentsOutput{}, err
+	}
+	return commonModel.OK(comments), nil
 }
 
-func (h *CommentHandler) CreateIntegrationComment() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto model.CreateIntegrationCommentDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		result, err := h.commentService.CreateIntegrationComment(
-			ctx.Request.Context(),
-			ctx.ClientIP(),
-			ctx.Request.UserAgent(),
-			&dto,
-		)
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: result, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) CreateComment(ctx context.Context, in *CreateCommentInput) (CreateCommentOutput, error) {
+	m := metaFrom(ctx)
+	result, err := h.commentService.CreateComment(ctx, m.clientIP, m.userAgent, &in.Body)
+	if err != nil {
+		return CreateCommentOutput{}, err
+	}
+	return commonModel.OK(result), nil
 }
 
-func (h *CommentHandler) ListPanelComments() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		query := model.ListCommentQuery{
-			Page:     parseQueryInt(ctx, "page", 1),
-			PageSize: parseQueryInt(ctx, "page_size", 20),
-			Keyword:  ctx.Query("keyword"),
-			Status:   ctx.Query("status"),
-			EchoID:   ctx.Query("echo_id"),
-			Hot:      parseQueryBool(ctx, "hot"),
-		}
-		data, err := h.commentService.ListPanelComments(ctx.Request.Context(), query)
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: data, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) CreateIntegrationComment(ctx context.Context, in *CreateIntegrationCommentInput) (CreateCommentOutput, error) {
+	m := metaFrom(ctx)
+	result, err := h.commentService.CreateIntegrationComment(ctx, m.clientIP, m.userAgent, &in.Body)
+	if err != nil {
+		return CreateCommentOutput{}, err
+	}
+	return commonModel.OK(result), nil
 }
 
-func (h *CommentHandler) GetCommentByID() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := strings.TrimSpace(ctx.Param("id"))
-		data, err := h.commentService.GetCommentByID(ctx.Request.Context(), id)
-		if err != nil {
-			return res.Response{Err: err}
+func (h *CommentHandler) ListPanelComments(ctx context.Context, in *ListPanelCommentsInput) (PanelCommentsOutput, error) {
+	var hot *bool
+	if raw := strings.TrimSpace(in.Hot); raw != "" {
+		if v, err := strconv.ParseBool(raw); err == nil {
+			hot = &v
 		}
-		return res.Response{Data: data, Msg: commonModel.SUCCESS_MESSAGE}
+	}
+	data, err := h.commentService.ListPanelComments(ctx, model.ListCommentQuery{
+		Page:     in.Page,
+		PageSize: in.PageSize,
+		Keyword:  in.Keyword,
+		Status:   in.Status,
+		EchoID:   in.EchoID,
+		Hot:      hot,
 	})
+	if err != nil {
+		return PanelCommentsOutput{}, err
+	}
+	return commonModel.OK(data), nil
 }
 
-func (h *CommentHandler) UpdateCommentStatus() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := strings.TrimSpace(ctx.Param("id"))
-		var dto model.UpdateCommentStatusDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := h.commentService.UpdateCommentStatus(ctx.Request.Context(), id, dto.Status); err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) GetCommentByID(ctx context.Context, in *GetCommentByIDInput) (CommentOutput, error) {
+	data, err := h.commentService.GetCommentByID(ctx, strings.TrimSpace(in.ID))
+	if err != nil {
+		return CommentOutput{}, err
+	}
+	return commonModel.OK(data), nil
 }
 
-func (h *CommentHandler) DeleteComment() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := strings.TrimSpace(ctx.Param("id"))
-		if err := h.commentService.DeleteComment(ctx.Request.Context(), id); err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Msg: commonModel.DELETE_SUCCESS}
-	})
+func (h *CommentHandler) UpdateCommentStatus(ctx context.Context, in *UpdateCommentStatusInput) (EmptyOutput, error) {
+	if err := h.commentService.UpdateCommentStatus(ctx, strings.TrimSpace(in.ID), in.Body.Status); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil), nil
 }
 
-func (h *CommentHandler) UpdateCommentHot() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		id := strings.TrimSpace(ctx.Param("id"))
-		var dto model.UpdateCommentHotDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := h.commentService.UpdateCommentHot(ctx.Request.Context(), id, dto.Hot); err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) UpdateCommentHot(ctx context.Context, in *UpdateCommentHotInput) (EmptyOutput, error) {
+	if err := h.commentService.UpdateCommentHot(ctx, strings.TrimSpace(in.ID), in.Body.Hot); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil), nil
 }
 
-func (h *CommentHandler) BatchAction() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto model.BatchCommentActionDto
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := h.commentService.BatchAction(ctx.Request.Context(), dto.Action, dto.IDs); err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) DeleteComment(ctx context.Context, in *DeleteCommentInput) (EmptyOutput, error) {
+	if err := h.commentService.DeleteComment(ctx, strings.TrimSpace(in.ID)); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.DELETE_SUCCESS), nil
 }
 
-func (h *CommentHandler) GetCommentSetting() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		data, err := h.commentService.GetSystemSetting(ctx.Request.Context())
-		if err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Data: data, Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) BatchAction(ctx context.Context, in *BatchActionInput) (EmptyOutput, error) {
+	if err := h.commentService.BatchAction(ctx, in.Body.Action, in.Body.IDs); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil), nil
 }
 
-func (h *CommentHandler) UpdateCommentSetting() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto model.SystemSetting
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := h.commentService.UpdateSystemSetting(ctx.Request.Context(), dto); err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Msg: commonModel.UPDATE_SETTINGS_SUCCESS}
-	})
+func (h *CommentHandler) GetCommentSetting(ctx context.Context, _ *GetCommentSettingInput) (CommentSettingOutput, error) {
+	data, err := h.commentService.GetSystemSetting(ctx)
+	if err != nil {
+		return CommentSettingOutput{}, err
+	}
+	return commonModel.OK(data), nil
 }
 
-func (h *CommentHandler) TestCommentEmail() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto model.TestEmailRequest
-		if err := ctx.ShouldBindJSON(&dto); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
-		}
-		if err := h.commentService.SendTestEmail(ctx.Request.Context(), dto.Setting); err != nil {
-			return res.Response{Err: err}
-		}
-		return res.Response{Msg: commonModel.SUCCESS_MESSAGE}
-	})
+func (h *CommentHandler) UpdateCommentSetting(ctx context.Context, in *UpdateCommentSettingInput) (EmptyOutput, error) {
+	if err := h.commentService.UpdateSystemSetting(ctx, in.Body); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.UPDATE_SETTINGS_SUCCESS), nil
+}
+
+func (h *CommentHandler) TestCommentEmail(ctx context.Context, in *TestCommentEmailInput) (EmptyOutput, error) {
+	if err := h.commentService.SendTestEmail(ctx, in.Body.Setting); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil), nil
 }
 
 func (h *CommentHandler) attachOptionalViewer(ctx *gin.Context) {
@@ -229,30 +246,6 @@ func (h *CommentHandler) attachOptionalViewer(ctx *gin.Context) {
 		return
 	}
 	viewer.AttachToRequest(&ctx.Request, viewer.NewNoopViewer())
-}
-
-func parseQueryInt(ctx *gin.Context, key string, def int) int {
-	raw := strings.TrimSpace(ctx.Query(key))
-	if raw == "" {
-		return def
-	}
-	v, err := strconv.Atoi(raw)
-	if err != nil {
-		return def
-	}
-	return v
-}
-
-func parseQueryBool(ctx *gin.Context, key string) *bool {
-	raw := strings.TrimSpace(ctx.Query(key))
-	if raw == "" {
-		return nil
-	}
-	v, err := strconv.ParseBool(raw)
-	if err != nil {
-		return nil
-	}
-	return &v
 }
 
 func resolveRequestBaseURL(r *http.Request) string {

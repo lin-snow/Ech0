@@ -18,4 +18,5 @@ func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
 	)
 	g.POST("", h.MCPHandler.ServeEndpoint())
 	g.GET("", h.MCPHandler.ServeEndpoint())
+	g.DELETE("", h.MCPHandler.ServeEndpoint())
 }

@@ -24,7 +24,6 @@ func NewConnectRepository(dbProvider func() *gorm.DB) *ConnectRepository {
 	}
 }
 
-// getDB 从上下文中获取事务
 func (connectRepository *ConnectRepository) getDB(ctx context.Context) *gorm.DB {
 	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
@@ -32,22 +31,17 @@ func (connectRepository *ConnectRepository) getDB(ctx context.Context) *gorm.DB 
 	return connectRepository.db()
 }
 
-// GetAllConnects 获取所有连接
 func (connectRepository *ConnectRepository) GetAllConnects(ctx context.Context) ([]model.Connected, error) {
 	var connects []model.Connected
-	// 查询数据库
 	if err := connectRepository.getDB(ctx).Find(&connects).Error; err != nil {
 		return nil, err
 	}
-	// 如果没有找到，返回空切片
 	if len(connects) == 0 {
 		return []model.Connected{}, nil
 	}
-	// 返回查询到的 connects
 	return connects, nil
 }
 
-// CreateConnect 创建一个新的连接
 func (connectRepository *ConnectRepository) CreateConnect(
 	ctx context.Context,
 	connect *model.Connected,
@@ -58,9 +52,7 @@ func (connectRepository *ConnectRepository) CreateConnect(
 	return nil
 }
 
-// DeleteConnect 删除连接
 func (connectRepository *ConnectRepository) DeleteConnect(ctx context.Context, id string) error {
-	// 根据 ID 删除 Connect
 	if err := connectRepository.getDB(ctx).Where("id = ?", id).Delete(&model.Connected{}).Error; err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="base-select" ref="selectRef">
-    <!-- Label -->
     <label
       v-if="label"
       :for="id"
@@ -11,7 +10,6 @@
       {{ label }}
     </label>
 
-    <!-- Trigger Button -->
     <button
       :id="id"
       ref="triggerRef"
@@ -33,7 +31,6 @@
       @keydown.down.prevent="onNavigate(1)"
       @keydown.escape="onClose"
     >
-      <!-- Selected Value Display -->
       <span
         :class="[
           'truncate flex-1',
@@ -43,7 +40,6 @@
         {{ displayValue }}
       </span>
 
-      <!-- Dropdown Arrow -->
       <svg
         :class="[
           'shrink-0 text-[var(--select-icon-color)] transition-transform duration-200 ease-out',
@@ -60,7 +56,6 @@
       </svg>
     </button>
 
-    <!-- Dropdown Menu -->
     <Teleport to="body">
       <Transition
         enter-active-class="transition ease-out duration-150"
@@ -96,7 +91,6 @@
             @mouseenter="highlightedIndex = index"
           >
             <span class="truncate">{{ getOptionLabel(option) }}</span>
-            <!-- Check Icon for Selected -->
             <svg
               v-if="isSelected(option)"
               class="shrink-0 text-[var(--color-accent)]"
@@ -114,7 +108,6 @@
             </svg>
           </div>
 
-          <!-- Empty State -->
           <div
             v-if="normalizedOptions.length === 0"
             class="px-3 py-2 text-sm text-[var(--color-text-muted)] text-center"
@@ -131,22 +124,18 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-// 定义值的类型
 type SelectValue = string | number | boolean | null | undefined
 
-// 定义选项接口
 interface SelectOption {
   label: string
   value: SelectValue
   disabled?: boolean
 }
 
-// 定义通用对象类型用于自定义键名
 interface CustomKeyOption {
   [key: string]: unknown
 }
 
-// 定义选项类型联合
 type OptionType = SelectOption | string | number | CustomKeyOption
 
 const props = defineProps<{
@@ -170,7 +159,6 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 
-// Refs
 const selectRef = ref<HTMLElement>()
 const triggerRef = ref<HTMLElement>()
 const dropdownRef = ref<HTMLElement>()
@@ -179,7 +167,6 @@ const highlightedIndex = ref(-1)
 const dropdownStyle = ref<Record<string, string>>({})
 const openUpward = ref(false)
 
-// Computed
 const customClass = props.class
 const emptyText = computed(() => props.emptyText || String(t('baseSelect.empty')))
 
@@ -189,11 +176,9 @@ const normalizedOptions = computed((): SelectOption[] => {
       return { label: String(option), value: option }
     }
 
-    // 如果是对象类型，检查是否已经是 SelectOption 格式
     if (typeof option === 'object' && option !== null) {
       const objOption = option as Record<string, unknown>
 
-      // 如果有自定义键名
       if (props.labelKey && props.valueKey) {
         return {
           label: String(objOption[props.labelKey] || ''),
@@ -202,13 +187,11 @@ const normalizedOptions = computed((): SelectOption[] => {
         }
       }
 
-      // 如果是标准的 SelectOption 格式
       if ('label' in objOption && 'value' in objOption) {
         return option as SelectOption
       }
     }
 
-    // 兜底情况
     return { label: String(option), value: option as unknown as SelectValue }
   })
 })
@@ -221,7 +204,6 @@ const displayValue = computed(() => {
   return selectedOption.value?.label || props.placeholder || String(t('baseSelect.pleaseSelect'))
 })
 
-// Methods
 function getOptionLabel(option: SelectOption): string {
   return option.label
 }
@@ -288,7 +270,6 @@ function onNavigate(direction: number): void {
   highlightedIndex.value = newIndex
 }
 
-// Handle clicks outside to close dropdown
 function handleClickOutside(event: Event): void {
   if (!(event.target instanceof Node)) return
 
@@ -332,7 +313,6 @@ function updateDropdownPosition(): void {
   }
 }
 
-// Lifecycle
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('resize', updateDropdownPosition)

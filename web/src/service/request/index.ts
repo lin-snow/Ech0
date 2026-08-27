@@ -2,7 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { ofetch } from 'ofetch'
-import { getInitReadyStatus } from './shared'
+import { getInitReadyStatus, buildCommonHeaders, isStaticMode } from './shared'
 import { useAuthStore } from '@/stores/auth'
 import { theToast } from '@/utils/toast'
 import { i18n } from '@/locales'
@@ -24,16 +24,11 @@ const ofetchInstance = ofetch.create({
   ignoreResponseError: true,
 
   onRequest({ options }) {
-    const authStore = useAuthStore()
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-
     const isDirectUrl = options.headers.get('X-Direct-URL')
-    if (authStore.authHeader && !isDirectUrl) {
-      options.headers.set('Authorization', authStore.authHeader)
-    }
     if (!isDirectUrl) {
-      options.headers.set('X-Timezone', timezone)
-      options.headers.set('X-Locale', i18n.global.locale.value)
+      for (const [key, value] of Object.entries(buildCommonHeaders())) {
+        options.headers.set(key, value)
+      }
     }
 
     options.headers.delete('X-Direct-URL')
@@ -53,6 +48,11 @@ const ofetchInstance = ofetch.create({
 })
 
 export const request = async <T>(requestOptions: RequestOptions): Promise<App.Api.Response<T>> => {
+  if (isStaticMode()) {
+    const { handleStaticRequest } = await import('./static-adapter')
+    return handleStaticRequest<T>(requestOptions.url, requestOptions.method, requestOptions.data)
+  }
+
   const isSystemReady = getInitReadyStatus()
 
   if (import.meta.env.VITE_PROXY === 'YES') {
@@ -151,6 +151,10 @@ export const requestWithDirectUrlAndData = async <T>(
 }
 
 export const downloadFile = async (requestOptions: RequestOptions): Promise<Blob> => {
+  if (isStaticMode()) {
+    throw new Error('File download is not available in static mode')
+  }
+
   if (import.meta.env.VITE_PROXY === 'YES') {
     const proxyUrl = import.meta.env.VITE_PROXY_URL
     if (!proxyUrl) {

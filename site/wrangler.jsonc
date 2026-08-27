@@ -1,0 +1,8 @@
+{
+  "name": "ech0-site",
+  "compatibility_date": "2026-05-27",
+  "assets": {
+    "directory": "./build/client",
+    "not_found_handling": "single-page-application"
+  }
+}

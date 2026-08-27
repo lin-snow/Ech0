@@ -10,36 +10,27 @@ import (
 	"strings"
 )
 
-// ConflictPolicy controls how Migrate behaves when a destination key
-// already exists.
 type ConflictPolicy int
 
 const (
-	// ConflictError causes Migrate to return an error on the first conflict.
 	ConflictError ConflictPolicy = iota
-	// ConflictSkip silently skips keys that already exist at the destination.
 	ConflictSkip
-	// ConflictOverwrite overwrites existing keys at the destination.
 	ConflictOverwrite
 )
 
-// MigrateProgress is passed to the progress callback after each file is
-// processed (copied or skipped).
 type MigrateProgress struct {
-	Key     string // source key being processed
-	Copied  int    // cumulative files copied so far
-	Skipped int    // cumulative files skipped so far
-	Total   int    // cumulative files scanned so far (excluding directories)
+	Key     string
+	Copied  int
+	Skipped int
+	Total   int
 }
 
-// MigrateResult summarises a completed Migrate operation.
 type MigrateResult struct {
 	Copied  int
 	Skipped int
 	Total   int
 }
 
-// MigrateOption configures a Migrate operation.
 type MigrateOption func(*migrateConfig)
 
 type migrateConfig struct {
@@ -49,39 +40,22 @@ type migrateConfig struct {
 	keyFunc  func(srcKey string) string
 }
 
-// WithConflictPolicy sets the conflict resolution strategy.
-// Default is ConflictError.
 func WithConflictPolicy(p ConflictPolicy) MigrateOption {
 	return func(c *migrateConfig) { c.conflict = p }
 }
 
-// WithDryRun makes Migrate walk and check conflicts without actually
-// copying any data. The returned MigrateResult still reports what
-// would have been copied or skipped.
 func WithDryRun() MigrateOption {
 	return func(c *migrateConfig) { c.dryRun = true }
 }
 
-// WithProgressFunc registers a callback invoked after each file is
-// processed. The callback is called synchronously from Migrate.
 func WithProgressFunc(fn func(MigrateProgress)) MigrateOption {
 	return func(c *migrateConfig) { c.progress = fn }
 }
 
-// WithMigrateKeyFunc sets a function that transforms source keys into
-// destination keys. The function receives the relative source key
-// (with srcPrefix stripped) and returns the relative destination key.
-// If nil, the source relative key is used as-is.
 func WithMigrateKeyFunc(fn func(srcKey string) string) MigrateOption {
 	return func(c *migrateConfig) { c.keyFunc = fn }
 }
 
-// Migrate recursively copies files from src (under srcPrefix) to dst
-// (under dstPrefix). It uses Walk to enumerate source files and Copy
-// to transfer each one.
-//
-// Migrate supports conflict policies, dry-run mode, progress callbacks,
-// and key transformation. See the With* options for details.
 func Migrate(ctx context.Context, src FS, srcPrefix string, dst FS, dstPrefix string, opts ...MigrateOption) (*MigrateResult, error) {
 	cfg := &migrateConfig{}
 	for _, o := range opts {

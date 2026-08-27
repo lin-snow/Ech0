@@ -8,21 +8,15 @@ import (
 	"fmt"
 )
 
-// OverflowPolicy controls what happens when an async subscriber queue is full.
 type OverflowPolicy int
 
 const (
-	// OverflowBlock blocks the publisher until queue space is available.
 	OverflowBlock OverflowPolicy = iota
-	// OverflowFailFast returns an error instead of waiting for queue space.
 	OverflowFailFast
-	// OverflowDropNewest drops the incoming event when the queue is full.
 	OverflowDropNewest
-	// OverflowDropOldest evicts the oldest queued event to admit the new event.
 	OverflowDropOldest
 )
 
-// Handler handles a typed event.
 type Handler[T any] func(ctx context.Context, event Event[T]) error
 
 type config struct {
@@ -48,29 +42,14 @@ type publishConfig struct {
 	meta    map[string]string
 }
 
-// Option configures a Bus.
-//
-// Callers typically obtain Option values from helpers such as
-// [WithDefaultBuffer], [WithDefaultOverflow], [WithHooks], and
-// [WithMiddleware] rather than implementing this interface directly.
 type Option interface {
 	apply(*config) error
 }
 
-// PublishOption configures a publish call.
-//
-// Callers typically obtain PublishOption values from helpers such as
-// [WithTopic], [WithKey], and [WithHeaders] rather than implementing this
-// interface directly.
 type PublishOption interface {
 	applyPublish(*publishConfig) error
 }
 
-// SubscribeOption configures a subscription.
-//
-// Callers typically obtain SubscribeOption values from helpers such as
-// [Async], [Sequential], [WithParallelism], [WithBuffer], [WithOverflow], and
-// [WithFilter] rather than implementing this interface directly.
 type SubscribeOption interface {
 	applySubscribe(*subscribeConfig) error
 }
@@ -93,7 +72,6 @@ func (f subscribeOptionFunc) applySubscribe(cfg *subscribeConfig) error {
 	return f(cfg)
 }
 
-// WithDefaultBuffer sets the default queue size for async subscribers.
 func WithDefaultBuffer(size int) Option {
 	return optionFunc(func(cfg *config) error {
 		if size <= 0 {
@@ -104,7 +82,6 @@ func WithDefaultBuffer(size int) Option {
 	})
 }
 
-// WithDefaultOverflow sets the default overflow policy for async subscribers.
 func WithDefaultOverflow(policy OverflowPolicy) Option {
 	return optionFunc(func(cfg *config) error {
 		if !policy.valid() {
@@ -115,7 +92,6 @@ func WithDefaultOverflow(policy OverflowPolicy) Option {
 	})
 }
 
-// WithHooks registers runtime hooks for publish and handler lifecycle events.
 func WithHooks(hooks Hooks) Option {
 	return optionFunc(func(cfg *config) error {
 		mergeHooks(&cfg.hooks, hooks)
@@ -123,7 +99,6 @@ func WithHooks(hooks Hooks) Option {
 	})
 }
 
-// WithMiddleware registers global dispatch middleware at bus construction time.
 func WithMiddleware(middlewares ...Middleware) Option {
 	return optionFunc(func(cfg *config) error {
 		for _, middleware := range middlewares {
@@ -136,7 +111,6 @@ func WithMiddleware(middlewares ...Middleware) Option {
 	})
 }
 
-// WithMetadataBuilder registers a global metadata builder for publish envelopes.
 func WithMetadataBuilder(builder MetadataBuilder) Option {
 	return optionFunc(func(cfg *config) error {
 		if builder == nil {
@@ -147,7 +121,6 @@ func WithMetadataBuilder(builder MetadataBuilder) Option {
 	})
 }
 
-// WithTopic sets the routing topic for a published event.
 func WithTopic(topic string) PublishOption {
 	return publishOptionFunc(func(cfg *publishConfig) error {
 		cfg.topic = topic
@@ -155,11 +128,6 @@ func WithTopic(topic string) PublishOption {
 	})
 }
 
-// WithKey sets an optional ordering key for a published event.
-//
-// In async mode, subscribers with multiple workers preserve ordering for events
-// that share the same non-empty key within that subscriber. Empty keys fall back
-// to the regular non-keyed path.
 func WithKey(key string) PublishOption {
 	return publishOptionFunc(func(cfg *publishConfig) error {
 		cfg.key = key
@@ -167,7 +135,6 @@ func WithKey(key string) PublishOption {
 	})
 }
 
-// WithHeaders sets headers for a published event.
 func WithHeaders(headers map[string]string) PublishOption {
 	return publishOptionFunc(func(cfg *publishConfig) error {
 		cfg.headers = cloneHeaders(headers)
@@ -175,7 +142,6 @@ func WithHeaders(headers map[string]string) PublishOption {
 	})
 }
 
-// WithMetadata sets structured envelope metadata for a published event.
 func WithMetadata(meta map[string]string) PublishOption {
 	return publishOptionFunc(func(cfg *publishConfig) error {
 		cfg.meta = cloneHeaders(meta)
@@ -183,7 +149,6 @@ func WithMetadata(meta map[string]string) PublishOption {
 	})
 }
 
-// Async delivers events through a bounded queue and worker goroutines.
 func Async() SubscribeOption {
 	return subscribeOptionFunc(func(cfg *subscribeConfig) error {
 		cfg.async = true
@@ -191,9 +156,6 @@ func Async() SubscribeOption {
 	})
 }
 
-// Sequential is shorthand for single-worker async FIFO delivery.
-//
-// It enables async delivery and forces the subscriber to run with one worker.
 func Sequential() SubscribeOption {
 	return subscribeOptionFunc(func(cfg *subscribeConfig) error {
 		cfg.async = true
@@ -202,7 +164,6 @@ func Sequential() SubscribeOption {
 	})
 }
 
-// WithParallelism sets the number of workers for an async subscriber.
 func WithParallelism(n int) SubscribeOption {
 	return subscribeOptionFunc(func(cfg *subscribeConfig) error {
 		if n <= 0 {
@@ -214,7 +175,6 @@ func WithParallelism(n int) SubscribeOption {
 	})
 }
 
-// WithBuffer sets the queue size for an async subscriber.
 func WithBuffer(size int) SubscribeOption {
 	return subscribeOptionFunc(func(cfg *subscribeConfig) error {
 		if size <= 0 {
@@ -226,7 +186,6 @@ func WithBuffer(size int) SubscribeOption {
 	})
 }
 
-// WithOverflow sets the queue overflow policy for an async subscriber.
 func WithOverflow(policy OverflowPolicy) SubscribeOption {
 	return subscribeOptionFunc(func(cfg *subscribeConfig) error {
 		if !policy.valid() {
@@ -238,7 +197,6 @@ func WithOverflow(policy OverflowPolicy) SubscribeOption {
 	})
 }
 
-// WithFilter applies a predicate filter before the handler runs.
 func WithFilter[T any](fn func(Event[T]) bool) SubscribeOption {
 	return subscribeOptionFunc(func(cfg *subscribeConfig) error {
 		if fn == nil {

@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-// Package handler 提供认证相关的 HTTP 端点：token 刷新、登出、OAuth code 交换。
-//
-// 这三个端点均为公开路由（不经过 JWTAuthMiddleware），因为：
-//   - /refresh 通过 HttpOnly Cookie 中的 refresh_token 鉴权
-//   - /logout 是 best-effort 操作（无 Cookie 也返回 200）
-//   - /exchange 通过一次性 code 鉴权（code 由 OAuth 回调流程生成）
 package handler
 
 import (
@@ -26,7 +20,6 @@ import (
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 )
 
-// AuthHandler 处理 token 生命周期管理（刷新、吊销、OAuth code 交换）。
 type AuthHandler struct {
 	authService authService.Service
 	userService userService.Service
@@ -39,22 +32,6 @@ func NewAuthHandler(authService authService.Service, userService userService.Ser
 	}
 }
 
-// Refresh 静默刷新 access_token。
-//
-// 流程：Cookie 中读取 refresh_token → 验证签名与过期 → 检查黑名单
-// → 查询用户是否仍然存在 → 签发新的 access_token 并返回。
-//
-// 前端在页面加载和 401 响应时自动调用此端点，使用 credentials:'include'
-// 让浏览器自动携带 HttpOnly Cookie。
-//
-//	@Summary		刷新访问令牌
-//	@Description	通过 HttpOnly Cookie 中的 refresh_token 静默刷新 access_token，返回新的 access_token
-//	@Tags			认证
-//	@Produce		json
-//	@Success		200	"包含 access_token 和 expires_in"
-//	@Failure		401	"refresh_token 无效或已吊销"
-//	@Failure		500	"生成 token 失败"
-//	@Router			/auth/refresh [post]
 func (h *AuthHandler) Refresh() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		localizer := i18nUtil.LocalizerFromGin(ctx)
@@ -134,24 +111,8 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 	}
 }
 
-// Logout 吊销当前会话。
-//
-// 分两步吊销：
-//  1. 从 Cookie 中读取 refresh_token，将其 JTI 加入黑名单（TTL = 剩余有效期）
-//  2. 如果请求携带了 Authorization header，也将 access_token JTI 加入黑名单
-//
-// 最后清除 Cookie 并返回 200。即使没有有效 Cookie 也不报错（best-effort）。
-//
-//	@Summary		登出
-//	@Description	吊销当前会话的 refresh_token 和 access_token，清除 Cookie
-//	@Tags			认证
-//	@Produce		json
-//	@Param			Authorization	header	string	false	"Bearer <access_token>"
-//	@Success		200				"登出成功"
-//	@Router			/auth/logout [post]
 func (h *AuthHandler) Logout() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// 吊销 refresh_token
 		refreshTokenStr, _ := cookieUtil.GetRefreshTokenFromCookie(ctx)
 		if refreshTokenStr != "" {
 			if claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr); err == nil && claims.ID != "" {
@@ -159,7 +120,6 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 			}
 		}
 
-		// 吊销 access_token（可选，前端 logout 时会在 header 中携带）
 		authHeader := ctx.GetHeader("Authorization")
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			if claims, err := jwtUtil.ParseToken(authHeader[7:]); err == nil && claims.ID != "" {
@@ -172,11 +132,6 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 	}
 }
 
-// remainingTTLFromClaims 计算 token 剩余有效期，用于黑名单 TTL。
-//
-// 兼容历史"永不过期"访问令牌（升级前签发，无 exp claim 即 ExpiresAt == nil）。
-// 直接 .Time 解引用会 nil-deref panic 让 logout 返回 500、JTI 进不了黑名单
-// (GHSA-fpw6-hrg5-q5x5)。新版本签发的 token 始终带 exp，本兜底只为吃掉旧 token。
 func remainingTTLFromClaims(expiresAt *jwt.NumericDate) time.Duration {
 	const legacyNeverFallback = 100 * 365 * 24 * time.Hour
 	if expiresAt == nil {
@@ -185,22 +140,6 @@ func remainingTTLFromClaims(expiresAt *jwt.NumericDate) time.Duration {
 	return time.Until(expiresAt.Time)
 }
 
-// Exchange 用一次性 code 换取 token pair（OAuth 回调专用）。
-//
-// OAuth 回调流程：IdP callback → 后端签发 TokenPair 并存入缓存（key=随机 code, TTL=60s）
-// → 302 重定向到前端 /auth?code=xxx → 前端调用本端点用 code 换取 token。
-//
-// code 为一次性使用：取出后立即从缓存中删除，过期也会自动淘汰。
-//
-//	@Summary		OAuth Code 换取令牌
-//	@Description	用 OAuth 回调生成的一次性 code 换取 access_token，同时通过 Set-Cookie 下发 refresh_token。请求体：{"code":"<一次性code>"}
-//	@Tags			认证
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body	object{code=string}	true	"一次性 code"
-//	@Success		200		"包含 access_token 和 expires_in"
-//	@Failure		400		"code 无效或已过期"
-//	@Router			/auth/exchange [post]
 func (h *AuthHandler) Exchange() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		localizer := i18nUtil.LocalizerFromGin(ctx)

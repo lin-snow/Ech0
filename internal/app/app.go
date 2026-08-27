@@ -9,10 +9,10 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"slices"
 	"sync"
 )
 
-// App 是应用组件编排器。
 type App struct {
 	mu sync.Mutex
 
@@ -28,7 +28,6 @@ type App struct {
 	startedSet []Component
 }
 
-// New 创建应用组件编排器。
 func New(opts ...Option) *App {
 	o := defaultOptions()
 	for _, opt := range opts {
@@ -45,7 +44,6 @@ func New(opts ...Option) *App {
 	}
 }
 
-// Run 启动并阻塞，直到收到退出信号或外部调用 Stop。
 func (a *App) Run() error {
 	a.mu.Lock()
 	if a.running {
@@ -133,7 +131,6 @@ func (a *App) Run() error {
 	return a.stopErr
 }
 
-// Stop 优雅停止应用，支持幂等调用。
 func (a *App) Stop() error {
 	a.mu.Lock()
 	if !a.running {
@@ -187,7 +184,6 @@ func (a *App) Stop() error {
 	return stopErr
 }
 
-// IsRunning 返回应用组件链是否运行中。
 func (a *App) IsRunning() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -223,8 +219,8 @@ func (a *App) runHooks(ctx context.Context, op string, hooks []Hook) error {
 
 func (a *App) stopComponentsReverse(ctx context.Context, components []Component) []error {
 	errs := make([]error, 0)
-	for i := len(components) - 1; i >= 0; i-- {
-		component := components[i]
+	for _, component := range slices.Backward(components) {
+
 		if component == nil {
 			continue
 		}
@@ -240,7 +236,6 @@ func (a *App) stopComponentsReverse(ctx context.Context, components []Component)
 	return errs
 }
 
-// StopAll 停止所有已运行组件。
 func (a *App) StopAll(context.Context) error {
 	return a.Stop()
 }

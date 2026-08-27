@@ -5,14 +5,19 @@ package util
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
-	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
-var seededRand = rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
+const (
+	AlgoMD5    = "md5"
+	AlgoBcrypt = "bcrypt"
+)
 
-// MD5Encrypt 对内容进行 MD5 编码
+const MaxPasswordBytes = 72
+
 func MD5Encrypt(text string) string {
 	hash := md5.New()
 	hash.Write([]byte(text))
@@ -20,13 +25,47 @@ func MD5Encrypt(text string) string {
 	return hex.EncodeToString(hashInBytes)
 }
 
-// GenerateRandomString 生成指定长度的随机字符串
-func GenerateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz" +
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+func HashPassword(plain string) (string, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
 	}
-	return string(b)
+	return string(hashed), nil
+}
+
+func CheckPassword(algo, storedHash, plain string) bool {
+	if algo == AlgoBcrypt {
+		return bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(plain)) == nil
+	}
+	return MD5Encrypt(plain) == storedHash
+}
+
+const randomCharset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func GenerateRandomString(length int) string {
+	if length <= 0 {
+		return ""
+	}
+
+	const limit = 256 - (256 % len(randomCharset))
+
+	out := make([]byte, length)
+	buf := make([]byte, length)
+	for filled := 0; filled < length; {
+		if _, err := rand.Read(buf); err != nil {
+			panic("crypto: secure random source unavailable: " + err.Error())
+		}
+		for _, v := range buf {
+			if int(v) >= limit {
+				continue
+			}
+			out[filled] = randomCharset[int(v)%len(randomCharset)]
+			filled++
+			if filled == length {
+				break
+			}
+		}
+	}
+	return string(out)
 }

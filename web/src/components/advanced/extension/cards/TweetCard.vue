@@ -16,7 +16,6 @@
       </a>
     </template>
     <div ref="rootRef" class="tweet-card">
-      <!-- 嵌入态：widgets.js 把 blockquote 替换成 iframe，加载期间 skeleton 遮罩 -->
       <div v-if="state !== 'fallback'" class="tweet-card__stage">
         <ExtensionCardSkeleton
           v-if="state === 'loading'"
@@ -34,7 +33,6 @@
         </blockquote>
       </div>
 
-      <!-- Fallback：脚本加载失败 / 超时 / 被拦截 -->
       <a
         v-else
         :href="payload.url"
@@ -185,7 +183,6 @@ onBeforeUnmount(() => {
   twttr?.events?.unbind('rendered', handleRendered)
 })
 
-// 主题切换：widgets.js 不会跟随，需要重新渲染
 watch(widgetTheme, () => {
   if (!hasTriggered || state.value === 'fallback') return
   const twttr = (window as Window & { twttr?: TwitterGlobal }).twttr
@@ -244,7 +241,6 @@ watch(widgetTheme, () => {
   position: relative;
 }
 
-/* 加载中：skeleton 覆盖在 blockquote 之上，等 widgets.js rendered 事件后撤掉 */
 .tweet-card__loader {
   position: absolute;
   inset: 0;
@@ -254,14 +250,11 @@ watch(widgetTheme, () => {
   border-bottom-right-radius: var(--radius-md);
 }
 
-/* widgets.js 渲染前的 blockquote：完全贴边，避免视觉断层 */
 .tweet-card__quote {
   margin: 0;
   padding: 0;
 }
 
-/* widgets.js 渲染后会替换成 <twitter-widget>（带 shadow DOM 包着 iframe）或直接是 iframe.twitter-tweet。
-   同时贴边 + 底部圆角对齐 shell —— Safari 下 shell 的 overflow:hidden 截不住 shadow DOM。 */
 .tweet-card :deep(.twitter-tweet),
 .tweet-card :deep(iframe.twitter-tweet),
 .tweet-card :deep(twitter-widget) {

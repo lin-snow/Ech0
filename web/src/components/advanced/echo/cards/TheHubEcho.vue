@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div
-    class="hub-echo-card relative w-full max-w-sm bg-[var(--color-bg-surface)] h-auto p-3 sm:p-3.5 shadow rounded-lg mx-auto"
+    class="hub-echo-card relative w-full max-w-sm bg-[var(--color-bg-surface)] h-auto p-3 sm:p-3.5 shadow rounded-md mx-auto"
   >
     <div class="flex flex-row items-center justify-between gap-2 mt-1 mb-3">
       <div class="flex flex-row items-center gap-2 min-w-0">
@@ -46,30 +46,16 @@
     </div>
 
     <div class="hub-echo-body py-1.5">
-      <template
-        v-if="
-          props.echo.layout === ImageLayout.GRID ||
-          props.echo.layout === ImageLayout.HORIZONTAL ||
-          props.echo.layout === ImageLayout.STACK
-        "
-      >
+      <template v-if="isContentLeadingEcho(props.echo)">
         <div class="mb-2.5">
           <TheMdPreview :content="props.echo.content" />
         </div>
 
-        <TheImageGallery
-          :images="echoImageFiles"
-          :baseUrl="echo.server_url"
-          :layout="props.echo.layout"
-        />
+        <TheMediaPlayer :echo="props.echo" :baseUrl="echo.server_url" :layout="props.echo.layout" />
       </template>
 
       <template v-else>
-        <TheImageGallery
-          :images="echoImageFiles"
-          :baseUrl="echo.server_url"
-          :layout="props.echo.layout"
-        />
+        <TheMediaPlayer :echo="props.echo" :baseUrl="echo.server_url" :layout="props.echo.layout" />
 
         <div class="mt-2.5">
           <TheMdPreview :content="props.echo.content" />
@@ -108,17 +94,18 @@
 <script setup lang="ts">
 import Verified from '@/components/icons/verified.vue'
 import GrayLike from '@/components/icons/graylike.vue'
-import TheImageGallery from '@/components/advanced/gallery/TheImageGallery.vue'
 import { TheMdPreview } from '@/components/advanced/md'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
-import { ImageLayout } from '@/enums/enums'
+import { isContentLeadingEcho } from '@/utils/echo'
 import { formatDate } from '@/utils/other'
-import { getEchoFilesBy } from '@/utils/echo'
 import { useFetch } from '@vueuse/core'
 import { theToast } from '@/utils/toast'
 import { localStg } from '@/utils/storage'
 import { useI18n } from 'vue-i18n'
 
+const TheMediaPlayer = defineAsyncComponent(
+  () => import('@/components/advanced/media/TheMediaPlayer.vue'),
+)
 const TheExtensionRenderer = defineAsyncComponent(
   () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
 )
@@ -131,9 +118,6 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const fav_count = ref<number>(props.echo.fav_count)
-const echoImageFiles = computed(() =>
-  getEchoFilesBy(props.echo, { categories: ['image'], dedupeBy: 'id' }),
-)
 const server_url = computed(() => props.echo.server_url)
 const echo_id = computed(() => props.echo.id)
 const isLikeAnimating = ref(false)
@@ -180,7 +164,6 @@ const handleLikeEcho = async () => {
   content: '';
   position: absolute;
 
-  /* 与头像水平居中对齐：card padding-top (p-3 = 0.75rem) + header mt-1 (0.25rem) + (avatar 1.5rem - bar 1rem) / 2 */
   top: 1.25rem;
   left: 0;
   width: 2px;
@@ -192,7 +175,6 @@ const handleLikeEcho = async () => {
 
 @media (width >= 640px) {
   .hub-echo-card::before {
-    /* sm: padding-top 0.875rem + mt-1 0.25rem + (avatar 1.75rem - bar 1.125rem) / 2 */
     top: 1.4375rem;
     height: 1.125rem;
   }
@@ -212,8 +194,6 @@ const handleLikeEcho = async () => {
   margin-bottom: 0;
 }
 
-/* Gallery 各 layout 内部硬编码了 w-[88%] mx-auto + mb-4，
-   在 hub 卡片里需要拉满到与正文同宽，并去掉外层多余的下边距（外部已用 mt/mb 控制） */
 .hub-echo-body :deep(.image-gallery-container) > div {
   width: 100%;
   margin-left: 0;

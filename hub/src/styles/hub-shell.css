@@ -1,8 +1,3 @@
-/**
- * Hub shell: same semantic tokens as web; column width matches repo/site (34rem).
- * Default: Plus Jakarta Sans + Source Serif 4 (Google Fonts in index.html).
- * Home hero top: IBM Plex Mono — narrow, editorial, “indie web” feel.
- */
 .hub-shell {
   --font-family-sans:
     'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
@@ -29,10 +24,6 @@
   font-family: inherit;
 }
 
-/**
- * Explore: true B&W everywhere except the Echo row under pointer / focus.
- * (Parent-level filter would block “un-gray” on children, so mono is per block / per row.)
- */
 .hub-shell .hub-explore-mono {
   filter: grayscale(1) contrast(1.05) brightness(1.03);
 }

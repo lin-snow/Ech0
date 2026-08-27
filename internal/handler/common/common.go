@@ -5,6 +5,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -17,6 +18,28 @@ import (
 	errorUtil "github.com/lin-snow/ech0/internal/util/err"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
+)
+
+type (
+	GetHeatMapInput struct {
+		Timezone string `header:"X-Timezone" doc:"客户端时区（IANA 名），用于按本地日界对齐热力图"`
+	}
+	HelloInput           struct{}
+	GetWebsiteTitleInput struct {
+		WebsiteURL string `query:"website_url" required:"true" doc:"目标网站 URL"`
+	}
+
+	HelloResponse struct {
+		Hello     string `json:"hello"`
+		Copyright string `json:"copyright"`
+		versionPkg.Info
+	}
+)
+
+type (
+	HeatmapOutput = commonModel.Result[[]commonModel.Heatmap]
+	HelloOutput   = commonModel.Result[HelloResponse]
+	StringOutput  = commonModel.Result[string]
 )
 
 type CommonHandler struct {
@@ -41,22 +64,12 @@ func NewCommonHandler(commonService service.Service) *CommonHandler {
 	}
 }
 
-func (commonHandler *CommonHandler) GetHeatMap() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		timezone := timezoneUtil.NormalizeTimezone(ctx.GetHeader(timezoneUtil.DefaultTimezoneHeader))
-		heatMap, err := commonHandler.commonService.GetHeatMap(timezone)
-		if err != nil {
-			return res.Response{
-				Msg: "",
-				Err: err,
-			}
-		}
-
-		return res.Response{
-			Data: heatMap,
-			Msg:  commonModel.GET_HEATMAP_SUCCESS,
-		}
-	})
+func (commonHandler *CommonHandler) GetHeatMap(ctx context.Context, in *GetHeatMapInput) (HeatmapOutput, error) {
+	heatMap, err := commonHandler.commonService.GetHeatMap(timezoneUtil.NormalizeTimezone(in.Timezone))
+	if err != nil {
+		return HeatmapOutput{}, err
+	}
+	return commonModel.OK(heatMap, commonModel.GET_HEATMAP_SUCCESS), nil
 }
 
 func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
@@ -72,8 +85,6 @@ func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
 		return
 	}
 
-	// 浏览器请求（Accept 含 text/html）按通用 XML 返回，触发 /rss.xsl 美化渲染；
-	// 订阅器请求按 application/atom+xml 返回，保持 RSS MIME 契约。
 	const browserContentType = "application/xml; charset=utf-8"
 	const feedContentType = "application/atom+xml; charset=utf-8"
 	contentType := feedContentType
@@ -83,26 +94,13 @@ func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, contentType, []byte(atom))
 }
 
-func (commonHandler *CommonHandler) HelloEch0() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		// Embeds versionPkg.Info so version / commit / build_time / license /
-		// author / repo_url are all flattened into the JSON top level — the
-		// frontend About page reads them directly as the single source of truth.
-		hello := struct {
-			Hello     string `json:"hello"`
-			Copyright string `json:"copyright"`
-			versionPkg.Info
-		}{
-			Hello:     "Hello, Ech0! 👋",
-			Copyright: versionPkg.Copyright(),
-			Info:      versionPkg.Get(),
-		}
-
-		return res.Response{
-			Msg:  commonModel.GET_HELLO_SUCCESS,
-			Data: hello,
-		}
-	})
+func (commonHandler *CommonHandler) HelloEch0(ctx context.Context, _ *HelloInput) (HelloOutput, error) {
+	hello := HelloResponse{
+		Hello:     "Hello, Ech0! 👋",
+		Copyright: versionPkg.Copyright(),
+		Info:      versionPkg.Get(),
+	}
+	return commonModel.OK(hello, commonModel.GET_HELLO_SUCCESS), nil
 }
 
 func (commonHandler *CommonHandler) Healthz() gin.HandlerFunc {
@@ -120,27 +118,12 @@ func (commonHandler *CommonHandler) Healthz() gin.HandlerFunc {
 	})
 }
 
-func (commonHandler *CommonHandler) GetWebsiteTitle() gin.HandlerFunc {
-	return res.Execute(func(ctx *gin.Context) res.Response {
-		var dto commonModel.GetWebsiteTitleDto
-		if err := ctx.ShouldBindQuery(&dto); err != nil {
-			return res.Response{
-				Msg: commonModel.INVALID_QUERY_PARAMS,
-				Err: err,
-			}
-		}
-		title, err := commonHandler.commonService.GetWebsiteTitle(dto.WebSiteURL)
-		if err != nil {
-			return res.Response{
-				Msg: "",
-				Err: err,
-			}
-		}
-		return res.Response{
-			Data: title,
-			Msg:  commonModel.GET_WEBSITE_TITLE_SUCCESS,
-		}
-	})
+func (commonHandler *CommonHandler) GetWebsiteTitle(ctx context.Context, in *GetWebsiteTitleInput) (StringOutput, error) {
+	title, err := commonHandler.commonService.GetWebsiteTitle(in.WebsiteURL)
+	if err != nil {
+		return StringOutput{}, err
+	}
+	return commonModel.OK(title, commonModel.GET_WEBSITE_TITLE_SUCCESS), nil
 }
 
 func resolveBaseURL(ctx *gin.Context) string {
@@ -170,7 +153,6 @@ func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {
 		"Disallow: /auth",
 		"Disallow: /panel",
 		"Disallow: /init",
-		"Disallow: /swagger/",
 		"Disallow: /healthz",
 		fmt.Sprintf("Sitemap: %s/sitemap.xml", strings.TrimRight(baseURL, "/")),
 		"",

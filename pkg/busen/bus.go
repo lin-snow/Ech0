@@ -14,7 +14,6 @@ import (
 	"github.com/lin-snow/ech0/pkg/busen/router"
 )
 
-// Bus is a typed-first in-process event bus.
 type Bus struct {
 	cfg   config
 	hooks Hooks
@@ -71,7 +70,6 @@ type workItem struct {
 	env envelope
 }
 
-// New creates a new Bus.
 func New(opts ...Option) *Bus {
 	cfg := defaultConfig()
 	for _, opt := range opts {
@@ -94,10 +92,6 @@ func New(opts ...Option) *Bus {
 	}
 }
 
-// Close stops accepting new publishes and drains async subscribers.
-// If the provided context ends first, Close returns an error wrapping both
-// ErrCloseIncomplete and the context error. In that case, user handlers are not
-// forcefully canceled.
 func (b *Bus) Close(ctx context.Context) error {
 	_, err := b.Shutdown(ctx, ShutdownDrain)
 	return err
@@ -341,14 +335,11 @@ func (s *subscription) callHandler(ctx context.Context, env envelope) (err error
 func (s *subscription) startWorkers() {
 	var wg sync.WaitGroup
 	for _, mailbox := range s.mailboxes {
-		mailbox := mailbox
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for item := range mailbox {
 				_ = s.callHandler(item.ctx, item.env)
 			}
-		}()
+		})
 	}
 
 	go func() {
@@ -577,7 +568,6 @@ func (b *Bus) currentMiddlewareChain() func(Next) Next {
 	return b.middleware
 }
 
-// HandlerPanicError wraps a recovered handler panic as an error value.
 type HandlerPanicError struct {
 	Value any
 }

@@ -4,6 +4,7 @@
 package router
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,17 +13,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/handler"
-	agentHandler "github.com/lin-snow/ech0/internal/handler/agent"
 	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
-	backupHandler "github.com/lin-snow/ech0/internal/handler/backup"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
+	copilotHandler "github.com/lin-snow/ech0/internal/handler/copilot"
 	dashboardHandler "github.com/lin-snow/ech0/internal/handler/dashboard"
 	echoHandler "github.com/lin-snow/ech0/internal/handler/echo"
+	embeddingHandler "github.com/lin-snow/ech0/internal/handler/embedding"
 	fileHandler "github.com/lin-snow/ech0/internal/handler/file"
 	initHandler "github.com/lin-snow/ech0/internal/handler/init"
-	migrationHandler "github.com/lin-snow/ech0/internal/handler/migration"
+	migratorHandler "github.com/lin-snow/ech0/internal/handler/migrator"
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
@@ -46,7 +47,8 @@ func TestSetupRouter_RegistersKeyRoutes(t *testing.T) {
 		method string
 		path   string
 	}{
-		{method: http.MethodGet, path: "/swagger/*any"},
+		{method: http.MethodGet, path: "/api/docs"},
+		{method: http.MethodGet, path: "/api/openapi.json"},
 		{method: http.MethodPost, path: "/api/login"},
 		{method: http.MethodPost, path: "/api/echo"},
 		{method: http.MethodGet, path: "/api/init/status"},
@@ -68,6 +70,38 @@ func TestSetupRouter_RegistersKeyRoutes(t *testing.T) {
 	}
 }
 
+func TestSetupRouter_EnvelopeContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/hello", nil)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Code int            `json:"code"`
+		Msg  string         `json:"msg"`
+		Data map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode envelope failed: %v (body=%s)", err, rec.Body.String())
+	}
+	if body.Code != 1 {
+		t.Fatalf("expected success code=1, got %d", body.Code)
+	}
+	if body.Msg == "" {
+		t.Fatalf("expected non-empty msg, got empty")
+	}
+	if body.Data["hello"] == nil {
+		t.Fatalf("expected data.hello carried through envelope, got data=%v", body.Data)
+	}
+}
+
 func TestSetupRouter_AuthGroupProtected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
@@ -80,6 +114,27 @@ func TestSetupRouter_AuthGroupProtected(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestSetupRouter_PublicEchoRoutesAllowAnonymous(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+
+	for _, path := range []string{
+		"/api/echo/today",
+		"/api/echo/hot",
+		"/api/echo/random",
+		"/api/echo/onthisday",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, req)
+		if rec.Code == http.StatusUnauthorized {
+			t.Fatalf("expected %s to be anonymously reachable, got 401", path)
+		}
 	}
 }
 
@@ -104,7 +159,7 @@ func TestSetupRouter_AccessTokenWithoutRequiredScopeGetsForbidden(t *testing.T) 
 	engine := gin.New()
 
 	api := engine.Group("/api")
-	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(nil))
+	api.Use(middleware.NoCache(), middleware.RequireAuth(nil))
 	api.PUT(
 		"/settings",
 		middleware.RequireScopes(authModel.ScopeAdminSettings),
@@ -141,7 +196,7 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 	engine := gin.New()
 
 	api := engine.Group("/api")
-	api.Use(middleware.NoCache(), middleware.JWTAuthMiddleware(nil))
+	api.Use(middleware.NoCache(), middleware.RequireAuth(nil))
 	api.PUT(
 		"/settings",
 		middleware.RequireScopes(authModel.ScopeAdminSettings),
@@ -284,11 +339,11 @@ func buildTestHandlers() *handler.Bundle {
 		commonHandler.NewCommonHandler(nil),
 		settingHandler.NewSettingHandler(nil),
 		connectHandler.NewConnectHandler(nil),
-		backupHandler.NewBackupHandler(nil),
-		migrationHandler.NewMigrationHandler(nil),
+		migratorHandler.NewMigrationHandler(nil),
 		dashboardHandler.NewDashboardHandler(nil),
-		agentHandler.NewAgentHandler(nil),
-		mcp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil),
+		copilotHandler.NewCopilotHandler(nil, nil),
+		embeddingHandler.NewEmbeddingHandler(nil),
+		mcp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil),
 	)
 }
 

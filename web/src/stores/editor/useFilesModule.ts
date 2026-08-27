@@ -2,7 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { computed, ref } from 'vue'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
+import { FILE_CATEGORY, FILE_STORAGE_TYPE, type FileCategory } from '@/constants/file'
 import { createExternalFile, globalFileRegistry, useFileAttachments } from '@/lib/file'
 import { getImageSize } from '@/utils/image'
 import { getFileToAddUrl } from '@/utils/other'
@@ -33,21 +33,50 @@ export function useFilesModule({ t }: FilesModuleDeps) {
 
   const hasFile = computed(() => filesToAdd.value.length > 0)
 
+  const selectedCategory = ref<FileCategory>(FILE_CATEGORY.IMAGE)
+
+  const mediaCategory = computed<FileCategory | null>(
+    () => (filesToAdd.value[0]?.category as FileCategory | undefined) ?? null,
+  )
+
+  const effectiveCategory = computed<FileCategory>(
+    () => mediaCategory.value ?? selectedCategory.value,
+  )
+
+  const setSelectedCategory = (category: FileCategory) => {
+    if (mediaCategory.value && mediaCategory.value !== category) {
+      theToast.info(t('editor.categoryLockedHint'))
+      return
+    }
+    selectedCategory.value = category
+  }
+
   const handleAddMoreFile = async () => {
+    const incomingCategory =
+      (fileToAdd.value.category as FileCategory | undefined) ?? effectiveCategory.value
+    if (mediaCategory.value && mediaCategory.value !== incomingCategory) {
+      theToast.error(t('editor.mixedCategoryRejected'))
+      return
+    }
+
+    const isSingleClipCategory =
+      incomingCategory === FILE_CATEGORY.AUDIO || incomingCategory === FILE_CATEGORY.VIDEO
+    if (isSingleClipCategory && filesToAdd.value.length > 0) {
+      theToast.error(t('editor.singleMediaLimit'))
+      return
+    }
+
     let width: number | undefined = fileToAdd.value.width
     let height: number | undefined = fileToAdd.value.height
-    if (width === undefined || height === undefined) {
+    if (incomingCategory === FILE_CATEGORY.IMAGE && (width === undefined || height === undefined)) {
       try {
         const previewUrl = getFileToAddUrl(fileToAdd.value)
         const size = await getImageSize(previewUrl || fileToAdd.value.url)
         width = size.width
         height = size.height
-      } catch {
-        // 图片尺寸探测失败不应阻断写入，否则会出现"上传成功但无预览"。
-      }
+      } catch {}
     }
 
-    // URL 模式先在后端落一条 external file，拿到 file_id 后才能发布。
     if (fileToAdd.value.storage_type === FILE_STORAGE_TYPE.EXTERNAL && !fileToAdd.value.id) {
       const externalUrl = String(fileToAdd.value.url || '').trim()
       if (!externalUrl) {
@@ -57,7 +86,7 @@ export function useFilesModule({ t }: FilesModuleDeps) {
 
       const created = await createExternalFile({
         url: externalUrl,
-        category: FILE_CATEGORY.IMAGE,
+        category: incomingCategory,
         width: width,
         height: height,
       })
@@ -76,7 +105,7 @@ export function useFilesModule({ t }: FilesModuleDeps) {
       id: fileToAdd.value.id,
       url: fileToAdd.value.url,
       storage_type: fileToAdd.value.storage_type,
-      category: fileToAdd.value.category,
+      category: incomingCategory,
       content_type: fileToAdd.value.content_type,
       key: fileToAdd.value.key ? fileToAdd.value.key : '',
       size: fileToAdd.value.size,
@@ -89,7 +118,7 @@ export function useFilesModule({ t }: FilesModuleDeps) {
       url: '',
       storage_type: fileToAdd.value.storage_type
         ? fileToAdd.value.storage_type
-        : FILE_STORAGE_TYPE.LOCAL, // 记忆存储方式
+        : FILE_STORAGE_TYPE.LOCAL,
       key: '',
     }
   }
@@ -110,10 +139,6 @@ export function useFilesModule({ t }: FilesModuleDeps) {
     )
   }
 
-  // Reorder a subset of filesToAdd by id, leaving entries whose id is NOT in
-  // `orderedIds` anchored at their original positions. Used by the uploader's
-  // drag-to-reorder so that mixing uploaded files with EXTERNAL/URL-mode entries
-  // in the same editing session doesn't clobber the latter.
   const reorderFilesByIds = (orderedIds: string[]) => {
     if (orderedIds.length === 0) return
     const idSet = new Set(orderedIds)
@@ -149,24 +174,25 @@ export function useFilesModule({ t }: FilesModuleDeps) {
         : FILE_STORAGE_TYPE.LOCAL,
       key: '',
     }
+    selectedCategory.value = FILE_CATEGORY.IMAGE
     resetAttachments([])
   }
 
   return {
-    // state
     fileUploading,
     fileToAdd,
     filesToAdd,
     fileIndex,
-    // computed
+    selectedCategory,
     hasFile,
-    // methods
+    mediaCategory,
+    effectiveCategory,
     handleAddMoreFile,
+    setSelectedCategory,
     setFilesToAdd,
     reorderFilesByIds,
     removeFileAt,
     resetFilesState,
-    // re-exports used by other modules
     resetAttachments,
     validateAttachments,
   }

@@ -2,7 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import type { Plugin } from 'vite'
-import { printWelcome } from '../scripts/welcome.js'
+import { printWelcome } from '../scripts/welcome.ts'
 
 export function welcomePlugin(): Plugin {
   let hasShown = false
@@ -10,10 +10,8 @@ export function welcomePlugin(): Plugin {
   return {
     name: 'welcome-banner',
     configureServer(server) {
-      // 监听服务器启动事件
       server.middlewares.use('/', (req, res, next) => {
         if (!hasShown) {
-          // 延迟显示，确保 Vite 的启动信息已经输出完成
           printWelcome()
           hasShown = true
         }

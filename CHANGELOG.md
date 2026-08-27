@@ -7,6 +7,571 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/lin-snow/Ech0/releases) — earlier release notes are not retroactively imported here.
 
 
+## [Unreleased]
+
+### Added
+
+* **OpenAI Responses API support for Agent.** *Panel → Copilot → Agent settings* now has a third **API Protocol** option: **OpenAI Responses**, alongside *OpenAI Compatible* (`/v1/chat/completions`) and *Anthropic*. It uses the same model name, API key, and Base URL fields, but sends requests to `POST /v1/responses`. The protocol supports real streaming, tool-calling retrieval, and image input, so Chat, `search_echos`, and the recent-summary widget behave identically across both OpenAI protocols.
+
+  * Implemented in `internal/agent/provider_openai_responses.go` using the official `github.com/openai/openai-go/v3` SDK.
+  * Maps the Responses API wire format correctly: a flat `input` item array; standalone `function_call` / `function_call_output` items; flat function tools without a `function` wrapper; flat `image_url` strings for attached images; and `max_output_tokens` instead of `max_tokens`.
+  * Tool calls are read from the complete `response.output_item.done` item, because the required `call_id` is not present on argument-delta events. `response.completed` is used as a fallback for endpoints that only emit the final response.
+  * Provider failures are surfaced instead of becoming empty answers: `response.failed`, in-stream `error`, and response bodies with `status: "failed"` all abort with the provider's own code and message.
+  * `store: false` is always sent. Responses are not retained server-side, and every turn sends its complete history without using `previous_response_id`.
+  * `reasoning` is intentionally never sent because OpenAI rejects it with `unsupported_parameter` on non-reasoning models. Reasoning text is still streamed when the endpoint emits it.
+  * Besides OpenAI's gpt-5 / o-series, the protocol works with Azure OpenAI, vLLM, Ollama (≥ 0.13.3), OpenRouter, and LiteLLM. As with the OpenAI-compatible option, local endpoints may use an empty API key.
+
+### Changed
+
+* **Bare domains are no longer auto-linked.** `markdown-it` 15 ships `linkify-it` v6, which only auto-links addresses with a scheme (`https://…`, `ftp://…`, `mailto:`) and e-mail addresses. Writing `ech0.cc` now renders as plain text; use explicit `[text](url)` syntax when a link is intended. The upstream default is retained because it also prevents false positives such as `README.md` becoming a link and improves link termination in CJK text. The upgrade also preserves inline code inside image `alt` text and prevents `user:pass@example.com` from being misidentified as an e-mail address.
+
+* **Node.js minimum version raised to 26.** `jsdom` 30, used as the frontend test environment, supports `^22.22.2 || ^24.15.0 || >=26.0.0`; the previous Node 25 floor is EOL and outside that range. `web/package.json` `engines`, all `setup-node` steps, the `node:` build image, and the documentation now require Node 26.
+
+* **`just` is now the only task runner.** The `Makefile` has been removed. The previous Makefile and justfile were maintained in parallel and had already diverged: the justfile still contained the retired `swagger` recipe and lacked `test-race`, `test-cover`, `mocks`, and `openapi`.
+
+  * The root `justfile` now contains backend and repository-wide recipes and aggregates sub-projects as `just` modules: `just web build`, `just site typecheck`, `just hub dev`, `just docker build`.
+  * Each module has its own justfile and runs in its own directory.
+  * CI now runs `just mocks-check`.
+  * All `make …` references in the documentation, PR template, and Dockerfile comments have been replaced.
+  * Stale `make swagger` instructions now point to `just openapi` / `internal/openapi/openapi.yaml`.
+
+* **Go dependency updates (`go-patch-minor`).**
+
+  * `anthropics/anthropic-sdk-go`: 1.61.0 → 1.66.0
+  * `aws/aws-sdk-go-v2`: 1.43.0 → 1.43.7, including `config`, `credentials`, and `service/s3`
+  * `danielgtaylor/huma/v2`: 2.39.0 → 2.39.1
+  * `sashabaranov/go-openai`: 1.41.2 → 1.42.0
+  * `stretchr/testify`: 1.11.1 → 1.12.1
+  * `golang.org/x/crypto`: 0.54.0 → 0.55.0
+  * `golang.org/x/mod`: 0.38.0 → 0.40.0
+  * `golang.org/x/net`: 0.57.0 → 0.58.0
+
+* **Frontend dependency updates (`web/`).**
+
+  * `markdown-it`: 14.3.0 → 15.0.0. This is a major upgrade; see the linkify behavior above. The package now ships its own TypeScript declarations, so `@types/markdown-it` was removed. `attrGet` may now return numbers.
+  * `jsdom`: 29.1.1 → 30.0.1 (major, dev-only)
+  * `@dicebear/core`: 10.3.0 → 10.6.1
+  * `@dicebear/styles`: 10.2.0 → 10.5.0
+  * `@vueuse/core`: 14.3.0 → 14.4.0
+  * `highlight.js`: 11.11.1 → 11.12.0
+  * `vue`: 3.5.40 → 3.5.41
+  * `pinia`: 4.0.2 → 4.0.3
+  * `vue-virtual-scroller`: 3.0.4 → 3.0.5
+  * `@cap.js/widget`: 0.1.56 → 0.1.57
+  * Dev tooling: `vite` 8.2.2, `vitest` 4.1.11, `unocss` 66.8.0, `sass-embedded` 1.103.1, `eslint` 10.8.1, `vue-tsc` 3.3.10, `tsx` 4.23.12, `@types/node` 26.2.0
+
+* **Site dependency updates (`site/`).** React Router was upgraded from 7.15.1 to **8.3.0** across `react-router`, `@react-router/node`, and `@react-router/dev`. This fixes [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2) and an existing unmet peer dependency caused by adapters pinning `react-router` to exactly 7.14.0 while 7.15.1 was installed.
+
+  * `react` / `react-dom` now use `^19.2.7`, the peer floor required by v8.
+  * `meta` functions now use `loaderData` instead of the removed `data` argument.
+  * `@react-router/serve` was removed. With `ssr: false`, the build produces no server and the site is served by the `serve` package.
+
+* **Security dependency updates (`hub/`, `site/`).** `brace-expansion` was patched for [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg). The original bump had missed these versions:
+
+  * `hub/`: 2.1.2 → 2.1.4
+  * `site/`: 1.1.14 → 1.1.18 and 5.0.6 → 5.0.9
+
+### Internal
+
+* **Toolchain upgraded to Go 1.27.0.** `go.mod` now declares `go 1.27.0`, and every build surface follows the same version: the `test`, `release`, `release_zigcc`, and `docker-test-image` workflows; `docker/build.Dockerfile` (`golang:1.27.0-alpine`); and `CONTRIBUTING.md`, `docs/dev/development.md`, and `site/docs/dev/guide.md` all use or require Go 1.27.0+.
+
+  * `go mod tidy` under the new directive collapsed `go.mod` into the two-require-block layout enforced by Go 1.27.
+  * `go test` now runs the `stdversion` vet check.
+  * Tracebacks now carry `runtime/pprof` goroutine labels.
+
+* **UUID generation moved to the Go standard library.** `github.com/google/uuid` is no longer a direct dependency. `internal/util/uuid` remains the single entry point and now wraps the standard-library `uuid`.
+
+  * `MustNewV7()` became `NewV7() string`; standard-library UUIDv7 generation returns no error, so the `Must` wrapper was unnecessary.
+  * All call sites were migrated.
+  * Deterministic name-based UUID generation is not provided by the standard library, so RFC 9562 §5.5 name-based SHA-1 generation remains available as `internal/util/uuid.NewV5`.
+  * `NewV5` is used by capsule build for stable tag/file IDs. Golden tests pin the exact IDs produced by the previous `google/uuid` implementation, preserving byte-identical entity IDs for already-published capsule datasets.
+
+* **`busen` publish/subscribe APIs are now generic methods on `*Bus`.** Go 1.27 allows methods to declare their own type parameters, so the bus no longer needs to be passed separately: `busen.Publish(ctx, bus, evt)` is now `bus.Publish(ctx, evt)`. `Subscribe`, `SubscribeTopic`, `SubscribeTopics`, and `SubscribeMatch` were migrated in the same way.
+
+  * Call sites, runnable examples, and `pkg/busen/README.md` were updated together.
+  * The benchmark table in the README was re-measured on Go 1.27 using `-count=5` medians.
+
+* **Go 1.27 `go fix` modernizers applied across the backend (52 files).** The migration includes `atomictypes` (`atomic.AddInt32(&x, 1)` → `atomic.Int32` methods), `slicesbackward`, `any`, `errorsastype`, `forvar`, `mapsloop`, `minmax`, `newexpr`, `rangeint`, `reflecttypefor`, `slicescontains`, `stditerators`, `stringscutprefix`, `stringsseq`, and `waitgroupgo` (`wg.Add(1)` / `defer wg.Done()` → `wg.Go(...)`).
+
+  * `omitzero` was deliberately skipped because replacing `omitempty` with `omitzero` changes JSON output.
+
+* **`strings.CutLast` replaces nested `LastIndex` slicing** in the huma schema namer (`internal/handler/humares/api.go`). The logging hot path in `pkg/log` intentionally retains its `LastIndexByte` arithmetic because using `CutLast` there would introduce a string concatenation for every log record.
+
+* **Retry backoff now has fake-clock coverage.** `egress.Retry` documents an exponential schedule with no sleep after the final attempt, but the previous tests only used a 1 ns / 1 ms backoff and counted attempts. Two new tests run inside a `testing/synctest` bubble:
+
+  * One tests `egress.Retry` directly.
+  * One tests `sendWithRetry` end-to-end through Go 1.27's `httptest.NewTestServer`.
+  * The in-memory network keeps the entire HTTP round trip inside the bubble.
+  * Both tests assert second-scale backoff at exact nanosecond boundaries while completing instantly.
+
+* **Goroutine leak detection is now a test gate.** Go 1.27 promoted the runtime's `goroutineleak` profile to GA. It identifies goroutines blocked on a concurrency primitive that is unreachable from every runnable goroutine, meaning they can never wake up.
+
+  * New `pkg/leakcheck` is stdlib-only, allowing `pkg/*` libraries to use it without depending on `internal/*`.
+  * It is wired into `TestMain` for the six packages whose subject is concurrency: `internal/util/async`, `internal/cache`, `internal/event/bus`, `internal/job`, `internal/webhook`, and `pkg/busen`.
+  * All six are currently leak-free. Future regressions fail the package with the leaked goroutine's stack instead of silently retaining a stack per request.
+  * The check is skipped when tests have already failed because failing paths may intentionally abandon goroutines.
+  * This is a lower bound, not a proof: goroutines still reachable from a global or a runnable goroutine are not reported.
+
+* **The `encoding/json` performance impact of Go 1.27 was measured.** Go 1.27 re-implements `encoding/json` on top of `encoding/json/v2`, enabled by default without requiring code changes. On a real timeline payload containing 50 echoes with tags and attachments (~57 KB), using `-count=5` medians on an Apple M4:
+
+  * Unmarshal: **319 µs → 192 µs**
+  * Unmarshal allocations: **1317 / 88 KB → 458 / 61 KB**
+  * Marshal: **57 µs → 74 µs**
+
+  Decode therefore became materially cheaper while encode became roughly 30% more expensive for this payload shape. For a read-heavy instance, the change is worth noting, although 17 µs per 57 KB page remains far below typical database and network costs.
+
+  Direct use of the `encoding/json/v2` API measured 128 µs unmarshal / 72 µs marshal, but its stricter defaults—case-sensitive field matching and rejection of duplicate names—would change behavior for client- and third-party-supplied JSON. The v1 API therefore remains in use. `GOEXPERIMENT=nojsonv2` remains available as a compatibility escape hatch.
+
+* **Six pre-existing `staticcheck SA4023` findings were cleared** in `internal/service/comment`. `viewer.MustFromContext` never returns nil because it falls back to `NoopViewer`, whose `UserID()` and `TokenID()` return empty strings. As a result, three `v == nil` branches were dead code.
+
+  * The remaining `UserID() == ""` checks preserve exactly the same behavior.
+  * `golangci-lint run` is now clean.
+
+
+## [5.5.0] - 2026-08-02
+
+Ech0 gets a way out. **Capsules** turn everything you have written into a self-contained
+folder of markdown and media that you can read, keep, hand to another instance, or compile
+into a static site — from the dashboard or the terminal.
+
+### Added
+
+- **Capsule: a portable, human-readable format for your content — plus a one-command static site.** Four new CLI commands ship together. `ech0 export capsule` writes your instance to a plain directory (or `--zip`): one frontmatter-markdown file per echo, a `comments.yaml` snapshot, `ech0.yaml` for site info, and the media bytes laid out exactly as they are on disk — S3-hosted files are pulled down so the capsule is always self-contained (if any byte can't be fetched the export fails loudly rather than producing a capsule with holes). `ech0 import capsule` merges one back **idempotently**: echoes are matched by id and skipped if they already exist, values land 1:1 with no conversion, and nothing is ever overwritten. `ech0 check` validates a capsule with errors/warnings and can `--fix` missing ids. `ech0 build` compiles a capsule into a static, read-only site that reuses the real Ech0 frontend — no Node or pnpm needed, the assets are embedded in the binary — ready to drop on GitHub Pages or Cloudflare Pages, with likes and comments shown frozen and read-only. The format is a published spec, so hand-writing a capsule or converting from another tool is supported. See [`docs/usage/capsule.md`](docs/usage/capsule.md).
+- **Capsules are now available from the dashboard, not just the CLI.** *Panel → Data management* gains a format choice on **Export** — *Snapshot* (the default) or *Capsule* — and a third source card on **Import**, *Ech0 Capsule*. The two formats are deliberately not presented as interchangeable: the snapshot card states that it is a full backup containing accounts and credentials and is the only format that can restore an instance, while picking Capsule surfaces a warning that it carries no accounts or credentials and cannot be used for disaster recovery, plus an opt-in *Include private content* switch (off by default). Importing a capsule is append-only and idempotent — entries are matched by id, so re-importing the same capsule creates nothing new and never wipes or overwrites what you already have — and validation runs first, refusing to write anything if the capsule has errors. Downloads always point at whatever the job actually produced, even if you flip the selector afterwards. Capsule artifacts live in `data/files/capsules/`, kept separate from snapshots so the two can't delete each other, and excluded from snapshots so backups don't swallow them. The CLI commands are unchanged; both routes drive the same engine.
+- **`ech0 export snapshot` / `ech0 import snapshot` are now available from the CLI.** The full-instance backup and restore that previously existed only as a dashboard job can now be driven from a terminal or a cron entry. Restoring is destructive and requires an explicit `--yes`.
+- **Quick search can now filter by visibility (public / private).** The command palette (⌘K) gains a three-state **Visibility** section — *All*, *Public only*, *Private only* — shown only to logged-in admins; anonymous visitors don't see it and the timeline behaves exactly as before. An active filter shows up as a clearable chip next to the search box, like date-range and tag filters. Server-side, `POST /api/echo/query` accepts an optional `private` boolean; requests without private-content permission have it silently ignored and keep getting public-only results, so nothing can leak.
+
+### Changed
+
+- **`ech0 version` and the other CLI result boxes were restyled.** The box used to run its heading and its numbers through one `label: value` formatter, so the leading emoji sat in the label column and pushed that row out of line with everything under it. Headings now sit on their own line and the figures below them line up in a column.
+
+## [5.4.7] - 2026-07-31
+
+> Recorded retroactively: v5.4.7 was tagged and published without its CHANGELOG section.
+
+### Changed
+
+- **Built-in MCP server upgraded to protocol revision `2026-07-28`** (latest MCP spec, replacing `2025-11-25`) — **breaking for legacy MCP clients**. The server is now stateless per the new spec: the `initialize` handshake is gone (replaced by `server/discover`), every request must carry `params._meta` protocol metadata plus the `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` headers (validated with HTTP 400 + `-32020`/`-32022` on mismatch), unknown methods return HTTP 404, results carry `resultType` and `_meta.serverInfo`, and discover/list/read results include cache hints (`ttlMs` + `cacheScope`). `GET /mcp` (old status endpoint) and `DELETE /mcp` now return 405. Clients must speak `2026-07-28` — official SDKs (TypeScript v2, Go v1.7+, Python, C# v2) handle this automatically; legacy `initialize` clients receive a diagnostic naming the supported version.
+
+- **Dependency bumps (Go, `go-patch-minor` group)**: `anthropics/anthropic-sdk-go` 1.57.0 → 1.61.0, `aws/aws-sdk-go-v2` 1.42.1 → 1.43.0 (plus `config` / `credentials` / `service/s3` patch bumps), `aws/smithy-go` 1.27.3 → 1.27.4, `danielgtaylor/huma/v2` 2.38.0 → 2.39.0.
+- **Dependency bumps (`web/`)**: `pinia` 3.0.4 → 4.0.2 — a technical-only major (ESM-only build, and `@vue/devtools-api` became a required peer dependency, now declared explicitly in `package.json`); `vue` 3.5.39 → 3.5.40, `vue-i18n` 11.4.6 → 11.4.8, `vue-router` 5.1.0 → 5.2.0, plus dev-tooling minors (`vite` 8.1.5, `eslint` 10.8.0, `eslint-plugin-vue` 10.10.0, `prettier` 3.9.6, `stylelint` 17.14.1, `vite-plugin-vue-devtools` 8.2.1, `vue-tsc` 3.3.8, `@vitejs/plugin-vue` 6.0.8).
+- **Dependency bumps (`hub/`)**: `brace-expansion` 2.1.1 → 2.1.2 — lockfile-only security backport for [CVE-2026-13149](https://github.com/juliangruber/brace-expansion/pull/123).
+- **Dependency bumps (CI)**: `actions/setup-node` 6 → 7, `actions/setup-go` 6 → 7.
+
+
+## [5.4.6] - 2026-07-18
+
+A follow-up to 5.4.5's addressing work: the public object URL now follows the same addressing style the SDK uses, so images uploaded to **virtual-hosted-only** services (Tencent COS, Alibaba OSS, …) display instead of appearing broken.
+
+### Fixed
+
+- **Images uploaded to virtual-hosted-only S3 services (Tencent COS, Alibaba OSS, …) now display.** Uploads already succeeded — the SDK addresses those services virtual-hosted style — but when no CDN domain was configured, the public object URL was *always* built in **path-style** shape (`endpoint/bucket/key`), which COS / OSS reject, so every timeline image 404'd while the upload itself looked fine. The public URL now follows the **same addressing the SDK uses**: virtual-hosted (`https://bucket.endpoint/key`) for AWS and `Other`, path-style (`endpoint/bucket/key`) for MinIO / R2 or when the `Other` provider's **Path-style access** toggle is on — the two can no longer drift. So `Other` + COS / OSS works out of the box with no CDN domain (leave Path-style off; set Endpoint to the regional domain without the bucket). Because `File.url` is a snapshot written at upload time, this fixes newly uploaded objects; existing rows keep their stored URL until you re-set the CDN domain or refresh `url`.
+
+
+## [5.4.5] - 2026-07-18
+
+A small storage-compatibility release: the **Other** S3 provider can now opt into **path-style addressing** from the admin panel, unblocking self-hosted S3-compatible services that don't speak virtual-hosted style.
+
+### Added
+
+- **A "Path-style access" toggle for the `Other` S3 provider.** Addressing style used to be decided entirely by the provider preset — MinIO and R2 use path-style, AWS uses virtual-hosted — and `Other` silently followed AWS, so a self-hosted S3-compatible service that only supports path-style (Ceph, Garage, SeaweedFS, …) behind a DNS-style endpoint could fail to connect, with no way to fix it. (IP endpoints like `127.0.0.1:9000` were unaffected: the SDK already falls back to path-style for those.) The storage settings panel now shows a **Path-style access** switch when the provider is `Other` — also seedable via `ECH0_S3_USE_PATH_STYLE` — and it applies to every S3 code path: uploads, presigned URLs, the connection probe, and snapshot export. Named providers keep their presets (the toggle is ignored and zeroed on save unless the provider is `Other`), existing `Other` setups keep their current behavior until it's explicitly switched on, and the toggle only changes SDK API requests — stored public URLs keep their shape.
+
+### Internal
+
+- **The storage layer's three S3 client-config construction sites were collapsed into one helper**, so the connection probe, the runtime filesystem, and the storage selector are guaranteed to build the client from identical parameters — what you test is what you run.
+
+
+## [5.4.4] - 2026-07-18
+
+A reliability release centered on the database and on leftover-data hygiene. SQLite now runs in **WAL mode** with tuned connection parameters, and snapshot export packs a **consistent database copy** instead of the live file — together making both day-to-day writes and backups sturdier. Alongside that, two long-standing residue leaks were plugged: deleted Echos no longer strand their extension rows, and direct-link attachments abandoned in a draft no longer linger in the database forever.
+
+### Changed
+
+- **SQLite runs in WAL mode with tuned connection parameters.** The runtime database is now opened with `journal_mode=WAL` (readers and writers no longer block each other), `busy_timeout=5000` (lock contention waits instead of failing with "database is locked"), `synchronous=NORMAL` (the recommended durability level under WAL), and `txlock=immediate` (write transactions take the write lock up front instead of failing on a deferred upgrade). The parameters ride on the DSN, so every pooled connection gets them — both at startup and when the database path is hot-changed. No operator action is required; SQLite switches the journal mode on first open.
+- **Snapshot export packs a consistent database copy, not the live file.** Under WAL, recent writes may still sit in the `-wal` sidecar, and copying the live `ech0.db` under concurrent writes can tear. Every online export path (manual, scheduled, and synchronous download) now produces a consistent copy via `VACUUM INTO` — SQLite's online backup — and packs *that* as `ech0.db`, excluding the live file and its `-wal` / `-shm` / `-journal` sidecars from the archive. A failed copy fails the export instead of silently falling back to the raw file, so a snapshot that exists is a snapshot that restores.
+
+### Fixed
+
+- **Deleting an Echo no longer strands its extension row.** `DeleteEchoById` relied on the schema's `ON DELETE CASCADE` to remove the Echo's extension (website card, video link, GitHub card, …) — which never fires, because SQLite connections default to `foreign_keys=OFF` — so every deleted Echo that carried an extension silently left an orphaned `echo_extensions` row behind. The extension is now deleted explicitly alongside the Echo's files, and a one-shot idempotent migration sweeps out the orphans accumulated by older versions on next startup.
+- **Direct-link attachments abandoned in a draft no longer linger in the database forever** ([#316](https://github.com/lin-snow/Ech0/issues/316)). Uploaded files get a temp-tracking row that the periodic orphan cleanup reaps if the Echo is never published — but direct-link (external URL) attachments never got one, so removing one from a draft with the ✕ button, or closing the browser mid-draft, left its `files` row behind permanently with nothing ever cleaning it up. New external records are now temp-tracked exactly like uploads: publishing the Echo confirms them, and the periodic cleanup reaps the unconfirmed rest. (When the same URL is deduplicated onto an existing record, that record is deliberately *not* re-tracked — it may already back published Echos.)
+- **Failed attachment-blob deletions are now visible in the logs** ([#316](https://github.com/lin-snow/Ech0/issues/316)). When deleting an Echo (or a single file) removed the database record but deleting the stored blob failed, the error was silently swallowed — the blob became an invisible orphan on disk or in the bucket. Both paths now warn-log the file key and storage type, so operators can spot and reclaim leftovers.
+
+### Internal
+
+- **Event-bus shutdown stats no longer undercount.** Busen's shutdown "before" snapshot is now taken ahead of closing the publish gate, so executions completing in the gap between the two are counted in the drain delta; the racy drain-stats test was restructured to synchronize on `ErrClosed` instead of racing the worker.
+- **Dependency bumps (Go, `go-patch-minor` group, 13 updates)**: `anthropics/anthropic-sdk-go` 1.56.0 → 1.57.0, `aws-sdk-go-v2/service/s3` 1.104.2 → 1.105.0 (plus `config` / `credentials` patch bumps), `coreos/go-oidc` 3.19.0 → 3.20.0, `dgraph-io/ristretto` 2.4.0 → 2.4.2, `go-co-op/gocron` 2.21.2 → 2.22.0, `wneessen/go-mail` 0.8.0 → 0.8.1, and `golang.org/x/{crypto,mod,net,sync,text}` patch bumps.
+- **Dependency bumps (`web/`)**: `unocss` / `@unocss/preset-wind4` 66.7.4 → 66.7.5, `prettier` 3.9.4 → 3.9.5, `tsx` 4.23.0 → 4.23.1.
+
+
+## [5.4.3] - 2026-07-12
+
+A storage-compatibility hotfix. `aws-sdk-go-v2`'s newer S3 default started sending `aws-chunked` trailer checksums that every S3-compatible backend other than real AWS rejects — this release turns that off wherever it doesn't belong, restoring uploads and snapshot export on R2, MinIO, Backblaze, Ceph, and other compatible stores.
+
+### Fixed
+
+- **Uploads and snapshot export work again on S3-compatible stores (R2, MinIO, Backblaze, Ceph, …).** `aws-sdk-go-v2`'s S3 client (v1.74.1+) enabled flexible-checksum (`aws-chunked` STREAMING trailer) bodies by default, which non-AWS S3 services reject with `XAmzContentSHA256Mismatch` or "chunk too big" — so both regular uploads and snapshot export to those backends failed with HTTP 400. VireFS previously opted only MinIO out; the opt-out now covers **every non-AWS target** (any non-`ProviderAWS`, or a `ProviderAWS` pointed at a custom endpoint), disabling both request checksum calculation and response checksum validation. Because all S3 access funnels through `NewS3Client`, this fixes regular uploads, presigned URLs, snapshot export, and the connection probe in one place. Real AWS S3 keeps the SDK default, so its data-integrity protections stay on.
+
+### Internal
+
+- **Dependency bumps (`web/`)**: `@types/node` 26.1.0 → 26.1.1, `eslint` 10.6.0 → 10.7.0, `vite` 8.1.3 → 8.1.4, `vitest` 4.1.9 → 4.1.10, `vue-tsc` 3.3.6 → 3.3.7.
+
+
+## [5.4.2] - 2026-07-07
+
+A security-hardening follow-up. The headline is the **local-password overhaul** — passwords move off the users table's bare, unsalted MD5 into a dedicated bcrypt-backed table, upgrading transparently on the next login. Alongside it, the RSS feed learns to render the audio and video attachments that 5.4.0 introduced, and three "whole library for one small feature" dependencies were dropped to keep the footprint lean.
+
+### Added
+
+- **Audio and video attachments now render in the RSS feed.** 5.4.0 let an Echo carry an audio track or an MP4 video, but the RSS/Atom feed still emitted images only. The feed now renders each attachment by category: video as `<video controls>` and audio as `<audio controls>` — each wrapping an inline `<a>` link, so a reader that strips media tags degrades to a clickable link instead of dropping the content — other file types as a 📎 download link, and images stay as `<img>`.
+- **Chat sources show a media-type badge.** When a Copilot chat answer cites an Echo that carries a video or audio attachment, its source card now shows a 🎬 / 🎵 type badge (image hits still show a thumbnail).
+
+### Changed
+
+- **Local passwords are capped at 72 bytes.** bcrypt only hashes the first 72 bytes of a password, so the write paths — register, initialize owner, change password — now reject anything longer up front with a localizable `PASSWORD_TOO_LONG` error, instead of silently truncating or leaking bcrypt's raw English error string.
+
+### Security
+
+- **Local passwords rehoused in `user_local_auth` and rehashed with bcrypt.** The local password moved off `users.password` — a **bare, unsalted MD5** — into the dedicated `user_local_auth` table, aligning it with the OAuth / OIDC / Passkey identity tables, and the hash upgraded from MD5 to **bcrypt**. Existing accounts upgrade transparently: the first successful login re-verifies against the old MD5 and then lazily rehashes to bcrypt (best-effort), and an idempotent backfill migration drops the legacy `users.password` column — so the `users` table no longer holds any secret. New databases start on bcrypt directly; no operator action is required.
+- **RSS media fields are HTML-escaped before rendering.** With attachments now rendered into the feed (above), each attachment's URL and filename — user-controllable and possibly external — are HTML-entity-escaped before entering the Atom `<summary type="html">`, closing the same stored-XSS injection class as [GHSA-3v85-fqvh-7rxf](https://github.com/advisories/GHSA-3v85-fqvh-7rxf) (fixed in 5.3.0) for the newly rendered media fields.
+
+### Fixed
+
+- **A real DB fault during login is no longer masked as "wrong password".** The `user_local_auth` lookup still fails closed to `PASSWORD_INCORRECT`, but it now distinguishes a genuine database error from record-not-found and warn-logs the former (with `user_id`), so a transient DB fault is diagnosable instead of looking like a bad credential.
+
+### Internal
+
+- **Three single-purpose dependencies dropped for a lighter footprint.** `go-github` (+ `go-querystring`), `chalk`, and `gsap` were each replaced with a standard-library or native-API equivalent, behavior unchanged: the GitHub "latest version" check is now plain `net/http` + `encoding/json` against the releases REST API (same pagination, 30-min cache, draft / prerelease / `ech0-*` filtering, and semver canonicalization); the console banner is colored via native `%c` styling; and the storage file-list tweens run on the Web Animations API. (Consistent with the project's lightweight principle.)
+- **Dependency bumps (Go, `go-patch-minor` group)**: `anthropics/anthropic-sdk-go` 1.52.0 → 1.56.0, `aws/aws-sdk-go-v2/service/s3` 1.104.0 → 1.104.2 (plus `aws-sdk-go-v2` core / `config` / `credentials` patch bumps), `wneessen/go-mail` 0.7.3 → 0.8.0.
+- **Dependency bumps (`web/`)**: `markdown-it` 14.2.0 → 14.3.0, `unocss` / `@unocss/preset-wind4` 66.7.3 → 66.7.4, `prettier` 3.9.1 → 3.9.4, `tsx` 4.22.4 → 4.23.0, `vite` 8.1.2 → 8.1.3.
+- **Dependency bumps (CI)**: `actions/upload-artifact` 4 → 7.
+
+
+## [5.4.1] - 2026-07-05
+
+A focused follow-up to 5.4.0's media support: the inline video player got a round of playback-UX fixes and polish.
+
+### Added
+
+- **Long-press to preview on touch devices.** Mobile had no equivalent of the desktop hover preview — press-and-hold on an inline video now plays a muted preview and releases back to the poster frame, while a tap still toggles sound playback. The long-press is distinguished from a scroll (finger movement cancels it) and suppresses the iOS "save video" callout menu.
+
+### Changed
+
+- **The inline video overlay was reworked for a cleaner watch.** The corner tags now auto-hide about two seconds into playback and reappear only when you actually move the pointer — incidental hand-tremor and page-scroll jitter are filtered out (by a small movement threshold), so they no longer keep the controls awake. The top-left tag now doubles as the status chip: the "Video" label at rest, a live remaining-time countdown while playing, and "Paused" once you pause it — so the separate bottom-right time badge was retired. Clicking an inline video now toggles play / pause (it was play-only before).
+
+### Fixed
+
+- **Click-to-play from a preview is no longer silent.** Promoting the muted hover / long-press preview to sound only flipped the `muted` flag without re-invoking `play()` inside the click gesture, and browsers won't route audio for a video that began playing muted unless playback is re-asserted under the user gesture — so it kept playing with no sound. A click now unmutes **and** replays within the same gesture.
+- **Fullscreen resumes instead of restarting.** Opening the fullscreen lightbox spun up a fresh player that always started at 0; it now carries the inline playback position across and seeks to it, so the big-screen view continues from where the card left off.
+
+
+## [5.4.0] - 2026-07-04
+
+This release turns Ech0 into a fuller media timeline — **an Echo can now carry uploaded audio or video, not just images**, each with a native in-app player. Under the hood, the logging backend was rebuilt on the standard library's `log/slog`, retiring zap.
+
+### Added
+
+- **Audio and video attachments, with native players.** An Echo can now include an uploaded audio track or an MP4 video alongside (or instead of) images. `video/mp4` joins the allowed upload types, and the composer's former image panel became a unified **media panel** where you pick a category — image, audio, or video — before attaching. Playback is fully in-app and theme-aware: a new audio player (seekable progress bar with elapsed / total time) and a video player that plays inline and expands into a fullscreen lightbox, both rendered on the timeline cards, the Echo detail view, and the public Hub. Default upload limits are **20 MiB per image (up to 9 per Echo)**, **20 MiB per audio file**, and **64 MiB per video**, tunable via `ECH0_UPLOAD_IMAGE_MAX_SIZE` / `ECH0_UPLOAD_AUDIO_MAX_SIZE` / `ECH0_UPLOAD_VIDEO_MAX_SIZE`; video files are stored under `data/files/videos/` (`ECH0_UPLOAD_VIDEO_PATH`). New attachment / media i18n keys across zh-CN / en-US / ja-JP / de-DE.
+
+### Changed
+
+- **Each Echo holds a single media category — images, audio, or video, not a mix.** Once you attach a file the category locks, and audio and video are capped at **one file per Echo** (images stay at up to 9). This is enforced as a hard check in `PostEcho` / `UpdateEcho` **before** the write transaction — not merely a UI guard — so mixed-category or multi-audio/-video payloads are rejected at the service layer. A dedicated `none` layout was introduced for audio/video Echoes, so the image-only layout options (grid / carousel / horizontal / stack) no longer apply to them.
+- **Colorized console logs in development.** When the server runs in `debug` mode (`ECH0_SERVER_MODE=debug`), console output now defaults to a tinted, human-readable format; file output stays structured JSON and production behavior is unchanged.
+
+### Internal
+
+- **Logging rebuilt on `log/slog`; zap retired.** The logging stack moved from `go.uber.org/zap` to an in-house `pkg/log` package on top of the standard library's `log/slog`, with a vendored `tint` handler (`pkg/log/tint`) powering the colorized console output above. `go.uber.org/zap` and `go.uber.org/multierr` were dropped from the module graph, and call sites across bootstrap, services, migrator, job, event bus, MCP, and agent were migrated to the new logger.
+- **Log querying & stream-hub tests.** New `query_test.go` (missing-file handling, level / keyword filtering, entry-limit enforcement) and `streamhub_test.go` (subscribe / publish / dropped-message backpressure) cover the dashboard log viewer.
+- **Single-media-category coverage.** New backend tests (`single_category_test.go`, plus added `post_echo` / `mutate_echo` cases) verify the reject-before-transaction path; `FileService.GetFilesByIDs` batch-loads attached files' categories in one query instead of N per-file lookups.
+- **Frontend media reorganization.** The former `gallery/` tree was folded into `media/{image,audio,video}` behind a single `TheMediaPlayer` dispatcher; the editor's `Mode.Image` became `Mode.Media`, and separate `VideoLayout` / `AudioLayout` enums were split out to leave room for future layouts. The public Hub card reuses the same `TheMediaPlayer`.
+- **Housekeeping.** General code-structure refactors for readability, and `TODO.md` pruned of the retired Ech0 CLI/TUI items.
+
+
+## [5.3.0] - 2026-06-30
+
+This release is anchored by two large engineering efforts — a **type-first OpenAPI rebuild (Huma)** and the project's **first real backend test suite** — plus the security and stability fixes that writing those tests surfaced.
+
+### Added
+
+- **YouTube Shorts and live links now embed.** The video extension's YouTube matcher previously only recognized `watch?v=`, `youtu.be`, and `embed/` URLs, so `youtube.com/shorts/<id>` and `/live/<id>` fell through and were rejected. Both are now extracted and rendered through the existing `/embed/<id>` iframe — no renderer changes needed.
+- **Selectable API-docs renderer.** A new `ECH0_OPENAPI_DOCS_RENDERER` env var chooses the panel served at `/api/docs`: `stoplight` (default, Huma's built-in Stoplight Elements) or `scalar` (a fully offline, self-hosted Scalar API Reference bundled into the binary — no CDN fetch at runtime). See `docs/dev/development.md`.
+
+### Changed
+
+- **API documentation rebuilt on Huma type-first OpenAPI.** The HTTP layer migrated off swaggo annotations to **Huma** on top of Gin: the OpenAPI spec is now generated from Go request/response types (no annotation comments), with interactive docs at `/api/docs` and the machine-readable spec at `/api/openapi.json` and `/api/openapi.yaml` (committed copy at `internal/openapi/openapi.yaml`, kept honest by `make openapi` / `make openapi-check`). JSON handlers became framework-neutral, and each endpoint's authentication is declared once as a single "posture" (`public` / `optional` / `secured`) that emits both the OpenAPI security declaration and the runtime middleware chain, so authn/authz can no longer drift from the docs. Retiring swaggo removed ~10,000 lines of generated swagger from the tree. Non-JSON endpoints (SSE/WebSocket, uploads, downloads, OAuth, captcha, MCP) keep their existing wire shape.
+- **Auto theme-mode icon changed from a leaf to a palm tree.** The home header's "follow system" theme toggle now uses a Lucide `tree-palm` glyph instead of the old Tabler leaf.
+
+### Security
+
+- **Random-string generation is now cryptographically secure.** `util/crypto.GenerateRandomString` switched from `math/rand` (a time-seeded, predictable PRNG) to `crypto/rand` with rejection sampling to avoid modulo bias. This function backs **OAuth `state`, one-time OAuth exchange codes, and token JTIs** — values that must be unpredictable; the old source could in principle be predicted, enabling CSRF-`state` or exchange-code forgery. A failed secure-random read now panics rather than silently degrading to a guessable value.
+- **OAuth token exchange now uses a timeout-bound HTTP client.** The code-for-token exchange was going through `http.DefaultClient` (no timeout); it now uses an explicit timeout-bound client, so a hung or slow identity provider can't pin a request open indefinitely.
+
+### Fixed
+
+- **The async worker pool no longer panics under a shutdown race.** `util/async.Pool.Submit` now holds its read lock through the channel send and drops the `recover`, so `close` happens only under the write lock — structurally eliminating the `send on closed channel` panic when `Submit` and `Stop` race. Covered by a new concurrent `-race` regression test. (This pool backs event/webhook dispatch.)
+- **Busen's dispatch gate no longer panics on an unpaired or double `Leave`.** `Gate.Leave` used to `close` an already-closed idle channel (`panic: close of closed channel`) when called more times than `Enter`; it now no-ops when no callers are active and closes the idle channel only on the true `>0 → 0` edge, making any extra/duplicate `Leave` a safe no-op.
+
+### Internal
+
+- **First-class backend testing system.** Introduced **testify + mockery v3** (pinned via `go run`, kept out of `go.mod`), a shared `internal/test/helpers` scaffold (in-memory DB, viewer identities, JWT overrides, envelope parsing, fixtures) and centrally generated mocks under `internal/test/mocks` (10 domains, deterministic + SPDX). New Makefile targets (`mocks`, `mocks-check`, `test-race`, `test-cover`) and `docs/dev/testing.md` codify the conventions; coverage climbed across three rounds to **~66% (calibrated**, excluding generated mocks/`wire_gen.go`). CI (`test.yml`) now runs `go test` automatically on PRs and pushes to `main` (backend-path-filtered, coverage report-only — RAW + CALIBRATED — with no hard gate).
+- **Testability seams (all zero-Wire — constructor signatures unchanged).** `ConnectService` gained an injectable peer-fetcher and an injectable retry backoff (`WithRetryBaseDelay`, cutting the connect package's wall-clock test time from ~4s to ~0); `storage` gained a `NewStorageManagerForTest` / `helpers.NewTestStorage` path on an isolated temp dir; auth/embedding gained white-box seams.
+- **i18n / error-handling consistency, surfaced by the Huma review.** Framework-level errors are now classified by HTTP status (5xx → `INTERNAL_ERROR` + `common.request_failed` instead of masquerading as "invalid query parameter"; 4xx validation → neutral `common.invalid_request`); the localizer resolves lazily so business responses and validation errors share the post-auth user locale; `humares.Err` and `response.Execute` share one failure-field mapping ladder (`commonModel.ResolveFailureFields`) so the two response contracts can't drift.
+- **Dependency bumps (Go, `go-patch-minor` group)**: `anthropics/anthropic-sdk-go` 1.50.1 → 1.52.0, `aws/aws-sdk-go-v2/service/s3` 1.103.3 → 1.104.0, `coreos/go-oidc/v3` 3.18.0 → 3.19.0, `aws/smithy-go` 1.27.2 → 1.27.3, `gorm.io/gorm` 1.31.1 → 1.31.2.
+- **Dependency bumps (`web/`)**: `vue` 3.5.38 → 3.5.39, `@types/node` 25.9.4 → 26.0.1, `unocss` / `@unocss/preset-wind4` 66.7.2 → 66.7.3, `eslint` 10.5.0 → 10.6.0, `prettier` 3.8.4 → 3.9.1, `stylelint` 17.13.0 → 17.14.0, `vite` 8.0.16 → 8.1.0, `vite-plugin-vue-devtools` 8.1.3 → 8.1.5, `@vue/eslint-config-typescript` 14.8.0 → 14.9.0.
+- **CI**: `actions/checkout` 6 → 7.
+
+
+## [5.2.5] - 2026-06-21
+
+### Added
+
+- **Verified-user tooltip in comments.** Hovering the blue verified badge next to a commenter's name now explains what it means — the author is a registered user of this instance — instead of leaving guests to guess. Applied to both top-level comments and replies (shown when `source === 'system'`), reusing the existing floating-vue `v-tooltip`. New i18n key `commentSection.verifiedUser` across zh-CN / en-US / ja-JP / de-DE.
+
+### Changed
+
+- **About panel simplified, with a draggable logo sticker.** The About view dropped its dense field list (product subtitle and the version / commit / author / license / build rows) for a cleaner layout and gained a draggable Ech0 logo sticker that springs back to its origin on release; the "view source on GitHub" link (and its at-commit variant) is kept, and the footer line is shortened to "Powered by Ech0". i18n keys trimmed accordingly across zh-CN / en-US / ja-JP / de-DE.
+
+### Fixed
+
+- **OAuth login/binding now works out-of-the-box on single-domain self-hosts.** `parseAndValidateClientRedirect` implicitly allows the SPA's two hardcoded same-origin return paths — `/panel` (account binding) and `/auth` (login) — derived from the configured OAuth2 callback's origin, so a single-domain deployment no longer has to hand-configure the Redirect Allowlist just to bind or sign in via OAuth. These implicit entries are fixed, front-end-hardcoded paths (no arbitrary-path injection) and are still matched with the same RFC 6749 §3.1.2 exact scheme+host+path comparison, preserving the intent of advisory GHSA-p64j-f4x9-wq66; operator-configured allowlist entries continue to apply. Covered by new `oauth_service_test.go` cases.
+
+### Internal
+
+- **Dependency bump (`web/`)**: `@types/node` 25.9.3 → 25.9.4 (dev).
+
+
+## [5.2.4] - 2026-06-19
+
+### Added
+
+- **Chat now shows the model's reasoning process.** When a model emits a thinking/reasoning stream (or inline `<think>` blocks), the chat panel separates that reasoning from the final answer and renders it in a collapsible section with a live "Thinking…" state and a "Thought for {seconds}s" duration once it settles. The reasoning text and its duration are persisted with the chat session so they survive a reload, and inline `<think>` blocks are stripped out of the answer body. New i18n keys `reasoningThinking` / `reasoningDone` across zh-CN / en-US / ja-JP / de-DE.
+- **MCP discovery read tools and a visitor-stats resource.** The inbound MCP server (`/mcp`) now exposes three existing echo read endpoints as tools under `ScopeEchoRead` — `get_hot_posts`, `get_random_post`, `get_on_this_day_posts` — plus a new `ech0://stats/visitors` resource (past 7-day PV/UV) gated by `ScopeAdminSettings` to match the REST `/system/visitor-stats` route. README (`internal/mcp/README.md`) and `docs/usage/mcp-usage.md` updated.
+
+### Internal
+
+- **Removed the unused `vditor` dependency** from `web/` — it had zero references in `web/src` (a leftover after switching to the in-house `TheMdEditor`) and never entered the bundle, narrowing the dependency and supply-chain surface.
+- **Hub instance health check.** A new scheduled GitHub Actions workflow (`hub-health-cleanup.yml`) periodically health-checks public-directory instances and prunes dead ones.
+- **Toolchain bumps**: `pnpm` 11.8.0; Go 1.26.4 in the docker test-image workflow.
+- **Dependency bumps (Go, `go-patch-minor` group)**: `anthropics/anthropic-sdk-go` 1.48.0 → 1.50.1, `aws/aws-sdk-go-v2` 1.41.12 → 1.42.0, `aws-sdk-go-v2/config` 1.32.23 → 1.32.25, `aws-sdk-go-v2/credentials` 1.19.22 → 1.19.24, `aws-sdk-go-v2/service/s3` 1.103.2 → 1.103.3, `aws/smithy-go` 1.27.1 → 1.27.2, `golang.org/x/mod` 0.36.0 → 0.37.0, `golang.org/x/net` 0.55.0 → 0.56.0, `golang.org/x/sync` 0.20.0 → 0.21.0, `golang.org/x/text` 0.37.0 → 0.38.0.
+- **Dependency bumps (`web/`, `web-patch-minor` group)**: `vue` 3.5.35 → 3.5.38, `@dicebear/core` 10.1.0 → 10.3.0, `@dicebear/styles` 10.1.0 → 10.2.0, `unocss` / `@unocss/preset-wind4` 66.7.0 → 66.7.2, `eslint` 10.4.1 → 10.5.0, `prettier` 3.8.3 → 3.8.4, `vue-tsc` 3.3.3 → 3.3.5, `vite-plugin-vue-devtools` 8.1.2 → 8.1.3, `npm-run-all2` 9.0.1 → 9.0.2, `@types/node` 25.9.2 → 25.9.3.
+- **Dependency bumps (`hub/` & `site/`)**: `markdown-it` 14.1.1 → 14.2.0 (hub), `react-router` 7.15.0 → 7.15.1 (site), `vite` 8.0.12 → 8.0.16 (both).
+- **Code structure refactors** for readability/maintainability, and a staticcheck (SA5011) fix in the agent run-loop test.
+
+
+## [5.2.3] - 2026-06-13
+
+### Changed
+
+- **Music cards now use Ech0's native single-track player.** The Vue player keeps Meting API metadata resolution while replacing APlayer/MetingJS with the browser audio API, Ech0 theme tokens, synchronized lyrics, seeking, and Media Session controls. Playlist responses intentionally play only the first track and no next-track action is exposed. The APlayer/MetingJS scripts and styles are dropped from `web/public`.
+- **The Hub timeline re-enables virtual scrolling for music posts.** Because the native music card survives list recycling (APlayer instances did not), the Hub page no longer falls back to a plain non-virtualized list when a music extension is present — `DynamicScroller` is now used unconditionally on the standalone Hub page, restoring smooth scrolling on long timelines that contain music.
+
+### Fixed
+
+- **Tapping an Echo card on touch devices no longer needs two taps.** The card's "open" button used to be revealed by `:hover`, so on a touch device the first tap only triggered the sticky-hover reveal (swallowing the tap) and a second tap was required. The reveal is now gated behind `@media (hover: hover)`, so it only applies to mouse/hover-capable devices; touch taps open the Echo directly.
+
+
+## [5.2.2] - 2026-06-13
+
+### Added
+
+- **Connection testing for S3 storage and the AI model.** Both the storage settings and the Agent settings panels gained a "test connection" button that validates the live configuration before you save it. Backend: a new `storage.Probe` (`internal/storage/probe.go`) checks bucket existence and credentials against the supplied S3 config **without touching the saved settings**; `agent.Ping` fires one minimal non-streaming request to verify the protocol / BaseURL / ApiKey / Model are actually usable (it deliberately does *not* require `Enable`, so you can test before turning the feature on, and uses `MaxTokens=16` to avoid an Anthropic empty-text false negative at `max_tokens=1`). New i18n keys for the test-connection states across zh-CN / en-US / ja-JP / de-DE.
+- **Guest-facing language switcher.** A globe-icon popover in the home header lets visitors switch the UI language; logged-in users' picks persist to `user.locale` for cross-device sync. New i18n keys `homeNav.localeToggleTitle` / `homeNav.localeSyncFailed`.
+- **Manual "snapshot now" button with live job progress in the snapshot-schedule settings.** The schedule panel can now trigger a one-off snapshot export and shows the job's progress inline, alongside the existing cron schedule.
+
+### Changed
+
+- **Visitors now see their own browser language by default.** Locale resolution was reordered to *device choice → navigator → site default → fallback*, using a nullable `toSupported()` helper so an unsupported-but-non-empty `navigator` value no longer short-circuits the site-default fallback. Previously a guest on a foreign-language site always saw the owner's `default_locale`.
+- **Language options are unified across the app and labelled with endonyms** (native names — 简体中文 / English / 日本語 / Deutsch), sourced from one shared list and reused by the home filter, system settings, and user settings instead of three divergent inline lists.
+- **Access-token detail modal rebuilt on Headless UI** for proper focus management, accessibility, and enter/leave transitions.
+- **Tag manager popover now positions itself dynamically** relative to the tag button that opened it.
+
+### Fixed
+
+- **The site owner no longer emails themselves a "new comment" notification for comments they post from the admin panel** (`SourceSystem`). Guest comments (`SourceGuest`) and external integration deliveries (`SourceIntegration`) still notify the owner, and replies to a guest still notify the reply target.
+
+### Internal
+
+- **Dependency bumps (Go, `go-patch-minor` group)**: `anthropics/anthropic-sdk-go` 1.46.0 → 1.48.0, `aws/aws-sdk-go-v2` 1.41.9 → 1.41.12, `aws-sdk-go-v2/config` 1.32.20 → 1.32.23, `aws-sdk-go-v2/credentials` 1.19.19 → 1.19.22, `aws-sdk-go-v2/service/s3` 1.102.2 → 1.103.2, `aws/smithy-go` 1.26.0 → 1.27.1.
+- **Dependency bumps (`web/`, `web-patch-minor` group)**: `@cap.js/widget` 0.1.54 → 0.1.56, `@dicebear/core` 10.0.2 → 10.1.0, `vue-i18n` 11.4.4 → 11.4.5, `@types/node` 25.9.1 → 25.9.2, `@vue/eslint-config-typescript` 14.7.0 → 14.8.0, `@vue/test-utils` 2.4.10 → 2.4.11, `stylelint` 17.12.0 → 17.13.0.
+
+
+## [5.2.1] - 2026-06-06
+
+A maintenance release with no user-visible product changes — code formatting, a README community badge (linux.do), and public-directory (`hub/`) entries only.
+
+
+## [5.2.0] - 2026-06-06
+
+### Added
+
+- **Comment floor numbers & jump-to-parent.** Every comment now shows a floor number (`#N`) assigned in chronological order. A reply displays a clickable "Reply to #N" reference that smooth-scrolls to its parent comment and briefly flashes it for orientation. New i18n key `inReplyToFloor` across zh-CN / en-US / ja-JP / de-DE.
+- **Editable publish time when editing an Echo.** `EchoUpsertDto` gained an optional `created_at` field; updating an Echo with a non-zero value rewrites its `created_at` column, so an entry can be backdated or corrected after the fact. Swagger regenerated.
+- **Zen-mode monochrome toggle feedback.** Switching the Zen reading view between black-and-white and color now raises a confirmation toast. New i18n keys `bwToastOn` / `bwToastOff`.
+
+### Fixed
+
+- **Object file URLs are now resolved at read time.** A stored `File.url` used to be a snapshot taken at write time, so changing the CDN domain or S3 configuration left old `local`/`object` records pointing at dead links. URLs for these types are now recomputed from the current storage configuration on every read — via the `File` GORM `AfterFind` hook, which covers both direct loads and nested `Preload(EchoFiles.File)` — while `external` URLs keep their stored snapshot. (`a3bdeffa`)
+- **Embedding providers that reject the `dimensions` parameter now degrade gracefully.** If the first batch is rejected because `dimensions` is unsupported, the request is retried without it and the conclusion is reused for later batches. Returned vectors whose dimension disagrees with the configured value now raise an error instead of being written, preventing `vec0` dimension conflicts. (`99f8056c`)
+
+### Internal
+
+- **Storage and user config now read through the setting engine.** S3 configuration is read via `setting.Get(setting.S3)` and the user domain reads its settings directly through the setting engine, removing the per-field env merge and decoupling `SettingService`. `setting.Get` now falls back to a normalized default when a stored value cannot be parsed. Wire graph regenerated.
+- **New config/settings architecture doc** at `docs/dev/config-and-settings-architecture.md`.
+- **UI polish.** `BaseButton` gained a `loading` state (shows a spinner and blocks clicks while busy); the share control is now a native `<button>` for correct semantics/accessibility; removed redundant `v-tooltip`s from the tag/publish buttons and reformatted `ChatBox`.
+
+
+## [5.1.0] - 2026-06-06
+
+### Added
+
+- **Comment replies (two-level threading).** Comments now carry a `parent_id` field, enabling replies to existing comments in a two-level nested structure. The backend validates that the reply target exists and is approved; the frontend `TheComment` component has been rebuilt with a nested reply UI featuring "replying to @nickname" attribution, an inline reply composer, and a cancel action. New i18n keys (`reply` / `replyingTo` / `cancelReply` / `inReplyTo`) across zh-CN / en-US / ja-JP / de-DE.
+- **Reply email notifications.** When a reply is created, the author of the parent comment is notified asynchronously (respecting the existing comment email-notification toggle). Self-replies, invalid recipient emails, and replies where the recipient is the site owner (already covered by the "new comment" notification) are silently skipped. A new `reply` mail template type is added (blue "Reply" badge).
+- **Chat question navigator (right-side ToC).** A pill-shaped navigation rail on the right edge of the chat panel. Hover to reveal the full question text; click to scroll-jump to that question with active highlighting. Shows the most recent 7 questions; auto-highlights the latest one during live streaming.
+- **Chat retry on failure / empty response.** When a streaming turn is interrupted or the model produces no text, the last turn shows a "No response this time" hint with a retry button for in-place resend — no need to retype the question.
+- **`X-Powered-By: Ech0/<version>` response header.** A new global `PoweredBy` middleware stamps every HTTP response with the project identifier.
+- **Build-output fingerprint banner.** Vite entry JS files are prefixed with a `/*! Powered by Ech0 — ... | AGPL-3.0-or-later */` copyright banner at build time.
+- **`<meta name="generator" content="Ech0">`** added to `index.html` to identify the site generator.
+
+### Changed
+
+- **Copilot no longer persists empty turns.** When the model produces no text and there are no retrieval sources, the turn is skipped during persistence, preventing permanent blank bubbles in conversation history. Successfully retried turns are persisted normally.
+
+### Fixed
+
+- **Comment avatar seed no longer includes the array index**, keeping it consistent with the comment detail view (`e2a27ebb`).
+- **Go version bumped to 1.26.4** (`ae5c5a1b`).
+
+### Internal
+
+- **Dependency bumps (`web/`)**: `@cap.js/widget` 0.1.53 → 0.1.54, `@dicebear/core` 10.0.1 → 10.0.2, `@dicebear/styles` 10.0.0 → 10.1.0, `eslint-plugin-vue` 10.9.1 → 10.9.2, `vite` 8.0.15 → 8.0.16, `vitest` 4.1.7 → 4.1.8, `pnpm` 11.5.0 → 11.5.2.
+
+
+## [5.0.2] - 2026-06-04
+
+A small patch release on top of 5.0.0: an unauthenticated denial-of-service fix in locale negotiation, and a vector-embedding dimension fix.
+
+### Security
+
+- **Fixed an unauthenticated DoS in locale parsing (GHSA-mqxv-9rm6-w8qc).** `language.ParseAcceptLanguage` runs in quadratic time on long lists of malformed subtags. The upstream CVE-2022-32149 guard caps `-` separators at 1000 but ignores `_` — which the parser aliases to `-` — so a ~1 MiB all-underscore `Accept-Language` (or `X-Locale`) value could burn seconds of CPU per request, **unauthenticated, on every route** through the global i18n middleware. Both real sinks (`ResolveLocale` and `NewLocalizer`) now sanitize their input, closing the `Accept-Language` header, the `X-Locale` header, the `?lang` query, and the authenticated user/settings locale writes in one place. Any single locale value with more than 32 `-`/`_` separators falls back to the default locale; normal short locales are unaffected.
+
+### Fixed
+
+- **Vector reindex/search no longer aborts with "Dimension mismatch" when the model's native output dimension differs from the configured `Dim`.** Embedding requests now send the configured dimension (the `dimensions` parameter), so the provider returns vectors that match the `vec0` index built from your `Dim` setting. Previously a model returning, e.g., 2048-d vectors against a 1024-d index failed every index/reindex upsert. Requires a model that supports custom output dimensions (e.g. OpenAI `text-embedding-3` family, Qwen `text-embedding-v4`); otherwise set `Dim` to the model's native dimension.
+
+### Docs
+
+- Added user guides for the AI features: **AI 问答 (Chat)** and **向量检索 (vector search / embedding)**, and rewrote the **AI 模型与近期摘要 (Agent)** guide to drop the removed Gemini protocol and inbox references.
+- Corrected the **Webhook** docs' event names to match the 5.0.0 `backup → snapshot` rename (`system.snapshot`, `system.snapshot_schedule.updated`) and the `event_name` example (`EchoCreated`).
+
+
+## [5.0.0] - 2026-06-04
+
+A major **architecture-consolidation** release. Most of Ech0's cross-cutting subsystems — events, settings, tasks, key-value storage, data portability, outbound HTTP, and long-running jobs — were rewritten around one shared shape: a *thin manager + typed/self-describing registry*, with dependencies pointing inward to pure-data vocabulary. The result is the same product with a much smaller, more uniform internal surface. The version is bumped to 5.0 because of the breaking changes below: the **backup → snapshot** rename (on disk, in S3, in routes, events, and settings), the webhook `event_name` derivation, and the removal of the dead-letter retry queue. Self-hosters upgrading from 4.x should read the **Breaking Changes** section before deploying.
+
+### Breaking Changes
+
+- **"Backup" is gone — it is all **Snapshot** now.** Data import/export was consolidated into a single bidirectional **Migrator** domain built around one **Snapshot** resource (a zip of `data/`). The rename is end-to-end and is not auto-migrated:
+  - On-disk layout: `data/files/backups/` → `data/files/snapshots/`; archive names `ech0_backup_*.zip` → `ech0_snapshot_*.zip`.
+  - S3 object prefix: `backups/` → `snapshots/`.
+  - Settings key: `backup_schedule` → `snapshot_schedule` — **the old scheduled-backup config is reset**; re-enable the schedule after upgrading.
+  - HTTP routes: `/backup/*` → `/migration/export*` and `/migration/snapshot/schedule`. Manual export is now a job-driven async flow (see Added).
+  - Event topics: `system.backup` → `system.snapshot`; `system.backup_schedule.updated` → `system.snapshot_schedule.updated`.
+- **Removed the `ech0 backup` CLI command.** Import/export is now **web-only** (admin panel → "数据管理"). There is no snapshot CLI verb.
+- **Snapshot download no longer carries the token in the URL.** Downloads are fetched as an authenticated blob with an `Authorization` header instead of a query-string token — safer (tokens stop leaking into logs/history), but any tooling that scripted the old token-in-URL download must be updated.
+- **Webhook `event_name` lost its `Event` suffix.** Payload `event_name` is now derived from the event struct name with the suffix stripped — e.g. `EchoCreatedEvent` → `EchoCreated`. The `topic` field is **unchanged** (`echo.created` stays `echo.created`), so consumers keyed on `topic` are unaffected; consumers keyed on `event_name` must update.
+- **Dead-letter retry queue removed → webhook delivery is now best-effort.** A failed webhook is retried inline (immediate retries) and then dropped; it is no longer parked in a dead-letter queue for later redelivery. The `ECH0_EVENT_DEADLETTER_BUFFER` config and the dead-letter DB table/column are gone. If you relied on guaranteed eventual delivery, treat webhooks as at-most-once after inline retries.
+
+### Added
+
+- **Generic long-running job subsystem (`internal/job`).** A reusable Manager with a real status machine, cancellation, persistence, status polling, and startup orphan-cleanup, with a generic `Adapt` boundary. Both **reindex** and **export** now run on it.
+  - **Vector reindex is now asynchronous** — it kicks off a cancellable job with live progress and front-end polling instead of blocking the request.
+  - **Snapshot export is now an async job** — trigger → poll phases → auto-download on completion, with cancel support.
+- **Unified `JobProgressCard` for data management.** A reusable progress card (status pill + phase stepper + progress bar + metrics/meta grid + footer slot) shared by import and export, themed via design tokens and respecting `reduced-motion`.
+  - **Export now surfaces progress the backend was already sending** but the UI had been discarding: `准备 → 打包 → 完成` phase stepping, plus the produced **file name / size** and a **re-download** action.
+  - **Import** switched to the same card with real phase stepping (`解析 → 写入 → 汇总 → 完成`).
+- **Configurable embedding batch size.** `/v1/embeddings` requests are now auto-split into batches (default **64** items/request, configurable via a new `batch_size` setting) to stay within provider input-array limits. Swagger, typings, and i18n updated to match.
+
+### Changed
+
+- **Settings are now organized into top tabs.** Six pages (storage / data / SSO / extensions / user center / preferences) moved to a top-tab layout via a new reusable `BaseSegmented` segmented control; the data-management page uses a three-tab segmented (导入 / 导出 / 快照) with the tabs lifted out of the card to match storage management.
+- **Comment management split into two tabs** ("评论设置" / "评论管理"), and the comment list dropped its time column with page size reduced 20 → 10.
+- **Redesigned comment-detail modal** — header bar + commenter row (Micah avatar + status / hot-comment pills) + quoted body block + info grid, centered on mobile.
+- **Data import/export UI polish** across the board (new locale keys `jobProgress.*` and `exportSetting.*` in zh/en/de/ja).
+
+### Removed
+
+- **Dead-letter subsystem** in full: `model/queue`, `repository/queue`, the dead-letter subscriber and scheduled task, the `DeadLetterBuffer` config, the `AutoMigrate` registration, and the `dead_letters` migration column.
+- **Legacy `internal/backup` package**, the never-invoked Extract→Transform→Validate→Load import pipeline, the event **publisher facade** (`contracts` / `publisher` / `registry` packages), the explicit EventBus drain component, and the empty `migrator.Worker` shell.
+- **Redundant Docker `apk add tzdata`** — the timezone database is already embedded via `_ "time/tzdata"`.
+
+### Security
+
+- **All outbound HTTP unified behind `internal/util/egress`** with a single SSRF `Guard`: request validation, private/reserved-address blocking, a safe `DialContext`, and a response-body size limit. The previously duplicated safe-client logic (in `util/http` and the webhook HTTP client) was consolidated here and adopted by auth / comment / common / connect / setting / webhook.
+- **Snapshot download tokens no longer appear in URLs** (moved to the `Authorization` header — see Breaking Changes).
+
+### Internal
+
+- **Event system rewrite** — one rule: dependencies point inward to a **pure vocabulary** package. `internal/event` holds event structs with self-describing `EventName()` / `OrderingKey()` and only imports models; `internal/event/bus` carries the infrastructure (`Emit` fire / `Notify` best-effort-with-warn / `On` type-routed subscribe, option presets, `EventRegistrar`). Routing is **by Go type** (no topic dimension); producers publish with a single `eventbus.Notify(...)` line. Fixed comment events silently swallowing publish errors along the way.
+- **Webhook consolidated into a single subsystem** and demoted to a **plain Subscriber**: one outbound `webhook.Sender` (dedicated egress client + signing + retry) shared by the dispatcher and the settings-page TestWebhook; the bespoke bus bridge and registrar special-case were removed in favor of `eventbus.OnWithMeta` + the generic `Draining` capability for graceful worker-pool drain. The external webhook contract (topic / signing headers) is unchanged.
+- **Settings engine (`internal/setting`)** — each KV config is a self-describing `Spec[T]` (key + default + normalize + migrate) behind a generic `Get`/`Set` engine plus a startup **seeder** (missing config is written on `BeforeStart`; `Get` no longer seeds as a read side-effect). `SettingService` slimmed down; auth / connect / snapshot / embedding / agent / comment now read through the engine instead of ad-hoc direct reads.
+- **Unified key-value store (`internal/kvstore`)** — a single `Store` (`Get`/`Set`/`Delete`) with `Memory` (test double) and `Persistent` (delegates to the keyvalue repository) implementations, Wire-bound so the repository layer is no longer imported by services. Replaced five duplicated narrow interfaces; `Set` merges the old add/update/upsert variants.
+- **Tasker → `task.Manager` + `scheduled` registry** — the old god-object + manual `Start` registration became a thin Manager holding `[]Task` with an optional `StopHook`, and each cron task (cleanup / visitor-snapshot / export) moved to its own self-describing `internal/task/scheduled` sub-package, eliminating the 7-arg constructor.
+- **`storage.Manager` promoted to a process-wide shared singleton.**
+- **Toolkit layering flattened** — `async` / `tui` sank to `util/{async,tui}`; `util/http` was dissolved (`TrimURL` → `util/url`, MIME mapping folded back into the file domain as one `canonicalMIMEForExt` table); the webhook `infra/httpclient` was flattened into the webhook root package.
+- **DI graph regenerated** (`make wire`) across all of the above; CLAUDE.md and the dev docs (`snapshot-design.md` added; webhook-usage / job-runner-design / timezone-design updated) kept in sync.
+
+## [4.9.2] - 2026-06-02
+
+### Added
+
+- **Copilot "year-in-review" / range summaries** — a dedicated `summarize_echos` tool that exhaustively aggregates echos over a date range instead of sampling top-k. It paginates through the *entire* range (hard cap 5000, truncating to the most recent with an honest notice) and adapts to the model's context window: small ranges are summarized in one pass, large ones via per-month map-reduce. A new optional **context window** setting (entered as a friendly `256k` / `1m`, stored as tokens) drives the aggregation budget. Coverage is reported back live via an SSE `coverage` event and a "📚 covered N echos" status bar, so nothing is silently truncated.
+- **`stats_overview` Copilot tool** — pure in-memory aggregation that gives the model exact quantitative facts (total count, active days, by-month, most active month, top tags).
+- **"Optional" badge on the vector-index tab** in Copilot settings, signalling that the feature is not required (new `commonUi.optional` i18n key across zh/en/de/ja).
+
+### Changed
+
+- **Chat streaming is noticeably faster** with zero visual change: `AnimatedMarkdown` now freezes the already-finalized prefix and only re-parses the unfinished tail (multi-paragraph answers drop from ~O(n²) to ~O(n) parse work, with stable block keys so animations never replay), `TheChatBox` skips a forced reflow on the per-token reveal hot path, and each message turn is layout-isolated via `contain: layout style`.
+- **Copilot Agent tuning ("seven-piece" pass)**: timezone-correct "today" / date parsing via `X-Timezone` (fixes day-boundary off-by-one across UTC), Anthropic prompt-cache breakpoint on the static tools+system prefix, relaxed and context-window-scaled `top_k` (default 6, up to 20), configurable `ECH0_AGENT_MAX_ROUNDS` (default 4), bounded-concurrency tool execution, and a per-round token budget that recycles the oldest tool results when the context limit is hit.
+- **Retrieval is now scoped to the current user.** Embedding search and echo queries filter by author, so Chat and retrieval only ever surface the conversation owner's own echos.
+- **Embedding `base_url` is passed through literally** to the OpenAI-compatible client (no more silent rewriting), with a clearer hint to enter the root address without `/embeddings`.
+
+### Fixed
+
+- **Range/year summaries no longer miss data or over-weight recent echos.** The aggregation path now keeps paging until the range is fully covered (instead of stopping on the first non-full page), clamps oversized page sizes to 100 rather than resetting them to 10, and enriches each line with tags, extension markers (music / website / location), and image counts — image-only echos now count too.
+- **Reindex success toast was blank** — the handler now returns a localized success message instead of empty data.
+- **Embedding backfill failures are now surfaced** — when every item fails (`indexed=0`, `failed>0`) the underlying error (404 / auth) is propagated instead of a silent empty message.
+- **Chat input box no longer covers history** — it has a max height (~5 lines) with internal scrolling, and the transcript yields space in real time; the empty-state composer is vertically centered and settles smoothly once the first message is sent.
+- **Streaming source block no longer jitters or flickers** — replaced the rAF stick-to-bottom polling with intent-driven pinning + `ResizeObserver`, disabled native scroll anchoring, and moved the sources block clear of the bottom mask gradient.
+- **`DeadLetterConsumeTask` scheduling-failure log** was mislabeled as `WebhookRetryTask`; backup setting now correctly documents its default as "disabled".
+
+### Internal
+
+- **Dependency bumps (Go)**: `go-patch-minor` group (6 updates).
+- **Dependency bumps (`web/`)**: `@dicebear/core` 9.4.2 → 10.0.1 (migrated to `@dicebear/styles`), plus the `web-patch-minor` group (4 updates).
+- **README**: each language's feature list now includes Ech0 Copilot (recap summaries & Chat).
+
+## [4.9.0] - 2026-05-31
+
+### Added
+
+- **LLM Chat — talk to your timeline (RAG).** A new owner-only AI chat that answers questions over your own echos. Echos are incrementally indexed into a `sqlite-vec` vector store on create/update/delete (plus an admin full-reindex endpoint), retrieved top-k by semantic similarity, and answered with streaming SSE. Supports multi-turn conversation memory and tool-calling retrieval (`search_echos`, with tag / date filters). Embedding is configured independently via an OpenAI-compatible `/v1/embeddings` endpoint; the chat itself speaks the OpenAI or Anthropic protocol. An optional **multimodal** mode feeds matched echo images to the model, and retrieval hits surface their Extension shares (music / website / location) and image thumbnails in the UI. Entry point lives in the homepage sidebar with a dedicated `/chat` view; all settings are grouped under the Copilot panel.
+- **"On This Day" API** — returns echos posted on this date in previous years.
+- **Random Echo API** — returns a single random echo.
+
+### Fixed
+
+- **Editing an echo returns to the same timeline page** instead of jumping back to the top.
+- **TWEET extension data is restored when editing an echo**, so Tweet/X cards no longer lose their embed on save.
+- **Timeline pager stays in sync with the URL** after filter changes.
+
+### Internal
+
+- **`agent` package refactored into a `copilot` domain** with a protocol abstraction (renamed from "provider"), tool-calling retrieval, and a `GenerateStream` API (real streaming on OpenAI; single-block v1 fallback on Anthropic). The Gemini integration was dropped.
+- **Frontend typings split** — `app.d.ts` broken into per-domain `.d.ts` files.
+- **Toolchain**: pnpm bumped to 11.5.0; `check.sh` hardened.
+- **CI**: auto-deploy `site` & `hub` to Cloudflare Pages.
+- **Dependency bumps (Go)**: `go-patch-minor` group (6 updates).
+- **Dependency bumps (`web/`)**: `vue` 3.5.35, `vue-router` 5.1.0, `vue-tsc` 3.3.2, `npm-run-all2` 8.0.4 → 9.0.1, plus the `web-patch-minor` group (4 updates).
+
 ## [4.8.2] - 2026-05-23
 
 ### Fixed
@@ -193,7 +758,30 @@ This is primarily a security release: six advisories disclosed since v4.7.2 are 
 
   Practical risk in this repo was negligible (the vulnerable code only runs at PWA build time on developer-controlled input), but the alerts are now resolved at the supply-chain level.
 
-[Unreleased]: https://github.com/lin-snow/Ech0/compare/v4.8.0...HEAD
+[Unreleased]: https://github.com/lin-snow/Ech0/compare/v5.5.0...HEAD
+[5.5.0]: https://github.com/lin-snow/Ech0/compare/v5.4.7...v5.5.0
+[5.4.7]: https://github.com/lin-snow/Ech0/compare/v5.4.6...v5.4.7
+[5.4.6]: https://github.com/lin-snow/Ech0/compare/v5.4.5...v5.4.6
+[5.4.5]: https://github.com/lin-snow/Ech0/compare/v5.4.4...v5.4.5
+[5.4.4]: https://github.com/lin-snow/Ech0/compare/v5.4.3...v5.4.4
+[5.4.3]: https://github.com/lin-snow/Ech0/compare/v5.4.2...v5.4.3
+[5.4.2]: https://github.com/lin-snow/Ech0/compare/v5.4.1...v5.4.2
+[5.4.1]: https://github.com/lin-snow/Ech0/compare/v5.4.0...v5.4.1
+[5.4.0]: https://github.com/lin-snow/Ech0/compare/v5.3.0...v5.4.0
+[5.3.0]: https://github.com/lin-snow/Ech0/compare/v5.2.5...v5.3.0
+[5.2.5]: https://github.com/lin-snow/Ech0/compare/v5.2.4...v5.2.5
+[5.2.4]: https://github.com/lin-snow/Ech0/compare/v5.2.3...v5.2.4
+[5.2.3]: https://github.com/lin-snow/Ech0/compare/v5.2.2...v5.2.3
+[5.2.2]: https://github.com/lin-snow/Ech0/compare/v5.2.1...v5.2.2
+[5.2.1]: https://github.com/lin-snow/Ech0/compare/v5.2.0...v5.2.1
+[5.2.0]: https://github.com/lin-snow/Ech0/compare/v5.1.0...v5.2.0
+[5.1.0]: https://github.com/lin-snow/Ech0/compare/v5.0.2...v5.1.0
+[5.0.2]: https://github.com/lin-snow/Ech0/compare/v5.0.0...v5.0.2
+[5.0.0]: https://github.com/lin-snow/Ech0/compare/v4.9.2...v5.0.0
+[4.9.2]: https://github.com/lin-snow/Ech0/compare/v4.9.0...v4.9.2
+[4.9.0]: https://github.com/lin-snow/Ech0/compare/v4.8.2...v4.9.0
+[4.8.2]: https://github.com/lin-snow/Ech0/compare/v4.8.1...v4.8.2
+[4.8.1]: https://github.com/lin-snow/Ech0/compare/v4.8.0...v4.8.1
 [4.8.0]: https://github.com/lin-snow/Ech0/compare/v4.7.5...v4.8.0
 [4.7.5]: https://github.com/lin-snow/Ech0/compare/v4.7.4...v4.7.5
 [4.7.4]: https://github.com/lin-snow/Ech0/compare/v4.7.3...v4.7.4

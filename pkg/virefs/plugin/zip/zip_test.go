@@ -15,9 +15,6 @@ import (
 	virefs "github.com/lin-snow/ech0/pkg/virefs"
 )
 
-// ---------- helpers ----------
-
-// makeZipBytes creates an in-memory zip with the given key→content pairs.
 func makeZipBytes(t *testing.T, files map[string]string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -37,7 +34,6 @@ func makeZipBytes(t *testing.T, files map[string]string) []byte {
 	return buf.Bytes()
 }
 
-// seedLocalFS creates a LocalFS in a temp dir and writes the given files.
 func seedLocalFS(t *testing.T, files map[string]string) *virefs.LocalFS {
 	t.Helper()
 	dir := t.TempDir()
@@ -54,7 +50,6 @@ func seedLocalFS(t *testing.T, files map[string]string) *virefs.LocalFS {
 	return fs
 }
 
-// readAll reads every byte from an FS key and returns it as a string.
 func readAll(t *testing.T, fsys virefs.FS, key string) string {
 	t.Helper()
 	rc, err := fsys.Get(context.Background(), key)
@@ -68,8 +63,6 @@ func readAll(t *testing.T, fsys virefs.FS, key string) string {
 	}
 	return string(data)
 }
-
-// ---------- FS tests ----------
 
 func TestFS_GetAndStat(t *testing.T) {
 	data := makeZipBytes(t, map[string]string{
@@ -169,7 +162,6 @@ func TestFS_List(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List all: %v", err)
 	}
-	// Shallow: a.txt, other.txt, dir/ (directory)
 	if len(res.Files) != 3 {
 		t.Fatalf("List root got %d, want 3 (2 files + 1 dir)", len(res.Files))
 	}
@@ -221,8 +213,6 @@ func TestFS_EmptyArchive(t *testing.T) {
 	}
 }
 
-// ---------- Pack tests ----------
-
 func TestPack(t *testing.T) {
 	src := seedLocalFS(t, map[string]string{
 		"a.txt":     "alpha",
@@ -259,8 +249,6 @@ func TestPack_ContextCancelled(t *testing.T) {
 		t.Fatal("Pack with cancelled context should fail")
 	}
 }
-
-// ---------- Unpack tests ----------
 
 func TestUnpack(t *testing.T) {
 	data := makeZipBytes(t, map[string]string{
@@ -319,8 +307,6 @@ func TestUnpack_ContextCancelled(t *testing.T) {
 		t.Fatal("Unpack with cancelled context should fail")
 	}
 }
-
-// ---------- Round-trip test ----------
 
 func TestPackUnpack_RoundTrip(t *testing.T) {
 	files := map[string]string{

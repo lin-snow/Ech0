@@ -8,10 +8,11 @@ import (
 	"fmt"
 
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
-	agentService "github.com/lin-snow/ech0/internal/service/agent"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
+	copilotService "github.com/lin-snow/ech0/internal/service/copilot"
+	dashboardService "github.com/lin-snow/ech0/internal/service/dashboard"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	fileService "github.com/lin-snow/ech0/internal/service/file"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
@@ -19,14 +20,15 @@ import (
 )
 
 type Adapter struct {
-	echoSvc    echoService.Service
-	userSvc    userService.Service
-	commentSvc commentService.Service
-	fileSvc    fileService.Service
-	commonSvc  commonService.Service
-	connectSvc connectService.Service
-	agentSvc   agentService.Service
-	settingSvc settingService.Service
+	echoSvc      echoService.Service
+	userSvc      userService.Service
+	commentSvc   commentService.Service
+	fileSvc      fileService.Service
+	commonSvc    commonService.Service
+	connectSvc   connectService.Service
+	agentSvc     copilotService.SummaryService
+	settingSvc   settingService.Service
+	dashboardSvc dashboardService.Service
 }
 
 func NewAdapter(
@@ -36,18 +38,20 @@ func NewAdapter(
 	fileSvc fileService.Service,
 	commonSvc commonService.Service,
 	connectSvc connectService.Service,
-	agentSvc agentService.Service,
+	agentSvc copilotService.SummaryService,
 	settingSvc settingService.Service,
+	dashboardSvc dashboardService.Service,
 ) *Adapter {
 	return &Adapter{
-		echoSvc:    echoSvc,
-		userSvc:    userSvc,
-		commentSvc: commentSvc,
-		fileSvc:    fileSvc,
-		commonSvc:  commonSvc,
-		connectSvc: connectSvc,
-		agentSvc:   agentSvc,
-		settingSvc: settingSvc,
+		echoSvc:      echoSvc,
+		userSvc:      userSvc,
+		commentSvc:   commentSvc,
+		fileSvc:      fileSvc,
+		commonSvc:    commonSvc,
+		connectSvc:   connectSvc,
+		agentSvc:     agentSvc,
+		settingSvc:   settingSvc,
+		dashboardSvc: dashboardSvc,
 	}
 }
 
@@ -64,9 +68,8 @@ func (a *Adapter) RegisterAll(reg *Registry) {
 	a.registerConnectResources(reg)
 	a.registerAgentTools(reg)
 	a.registerWebhookTools(reg)
+	a.registerDashboardResources(reg)
 }
-
-// --- Argument helpers ---
 
 func stringArg(args map[string]any, key string) string {
 	if v, ok := args[key]; ok {
@@ -165,8 +168,6 @@ func buildExtension(args map[string]any) *echoModel.EchoExtension {
 		Payload: payload,
 	}
 }
-
-// --- Result helpers ---
 
 func jsonResult(v any) (*ToolCallResult, error) {
 	data, err := json.Marshal(v)

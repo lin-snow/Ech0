@@ -5,17 +5,17 @@ import { parseDocFile } from "../docs/registry";
 import { absoluteUrl } from "../site";
 import privacyMd from "../../content/privacy.md?raw";
 
-export function meta({ data }: Route.MetaArgs) {
-  if (!data) {
+export function meta({ loaderData }: Route.MetaArgs) {
+  if (!loaderData) {
     return [{ title: "Privacy — Ech0" }];
   }
   return [
-    { title: `${data.title} — Ech0` },
+    { title: `${loaderData.title} — Ech0` },
     {
       name: "description",
-      content: data.description || data.title,
+      content: loaderData.description || loaderData.title,
     },
-    { property: "og:title", content: `${data.title} — Ech0` },
+    { property: "og:title", content: `${loaderData.title} — Ech0` },
     { property: "og:url", content: absoluteUrl("/privacy") },
   ];
 }

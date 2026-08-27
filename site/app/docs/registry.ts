@@ -41,7 +41,6 @@ function parseFrontMatterBlock(fm: string): {
   };
 }
 
-/** Strip YAML frontmatter and return body + meta */
 export function parseDocFile(
   raw: string,
   slug: string,
@@ -86,10 +85,6 @@ export function listDocCards(): DocCard[] {
   return cards;
 }
 
-/**
- * Shown as large hero cards on /docs — onboarding & deploy get visual priority.
- * Order matches display order (not sort key).
- */
 export const DOC_HERO_SLUGS: readonly string[] = [
   "guide/overview",
   "start/getting-started",
@@ -97,7 +92,6 @@ export const DOC_HERO_SLUGS: readonly string[] = [
   "start/update",
 ];
 
-/** Split catalog into featured hero docs and everything else (order preserved). */
 export function partitionDocCards(cards: DocCard[]): {
   featured: DocCard[];
   rest: DocCard[];
@@ -115,7 +109,6 @@ export function partitionDocCards(cards: DocCard[]): {
   return { featured, rest };
 }
 
-/** Explicit order: onboarding → guides → dev / community. */
 const DOC_ORDER: readonly string[] = [
   "guide/overview",
   "start/getting-started",
@@ -128,11 +121,14 @@ const DOC_ORDER: readonly string[] = [
   "guide/sso",
   "guide/comment",
   "guide/agent",
+  "guide/chat",
+  "guide/embedding",
   "guide/webhook",
   "guide/accesstoken",
   "guide/mcp",
   "guide/s3",
   "guide/datacontrol",
+  "guide/capsule",
   "dev/guide",
   "start/community",
 ];

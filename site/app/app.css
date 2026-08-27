@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Radix Sand–aligned palette (similar to minttr.com) */
 @theme {
   --font-sans:
     "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif,
@@ -8,7 +7,6 @@
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", ui-serif, serif;
   --color-app: #f6f4f0;
   --color-sand-1: #f6f4f0;
-  /* Between sand-1 and sand-6 — matches common Radix Sand 2 */
   --color-sand-2: #f5f4f1;
   --color-sand-6: #d7d4cf;
   --color-sand-11: #64605b;
@@ -17,11 +15,9 @@
 
 html,
 body {
-  /* Single smoothing mode — stacking antialiased + subpixel can look soft/blurry on some displays */
   @apply bg-app font-sans text-base text-sand-11 antialiased;
 }
 
-/* Docs: inline code only (blocks are pre > code with highlight.js) */
 .docs-markdown :not(pre) > code {
   border-radius: 0.25rem;
   background-color: var(--color-sand-2);
@@ -31,7 +27,6 @@ body {
   color: var(--color-sand-12);
 }
 
-/* Code blocks: override highlight.js github.css (white bg + 1em padding) to match page */
 .docs-markdown pre {
   background-color: var(--color-sand-2);
 }

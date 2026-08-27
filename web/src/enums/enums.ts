@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-// 编辑器的状态
 export enum Mode {
-  ECH0 = 0, // 默认编辑状态
-  Panel = 1, // 显示面板状态
-  EXTEN = 3, // 处理扩展状态
-  Image = 5, // 图片上传状态
-  TagManage = 6, // 标签管理状态
+  ECH0 = 0,
+  Panel = 1,
+  EXTEN = 3,
+  Media = 5,
+  TagManage = 6,
 }
 
-// 扩展类型
 export enum ExtensionType {
   MUSIC = 'MUSIC',
   VIDEO = 'VIDEO',
@@ -20,26 +18,31 @@ export enum ExtensionType {
   TWEET = 'TWEET',
 }
 
-// 图片布局
 export enum ImageLayout {
-  WATERFALL = 'waterfall', // 瀑布流布局
-  GRID = 'grid', // 九宫格布局
-  HORIZONTAL = 'horizontal', // 横向布局
-  CAROUSEL = 'carousel', // 单图轮播布局
-  STACK = 'stack', // 堆叠（多行交错、白边、轻微旋转）
+  WATERFALL = 'waterfall',
+  GRID = 'grid',
+  HORIZONTAL = 'horizontal',
+  CAROUSEL = 'carousel',
+  STACK = 'stack',
 }
 
-// S3 Service Provider
+export enum VideoLayout {
+  DEFAULT = 'none',
+}
+
+export enum AudioLayout {
+  DEFAULT = 'none',
+}
+
 export enum S3Provider {
   AWS = 'aws',
   ALIYUN = 'aliyun',
   TENCENT = 'tencent',
   MINIO = 'minio',
   R2 = 'r2',
-  OTHER = 'other', // 其它默认按照 MINIO 处理
+  OTHER = 'other',
 }
 
-// OAuth2 Provider
 export enum OAuth2Provider {
   GITHUB = 'github',
   GOOGLE = 'google',
@@ -47,7 +50,6 @@ export enum OAuth2Provider {
   CUSTOM = 'custom',
 }
 
-// Follow Status
 export enum FollowStatus {
   NONE = 'none',
   PENDING = 'pending',
@@ -55,23 +57,20 @@ export enum FollowStatus {
   REJECTED = 'rejected',
 }
 
-// Online Music Service Provider
 export enum MusicProvider {
-  NETEASE = 'netease', // 网易云音乐
-  QQ = 'tencent', // QQ音乐
-  APPLE = 'apple', // Apple Music
+  NETEASE = 'netease',
+  QQ = 'tencent',
+  APPLE = 'apple',
 }
 
-// Access Token Expiration Time
 export enum AccessTokenExpiration {
-  EIGHT_HOUR_EXPIRY = '8_hours', // 8小时
-  ONE_MONTH_EXPIRY = '1_month', // 1个月
-  NEVER_EXPIRY = 'never', // 永不过期
+  EIGHT_HOUR_EXPIRY = '8_hours',
+  ONE_MONTH_EXPIRY = '1_month',
+  NEVER_EXPIRY = 'never',
 }
 
-// Agent LLM Provider —— 仅按协议族区分；OPENAI 同时承担所有 OpenAI 兼容协议（DeepSeek、Qwen、Ollama 等）
-export enum AgentProvider {
+export enum AgentProtocol {
   OPENAI = 'openai',
+  OPENAI_RESPONSES = 'openai-responses',
   ANTHROPIC = 'anthropic',
-  GEMINI = 'gemini',
 }

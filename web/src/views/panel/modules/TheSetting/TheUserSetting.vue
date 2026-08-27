@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <PanelCard>
-    <!-- 用户设置 -->
     <div class="w-full">
       <div class="flex flex-row items-center justify-between mb-3">
         <h1 class="text-[var(--color-text-primary)] font-bold text-lg">
@@ -20,7 +19,6 @@
         </div>
       </div>
 
-      <!-- 头像 -->
       <div class="flex justify-start items-center mb-2">
         <img
           :src="avatarSrc"
@@ -30,7 +28,6 @@
           class="w-12 h-12 rounded-full ml-2 mr-9 ring-1 ring-[var(--color-border-subtle)] shadow-[var(--shadow-sm)]"
         />
         <div>
-          <!-- 点击上传头像 -->
           <input
             id="file-input"
             class="hidden"
@@ -49,7 +46,6 @@
         </div>
       </div>
 
-      <!-- 用户名 -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 min-h-10 py-1"
       >
@@ -68,7 +64,6 @@
         />
       </div>
 
-      <!-- 密码 -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 min-h-10 py-1"
       >
@@ -85,7 +80,6 @@
           autocomplete="off"
         />
       </div>
-      <!-- 邮箱 -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 min-h-10 py-1"
       >
@@ -103,7 +97,6 @@
           class="w-full max-w-52 py-1!"
         />
       </div>
-      <!-- 界面语言 -->
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 min-h-10 py-1"
       >
@@ -134,7 +127,7 @@ import { resolveAvatarUrl } from '@/service/request/shared'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import { useFileQueue } from '@/lib/file'
 import { useI18n } from 'vue-i18n'
-import { setI18nLocale } from '@/locales'
+import { setI18nLocale, LOCALE_ENDONYMS, LOCALE_OPTIONS, type AppLocale } from '@/locales'
 
 const userStore = useUserStore()
 const { t } = useI18n()
@@ -152,19 +145,10 @@ const userInfo = ref<App.Api.User.UserInfo>({
 
 const editMode = ref<boolean>(false)
 const avatarSrc = computed(() => resolveAvatarUrl(user.value?.avatar))
-const localeOptions = computed(() => [
-  { label: String(t('userSetting.localeZhShort')), value: 'zh-CN' },
-  { label: String(t('userSetting.localeEnShort')), value: 'en-US' },
-  { label: String(t('userSetting.localeDeShort')), value: 'de-DE' },
-  { label: String(t('userSetting.localeJaShort')), value: 'ja-JP' },
-])
-const localeLabel = computed(() => {
-  const locale = userInfo.value.locale
-  if (locale === 'en-US') return t('userSetting.localeEnShort')
-  if (locale === 'de-DE') return t('userSetting.localeDeShort')
-  if (locale === 'ja-JP') return t('userSetting.localeJaShort')
-  return t('userSetting.localeZhShort')
-})
+const localeOptions = LOCALE_OPTIONS
+const localeLabel = computed(
+  () => LOCALE_ENDONYMS[userInfo.value.locale as AppLocale] || LOCALE_ENDONYMS['zh-CN'],
+)
 const { enqueueUpload, waitForTask, clearFinishedUploads } = useFileQueue()
 
 const handleUpdateUser = async () => {
@@ -177,7 +161,6 @@ const handleUpdateUser = async () => {
       }
     })
     .finally(() => {
-      // 重新获取设置
       refreshCurrentUser()
     })
     .catch((err) => {
@@ -215,7 +198,6 @@ const handleUploadImage = async (event: Event) => {
     }
   } catch (err) {
     console.error('上传异常', err)
-    // 注意：这里只有抛出异常时才会进入，正常 res.code ≠ 1 是不会进来的
   } finally {
     clearFinishedUploads()
     target.value = ''

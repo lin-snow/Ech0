@@ -26,7 +26,6 @@ type Service struct {
 	SecretPepper []byte
 }
 
-// ServiceOptions configures a Service instance.
 type ServiceOptions struct {
 	ChallengeTTL time.Duration
 	RedeemTTL    time.Duration
@@ -35,7 +34,6 @@ type ServiceOptions struct {
 	SecretPepper []byte
 }
 
-// NewService creates a new core service with sane defaults.
 func NewService(st store.Store, opts ServiceOptions) *Service {
 	nowFn := opts.Now
 	if nowFn == nil {
@@ -63,14 +61,12 @@ func NewService(st store.Store, opts ServiceOptions) *Service {
 	}
 }
 
-// HashSecret hashes a raw site secret using an HMAC pepper.
 func HashSecret(secret string, pepper []byte) []byte {
 	h := hmac.New(sha256.New, pepper)
 	_, _ = h.Write([]byte(secret))
 	return h.Sum(nil)
 }
 
-// SecureSecretEqual compares a raw secret against the expected hash in constant time.
 func SecureSecretEqual(secret string, expectedHash, pepper []byte) bool {
 	got := HashSecret(secret, pepper)
 	return subtle.ConstantTimeCompare(got, expectedHash) == 1

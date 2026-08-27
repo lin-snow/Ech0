@@ -68,7 +68,6 @@ func TestRedeemCompatUnknownFieldsAndSiteverifyNoRateLimit(t *testing.T) {
 		t.Fatalf("missing redeem token")
 	}
 
-	// siteverify should not be rate-limited by default.
 	verifyBody, _ := json.Marshal(map[string]any{
 		"secret":   "secret1",
 		"response": redeemResp.Token,
@@ -148,7 +147,7 @@ func bruteOneLocal(seed string, c, s, d int) int {
 }
 
 func brutePowNonce(salt, target string) int {
-	for nonce := 0; nonce < 10_000_000; nonce++ {
+	for nonce := range 10_000_000 {
 		sum := sha256.Sum256([]byte(salt + intToString(nonce)))
 		h := hex.EncodeToString(sum[:])
 		if len(target) <= len(h) && h[:len(target)] == target {

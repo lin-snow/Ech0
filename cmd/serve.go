@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// serveCmd 是启动 Web 服务的命令
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the web server (blocking)",
@@ -17,7 +16,6 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-// webCmd 是仅启动 Web 服务并阻塞的命令
 var webCmd = &cobra.Command{
 	Use:        "web",
 	Short:      "(Compatibility alias) Start the web server (blocking)",
@@ -28,7 +26,6 @@ var webCmd = &cobra.Command{
 	},
 }
 
-// init 函数用于初始化根命令和子命令
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(webCmd)

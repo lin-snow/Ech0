@@ -8,9 +8,6 @@ import { fetchGetConnectList, fetchGetAllConnectInfo } from '@/service/api'
 const CONNECT_CACHE_TTL_MS = 30 * 60 * 1000
 
 export const useConnectStore = defineStore('connectStore', () => {
-  /**
-   * State
-   */
   const connects = ref<App.Api.Connect.Connected[]>([])
   const connectsInfo = ref<App.Api.Connect.Connect[]>([])
   const loading = ref<boolean>(true)
@@ -19,9 +16,6 @@ export const useConnectStore = defineStore('connectStore', () => {
   const connectsInFlight = ref<Promise<void> | null>(null)
   const connectsInfoInFlight = ref<Promise<void> | null>(null)
 
-  /**
-   * Actions
-   */
   const isFresh = (ts: number) => ts > 0 && Date.now() - ts < CONNECT_CACHE_TTL_MS
 
   async function getConnect(options?: { force?: boolean }) {

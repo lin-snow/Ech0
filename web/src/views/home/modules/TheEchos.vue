@@ -5,7 +5,6 @@
     class="mx-auto mt-1 sm:mt-0 mb-4 sm:mb-5 md:mb-6"
     :class="compact ? 'pl-1 pr-0 max-w-full' : 'px-2 sm:px-4 md:px-6 max-w-full'"
   >
-    <!-- Echos - 使用 TransitionGroup 实现入场动画 -->
     <TransitionGroup
       v-if="echoStore.echoList"
       name="list"
@@ -20,7 +19,6 @@
         <TheEchoCard :echo="echo" :index="index" @refresh="handleRefresh" />
       </div>
     </TransitionGroup>
-    <!-- 时间线翻页：Before = 更早（左），After = 更新（右）；缺位用空 span 占位以稳定布局 -->
     <Transition name="fade">
       <div
         v-if="!echoStore.isLoading && echoStore.total > 0 && echoStore.totalPages > 1"
@@ -46,7 +44,6 @@
         <span v-else aria-hidden="true" />
       </div>
     </Transition>
-    <!-- 没有数据 -->
     <Transition name="fade">
       <div
         v-if="!echoStore.isLoading && echoStore.total === 0"
@@ -57,7 +54,6 @@
         </p>
       </div>
     </Transition>
-    <!-- 加载中 -->
     <Transition name="fade">
       <TheLoadingIndicator
         v-if="echoStore.isLoading"
@@ -66,7 +62,6 @@
         :label="t('homeFeed.loading')"
       />
     </Transition>
-    <!-- 自定义页脚（紧跟时间线内容之后） -->
     <div v-if="footerContent" class="mt-6 text-center">
       <a v-if="footerLink" :href="footerLink" target="_blank" rel="noopener noreferrer">
         <span class="text-[var(--color-text-muted)] text-sm">
@@ -91,7 +86,6 @@ import { useRoute, useRouter } from 'vue-router'
 
 const props = defineProps<{
   scrollTarget?: HTMLElement | null
-  /** 首页窄栏：减少左右留白以贴合参考图时间线宽度 */
   compact?: boolean
 }>()
 
@@ -110,8 +104,6 @@ const footerLink = computed(() => SystemSetting.value.footer_link)
 const canGoNewer = computed(() => echoStore.currentPage > 1)
 const canGoOlder = computed(() => echoStore.currentPage < echoStore.totalPages)
 
-// 瀑布式入场：批内计数器决定 stagger 时长，
-// 整页换页时新批从 0 重新起跳，不会顶到封顶延迟。
 const hasInitialRendered = ref(false)
 
 let enterBatchIndex = 0
@@ -125,7 +117,6 @@ const ENTER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const onBeforeEnter = (el: Element) => {
   const element = el as HTMLElement
   element.style.opacity = '0'
-  // 起始位置在最终位置上方 18px，配合 stagger 形成"自上而下落入"的视觉。
   element.style.transform = 'translateY(-18px)'
 }
 
@@ -151,8 +142,6 @@ const onEnter = (el: Element, done: () => void) => {
   }, baseDelay + staggerDelay)
 }
 
-// 离场：先把元素位置快照并切成 absolute 脱离文档流，让留下的卡片
-// 通过 .list-move 平滑补位、新进来的卡片不会和旧卡重叠。
 const onBeforeLeave = (el: Element) => {
   const element = el as HTMLElement
   const parent = element.parentElement
@@ -192,41 +181,39 @@ const parsePageQuery = (raw: unknown): number => {
 const handleGoToPage = async (page: number) => {
   const target = Math.max(1, Math.min(page, echoStore.totalPages || page))
   if (target === echoStore.currentPage) return
-  const nextQuery = { ...route.query }
-  if (target > 1) {
-    nextQuery.page = String(target)
-  } else {
-    delete nextQuery.page
-  }
-  await router.replace({ query: nextQuery })
-  // route watcher 会驱动实际的 fetch + scroll
+  await echoStore.goToPage(target)
+  scrollToTop()
 }
 
-// 刷新数据（点赞 / 编辑 / 删除单条 echo 后刷新当前页）
 const handleRefresh = () => {
   echoStore.refreshEchos()
 }
 
-// URL ?page=N → store currentPage：单一来源，避免双向同步歪楼
+watch(
+  () => echoStore.currentPage,
+  (page) => {
+    if (parsePageQuery(route.query.page) === page) return
+    const nextQuery = { ...route.query }
+    if (page > 1) {
+      nextQuery.page = String(page)
+    } else {
+      delete nextQuery.page
+    }
+    router.replace({ query: nextQuery })
+  },
+)
+
 watch(
   () => route.query.page,
   async (raw) => {
     const target = parsePageQuery(raw)
-    if (target === echoStore.currentPage && echoStore.echoList.length > 0) return
-    echoStore.currentPage = target
-    await echoStore.fetchCurrentPage()
+    if (target === echoStore.currentPage) return
+    await echoStore.goToPage(target)
     scrollToTop()
   },
 )
 
-// 过滤模式切换时（进入/退出/切换标签），刷新列表回到第一页
 watch(isFilteringMode, () => {
-  if (Number(route.query.page) > 1) {
-    const nextQuery = { ...route.query }
-    delete nextQuery.page
-    router.replace({ query: nextQuery })
-    return
-  }
   echoStore.refreshEchos()
 })
 
@@ -234,7 +221,6 @@ onMounted(async () => {
   const target = parsePageQuery(route.query.page)
   echoStore.currentPage = target
   await echoStore.fetchCurrentPage()
-  // 首屏交错动画跑完（最长 ~460ms）后切到淡入模式，避免后续过滤刷新抖动
   window.setTimeout(() => {
     hasInitialRendered.value = true
   }, 500)
@@ -246,7 +232,6 @@ onMounted(async () => {
   font-family: var(--font-family-display);
 }
 
-/* 时间线翻页按钮：透明底 + 细边框药丸，贴合纸面色调 */
 .echos-pager {
   display: inline-flex;
   align-items: center;
@@ -284,14 +269,10 @@ onMounted(async () => {
   outline-offset: 2px;
 }
 
-/* 留下的卡片位置变化：用于过滤/刷新时平滑补位 */
 .list-move {
   transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* 离场动画完全在 JS 里处理（onBeforeLeave / onLeave）以便快照位置后脱离文档流。 */
-
-/* 淡入淡出动画 */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;

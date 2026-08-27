@@ -32,22 +32,16 @@
     </header>
 
     <section class="echo-detail-body">
-      <template
-        v-if="
-          props.echo.layout === ImageLayout.GRID ||
-          props.echo.layout === ImageLayout.HORIZONTAL ||
-          props.echo.layout === ImageLayout.STACK
-        "
-      >
+      <template v-if="isContentLeadingEcho(props.echo)">
         <div class="mb-3">
           <TheMdPreview :content="props.echo.content" />
         </div>
 
-        <TheImageGallery :images="echoImageFiles" :layout="props.echo.layout" priority />
+        <TheMediaPlayer :echo="props.echo" :layout="props.echo.layout" priority />
       </template>
 
       <template v-else>
-        <TheImageGallery :images="echoImageFiles" :layout="props.echo.layout" priority />
+        <TheMediaPlayer :echo="props.echo" :layout="props.echo.layout" priority />
 
         <div class="mt-3">
           <TheMdPreview :content="props.echo.content" />
@@ -65,7 +59,6 @@
 
 <script setup lang="ts">
 import Verified from '@/components/icons/verified.vue'
-import TheImageGallery from '@/components/advanced/gallery/TheImageGallery.vue'
 import TheEchoMeta from '@/components/advanced/echo/cards/TheEchoMeta.vue'
 import { computed, defineAsyncComponent } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -73,10 +66,12 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettingStore } from '@/stores'
 import { resolveAvatarUrl } from '@/service/request/shared'
-import { ImageLayout } from '@/enums/enums'
-import { getEchoFilesBy } from '@/utils/echo'
+import { isContentLeadingEcho } from '@/utils/echo'
 import { TheMdPreview } from '@/components/advanced/md'
 
+const TheMediaPlayer = defineAsyncComponent(
+  () => import('@/components/advanced/media/TheMediaPlayer.vue'),
+)
 const TheExtensionRenderer = defineAsyncComponent(
   () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
 )
@@ -90,9 +85,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'updateLikeCount', echoId: string): void
 }>()
-const echoImageFiles = computed(() =>
-  getEchoFilesBy(props.echo, { categories: ['image'], dedupeBy: 'id' }),
-)
 
 const settingStore = useSettingStore()
 

@@ -6,7 +6,7 @@
 
 - 定位：小而清晰、typed-first 的进程内事件总线
 - 范围：只做单进程内分发，不做持久化、重放、跨进程投递
-- API 风格：`Subscribe[T]` / `Publish[T]`，默认同步，语义直观
+- API 风格：`Bus.Subscribe[T]` / `Bus.Publish[T]`，默认同步，语义直观
 - 路由能力：支持精确 topic 与轻量通配（`*`、末尾 `>`）
 - 并发控制：`Async()` + `WithBuffer(...)` + `WithOverflow(...)` 显式背压
 - 顺序语义：支持 single-worker FIFO 与 per-subscriber/per-key 局部有序
@@ -17,7 +17,7 @@
 
 | 优势 | 价值 |
 | --- | --- |
-| typed-first API | `Subscribe[T]` / `Publish[T]` 直接用业务类型，减少样板代码和断言错误 |
+| typed-first API | `Bus.Subscribe[T]` / `Bus.Publish[T]` 直接用业务类型，减少样板代码和断言错误 |
 | 显式并发语义 | sync/async、buffer、overflow、keyed ordering 都是可配置且可预期的 |
 | 轻量但可扩展 | 支持 topic、middleware、hooks、metadata、observer，按需开启，不强制框架化 |
 | 观测与排障友好 | 提供 publish/error/panic/drop/reject 生命周期回调，且携带结构化上下文 |
@@ -44,7 +44,7 @@ type UserCreated struct {
 func main() {
 	bus := busen.New()
 
-	unsubscribe, err := busen.Subscribe(bus, func(ctx context.Context, event busen.Event[UserCreated]) error {
+	unsubscribe, err := bus.Subscribe(func(ctx context.Context, event busen.Event[UserCreated]) error {
 		fmt.Printf("welcome %s\n", event.Value.Email)
 		return nil
 	})
@@ -53,7 +53,7 @@ func main() {
 	}
 	defer unsubscribe()
 
-	err = busen.Publish(context.Background(), bus, UserCreated{
+	err = bus.Publish(context.Background(), UserCreated{
 		ID:    "u_123",
 		Email: "hello@example.com",
 	})
@@ -71,10 +71,10 @@ func main() {
 
 | 场景 | 建议 API |
 | --- | --- |
-| 只按类型收消息 | `Subscribe[T]` |
-| 还需要按 topic 约束 | `SubscribeTopic[T]` |
-| 一个 handler 需要订阅多个 topic | `SubscribeTopics[T]` |
-| 需要按事件内容过滤 | `SubscribeMatch[T]` 或 `WithFilter(...)` |
+| 只按类型收消息 | `Bus.Subscribe[T]` |
+| 还需要按 topic 约束 | `Bus.SubscribeTopic[T]` |
+| 一个 handler 需要订阅多个 topic | `Bus.SubscribeTopics[T]` |
+| 需要按事件内容过滤 | `Bus.SubscribeMatch[T]` 或 `WithFilter(...)` |
 | 希望调用方同步拿到 handler error | 默认同步订阅 |
 | 希望异步投递并显式控制背压 | `Async()` + `WithBuffer(...)` + `WithOverflow(...)` |
 | 希望单个订阅者 FIFO | `Sequential()` |
@@ -99,7 +99,7 @@ func main() {
 - `>`：匹配剩余的一个或多个 segment，且必须位于末尾
 
 ```go
-sub, err := busen.SubscribeTopic(bus, "orders.>", func(ctx context.Context, event busen.Event[string]) error {
+sub, err := bus.SubscribeTopic("orders.>", func(ctx context.Context, event busen.Event[string]) error {
 	fmt.Println(event.Topic, event.Value)
 	return nil
 })
@@ -108,13 +108,13 @@ if err != nil {
 }
 defer sub()
 
-_ = busen.Publish(context.Background(), bus, "created", busen.WithTopic("orders.eu.created"))
+_ = bus.Publish(context.Background(), "created", busen.WithTopic("orders.eu.created"))
 ```
 
-如果同一个 handler 需要订阅多个 topic，也可以使用 `SubscribeTopics[T]`：
+如果同一个 handler 需要订阅多个 topic，也可以使用 `Bus.SubscribeTopics[T]`：
 
 ```go
-sub, err := busen.SubscribeTopics(bus, []string{"orders.created", "orders.updated"}, func(ctx context.Context, event busen.Event[string]) error {
+sub, err := bus.SubscribeTopics([]string{"orders.created", "orders.updated"}, func(ctx context.Context, event busen.Event[string]) error {
 	fmt.Println(event.Topic, event.Value)
 	return nil
 })
@@ -123,8 +123,8 @@ if err != nil {
 }
 defer sub()
 
-_ = busen.Publish(context.Background(), bus, "created", busen.WithTopic("orders.created"))
-_ = busen.Publish(context.Background(), bus, "updated", busen.WithTopic("orders.updated"))
+_ = bus.Publish(context.Background(), "created", busen.WithTopic("orders.created"))
+_ = bus.Publish(context.Background(), "updated", busen.WithTopic("orders.updated"))
 ```
 
 ## 异步分发与顺序
@@ -137,7 +137,7 @@ _ = busen.Publish(context.Background(), bus, "updated", busen.WithTopic("orders.
 - `OverflowDropOldest`
 
 ```go
-_, err = busen.Subscribe(bus, func(ctx context.Context, event busen.Event[UserCreated]) error {
+_, err = bus.Subscribe(func(ctx context.Context, event busen.Event[UserCreated]) error {
 	return nil
 },
 	busen.Async(),
@@ -150,12 +150,12 @@ _, err = busen.Subscribe(bus, func(ctx context.Context, event busen.Event[UserCr
 如果发布时带上 `WithKey(...)`，那么同一 async 订阅者内、相同非空 ordering key 的事件会保持局部顺序：
 
 ```go
-_, err = busen.Subscribe(bus, func(ctx context.Context, event busen.Event[UserCreated]) error {
+_, err = bus.Subscribe(func(ctx context.Context, event busen.Event[UserCreated]) error {
 	return nil
 }, busen.Async(), busen.WithParallelism(4), busen.WithBuffer(256))
 
-_ = busen.Publish(context.Background(), bus, UserCreated{ID: "1"}, busen.WithKey("tenant-a"))
-_ = busen.Publish(context.Background(), bus, UserCreated{ID: "2"}, busen.WithKey("tenant-a"))
+_ = bus.Publish(context.Background(), UserCreated{ID: "1"}, busen.WithKey("tenant-a"))
+_ = bus.Publish(context.Background(), UserCreated{ID: "2"}, busen.WithKey("tenant-a"))
 ```
 
 边界说明：
@@ -251,9 +251,8 @@ bus := busen.New(
 	}),
 )
 
-_ = busen.Publish(
+_ = bus.Publish(
 	context.Background(),
-	bus,
 	OrderCreated{ID: "o_1"},
 	busen.WithMetadata(map[string]string{
 		"trace_id": "tr_123",
@@ -309,11 +308,11 @@ log.Printf("completed=%v processed=%d dropped=%d rejected=%d timeout_subs=%v",
 
 ## 性能测试
 
-`Busen` 内置了可重复运行的 benchmark，覆盖 `Publish[T]`、sync/async、topic 路由、middleware、hooks 等热路径。
+`Busen` 内置了可重复运行的 benchmark，覆盖 `Bus.Publish[T]`、sync/async、topic 路由、middleware、hooks 等热路径。
 
 主要覆盖项：
 
-- `Publish[T]` 在 `1 / 10 / 100` 个订阅者下的成本
+- `Bus.Publish[T]` 在 `1 / 10 / 100` 个订阅者下的成本
 - sync 与 async sequential 的差异
 - async keyed delivery
 - middleware 开启/关闭
@@ -330,39 +329,39 @@ go test ./... -run '^$' -bench . -benchmem
 
 这些数字代表的是 **in-process event bus 的热路径开销**，不是消息系统吞吐保证。
 
-在一台使用 Go `1.26.0` 的 Apple M4 机器上的一轮参考结果大致为：
+在一台使用 Go `1.27.0` 的 Apple M4 机器上，`-count=5` 取中位数的参考结果大致为：
 
 | 场景 | 参考耗时 |
 | --- | --- |
-| sync publish（1 subscriber） | 约 `147 ns/op` |
-| sync publish（10 subscribers） | 约 `659 ns/op` |
-| async sequential publish | 约 `238 ns/op` |
-| async keyed publish | 约 `285 ns/op` |
-| middleware-enabled publish | 约 `129 ns/op` |
-| middleware + hooks publish | 约 `147 ns/op` |
-| async keyed + topic publish | 约 `299 ns/op` |
-| exact topic publish | 约 `158 ns/op` |
-| wildcard topic publish | 约 `151 ns/op` |
+| sync publish（1 subscriber） | 约 `123 ns/op` |
+| sync publish（10 subscribers） | 约 `658 ns/op` |
+| async sequential publish | 约 `204 ns/op` |
+| async keyed publish | 约 `282 ns/op` |
+| middleware-enabled publish | 约 `128 ns/op` |
+| middleware + hooks publish | 约 `145 ns/op` |
+| async keyed + topic publish | 约 `270 ns/op` |
+| exact topic publish | 约 `138 ns/op` |
+| wildcard topic publish | 约 `143 ns/op` |
 
 这一轮里，router matcher 依然保持 `0 allocs/op`：
 
 | matcher | 参考耗时 | 分配 |
 | --- | --- | --- |
-| exact matcher | 约 `1.5 ns/op` | `0 allocs/op` |
-| wildcard matcher | 约 `6.3 ns/op` | `0 allocs/op` |
+| exact matcher | 约 `1.8 ns/op` | `0 allocs/op` |
+| wildcard matcher | 约 `5.9 ns/op` | `0 allocs/op` |
 
 新增能力（metadata / observer）的一轮参考结果如下：
 
 | 场景 | 参考耗时 | 分配 |
 | --- | --- | --- |
-| publish with metadata（disabled） | 约 `126 ns/op` | `288 B/op`, `4 allocs/op` |
-| publish with metadata（enabled） | 约 `780 ns/op` | `2640 B/op`, `18 allocs/op` |
-| publish with observer（disabled） | 约 `149 ns/op` | `312 B/op`, `5 allocs/op` |
-| publish with observer（enabled） | 约 `187 ns/op` | `376 B/op`, `6 allocs/op` |
+| publish with metadata（disabled） | 约 `122 ns/op` | `288 B/op`, `4 allocs/op` |
+| publish with metadata（enabled） | 约 `787 ns/op` | `2640 B/op`, `18 allocs/op` |
+| publish with observer（disabled） | 约 `137 ns/op` | `312 B/op`, `5 allocs/op` |
+| publish with observer（enabled） | 约 `174 ns/op` | `376 B/op`, `6 allocs/op` |
 
 说明：
 
-- 上表来自 `go test ./... -run '^$' -bench . -benchmem` 的单轮样本，主要用于量级感知
+- 上表来自 `go test ./... -run '^$' -bench . -benchmem -count=5` 的中位数样本，主要用于量级感知
 - `metadata` 开销主要来自 map 复制/合并与 hook/handler 透传
 - `observer` 在“仅观察、轻过滤”下增量较小；复杂过滤函数会抬高开销
 - 建议在你的目标硬件上用相同命令复测后再做容量预算

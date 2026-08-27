@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-/**
- * 替代 web/src/utils/other.ts 中被 TheImageGallery 使用的图片 URL 解析，
- * 避免整文件顶部的 i18n / enums 依赖把整站 web 打进 Hub bundle。
- */
 const ABSOLUTE_URL_REGEX = /^https?:\/\//i
 const joinBaseAndPath = (baseUrl: string, path: string) =>
   `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
@@ -36,3 +32,6 @@ export const getImageUrl = (image: App.Api.Ech0.FileObject) => resolveFileUrl(im
 
 export const getHubImageUrl = (image: App.Api.Ech0.FileObject, baseurl: string) =>
   resolveFileUrl(image, baseurl)
+
+export const getHubFileUrl = (file: App.Api.Ech0.FileObject, baseurl: string) =>
+  resolveFileUrl(file, baseurl)

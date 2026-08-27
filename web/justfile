@@ -1,0 +1,40 @@
+
+set shell := ["bash", "-cu"]
+
+default:
+    @just --list
+
+install:
+    pnpm install --frozen-lockfile
+
+dev:
+    pnpm dev
+
+build:
+    pnpm build
+
+preview:
+    pnpm preview
+
+typecheck:
+    pnpm type-check
+
+test:
+    pnpm test:unit
+
+lint:
+    pnpm lint
+
+lint-style:
+    pnpm lint:style
+
+format:
+    pnpm format
+
+i18n-check:
+    pnpm i18n:check
+
+token-check:
+    pnpm token:check
+
+check: format lint lint-style i18n-check

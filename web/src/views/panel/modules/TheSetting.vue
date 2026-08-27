@@ -2,15 +2,24 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="w-full px-2">
-    <!-- 系统设置 -->
-    <TheSystemSetting class="mb-3" />
+    <BaseSegmented v-model="tab" :options="tabOptions" />
 
-    <!-- 访问令牌设置 -->
-    <TheAccessTokenSetting class="mb-3" />
+    <TheSystemSetting v-if="tab === 'system'" />
+    <TheAccessTokenSetting v-else />
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import BaseSegmented from '@/components/common/BaseSegmented.vue'
 import TheSystemSetting from './TheSetting/TheSystemSetting.vue'
 import TheAccessTokenSetting from './TheSetting/TheAccessTokenSetting.vue'
+
+const { t } = useI18n()
+const tab = ref('system')
+const tabOptions = computed(() => [
+  { label: String(t('settingManagement.tabSystem')), value: 'system' },
+  { label: String(t('settingManagement.tabAccessToken')), value: 'accessToken' },
+])
 </script>

@@ -4,46 +4,39 @@
   <div
     class="editor-mode-panel p-3 my-3 border border-dashed border-[var(--dash-line-color)] rounded-xs"
   >
-    <!-- 扩展附加内容 -->
     <div class="mb-1">
       <h2 class="text-[var(--color-text-muted)] font-bold mb-1">{{ t('editor.extraContent') }}</h2>
       <div class="flex flex-row items-center gap-2">
-        <!-- 添加音乐 -->
         <BaseButton
           :icon="Music"
           class="w-7 h-7 rounded-xs"
           :tooltip="t('editor.addMusic')"
           @click="handleAddExtension(ExtensionType.MUSIC)"
         />
-        <!-- 添加视频 -->
         <BaseButton
           :icon="Video"
           class="w-7 h-7 rounded-xs"
           :tooltip="t('editor.addVideo')"
           @click="handleAddExtension(ExtensionType.VIDEO)"
         />
-        <!-- 添加Github项目 -->
         <BaseButton
           :icon="Githubproj"
           class="w-7 h-7 rounded-xs"
           :tooltip="t('editor.addGithubProject')"
           @click="handleAddExtension(ExtensionType.GITHUBPROJ)"
         />
-        <!-- 添加网站链接 -->
         <BaseButton
           :icon="Weblink"
           class="w-7 h-7 rounded-xs"
           :tooltip="t('editor.addWebsiteLink')"
           @click="handleAddExtension(ExtensionType.WEBSITE)"
         />
-        <!-- 添加位置 -->
         <BaseButton
           :icon="MapPin"
           class="w-7 h-7 rounded-xs"
           :tooltip="t('editor.addLocation')"
           @click="handleAddExtension(ExtensionType.LOCATION)"
         />
-        <!-- 添加 X 推文 -->
         <BaseButton
           :icon="XBrand"
           class="w-7 h-7 rounded-xs"

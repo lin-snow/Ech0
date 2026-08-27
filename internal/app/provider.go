@@ -8,22 +8,26 @@ import (
 
 	"github.com/google/wire"
 	bus "github.com/lin-snow/ech0/internal/event/bus"
-	registry "github.com/lin-snow/ech0/internal/event/registry"
-	"github.com/lin-snow/ech0/internal/migrator"
+	"github.com/lin-snow/ech0/internal/job"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/server"
+	"github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/task"
 )
 
 func ProvideOptions(
-	registrar *registry.EventRegistrar,
-	eventBus *bus.EventBus,
-	tasker *task.Tasker,
-	migratorWorker *migrator.Worker,
+	registrar *bus.EventRegistrar,
+	jobManager *job.Manager,
+	taskManager *task.Manager,
 	httpServer *server.Server,
+	durableKV kvstore.Store,
 ) []Option {
 	return []Option{
-		Components(eventBus, tasker, migratorWorker, httpServer),
-		BeforeStart(func(context.Context) error {
+		Components(jobManager, taskManager, httpServer),
+		BeforeStart(func(ctx context.Context) error {
+			if err := setting.Seed(ctx, durableKV); err != nil {
+				return err
+			}
 			return registrar.Register()
 		}),
 		AfterStop(func(context.Context) error {
@@ -36,4 +40,4 @@ func NewApp(opts []Option) *App {
 	return New(opts...)
 }
 
-var ProviderSet = wire.NewSet(ProvideOptions, bus.NewEventBus, NewApp)
+var ProviderSet = wire.NewSet(ProvideOptions, NewApp)

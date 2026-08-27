@@ -10,7 +10,6 @@ export interface HealthzData {
 }
 
 const MIN_VERSION = '4.4.0'
-/** healthz 是最轻量的握手，超时给 5s 已经远超正常往返。 */
 const HEALTHZ_TIMEOUT_MS = 5000
 
 function parseSemver(s: string): [number, number, number] | null {
@@ -19,7 +18,6 @@ function parseSemver(s: string): [number, number, number] | null {
   return [Number(m[1]), Number(m[2]), Number(m[3])]
 }
 
-/** 当前版本是否 **≥** 最低版本（仅比较 major.minor.patch 前三段） */
 export function isVersionAtLeast(current: string, minimum: string): boolean {
   const a = parseSemver(current)
   const b = parseSemver(minimum)
@@ -35,7 +33,6 @@ export function meetsHubMinVersion(version: string): boolean {
   return isVersionAtLeast(version, MIN_VERSION)
 }
 
-/** GET `{instanceUrl}/healthz`，与主站 Resource 路由一致（非 /api 前缀） */
 export async function fetchHealthz(
   instanceUrl: string,
   signal?: AbortSignal,

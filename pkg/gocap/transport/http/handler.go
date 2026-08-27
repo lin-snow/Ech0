@@ -11,7 +11,6 @@ import (
 	"github.com/lin-snow/ech0/pkg/gocap/core"
 )
 
-// Options configures HTTP transport behavior and limits.
 type Options struct {
 	RateLimitMax    int
 	RateLimitWindow time.Duration
@@ -23,19 +22,17 @@ type Options struct {
 	MaxBodyBytes    int64
 }
 
-// Handler is the HTTP transport adapter for the core service.
 type Handler struct {
 	service *core.Service
 	opts    Options
 }
 
-// NewHandler builds an HTTP handler exposing challenge/redeem/siteverify endpoints.
 func NewHandler(service *core.Service, opts Options) http.Handler {
 	if opts.RateLimitScope == "" {
 		opts.RateLimitScope = "cap"
 	}
 	if opts.MaxBodyBytes <= 0 {
-		opts.MaxBodyBytes = 1 << 20 // 1 MiB
+		opts.MaxBodyBytes = 1 << 20
 	}
 	h := &Handler{
 		service: service,

@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <PanelCard>
-    <!-- Webhook 设置 -->
     <div class="w-full">
       <div class="flex flex-row items-center justify-between mb-4">
         <h1 class="text-[var(--color-text-primary)] font-bold text-lg">
@@ -29,9 +28,10 @@
         v-else
         class="mt-2 x-scrollbar overflow-x-auto border border-[var(--color-border-subtle)] rounded-lg"
       >
-        <table class="w-full min-w-[820px] table-fixed text-sm">
+        <table class="w-full min-w-[864px] table-fixed text-sm">
           <thead>
             <tr class="bg-[var(--color-bg-muted)]/70 text-left text-[var(--color-text-muted)]">
+              <th class="w-[44px] px-2 py-2 whitespace-nowrap">#</th>
               <th class="w-[170px] px-2 py-2 whitespace-nowrap">
                 {{ t('accessTokenSetting.token') }}
               </th>
@@ -50,7 +50,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="tokenItem in AccessTokens" :key="tokenItem.id">
+            <tr v-for="(tokenItem, index) in AccessTokens" :key="tokenItem.id">
+              <td class="px-2 py-2 text-[var(--color-text-primary)]">{{ index + 1 }}</td>
               <td class="px-2 py-2 font-mono text-[var(--color-text-primary)]">
                 <div class="flex items-center gap-1">
                   <span class="truncate" v-tooltip="tokenItem.token">{{
@@ -201,78 +202,133 @@
       </div>
     </div>
 
-    <div
-      v-if="detailModalOpen && selectedToken"
-      class="fixed inset-0 z-5000 flex items-center justify-center bg-black/30 p-4"
-      @click.self="closeTokenDetail"
-    >
-      <div
-        class="w-full max-w-lg rounded-[var(--radius-lg)] bg-[var(--dialog-bg-color)] p-5 shadow-[var(--shadow-md)] ring-1 ring-inset ring-[var(--color-border-subtle)]"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-[var(--color-text-primary)]">
-              {{ t('accessTokenSetting.detailTitle') }}
-            </h3>
-            <p class="mt-1 text-sm text-[var(--color-text-muted)]">{{ selectedToken.name }}</p>
-          </div>
-        </div>
+    <TransitionRoot appear :show="detailModalOpen" as="template">
+      <Dialog as="div" class="relative z-5000" @close="closeTokenDetail">
+        <TransitionChild
+          as="template"
+          enter="duration-200 ease-out"
+          enter-from="opacity-0"
+          enter-to="opacity-100"
+          leave="duration-150 ease-in"
+          leave-from="opacity-100"
+          leave-to="opacity-0"
+        >
+          <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+        </TransitionChild>
 
-        <div class="mt-4 space-y-3 text-sm">
-          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
-            <div class="text-xs text-[var(--color-text-muted)]">
-              {{ t('accessTokenSetting.audience') }}
-            </div>
-            <div class="mt-1 text-[var(--color-text-primary)]">
-              {{ getAudienceLabel(selectedToken.audience) }}
-            </div>
-          </div>
-          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
-            <div class="text-xs text-[var(--color-text-muted)]">
-              {{ t('accessTokenSetting.expiry') }}
-            </div>
-            <div class="mt-1 text-[var(--color-text-primary)]">
-              {{
-                selectedToken.expiry
-                  ? new Date(selectedToken.expiry * 1000).toLocaleString()
-                  : t('accessTokenSetting.neverExpire')
-              }}
-            </div>
-          </div>
-          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
-            <div class="text-xs text-[var(--color-text-muted)]">
-              {{ t('accessTokenSetting.createdAt') }}
-            </div>
-            <div class="mt-1 text-[var(--color-text-primary)]">
-              {{ new Date(selectedToken.created_at * 1000).toLocaleString() }}
-            </div>
-          </div>
-          <div class="rounded-md border border-[var(--color-border-subtle)] p-3">
-            <div class="text-xs text-[var(--color-text-muted)]">
-              {{ t('accessTokenSetting.scopes') }}
-            </div>
-            <div v-if="selectedTokenScopes.length > 0" class="mt-2 flex flex-wrap gap-2">
-              <span
-                v-for="scope in selectedTokenScopes"
-                :key="scope"
-                class="rounded-md border border-[var(--color-border-subtle)] px-2 py-1 text-xs text-[var(--color-text-secondary)]"
+        <div class="fixed inset-0 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild
+              as="template"
+              enter="duration-200 ease-out"
+              enter-from="opacity-0 scale-95"
+              enter-to="opacity-100 scale-100"
+              leave="duration-150 ease-in"
+              leave-from="opacity-100 scale-100"
+              leave-to="opacity-0 scale-95"
+            >
+              <DialogPanel
+                class="w-full max-w-lg transform rounded-[var(--radius-lg)] bg-[var(--dialog-bg-color)] p-5 text-left align-middle shadow-[var(--shadow-md)] ring-1 ring-inset ring-[var(--color-border-subtle)] transition-all"
               >
-                {{ getScopeLabel(scope) }}
-              </span>
-            </div>
-            <div v-else class="mt-1 text-[var(--color-text-muted)]">
-              {{ t('accessTokenSetting.scopeEmpty') }}
-            </div>
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <DialogTitle class="text-base font-semibold text-[var(--color-text-primary)]">
+                      {{ t('accessTokenSetting.detailTitle') }}
+                    </DialogTitle>
+                    <p class="mt-1 truncate text-sm text-[var(--color-text-muted)]">
+                      {{ selectedToken?.name }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="-mt-1 -mr-1 shrink-0 cursor-pointer rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
+                    :aria-label="t('accessTokenSetting.closeDetail')"
+                    @click="closeTokenDetail"
+                  >
+                    <Close class="h-4 w-4" />
+                  </button>
+                </div>
+
+                <section
+                  class="mt-4 rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)]/40 p-4"
+                >
+                  <h4
+                    class="text-xs font-medium tracking-wide text-[var(--color-text-muted)] uppercase"
+                  >
+                    {{ t('accessTokenSetting.detailOverview') }}
+                  </h4>
+                  <dl class="mt-3 space-y-2.5 text-sm">
+                    <div class="flex items-center justify-between gap-3">
+                      <dt class="shrink-0 text-[var(--color-text-muted)]">
+                        {{ t('accessTokenSetting.audience') }}
+                      </dt>
+                      <dd>
+                        <span
+                          class="inline-flex items-center rounded-full bg-[var(--color-accent)]/12 px-2.5 py-0.5 text-xs font-medium text-[var(--color-accent)] ring-1 ring-inset ring-[var(--color-accent)]/25"
+                        >
+                          {{ getAudienceLabel(selectedToken?.audience) }}
+                        </span>
+                      </dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                      <dt class="shrink-0 text-[var(--color-text-muted)]">
+                        {{ t('accessTokenSetting.expiry') }}
+                      </dt>
+                      <dd class="text-right text-[var(--color-text-primary)]">
+                        {{ selectedTokenExpiryText }}
+                      </dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                      <dt class="shrink-0 text-[var(--color-text-muted)]">
+                        {{ t('accessTokenSetting.createdAt') }}
+                      </dt>
+                      <dd class="text-right text-[var(--color-text-primary)]">
+                        {{ selectedTokenCreatedText }}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section
+                  class="mt-3 rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)]/40 p-4"
+                >
+                  <h4
+                    class="text-xs font-medium tracking-wide text-[var(--color-text-muted)] uppercase"
+                  >
+                    {{ t('accessTokenSetting.scopes') }}
+                  </h4>
+                  <div v-if="selectedTokenScopeGroups.length > 0" class="mt-3 space-y-3">
+                    <div v-for="group in selectedTokenScopeGroups" :key="group.labelKey">
+                      <div class="text-xs text-[var(--color-text-secondary)]">
+                        {{ t(group.labelKey) }}
+                      </div>
+                      <div class="mt-1.5 flex flex-wrap gap-1.5">
+                        <span
+                          v-for="item in group.items"
+                          :key="item.value"
+                          class="rounded-md bg-[var(--color-bg-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)] ring-1 ring-inset ring-[var(--color-border-subtle)]"
+                        >
+                          {{ getScopeLabel(item.value) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <p v-else class="mt-2 text-sm text-[var(--color-text-muted)]">
+                    {{ t('accessTokenSetting.scopeEmpty') }}
+                  </p>
+                </section>
+
+                <div class="mt-4 flex justify-end">
+                  <BaseButton class="h-9 rounded-md px-4" @click="closeTokenDetail">
+                    {{ t('accessTokenSetting.closeDetail') }}
+                  </BaseButton>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
           </div>
         </div>
-
-        <div class="mt-4 flex justify-end">
-          <BaseButton class="h-9 rounded-md px-4" @click="closeTokenDetail">
-            {{ t('accessTokenSetting.closeDetail') }}
-          </BaseButton>
-        </div>
-      </div>
-    </div>
+      </Dialog>
+    </TransitionRoot>
   </PanelCard>
 </template>
 
@@ -284,6 +340,8 @@ import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseEditCapsule from '@/components/common/BaseEditCapsule.vue'
 import Clipboard from '@/components/icons/clipboard.vue'
 import Trashbin from '@/components/icons/trashbin.vue'
+import Close from '@/components/icons/close.vue'
+import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingStore } from '@/stores'
@@ -407,6 +465,25 @@ const scopeLabelMap: Record<string, string> = {
 
 const selectedTokenScopes = computed(() => parseTokenScopes(selectedToken.value?.scopes))
 
+const selectedTokenExpiryText = computed(() =>
+  selectedToken.value?.expiry
+    ? new Date(selectedToken.value.expiry * 1000).toLocaleString()
+    : t('accessTokenSetting.neverExpire'),
+)
+const selectedTokenCreatedText = computed(() =>
+  selectedToken.value ? new Date(selectedToken.value.created_at * 1000).toLocaleString() : '',
+)
+
+const selectedTokenScopeGroups = computed(() => {
+  const owned = new Set(selectedTokenScopes.value)
+  return scopeGroups
+    .map((group) => ({
+      labelKey: group.labelKey,
+      items: group.items.filter((item) => owned.has(item.value)),
+    }))
+    .filter((group) => group.items.length > 0)
+})
+
 function parseTokenScopes(rawScopes: App.Api.Setting.AccessToken['scopes']) {
   if (Array.isArray(rawScopes)) {
     return rawScopes
@@ -447,7 +524,6 @@ function openTokenDetail(item: App.Api.Setting.AccessToken) {
 
 function closeTokenDetail() {
   detailModalOpen.value = false
-  selectedToken.value = null
 }
 
 function hasScope(scope: string) {
@@ -542,7 +618,6 @@ const copyAccessToken = async (token: string) => {
   }
 }
 
-// 删除 Access Token
 const handleDeleteAccessToken = async (item: App.Api.Setting.AccessToken) => {
   if (!item) return
 

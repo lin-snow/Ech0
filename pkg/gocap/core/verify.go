@@ -3,7 +3,6 @@
 
 package core
 
-// SiteVerify validates and consumes a redeem token for backend verification.
 func (s *Service) SiteVerify(siteKey string, req SiteVerifyRequest) (*SiteVerifyResponse, error) {
 	if req.Secret == "" || req.Response == "" {
 		return nil, NewBadRequest("Missing required parameters")

@@ -4,8 +4,27 @@
 package mcp
 
 const (
-	ProtocolVersion = "2025-11-25"
+	ProtocolVersion = "2026-07-28"
 	ServerName      = "ech0-mcp"
+)
+
+var SupportedVersions = []string{ProtocolVersion}
+
+const (
+	metaKeyProtocolVersion = "io.modelcontextprotocol/protocolVersion"
+	metaKeyServerInfo      = "io.modelcontextprotocol/serverInfo"
+)
+
+const resultTypeComplete = "complete"
+
+const (
+	cacheScopePublic  = "public"
+	cacheScopePrivate = "private"
+)
+
+const (
+	discoverTTLMs = 60 * 60 * 1000
+	listTTLMs     = 5 * 60 * 1000
 )
 
 type ServerCapabilities struct {
@@ -22,10 +41,32 @@ type ResourcesCapability struct {
 	ListChanged bool `json:"listChanged"`
 }
 
-type InitializeResult struct {
-	ProtocolVersion string             `json:"protocolVersion"`
-	Capabilities    ServerCapabilities `json:"capabilities"`
-	ServerInfo      ServerInfo         `json:"serverInfo"`
+type ResultEnvelope struct {
+	ResultType string         `json:"resultType"`
+	Meta       map[string]any `json:"_meta,omitempty"`
+}
+
+func (e *ResultEnvelope) complete(info ServerInfo) {
+	e.ResultType = resultTypeComplete
+	if e.Meta == nil {
+		e.Meta = make(map[string]any, 1)
+	}
+	e.Meta[metaKeyServerInfo] = info
+}
+
+type completer interface{ complete(info ServerInfo) }
+
+type CacheInfo struct {
+	TTLMs      int64  `json:"ttlMs"`
+	CacheScope string `json:"cacheScope"`
+}
+
+type DiscoverResult struct {
+	ResultEnvelope
+	SupportedVersions []string           `json:"supportedVersions"`
+	Capabilities      ServerCapabilities `json:"capabilities"`
+	Instructions      string             `json:"instructions,omitempty"`
+	CacheInfo
 }
 
 type ServerInfo struct {

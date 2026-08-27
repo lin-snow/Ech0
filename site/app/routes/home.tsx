@@ -57,7 +57,6 @@ export const links: Route.LinksFunction = () => [
   { rel: "preload", href: OG_IMAGE_PATH, as: "image" },
 ];
 
-/** Remix Icon: ri-quill-pen-line (Apache-2.0, https://github.com/Remix-Design/RemixIcon) */
 function RiQuillPenLine(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -112,7 +111,6 @@ function buildHomeJsonLd() {
   } as const;
 }
 
-/** Dashed divider + breathing room between narrative blocks. */
 const dashedSection = "border-t border-dashed border-sand-6 mt-12 pt-8";
 
 export default function Home() {
@@ -160,7 +158,7 @@ export default function Home() {
       </div>
 
       <main className="mx-auto w-full max-w-[min(100%,34rem)] px-5 pb-28 pt-10">
-        {/* Hero: headline → positioning → CTA */}
+        {}
         <section className="flex flex-col items-center gap-8 text-center">
           <h1 className="max-w-[22ch] font-serif text-[1.65rem] font-normal leading-[1.2] tracking-[-0.02em] text-sand-12 sm:text-[1.75rem]">
             Let your thoughts flow.
@@ -185,7 +183,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Narrative + value (editorial layout below the fold) */}
+        {}
         <section className={`${dashedSection} text-left`}>
           <h2 className="font-serif text-[1.2rem] font-semibold leading-snug tracking-[-0.02em] text-sand-12">
             Why Ech0?

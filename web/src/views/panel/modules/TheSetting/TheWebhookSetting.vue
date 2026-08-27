@@ -195,9 +195,10 @@
             v-else
             class="x-scrollbar overflow-x-auto rounded-lg border border-[var(--color-border-subtle)]"
           >
-            <table class="w-full min-w-[600px] table-fixed text-sm">
+            <table class="w-full min-w-[644px] table-fixed text-sm">
               <thead>
                 <tr class="bg-[var(--color-bg-muted)]/70 text-left text-[var(--color-text-muted)]">
+                  <th class="w-[44px] px-2 py-2 whitespace-nowrap">#</th>
                   <th class="w-[100px] px-2 py-2 whitespace-nowrap">
                     {{ t('webhookSetting.name') }}
                   </th>
@@ -215,10 +216,11 @@
               </thead>
               <tbody>
                 <tr
-                  v-for="webhook in Webhooks"
+                  v-for="(webhook, index) in Webhooks"
                   :key="webhook.id"
                   class="border-t border-[var(--color-border-subtle)] text-[var(--color-text-secondary)]"
                 >
+                  <td class="px-2 py-3 text-[var(--color-text-primary)]">{{ index + 1 }}</td>
                   <td class="px-2 py-3 text-[var(--color-text-primary)]">
                     {{ webhook.name }}
                   </td>
@@ -323,9 +325,9 @@ const webhookGuideTopics = [
   'comment.status.updated',
   'comment.deleted',
   'resource.uploaded',
-  'system.backup',
+  'system.snapshot',
   'system.export',
-  'system.backup_schedule.updated',
+  'system.snapshot_schedule.updated',
 ]
 const webhookGuideHeaders = computed(() => [
   { key: 'X-Ech0-Event', desc: String(t('webhookSetting.guideHeaderEvent')) },

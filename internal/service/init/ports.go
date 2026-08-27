@@ -7,6 +7,7 @@ import (
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 )
 
@@ -20,4 +21,7 @@ type Repository interface {
 	GetOwner() (userModel.User, error)
 }
 
-type UserService = userService.Service
+type (
+	UserService    = userService.Service
+	SettingService = settingService.Service
+)

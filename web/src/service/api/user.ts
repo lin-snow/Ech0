@@ -3,7 +3,6 @@
 
 import { request } from '../request'
 
-// 获取当前登录用户信息
 export function fetchGetCurrentUser() {
   return request<App.Api.User.User>({
     url: '/user',
@@ -11,7 +10,6 @@ export function fetchGetCurrentUser() {
   })
 }
 
-// 更新用户信息
 export function fetchUpdateUser(user: App.Api.User.UserInfo) {
   return request({
     url: '/user',
@@ -20,7 +18,6 @@ export function fetchUpdateUser(user: App.Api.User.UserInfo) {
   })
 }
 
-// 获取用户列表
 export function fetchGetAllUsers() {
   return request<App.Api.User.User[]>({
     url: '/users',
@@ -28,7 +25,6 @@ export function fetchGetAllUsers() {
   })
 }
 
-// 更新用户权限
 export function fetchUpdateUserPermission(id: string) {
   return request({
     url: `/user/admin/${id}`,
@@ -36,7 +32,6 @@ export function fetchUpdateUserPermission(id: string) {
   })
 }
 
-// 删除用户
 export function fetchDeleteUser(id: string) {
   return request({
     url: `/user/${id}`,
@@ -44,7 +39,6 @@ export function fetchDeleteUser(id: string) {
   })
 }
 
-// 绑定 OAuth2 账号
 export function fetchBindOAuth2(provider: string, redirect_uri: string) {
   return request<string>({
     url: `/oauth/${provider}/bind`,

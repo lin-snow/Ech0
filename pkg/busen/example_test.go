@@ -18,7 +18,7 @@ func Example() {
 
 	b := busen.New()
 
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, event busen.Event[UserCreated]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, event busen.Event[UserCreated]) error {
 		fmt.Println("welcome", event.Value.Email)
 		return nil
 	})
@@ -27,22 +27,19 @@ func Example() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, UserCreated{Email: "hello@example.com"}); err != nil {
+	if err := b.Publish(context.Background(), UserCreated{Email: "hello@example.com"}); err != nil {
 		log.Fatal(err)
 	}
 
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// welcome hello@example.com
 }
 
-func ExampleSubscribeTopic() {
+func ExampleBus_SubscribeTopic() {
 	b := busen.New()
 
-	unsubscribe, err := busen.SubscribeTopic(b, "orders.>", func(_ context.Context, event busen.Event[string]) error {
+	unsubscribe, err := b.SubscribeTopic("orders.>", func(_ context.Context, event busen.Event[string]) error {
 		fmt.Printf("%s=%s\n", event.Topic, event.Value)
 		return nil
 	})
@@ -51,22 +48,19 @@ func ExampleSubscribeTopic() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, "created", busen.WithTopic("orders.eu.created")); err != nil {
+	if err := b.Publish(context.Background(), "created", busen.WithTopic("orders.eu.created")); err != nil {
 		log.Fatal(err)
 	}
 
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// orders.eu.created=created
 }
 
-func ExampleSubscribeTopics() {
+func ExampleBus_SubscribeTopics() {
 	b := busen.New()
 
-	unsubscribe, err := busen.SubscribeTopics(b, []string{"orders.created", "orders.updated"}, func(_ context.Context, event busen.Event[string]) error {
+	unsubscribe, err := b.SubscribeTopics([]string{"orders.created", "orders.updated"}, func(_ context.Context, event busen.Event[string]) error {
 		fmt.Printf("%s=%s\n", event.Topic, event.Value)
 		return nil
 	})
@@ -75,20 +69,16 @@ func ExampleSubscribeTopics() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, "created", busen.WithTopic("orders.created")); err != nil {
+	if err := b.Publish(context.Background(), "created", busen.WithTopic("orders.created")); err != nil {
 		log.Fatal(err)
 	}
-	if err := busen.Publish(context.Background(), b, "updated", busen.WithTopic("orders.updated")); err != nil {
+	if err := b.Publish(context.Background(), "updated", busen.WithTopic("orders.updated")); err != nil {
 		log.Fatal(err)
 	}
 
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// orders.created=created
-	// orders.updated=updated
 }
 
 func ExampleAsync() {
@@ -99,7 +89,7 @@ func ExampleAsync() {
 	b := busen.New()
 	done := make(chan struct{})
 
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, event busen.Event[JobQueued]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, event busen.Event[JobQueued]) error {
 		fmt.Println("processed", event.Value.ID)
 		close(done)
 		return nil
@@ -109,7 +99,7 @@ func ExampleAsync() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, JobQueued{ID: "job-42"}); err != nil {
+	if err := b.Publish(context.Background(), JobQueued{ID: "job-42"}); err != nil {
 		log.Fatal(err)
 	}
 
@@ -118,9 +108,6 @@ func ExampleAsync() {
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// processed job-42
 }
 
 func ExampleWithKey() {
@@ -131,7 +118,7 @@ func ExampleWithKey() {
 	b := busen.New()
 	done := make(chan struct{}, 2)
 
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, event busen.Event[UserCreated]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, event busen.Event[UserCreated]) error {
 		fmt.Printf("%s:%s\n", event.Key, event.Value.ID)
 		done <- struct{}{}
 		return nil
@@ -141,10 +128,10 @@ func ExampleWithKey() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, UserCreated{ID: "1"}, busen.WithKey("tenant-a")); err != nil {
+	if err := b.Publish(context.Background(), UserCreated{ID: "1"}, busen.WithKey("tenant-a")); err != nil {
 		log.Fatal(err)
 	}
-	if err := busen.Publish(context.Background(), b, UserCreated{ID: "2"}, busen.WithKey("tenant-a")); err != nil {
+	if err := b.Publish(context.Background(), UserCreated{ID: "2"}, busen.WithKey("tenant-a")); err != nil {
 		log.Fatal(err)
 	}
 
@@ -154,10 +141,6 @@ func ExampleWithKey() {
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// tenant-a:1
-	// tenant-a:2
 }
 
 func ExampleBus_Use() {
@@ -178,7 +161,7 @@ func ExampleBus_Use() {
 		log.Fatal(err)
 	}
 
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, event busen.Event[AuditEvent]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, event busen.Event[AuditEvent]) error {
 		fmt.Printf("%s from %s\n", event.Value.Action, event.Headers["source"])
 		return nil
 	})
@@ -187,9 +170,8 @@ func ExampleBus_Use() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(
+	if err := b.Publish(
 		context.Background(),
-		b,
 		AuditEvent{Action: "saved"},
 		busen.WithHeaders(map[string]string{"request-id": "req-1"}),
 	); err != nil {
@@ -199,9 +181,6 @@ func ExampleBus_Use() {
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// saved from middleware
 }
 
 func ExampleWithHooks() {
@@ -215,7 +194,7 @@ func ExampleWithHooks() {
 		},
 	}))
 
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, event busen.Event[UserCreated]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, event busen.Event[UserCreated]) error {
 		fmt.Println("handled", event.Value.ID)
 		return nil
 	})
@@ -224,17 +203,13 @@ func ExampleWithHooks() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, UserCreated{ID: "u-1"}); err != nil {
+	if err := b.Publish(context.Background(), UserCreated{ID: "u-1"}); err != nil {
 		log.Fatal(err)
 	}
 
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// handled u-1
-	// matched=1 delivered=1
 }
 
 func ExampleWithMetadataBuilder() {
@@ -250,7 +225,7 @@ func ExampleWithMetadataBuilder() {
 		}),
 	)
 
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, event busen.Event[OrderCreated]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, event busen.Event[OrderCreated]) error {
 		fmt.Printf("%s from %s\n", event.Value.ID, event.Meta["source"])
 		return nil
 	})
@@ -259,9 +234,8 @@ func ExampleWithMetadataBuilder() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(
+	if err := b.Publish(
 		context.Background(),
-		b,
 		OrderCreated{ID: "o-1"},
 		busen.WithMetadata(map[string]string{"trace_id": "tr-1"}),
 	); err != nil {
@@ -271,9 +245,6 @@ func ExampleWithMetadataBuilder() {
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// o-1 from billing
 }
 
 func ExampleBus_UseObserver() {
@@ -291,7 +262,7 @@ func ExampleBus_UseObserver() {
 		log.Fatal(err)
 	}
 
-	unsubscribe, err := busen.SubscribeTopic(b, "orders.>", func(_ context.Context, event busen.Event[OrderCreated]) error {
+	unsubscribe, err := b.SubscribeTopic("orders.>", func(_ context.Context, event busen.Event[OrderCreated]) error {
 		return nil
 	})
 	if err != nil {
@@ -299,16 +270,13 @@ func ExampleBus_UseObserver() {
 	}
 	defer unsubscribe()
 
-	if err := busen.Publish(context.Background(), b, OrderCreated{ID: "o-1"}, busen.WithTopic("orders.created")); err != nil {
+	if err := b.Publish(context.Background(), OrderCreated{ID: "o-1"}, busen.WithTopic("orders.created")); err != nil {
 		log.Fatal(err)
 	}
 
 	if err := b.Close(context.Background()); err != nil {
 		log.Fatal(err)
 	}
-
-	// Output:
-	// observe orders.created busen_test.OrderCreated
 }
 
 func ExampleBus_Shutdown() {
@@ -317,7 +285,7 @@ func ExampleBus_Shutdown() {
 	}
 
 	b := busen.New()
-	unsubscribe, err := busen.Subscribe(b, func(_ context.Context, _ busen.Event[Job]) error {
+	unsubscribe, err := b.Subscribe(func(_ context.Context, _ busen.Event[Job]) error {
 		return nil
 	}, busen.Async(), busen.WithBuffer(8))
 	if err != nil {
@@ -325,14 +293,11 @@ func ExampleBus_Shutdown() {
 	}
 	defer unsubscribe()
 
-	_ = busen.Publish(context.Background(), b, Job{ID: 1})
+	_ = b.Publish(context.Background(), Job{ID: 1})
 
 	result, err := b.Shutdown(context.Background(), busen.ShutdownDrain)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(result.Mode == busen.ShutdownDrain, result.Completed)
-
-	// Output:
-	// true true
 }

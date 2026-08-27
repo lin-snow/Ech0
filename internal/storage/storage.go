@@ -5,7 +5,6 @@ package storage
 
 import "strings"
 
-// Category classifies uploaded files.
 type (
 	Category    string
 	StorageType string
@@ -26,7 +25,6 @@ const (
 	StorageTypeExternal StorageType = "external"
 )
 
-// NormalizeCategory maps an arbitrary string to a known Category.
 func NormalizeCategory(raw string) Category {
 	switch Category(strings.ToLower(strings.TrimSpace(raw))) {
 	case CategoryImage:
@@ -44,7 +42,6 @@ func NormalizeCategory(raw string) Category {
 	}
 }
 
-// IsImageLike reports whether the category represents visual media.
 func (c Category) IsImageLike() bool {
 	return c == CategoryImage
 }
@@ -62,20 +59,12 @@ func NormalizeStorageType(raw string) StorageType {
 	}
 }
 
-// URLResolver maps a VireFS key to a publicly accessible URL.
-// It is constructed once at startup via NewURLResolver and applies
-// schema.Resolve internally, so callers just pass the flat key stored
-// in the database.
 type URLResolver func(key string) string
 
-// KeyGenerator produces a flat filename key (no directory prefix).
-// VireFS Schema handles the directory routing transparently.
 type KeyGenerator interface {
 	GenerateKey(category Category, userID string, originalFilename string) (string, error)
 }
 
-// TrimLeadingSlash removes a leading "/" to convert a virtual path to a
-// VireFS key.
 func TrimLeadingSlash(p string) string {
 	return strings.TrimPrefix(p, "/")
 }

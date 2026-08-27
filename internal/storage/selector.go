@@ -180,10 +180,6 @@ func (r *StorageSelector) ResolveURLByPath(storageType StorageType, filePath str
 	}
 }
 
-// ResolveKeyByPath converts a listed storage path to business key.
-// Current upload strategy stores flat keys, while schema/prefix adds
-// directory layers in storage path. For tree listing, basename maps
-// back to the stable DB file.key.
 func (r *StorageSelector) ResolveKeyByPath(storageType StorageType, filePath string) string {
 	candidates := r.ResolveKeyCandidatesByPath(storageType, filePath)
 	if len(candidates) == 0 {
@@ -214,8 +210,8 @@ func (r *StorageSelector) ResolveKeyCandidatesByPath(storageType StorageType, fi
 
 	if NormalizeStorageType(string(storageType)) == StorageTypeObject && r != nil && r.objectPrefix != "" {
 		prefix := r.objectPrefix + "/"
-		if strings.HasPrefix(cleanPath, prefix) {
-			candidates = appendUnique(candidates, seen, strings.TrimPrefix(cleanPath, prefix))
+		if after, ok := strings.CutPrefix(cleanPath, prefix); ok {
+			candidates = appendUnique(candidates, seen, after)
 		}
 	}
 
@@ -223,8 +219,8 @@ func (r *StorageSelector) ResolveKeyCandidatesByPath(storageType StorageType, fi
 	baseSnapshot := append([]string(nil), candidates...)
 	for _, base := range baseSnapshot {
 		for _, route := range routePrefixes {
-			if strings.HasPrefix(base, route) {
-				candidates = appendUnique(candidates, seen, strings.TrimPrefix(base, route))
+			if after, ok := strings.CutPrefix(base, route); ok {
+				candidates = appendUnique(candidates, seen, after)
 			}
 		}
 	}
@@ -316,23 +312,13 @@ func buildOptionalObjectFSAndResolver(
 		return nil, nil, nil, false
 	}
 
-	provider := mapProvider(cfg.Provider)
-	region := resolveObjectRegion(cfg.Provider, cfg.Region)
 	var opts []virefs.ObjectOption
 	if cfg.PathPrefix != "" {
 		opts = append(opts, virefs.WithPrefix(strings.Trim(cfg.PathPrefix, "/")+"/"))
 	}
 	opts = append(opts, virefs.WithObjectKeyFunc(schema.Resolve))
 
-	endpoint := normalizeEndpoint(cfg.Endpoint, cfg.UseSSL)
-	fs, err := virefs.NewObjectFSFromConfig(context.Background(), &virefs.S3Config{
-		Provider:  provider,
-		Endpoint:  endpoint,
-		Region:    region,
-		Bucket:    cfg.BucketName,
-		AccessKey: cfg.AccessKey,
-		SecretKey: cfg.SecretKey,
-	}, opts...)
+	fs, err := virefs.NewObjectFSFromConfig(context.Background(), virefsS3ConfigFromStorage(cfg), opts...)
 	if err != nil {
 		return nil, nil, nil, false
 	}

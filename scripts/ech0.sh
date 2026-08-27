@@ -115,9 +115,6 @@ cleanup_tmp() {
 trap cleanup_tmp EXIT
 
 resolve_latest_tag() {
-  # 只挑 v* 形式的应用 release。Helm chart 仓库会发出 ech0-X.Y.Z 标签的 release，
-  # 它创建时间晚于 v* release，会被 GitHub 的 /releases/latest 重定向选中，
-  # 但 chart release 只包含 .tgz，没有平台二进制 —— 不过滤就会 404。
   local api_url="https://api.github.com/repos/${REPO}/releases?per_page=30"
   local tag
   tag=$(curl -fsSL --connect-timeout 10 "$api_url" 2>/dev/null \

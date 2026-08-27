@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 	"github.com/lin-snow/ech0/internal/config"
 	dbMigration "github.com/lin-snow/ech0/internal/database/migration"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -17,9 +18,9 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	connectModel "github.com/lin-snow/ech0/internal/model/connect"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
-	migrationModel "github.com/lin-snow/ech0/internal/model/migration"
-	queueModel "github.com/lin-snow/ech0/internal/model/queue"
+	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
@@ -30,11 +31,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// DB 全局数据库连接变量
-// var DB *gorm.DB
-
-// 使用 atomic.Value 来存储 *gorm.DB，确保线程安全和支持热更新
-var db atomic.Value // 用于存储 *gorm.DB
+var db atomic.Value
 
 var writeLocked atomic.Bool
 
@@ -46,26 +43,18 @@ func SetDB(newDB *gorm.DB) {
 	db.Store(newDB)
 }
 
-// func DBProvider() func() *gorm.DB {
-// 	return GetDB
-// }
-
-// EnableWriteLock 启用写锁，阻止新的写操作
 func EnableWriteLock() {
 	writeLocked.Store(true)
 }
 
-// DisableWriteLock 关闭写锁，允许写操作
 func DisableWriteLock() {
 	writeLocked.Store(false)
 }
 
-// SetWriteLock 手动设置写锁状态
 func SetWriteLock(enabled bool) {
 	writeLocked.Store(enabled)
 }
 
-// IsWriteLocked 判断当前是否启用了写锁
 func IsWriteLocked() bool {
 	return writeLocked.Load()
 }
@@ -76,13 +65,28 @@ func buildGormConfig(logLevel logger.LogLevel) *gorm.Config {
 	}
 }
 
-// InitDatabase 初始化数据库连接
+const sqliteConnParams = "_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_txlock=immediate"
+
+func openSQLite(dbPath string, logLevel logger.LogLevel) (*gorm.DB, error) {
+	return gorm.Open(sqlite.Open(dbPath+"?"+sqliteConnParams), buildGormConfig(logLevel))
+}
+
+func configLogLevel() logger.LogLevel {
+	if config.Config().Database.LogMode == "release" {
+		return logger.Silent
+	}
+	return logger.Error
+}
+
+func SnapshotTo(dstPath string) error {
+	return GetDB().Exec("VACUUM INTO ?", dstPath).Error
+}
+
 func InitDatabase() {
-	// 读取数据库类型和保存路径
 	dbType := config.Config().Database.Type
 	dbPath := config.Config().Database.Path
 
-	dir := dbPath[:len(dbPath)-len("/ech0.db")] // 提取目录部分
+	dir := dbPath[:len(dbPath)-len("/ech0.db")]
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		util.HandlePanicError(&commonModel.ServerError{
 			Msg: commonModel.CREATE_DB_PATH_PANIC,
@@ -91,12 +95,8 @@ func InitDatabase() {
 	}
 
 	if dbType == "sqlite" {
-		var err error
-		ll := logger.LogLevel(logger.Error)
-		if config.Config().Database.LogMode == "release" {
-			ll = logger.LogLevel(logger.Silent)
-		}
-		SQLiteDB, err := gorm.Open(sqlite.Open(dbPath), buildGormConfig(ll))
+		sqlite_vec.Auto()
+		SQLiteDB, err := openSQLite(dbPath, configLogLevel())
 		if err != nil {
 			util.HandlePanicError(&commonModel.ServerError{
 				Msg: commonModel.INIT_DATABASE_PANIC,
@@ -106,7 +106,6 @@ func InitDatabase() {
 		SetDB(SQLiteDB)
 	}
 
-	// 自动建表
 	if err := MigrateDB(); err != nil {
 		util.HandlePanicError(&commonModel.ServerError{
 			Msg: commonModel.MIGRATE_DB_PANIC,
@@ -125,20 +124,24 @@ func InitDatabase() {
 			dbMigration.NewStorageTimeSchemaRebuildMigrator(),
 			dbMigration.NewOAuthBindingsDropMigrator(),
 			dbMigration.NewLegacyInboxesDropMigrator(),
-			dbMigration.NewAgentProviderCollapseMigrator(),
+			dbMigration.NewAgentProtocolCollapseMigrator(),
+			dbMigration.NewAgentSettingProtocolRenameMigrator(),
+			dbMigration.NewUserLocalAuthBackfillMigrator(),
+			dbMigration.NewUsersPasswordDropMigrator(),
+			dbMigration.NewEchoExtensionOrphansMigrator(),
 		),
 	)
 }
 
-// MigrateDB 执行数据库迁移
 func MigrateDB() error {
-	models := []interface{}{
+	models := []any{
 		&userModel.User{},
 		&userModel.UserLocalAuth{},
 		&userModel.UserExternalIdentity{},
 		&userModel.WebAuthnCredential{},
 		&echoModel.Echo{},
 		&echoModel.EchoExtension{},
+		&embeddingModel.EchoEmbedding{},
 		&fileModel.File{},
 		&fileModel.EchoFile{},
 		&fileModel.TempFile{},
@@ -148,8 +151,7 @@ func MigrateDB() error {
 		&echoModel.EchoTag{},
 		&commentModel.Comment{},
 		&webhookModel.Webhook{},
-		&queueModel.DeadLetter{},
-		&migrationModel.MigrationJob{},
+		&jobModel.Job{},
 		&settingModel.AccessTokenSetting{},
 		&authModel.Passkey{},
 		&visitorModel.DailyStat{},
@@ -160,25 +162,16 @@ func MigrateDB() error {
 	)
 }
 
-// HotChangeDatabase 热切换数据库连接
 func HotChangeDatabase(newDBPath string) error {
-	// 获取当前数据库连接
 	oldDB := GetDB()
 
-	// 彻底关闭旧连接
 	if oldDB != nil {
 		if err := CloseDatabaseFully(oldDB); err != nil {
 			return err
 		}
 	}
 
-	// 打开新连接
-	ll := logger.LogLevel(logger.Error)
-	if config.Config().Database.LogMode == "release" {
-		ll = logger.LogLevel(logger.Silent)
-	}
-
-	newDB, err := gorm.Open(sqlite.Open(newDBPath), buildGormConfig(ll))
+	newDB, err := openSQLite(newDBPath, configLogLevel())
 	if err != nil {
 		return err
 	}
@@ -187,7 +180,6 @@ func HotChangeDatabase(newDBPath string) error {
 	return nil
 }
 
-// CloseDatabaseFully 彻底关闭数据库连接，释放资源
 func CloseDatabaseFully(db *gorm.DB) error {
 	if db != nil {
 		sqlDB, err := db.DB()
@@ -199,7 +191,6 @@ func CloseDatabaseFully(db *gorm.DB) error {
 		}
 		SetDB(nil)
 
-		// 强制 GC 回收
 		runtime.GC()
 		time.Sleep(100 * time.Millisecond)
 

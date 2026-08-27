@@ -46,7 +46,7 @@ var (
 )
 
 const (
-	EchoPageCacheKeyPrefix = "echo_page" // echo_page:page:pageSize:search:showPrivate
+	EchoPageCacheKeyPrefix = "echo_page"
 )
 
 func GetEchoPageCacheKey(page, pageSize int, search string, showPrivate bool) string {

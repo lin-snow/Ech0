@@ -15,7 +15,6 @@ beforeEach(() => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob://fake')
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
 
-  // Image: resolve onload synchronously after src is set.
   vi.stubGlobal(
     'Image',
     class {
@@ -31,7 +30,6 @@ beforeEach(() => {
     },
   )
 
-  // Patch HTMLCanvasElement.toBlob to emit a controlled Blob.
   HTMLCanvasElement.prototype.getContext = vi.fn(
     () => ({ drawImage: vi.fn() }) as unknown as CanvasRenderingContext2D,
   )
@@ -51,8 +49,6 @@ afterEach(() => {
 })
 
 function fakeFile(name: string, type: string, size: number, lastModified = 1700000000000): File {
-  // Build a File with a controllable size by feeding a Uint8Array of the right length.
-  // jsdom's File constructor reflects size from the parts; this is reliable.
   const bytes = new Uint8Array(size)
   return new File([bytes], name, { type, lastModified })
 }
@@ -82,11 +78,11 @@ describe('compressImage', () => {
 
   it('keeps original mime when below convertSize, only re-encodes for quality', async () => {
     mockToBlobOutput = { mime: 'image/png', size: 500 }
-    const f = fakeFile('photo.png', 'image/png', 1024) // 1 KB — well below 5 MB
+    const f = fakeFile('photo.png', 'image/png', 1024)
     const out = await compressImage(f, { convertSize: 5 * 1024 * 1024 })
     expect(out.type).toBe('image/png')
     expect(out.name).toBe('photo.png')
-    expect(out).not.toBe(f) // re-encoded
+    expect(out).not.toBe(f)
     expect(HTMLCanvasElement.prototype.toBlob).toHaveBeenCalled()
     const callArgs = (HTMLCanvasElement.prototype.toBlob as unknown as { mock: { calls: unknown[][] } })
       .mock.calls[0]
@@ -113,16 +109,13 @@ describe('compressImage', () => {
   })
 
   it('returns the original when same-mime re-encode produces a larger blob', async () => {
-    mockToBlobOutput = { mime: 'image/png', size: 9999 } // bigger than original
+    mockToBlobOutput = { mime: 'image/png', size: 9999 }
     const f = fakeFile('photo.png', 'image/png', 1024)
     const out = await compressImage(f, { convertSize: 5 * 1024 * 1024 })
     expect(out).toBe(f)
   })
 
   it('still returns the converted file when format-converting (webp), even if not strictly smaller', async () => {
-    // When converting format, we accept the output even if it isn't smaller — the conversion
-    // itself is the goal (e.g. consistent webp). This matches the "size >= original && targetMime === file.type"
-    // guard which only triggers for same-mime cases.
     mockToBlobOutput = { mime: 'image/webp', size: 9_999_999 }
     const f = fakeFile('big.png', 'image/png', 6 * 1024 * 1024)
     const out = await compressImage(f, { convertSize: 5 * 1024 * 1024 })

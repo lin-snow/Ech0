@@ -13,7 +13,6 @@ import (
 
 var readThroughGroup singleflight.Group
 
-// ReadThroughTypedUnlessTx 在事务中直接走 txLoader，避免读到事务外缓存。
 func ReadThroughTypedUnlessTx[T any](
 	ctx context.Context,
 	c ICache[string, any],
@@ -29,7 +28,6 @@ func ReadThroughTypedUnlessTx[T any](
 	return ReadThroughTyped(c, key, cost, loader)
 }
 
-// ReadThroughTyped 统一读穿透模式：先查缓存，未命中后走 loader 并回填缓存。
 func ReadThroughTyped[T any](
 	c ICache[string, any],
 	key string,
@@ -41,7 +39,6 @@ func ReadThroughTyped[T any](
 	}, loader)
 }
 
-// ReadThroughTypedWithStore 支持自定义回填逻辑（如 TTL 回填）。
 func ReadThroughTypedWithStore[T any](
 	c ICache[string, any],
 	key string,
@@ -58,7 +55,6 @@ func ReadThroughTypedWithStore[T any](
 	}
 
 	loaded, err, _ := readThroughGroup.Do(key, func() (any, error) {
-		// double-check，避免并发下重复 load
 		if cached, found, cacheErr := c.Get(key); cacheErr != nil {
 			return nil, cacheErr
 		} else if found {
@@ -88,7 +84,6 @@ func ReadThroughTypedWithStore[T any](
 	return typed, nil
 }
 
-// WriteAndPopulate 统一写后回填模式：先写存储，成功后回填缓存。
 func WriteAndPopulate(
 	c ICache[string, any],
 	key string,
@@ -103,7 +98,6 @@ func WriteAndPopulate(
 	return nil
 }
 
-// InvalidateKeys 统一批量失效模式。
 func InvalidateKeys(c ICache[string, any], keys ...string) {
 	for _, key := range keys {
 		c.Delete(key)

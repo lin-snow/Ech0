@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -21,37 +22,44 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	model "github.com/lin-snow/ech0/internal/model/user"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/transaction"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
+	"github.com/lin-snow/ech0/internal/util/egress"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
-	logUtil "github.com/lin-snow/ech0/internal/util/log"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
-	"go.uber.org/zap"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 )
+
+var oidcHTTPClient = egress.NewClient(egress.Timeout(10 * time.Second))
 
 type AuthService struct {
 	transactor     transaction.Transactor
 	repository     Repository
 	authRepo       AuthRepo
-	settingService SettingService
+	durableKV      kvstore.Store
+	resolveAdapter func(provider string) (oauthProviderAdapter, error)
 }
 
 func NewAuthService(
 	tx transaction.Transactor,
 	repository Repository,
 	authRepo AuthRepo,
-	settingService SettingService,
+	durableKV kvstore.Store,
 ) *AuthService {
 	return &AuthService{
 		transactor:     tx,
 		repository:     repository,
 		authRepo:       authRepo,
-		settingService: settingService,
+		durableKV:      durableKV,
+		resolveAdapter: getOAuthProviderAdapter,
 	}
 }
 
@@ -63,6 +71,14 @@ func (authService *AuthService) IsTokenRevoked(jti string) bool {
 	return authService.authRepo.IsTokenRevoked(jti)
 }
 
+func (authService *AuthService) PasskeyBoundary(ctx context.Context) (rpID string, origins []string) {
+	setting, err := coreSetting.Get(ctx, authService.durableKV, coreSetting.Passkey)
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(setting.WebAuthnRPID), setting.WebAuthnAllowedOrigins
+}
+
 func (authService *AuthService) ExchangeOAuthCode(code string) (*authModel.TokenPair, error) {
 	return authService.authRepo.GetAndDeleteOAuthCode(code)
 }
@@ -72,14 +88,41 @@ func (authService *AuthService) Login(loginDto *authModel.LoginDto) (*authModel.
 		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
 	}
 
-	loginDto.Password = cryptoUtil.MD5Encrypt(loginDto.Password)
-	user, err := authService.repository.GetUserByUsername(context.Background(), loginDto.Username)
+	ctx := context.Background()
+	user, err := authService.repository.GetUserByUsername(ctx, loginDto.Username)
 	if err != nil {
 		return nil, errors.New(commonModel.USER_NOTFOUND)
 	}
-	if user.Password != loginDto.Password {
+
+	localAuth, err := authService.repository.GetLocalAuthByUserID(ctx, user.ID)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			logUtil.GetLogger().Warn(
+				"load local auth failed",
+				slog.String("module", "auth"),
+				slog.String("user_id", user.ID),
+				logUtil.Err(err),
+			)
+		}
 		return nil, errors.New(commonModel.PASSWORD_INCORRECT)
 	}
+	if !cryptoUtil.CheckPassword(localAuth.PasswordAlgo, localAuth.PasswordHash, loginDto.Password) {
+		return nil, errors.New(commonModel.PASSWORD_INCORRECT)
+	}
+
+	if localAuth.PasswordAlgo != cryptoUtil.AlgoBcrypt {
+		if newHash, hashErr := cryptoUtil.HashPassword(loginDto.Password); hashErr == nil {
+			if upErr := authService.repository.UpdateLocalAuthPassword(ctx, user.ID, newHash, cryptoUtil.AlgoBcrypt); upErr != nil {
+				logUtil.GetLogger().Warn(
+					"lazy upgrade password hash failed",
+					slog.String("module", "auth"),
+					slog.String("user_id", user.ID),
+					logUtil.Err(upErr),
+				)
+			}
+		}
+	}
+
 	return authService.issueUserToken(user)
 }
 
@@ -123,8 +166,6 @@ func (authService *AuthService) BindOAuth(
 		return "", err
 	}
 
-	// 在签发 state JWT 前校验，避免非法 redirect 进入 state 后只能在回调阶段才被发现
-	// （GHSA-p64j-f4x9-wq66）。空值保留旧行为：在回调阶段统一拦截。
 	if redirectURI != "" {
 		if _, err := authService.parseAndValidateClientRedirect(redirectURI); err != nil {
 			return "", err
@@ -155,8 +196,6 @@ func (authService *AuthService) GetOAuthLoginURL(provider string, redirectURI st
 		return "", err
 	}
 
-	// 在签发 state JWT 前校验，避免非法 redirect 进入 state 后只能在回调阶段才被发现
-	// （GHSA-p64j-f4x9-wq66）。空值保留旧行为：在回调阶段统一拦截。
 	if redirectURI != "" {
 		if _, err := authService.parseAndValidateClientRedirect(redirectURI); err != nil {
 			return "", err
@@ -200,13 +239,13 @@ func (authService *AuthService) HandleOAuthCallback(
 		return "", errors.New(commonModel.INVALID_PARAMS)
 	}
 
-	adapter, err := getOAuthProviderAdapter(provider)
+	adapter, err := authService.resolveAdapter(provider)
 	if err != nil {
 		return "", err
 	}
 	identity, err := adapter.ResolveIdentity(setting, code, oauthState)
 	if err != nil {
-		logUtil.Error("resolve oauth identity failed", zap.String("provider", provider), zap.Error(err))
+		logUtil.Error("resolve oauth identity failed", slog.String("provider", provider), logUtil.Err(err))
 		return "", err
 	}
 
@@ -220,9 +259,8 @@ func (authService *AuthService) HandleOAuthCallback(
 }
 
 func (authService *AuthService) getOAuthSetting(provider string) (*settingModel.OAuth2Setting, error) {
-	var setting settingModel.OAuth2Setting
-	systemCtx := viewer.WithContext(context.Background(), viewer.NewSystemViewer())
-	if err := authService.settingService.GetOAuth2Setting(systemCtx, &setting, true); err != nil {
+	setting, err := coreSetting.Get(context.Background(), authService.durableKV, coreSetting.OAuth2)
+	if err != nil {
 		return nil, err
 	}
 
@@ -333,11 +371,11 @@ func (authService *AuthService) resolveOAuthCallback(
 		if oauthState.UserID != "" {
 			logUtil.Warn(
 				"auth audit",
-				zap.String("provider", provider),
-				zap.String("action", "oauth_login"),
-				zap.String("user_id", ""),
-				zap.String("result", "fail"),
-				zap.String("reason", "unexpected_user_id_in_login_state"),
+				slog.String("provider", provider),
+				slog.String("action", "oauth_login"),
+				slog.String("user_id", ""),
+				slog.String("result", "fail"),
+				slog.String("reason", "unexpected_user_id_in_login_state"),
 			)
 			return "", errors.New(commonModel.INVALID_PARAMS)
 		}
@@ -362,28 +400,28 @@ func (authService *AuthService) resolveOAuthCallback(
 			)
 		}
 		if err != nil {
-			logUtil.Error("fetch user by oauth id failed", zap.String("provider", provider), zap.Error(err))
+			logUtil.Error("fetch user by oauth id failed", slog.String("provider", provider), logUtil.Err(err))
 			logUtil.Warn(
 				"auth audit",
-				zap.String("provider", provider),
-				zap.String("action", "oauth_login"),
-				zap.String("user_id", ""),
-				zap.String("result", "fail"),
-				zap.String("reason", "identity_not_bound_or_lookup_failed"),
+				slog.String("provider", provider),
+				slog.String("action", "oauth_login"),
+				slog.String("user_id", ""),
+				slog.String("result", "fail"),
+				slog.String("reason", "identity_not_bound_or_lookup_failed"),
 			)
 			return "", err
 		}
 
 		tokenPair, err := authService.issueUserToken(user)
 		if err != nil {
-			logUtil.Error("generate oauth login token failed", zap.String("provider", provider), zap.Error(err))
+			logUtil.Error("generate oauth login token failed", slog.String("provider", provider), logUtil.Err(err))
 			logUtil.Warn(
 				"auth audit",
-				zap.String("provider", provider),
-				zap.String("action", "oauth_login"),
-				zap.String("user_id", user.ID),
-				zap.String("result", "fail"),
-				zap.String("reason", "issue_token_failed"),
+				slog.String("provider", provider),
+				slog.String("action", "oauth_login"),
+				slog.String("user_id", user.ID),
+				slog.String("result", "fail"),
+				slog.String("reason", "issue_token_failed"),
 			)
 			return "", err
 		}
@@ -400,11 +438,11 @@ func (authService *AuthService) resolveOAuthCallback(
 		redirectURL.RawQuery = query.Encode()
 		logUtil.Info(
 			"auth audit",
-			zap.String("provider", provider),
-			zap.String("action", "oauth_login"),
-			zap.String("user_id", user.ID),
-			zap.String("result", "success"),
-			zap.String("reason", ""),
+			slog.String("provider", provider),
+			slog.String("action", "oauth_login"),
+			slog.String("user_id", user.ID),
+			slog.String("result", "success"),
+			slog.String("reason", ""),
 		)
 
 		return redirectURL.String(), nil
@@ -413,11 +451,11 @@ func (authService *AuthService) resolveOAuthCallback(
 		if oauthState.UserID == "" {
 			logUtil.Warn(
 				"auth audit",
-				zap.String("provider", provider),
-				zap.String("action", "oauth_bind"),
-				zap.String("user_id", ""),
-				zap.String("result", "fail"),
-				zap.String("reason", "missing_user_id"),
+				slog.String("provider", provider),
+				slog.String("action", "oauth_bind"),
+				slog.String("user_id", ""),
+				slog.String("result", "fail"),
+				slog.String("reason", "missing_user_id"),
 			)
 			return "", errors.New(commonModel.INVALID_PARAMS)
 		}
@@ -434,11 +472,11 @@ func (authService *AuthService) resolveOAuthCallback(
 		}); err != nil {
 			logUtil.Warn(
 				"auth audit",
-				zap.String("provider", provider),
-				zap.String("action", "oauth_bind"),
-				zap.String("user_id", oauthState.UserID),
-				zap.String("result", "fail"),
-				zap.String("reason", "bind_persist_failed"),
+				slog.String("provider", provider),
+				slog.String("action", "oauth_bind"),
+				slog.String("user_id", oauthState.UserID),
+				slog.String("result", "fail"),
+				slog.String("reason", "bind_persist_failed"),
 			)
 			return "", err
 		}
@@ -452,11 +490,11 @@ func (authService *AuthService) resolveOAuthCallback(
 		redirectURL.RawQuery = query.Encode()
 		logUtil.Info(
 			"auth audit",
-			zap.String("provider", provider),
-			zap.String("action", "oauth_bind"),
-			zap.String("user_id", oauthState.UserID),
-			zap.String("result", "success"),
-			zap.String("reason", ""),
+			slog.String("provider", provider),
+			slog.String("action", "oauth_bind"),
+			slog.String("user_id", oauthState.UserID),
+			slog.String("result", "success"),
+			slog.String("reason", ""),
 		)
 		return redirectURL.String(), nil
 	default:
@@ -477,27 +515,26 @@ func (authService *AuthService) parseAndValidateClientRedirect(redirect string) 
 	}
 
 	allowed := config.Config().Auth.Redirect.AllowedReturnURLs
-	if authService.settingService != nil {
-		systemCtx := viewer.WithContext(context.Background(), viewer.NewSystemViewer())
-		var oauthSetting settingModel.OAuth2Setting
-		if err := authService.settingService.GetOAuth2Setting(systemCtx, &oauthSetting, true); err == nil &&
-			len(oauthSetting.AuthRedirectAllowedReturnURLs) > 0 {
-			allowed = oauthSetting.AuthRedirectAllowedReturnURLs
+	var implicitSelf []string
+	if authService.durableKV != nil {
+		if oauthSetting, err := coreSetting.Get(context.Background(), authService.durableKV, coreSetting.OAuth2); err == nil {
+			if len(oauthSetting.AuthRedirectAllowedReturnURLs) > 0 {
+				allowed = oauthSetting.AuthRedirectAllowedReturnURLs
+			}
+			implicitSelf = selfClientReturnURLs(oauthSetting.RedirectURI)
 		}
 	}
-	if len(allowed) == 0 {
+	candidates := make([]string, 0, len(allowed)+len(implicitSelf))
+	candidates = append(candidates, allowed...)
+	candidates = append(candidates, implicitSelf...)
+	if len(candidates) == 0 {
 		return nil, errors.New(commonModel.INVALID_PARAMS)
 	}
-	// 按 RFC 6749 §3.1.2 进行 scheme+host+path 的精确比对：仅校验 scheme+host
-	// 会让攻击者把同源任意路径塞进 state（GHSA-p64j-f4x9-wq66），事后通过 Referer
-	// 泄漏、第三方分析脚本、宿主上的 open-redirect 链路把一次性 exchange code 转给
-	// 攻击者。query/fragment 不参与比对：服务器会在校验通过后向 redirect URL 追加
-	// ?code=...，允许调用方携带额外查询参数。
 	redirectNorm := strings.ToLower(redirectURL.Scheme) + "://" +
 		strings.ToLower(redirectURL.Host) +
 		redirectURL.Path
 	matched := false
-	for _, item := range allowed {
+	for _, item := range candidates {
 		allowURL, parseErr := url.Parse(strings.TrimSpace(item))
 		if parseErr != nil || allowURL == nil || allowURL.Host == "" {
 			continue
@@ -515,6 +552,18 @@ func (authService *AuthService) parseAndValidateClientRedirect(redirect string) 
 	}
 
 	return redirectURL, nil
+}
+
+func selfClientReturnURLs(oauthRedirectURI string) []string {
+	u, err := url.Parse(strings.TrimSpace(oauthRedirectURI))
+	if err != nil || u == nil || u.Host == "" {
+		return nil
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil
+	}
+	origin := u.Scheme + "://" + u.Host
+	return []string{origin + "/panel", origin + "/auth"}
 }
 
 const passkeySessionTTL = 5 * time.Minute
@@ -922,8 +971,8 @@ func (authService *AuthService) GetOAuthInfo(
 		return oauthInfo, bindingPermissionError(provider)
 	}
 
-	var oauth2Setting settingModel.OAuth2Setting
-	if err := authService.settingService.GetOAuth2Setting(viewer.WithContext(ctx, viewer.NewUserViewer(user.ID)), &oauth2Setting, true); err != nil {
+	oauth2Setting, err := coreSetting.Get(ctx, authService.durableKV, coreSetting.OAuth2)
+	if err != nil {
 		return oauthInfo, err
 	}
 	isOIDC := oauth2Setting.IsOIDC
@@ -984,7 +1033,7 @@ func fetchGitHubUserInfo(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oidcHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -1010,10 +1059,7 @@ func exchangeGoogleCodeForToken(
 	}
 	expiresIn := int64(0)
 	if !token.Expiry.IsZero() {
-		expiresIn = int64(time.Until(token.Expiry).Seconds())
-		if expiresIn < 0 {
-			expiresIn = 0
-		}
+		expiresIn = max(int64(time.Until(token.Expiry).Seconds()), 0)
 	}
 	return &authModel.GoogleTokenResponse{
 		AccessToken:  token.AccessToken,
@@ -1033,7 +1079,7 @@ func fetchGoogleUserInfo(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oidcHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -1068,7 +1114,7 @@ func exchangeQQCodeForToken(
 	req, _ := http.NewRequest("GET", setting.TokenURL+"?"+data.Encode(), nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oidcHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -1112,7 +1158,7 @@ func fetchQQUserInfo(accessToken string) (*authModel.QQOpenIDResponse, error) {
 	req, _ := http.NewRequest("GET", openIDURL, nil)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oidcHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -1169,6 +1215,7 @@ func exchangeOAuthCode(setting *settingModel.OAuth2Setting, code string) (*oauth
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, oidcHTTPClient)
 	token, err := config.Exchange(ctx, code)
 	if err != nil {
 		return nil, err
@@ -1203,7 +1250,7 @@ func fetchCustomUserInfo(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oidcHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}

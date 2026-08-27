@@ -78,18 +78,6 @@ func RateLimit(rps, burst int) gin.HandlerFunc {
 	}
 }
 
-// RateLimitWithIdempotency 在 RateLimit 基础上叠加幂等窗口，适用于"写多读少且天然幂等"的接口
-// （例如点赞）。
-//
-//   - 单 IP 令牌桶限速：超过阈值返回 429。
-//   - (IP, 资源 ID) 维度的去重窗口：同一 IP 在 dedupTTL 内对同一资源的请求被视作已处理，
-//     调用 onIdempotent 写出响应并中止后续处理，避免重复请求触发数据库写入与缓存失效。
-//
-// resourceParam 是 gin 路径参数名（如 "id"）。当 IP 或资源 ID 缺失时跳过去重检查，
-// 由 handler 进行业务校验并返回业务错误，避免幂等逻辑掩盖参数问题。
-//
-// onIdempotent 必须自行写出响应并 Abort；推荐返回与正常成功路径形状一致的响应，
-// 使客户端无感知。
 func RateLimitWithIdempotency(
 	rps, burst int,
 	dedupTTL time.Duration,
@@ -139,8 +127,6 @@ func startBucketGC(rl *rateLimiter, interval, idle time.Duration) {
 	}()
 }
 
-// idempotencyStore 维护 (IP, 资源 ID) → 最近一次命中时间的映射，由后台 goroutine
-// 周期性回收过期条目，使内存占用与活跃来源数成正比而非历史累积。
 type idempotencyStore struct {
 	mu   sync.Mutex
 	seen map[string]time.Time
@@ -154,7 +140,6 @@ func newIdempotencyStore(ttl time.Duration) *idempotencyStore {
 	}
 }
 
-// acquire 在窗口内未命中时记录并返回 true（允许放行）；命中时返回 false（应作幂等处理）。
 func (s *idempotencyStore) acquire(key string, now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

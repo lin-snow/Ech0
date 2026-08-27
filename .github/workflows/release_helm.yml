@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -52,7 +52,6 @@ jobs:
             exit 1
           fi
 
-          # Package name is ech0-<version>.tgz — must change each app release or chart-releaser skips (skip_existing).
           sed -i -E 's|^version: .*|version: '"${app_version}"'|' charts/ech0/Chart.yaml
           sed -i -E 's/^appVersion: .*/appVersion: "'"${app_version}"'"/' charts/ech0/Chart.yaml
           echo "Synced chart version and appVersion to ${app_version} from tag ${release_tag}"
@@ -72,7 +71,6 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      # charts_dir must be the parent of chart folders (each subdir contains Chart.yaml), not the chart path itself.
       - name: Run Chart Releaser
         uses: helm/chart-releaser-action@v1.7.0
         with:
@@ -81,10 +79,6 @@ jobs:
         env:
           CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # chart-releaser-action publishes a GitHub release tagged ech0-<version> for the chart artifact.
-      # Created after v<version>, so GitHub silently flips "Latest" onto it; tooling that resolves
-      # /releases/latest (incl. scripts/ech0.sh) then 404s looking for the platform binary.
-      # Re-anchor "Latest" onto the originating v* app release.
       - name: Reset latest release pointer to app release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

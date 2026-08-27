@@ -76,7 +76,6 @@
             gap: 12px;
             min-width: 0;
           }
-          /* 与 web HomeHeader 一致：圆形头像样式，没有白底框 */
           .logo {
             width: 40px;
             height: 40px;
@@ -195,7 +194,6 @@
           }
           .entry-content p { margin: 0 0 0.6em; }
           .entry-content p:last-child { margin-bottom: 0; }
-          /* 多图：覆盖后端注入的 inline style，按等高小缩略图横向排列 */
           .entry-content img {
             display: inline-block !important;
             width: auto !important;
@@ -207,7 +205,6 @@
             margin: 0 4px 4px 0;
             vertical-align: top;
           }
-          /* 单图时铺满更舒服 */
           .entry-content img:only-of-type {
             max-width: 100% !important;
             height: auto !important;

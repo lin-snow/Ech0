@@ -65,22 +65,18 @@ func FuzzCleanKey(f *testing.F) {
 			return
 		}
 
-		// Invariant: result never starts or ends with /
 		if cleaned != "" && (cleaned[0] == '/' || cleaned[len(cleaned)-1] == '/') {
 			t.Errorf("CleanKey(%q) = %q has leading/trailing slash", input, cleaned)
 		}
 
-		// Invariant: result never contains ".." as a path segment
 		if strings.HasPrefix(cleaned, "..") || strings.Contains(cleaned, "/../") || strings.HasSuffix(cleaned, "/..") {
 			t.Errorf("CleanKey(%q) = %q contains path traversal", input, cleaned)
 		}
 
-		// Invariant: result never contains double slashes
 		if strings.Contains(cleaned, "//") {
 			t.Errorf("CleanKey(%q) = %q contains double slash", input, cleaned)
 		}
 
-		// Invariant: idempotent — cleaning again yields the same result
 		again, err := CleanKey(cleaned)
 		if err != nil {
 			t.Errorf("CleanKey(%q) succeeded, but CleanKey(%q) failed: %v", input, cleaned, err)

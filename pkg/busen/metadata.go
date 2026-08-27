@@ -8,10 +8,8 @@ import (
 	"reflect"
 )
 
-// MetadataBuilder builds optional structured metadata for publish envelopes.
 type MetadataBuilder func(PublishMetadataInput) map[string]string
 
-// PublishMetadataInput is passed to MetadataBuilder.
 type PublishMetadataInput struct {
 	Context   context.Context
 	EventType reflect.Type

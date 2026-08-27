@@ -1,15 +1,8 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
-//
 // Idempotent batch tool: prepend SPDX-License-Identifier + Copyright headers to
-// every .go / .ts / .vue source file in this repo. Re-running is safe — files
 // already containing "SPDX-License-Identifier" are skipped.
-//
-// Usage:
-//   node scripts/add-spdx-headers.mjs           # write
-//   node scripts/add-spdx-headers.mjs --check   # exit 1 if any file is missing a header (CI)
-//   node scripts/add-spdx-headers.mjs --dry-run # report what would change, write nothing
 
 import { readdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { join, relative, dirname } from 'node:path'
@@ -36,19 +29,18 @@ const SKIP_DIRS = new Set([
   'bin',
   'release',
   'dist',
+  '.react-router',
 ])
 
-// Files explicitly excluded — generated, vendored, or upstream-owned.
 const SKIP_FILES = new Set([
   'internal/di/wire_gen.go',
   'web/src/components/icons',
 ])
 
 const SKIP_PATH_FRAGMENTS = [
-  'internal/swagger/',
   'template/dist/',
   'web/dist/',
-  'web/src/components/icons/', // SVG icons embed their own source/license attribution
+  'web/src/components/icons/',
 ]
 
 const EXTS = new Set(['.go', '.ts', '.vue'])
@@ -81,7 +73,6 @@ function insertGo(src) {
   const lines = src.split('\n')
   let insertAt = 0
   if (lines[0]?.startsWith('//go:build') || lines[0]?.startsWith('// +build')) {
-    // Build tag block ends at the first blank line; insert AFTER it.
     let i = 0
     while (i < lines.length && lines[i].trim() !== '') i++
     insertAt = i + 1
@@ -91,7 +82,6 @@ function insertGo(src) {
 }
 
 function insertTs(src) {
-  // Preserve shebang as the first line.
   if (src.startsWith('#!')) {
     const nl = src.indexOf('\n')
     const head = src.slice(0, nl + 1)

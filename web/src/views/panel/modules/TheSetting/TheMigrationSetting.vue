@@ -1,147 +1,120 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <PanelCard>
-    <div class="migration-wrap">
-      <div class="migration-header">
-        <h1 class="migration-title">{{ t('migrationSetting.title') }}</h1>
-        <p class="migration-desc">{{ t('migrationSetting.description') }}</p>
-      </div>
+  <div class="migration-wrap">
+    <div class="migration-header">
+      <h1 class="text-[var(--color-text-primary)] font-bold text-lg">
+        {{ t('migrationSetting.title') }}
+      </h1>
+      <p class="migration-desc">{{ t('migrationSetting.description') }}</p>
+    </div>
 
-      <div class="migration-source-grid">
-        <button
-          v-for="source in sourceCards"
-          :key="source.value"
-          class="migration-source-card"
-          :class="{ active: sourceType === source.value, disabled: source.inDevelopment }"
-          @click="handleSelectSource(source)"
-        >
-          <div class="migration-source-title-wrap">
-            <h3>{{ source.title }}</h3>
-            <span v-if="source.inDevelopment" class="migration-dev-badge">{{
-              t('migrationSetting.inDevelopment')
-            }}</span>
-          </div>
-          <p>{{ source.desc }}</p>
-        </button>
-      </div>
-
-      <div class="migration-form">
-        <div class="migration-row migration-row-top">
-          <span class="migration-label">{{ t('migrationSetting.sourceZip') }}</span>
-          <div class="migration-upload-wrap">
-            <BaseButton
-              :tooltip="t('migrationSetting.pickZip')"
-              :disabled="isSubmittingMigration"
-              @click="handlePickZip"
-            >
-              {{ t('migrationSetting.pickZip') }}
-            </BaseButton>
-            <p class="migration-file-name">
-              {{ selectedZipName || t('migrationSetting.noFileSelected') }}
-            </p>
-          </div>
+    <div class="migration-source-grid">
+      <button
+        v-for="source in sourceCards"
+        :key="source.value"
+        class="migration-source-card"
+        :class="{ active: sourceType === source.value, disabled: source.inDevelopment }"
+        @click="handleSelectSource(source)"
+      >
+        <div class="migration-source-title-wrap">
+          <h3>{{ source.title }}</h3>
+          <span v-if="source.inDevelopment" class="migration-dev-badge">{{
+            t('migrationSetting.inDevelopment')
+          }}</span>
         </div>
-      </div>
+        <p>{{ source.desc }}</p>
+      </button>
+    </div>
 
-      <div class="migration-actions">
-        <BaseButton
-          :tooltip="t('migrationSetting.startMigration')"
-          :disabled="isSubmittingMigration"
-          @click="handleStartMigration"
-        >
-          {{ startActionText }}
-        </BaseButton>
-        <BaseButton
-          :tooltip="t('migrationSetting.refreshStatus')"
-          :disabled="isSubmittingMigration"
-          @click="handleRefreshJob"
-        >
-          {{ t('migrationSetting.refreshStatus') }}
-        </BaseButton>
-        <BaseButton
-          v-if="migrationStore.isRunning"
-          :tooltip="t('migrationSetting.cancelJob')"
-          :disabled="isSubmittingMigration"
-          @click="handleCancelJob"
-        >
-          {{ t('migrationSetting.cancelJob') }}
-        </BaseButton>
-        <BaseButton
-          v-if="migrationStore.canCleanup"
-          :tooltip="migrationStore.isSuccess ? t('commonUi.done') : t('migrationSetting.cleanup')"
-          :disabled="isSubmittingMigration"
-          @click="handleCleanupMigration"
-        >
-          {{ migrationStore.isSuccess ? t('commonUi.done') : t('migrationSetting.cleanup') }}
-        </BaseButton>
-      </div>
-      <p v-if="isUploadingZip" class="migration-progress-tip">
-        {{ t('migrationSetting.uploadingTip') }}
-      </p>
-      <p v-else-if="isCreatingMigration" class="migration-progress-tip">
-        {{ t('migrationSetting.creatingTip') }}
-      </p>
+    <div v-if="sourceType === 'capsule'" class="migration-capsule-panel">
+      <p class="migration-capsule-note">{{ t('migrationSetting.capsuleNote') }}</p>
+      <BaseSwitch v-model="capsuleIncludePrivate" :disabled="isSubmittingMigration">
+        {{ t('migrationSetting.capsuleIncludePrivate') }}
+      </BaseSwitch>
+    </div>
 
-      <div class="migration-job" v-if="migrationStore.hasJob">
-        <div class="migration-job-header">
-          <div class="migration-job-title-wrap">
-            <h3 class="migration-job-title">{{ t('migrationSetting.jobTitle') }}</h3>
-            <p class="migration-job-subtitle">
-              {{ t('migrationSetting.source') }}
-              {{
-                sourceLabelMap[migrationStore.state.source_type] || migrationStore.state.source_type
-              }}
-            </p>
-          </div>
-          <span class="migration-status-pill" :class="`status-${migrationStore.state.status}`">
-            {{ statusLabelMap[migrationStore.state.status] || migrationStore.state.status }}
-          </span>
-        </div>
-
-        <p class="migration-job-error" v-if="migrationStore.state.error_message">
-          {{ migrationStore.state.error_message }}
-        </p>
-
-        <div class="migration-job-metrics" v-if="hasMetrics">
-          <div class="metric-item">
-            <span class="metric-label">{{ t('migrationSetting.totalProcessed') }}</span>
-            <span class="metric-value">{{ migrationProcessed }}</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">{{ t('migrationSetting.success') }}</span>
-            <span class="metric-value">{{ migrationSuccess }}</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">{{ t('migrationSetting.failed') }}</span>
-            <span class="metric-value">{{ migrationFail }}</span>
-          </div>
-        </div>
-
-        <div class="migration-job-meta">
-          <p v-if="migrationJobId">{{ t('migrationSetting.jobId') }}: {{ migrationJobId }}</p>
-          <p v-if="formattedStartedAt">
-            {{ t('migrationSetting.startedAt') }}: {{ formattedStartedAt }}
-          </p>
-          <p v-if="formattedFinishedAt">
-            {{ t('migrationSetting.finishedAt') }}: {{ formattedFinishedAt }}
+    <div class="migration-form">
+      <div class="migration-row migration-row-top">
+        <span class="migration-label">{{ t('migrationSetting.sourceZip') }}</span>
+        <div class="migration-upload-wrap">
+          <BaseButton
+            :tooltip="t('migrationSetting.pickZip')"
+            :disabled="isSubmittingMigration"
+            @click="handlePickZip"
+          >
+            {{ t('migrationSetting.pickZip') }}
+          </BaseButton>
+          <p class="migration-file-name">
+            {{ selectedZipName || t('migrationSetting.noFileSelected') }}
           </p>
         </div>
       </div>
     </div>
-  </PanelCard>
+
+    <div class="migration-actions">
+      <BaseButton
+        :tooltip="t('migrationSetting.startMigration')"
+        :disabled="isSubmittingMigration"
+        @click="handleStartMigration"
+      >
+        {{ startActionText }}
+      </BaseButton>
+      <BaseButton
+        :tooltip="t('migrationSetting.refreshStatus')"
+        :disabled="isSubmittingMigration"
+        @click="handleRefreshJob"
+      >
+        {{ t('migrationSetting.refreshStatus') }}
+      </BaseButton>
+      <BaseButton
+        v-if="migrationStore.isRunning"
+        :tooltip="t('migrationSetting.cancelJob')"
+        :disabled="isSubmittingMigration"
+        @click="handleCancelJob"
+      >
+        {{ t('migrationSetting.cancelJob') }}
+      </BaseButton>
+      <BaseButton
+        v-if="migrationStore.canCleanup"
+        :tooltip="migrationStore.isSuccess ? t('commonUi.done') : t('migrationSetting.cleanup')"
+        :disabled="isSubmittingMigration"
+        @click="handleCleanupMigration"
+      >
+        {{ migrationStore.isSuccess ? t('commonUi.done') : t('migrationSetting.cleanup') }}
+      </BaseButton>
+    </div>
+    <p v-if="isUploadingZip" class="migration-progress-tip">
+      {{ t('migrationSetting.uploadingTip') }}
+    </p>
+    <p v-else-if="isCreatingMigration" class="migration-progress-tip">
+      {{ t('migrationSetting.creatingTip') }}
+    </p>
+
+    <JobProgressCard
+      v-if="migrationStore.hasJob"
+      :title="t('migrationSetting.jobTitle')"
+      :subtitle="jobSubtitle"
+      :status="migrationStore.state.status"
+      :status-label="statusLabelMap[migrationStore.state.status] || migrationStore.state.status"
+      :steps="importSteps"
+      :current-key="migrationStore.state.phase"
+      :metrics="jobMetrics"
+      :meta="jobMeta"
+      :error-message="migrationStore.state.error_message"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import PanelCard from '@/layout/PanelCard.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
-import { fetchUploadMigrationSourceZip } from '@/service/api'
+import BaseSwitch from '@/components/common/BaseSwitch.vue'
+import JobProgressCard from './components/JobProgressCard.vue'
+import { fetchUploadMigrationSourceZip, type MigrationSourceType } from '@/service/api'
 import { useMigrationStore } from '@/stores'
 import { theToast } from '@/utils/toast'
-
-type MigrationSourceType = 'ech0_v4' | 'memos'
 
 interface SourceCard {
   value: MigrationSourceType
@@ -151,7 +124,12 @@ interface SourceCard {
 }
 
 const sourceCards = computed<SourceCard[]>(() => [
-  { value: 'ech0_v4', title: 'Ech0', desc: String(t('migrationSetting.sourceEch0v4')) },
+  { value: 'ech0', title: 'Ech0', desc: String(t('migrationSetting.sourceEch0')) },
+  {
+    value: 'capsule',
+    title: String(t('migrationSetting.sourceCapsuleTitle')),
+    desc: String(t('migrationSetting.sourceCapsule')),
+  },
   {
     value: 'memos',
     title: 'Memos',
@@ -160,9 +138,10 @@ const sourceCards = computed<SourceCard[]>(() => [
   },
 ])
 
-const sourceType = ref<MigrationSourceType>('ech0_v4')
+const sourceType = ref<MigrationSourceType>('ech0')
 const selectedZip = ref<File | null>(null)
 const selectedZipName = ref('')
+const capsuleIncludePrivate = ref(false)
 const isUploadingZip = ref(false)
 const isCreatingMigration = ref(false)
 const migrationStore = useMigrationStore()
@@ -176,8 +155,9 @@ const statusLabelMap = computed<Record<string, string>>(() => ({
   cancelled: String(t('migrationSetting.statusCancelled')),
 }))
 const sourceLabelMap = computed<Record<string, string>>(() => ({
-  ech0_v4: 'Ech0',
+  ech0: 'Ech0',
   memos: 'Memos',
+  capsule: String(t('migrationSetting.sourceCapsuleTitle')),
 }))
 const migrationReport = computed(
   () => (migrationStore.state.source_payload?.report as Record<string, unknown> | undefined) ?? {},
@@ -203,6 +183,70 @@ const startActionText = computed(() => {
   if (isUploadingZip.value) return String(t('migrationSetting.uploading'))
   if (isCreatingMigration.value) return String(t('migrationSetting.creating'))
   return String(t('migrationSetting.startMigration'))
+})
+
+const jobSubtitle = computed(
+  () =>
+    `${t('migrationSetting.source')} ${sourceLabelMap.value[migrationStore.state.source_type] || migrationStore.state.source_type}`,
+)
+
+const importSteps = computed(() => {
+  if (migrationStore.state.source_type === 'capsule') {
+    return [
+      { key: 'checking', label: String(t('jobProgress.importPhaseChecking')) },
+      { key: 'importing', label: String(t('jobProgress.importPhaseImporting')) },
+      { key: 'completed', label: String(t('jobProgress.importPhaseCompleted')) },
+    ]
+  }
+  return [
+    { key: 'extracting', label: String(t('jobProgress.importPhaseExtracting')) },
+    { key: 'loading', label: String(t('jobProgress.importPhaseLoading')) },
+    { key: 'reporting', label: String(t('jobProgress.importPhaseReporting')) },
+    { key: 'completed', label: String(t('jobProgress.importPhaseCompleted')) },
+  ]
+})
+
+const metricText = (v: unknown) => (v === undefined || v === null ? '—' : String(v))
+const failIsPositive = computed(() => {
+  const n = Number(migrationFail.value)
+  return Number.isFinite(n) && n > 0
+})
+
+const jobMetrics = computed(() => {
+  if (!hasMetrics.value) return []
+  return [
+    {
+      label: String(t('migrationSetting.totalProcessed')),
+      value: metricText(migrationProcessed.value),
+    },
+    {
+      label: String(t('migrationSetting.success')),
+      value: metricText(migrationSuccess.value),
+      tone: 'success' as const,
+    },
+    {
+      label: String(t('migrationSetting.failed')),
+      value: metricText(migrationFail.value),
+      tone: failIsPositive.value ? ('danger' as const) : undefined,
+    },
+  ]
+})
+
+const jobMeta = computed(() => {
+  const lines: { label: string; value: string }[] = []
+  if (migrationJobId.value) {
+    lines.push({ label: String(t('migrationSetting.jobId')), value: String(migrationJobId.value) })
+  }
+  if (formattedStartedAt.value) {
+    lines.push({ label: String(t('migrationSetting.startedAt')), value: formattedStartedAt.value })
+  }
+  if (formattedFinishedAt.value) {
+    lines.push({
+      label: String(t('migrationSetting.finishedAt')),
+      value: formattedFinishedAt.value,
+    })
+  }
+  return lines
 })
 
 const resetSelectedZip = () => {
@@ -271,7 +315,10 @@ const handleStartMigration = async () => {
       theToast.error(uploadRes.msg || String(t('migrationSetting.uploadFailed')))
       return
     }
-    const sourcePayload = uploadRes.data?.source_payload ?? {}
+    const sourcePayload: Record<string, unknown> = { ...(uploadRes.data?.source_payload ?? {}) }
+    if (sourceType.value === 'capsule') {
+      sourcePayload.include_private = capsuleIncludePrivate.value
+    }
 
     isUploadingZip.value = false
     isCreatingMigration.value = true
@@ -359,12 +406,6 @@ void migrationStore.init()
   gap: 0.4rem;
 }
 
-.migration-title {
-  color: var(--color-text-primary);
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
 .migration-desc {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
@@ -424,6 +465,18 @@ void migrationStore.init()
   box-shadow: inset 0 0 0 1px var(--color-nav-active-bg);
 }
 
+.migration-capsule-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.migration-capsule-note {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
 .migration-form {
   display: flex;
   flex-direction: column;
@@ -470,111 +523,8 @@ void migrationStore.init()
   font-size: 0.83rem;
 }
 
-.migration-job {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  padding: 0.9rem;
-  background: var(--color-bg-surface);
-}
-
-.migration-job-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.6rem;
-}
-
-.migration-job-title-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.migration-job-title {
-  color: var(--color-text-primary);
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.migration-job-subtitle {
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-}
-
-.migration-status-pill {
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
-}
-
-.status-running,
-.status-pending {
-  color: var(--color-nav-active-bg);
-  border-color: var(--color-nav-active-bg);
-}
-
-.status-success {
-  color: #1f9d55;
-  border-color: #1f9d55;
-}
-
-.status-failed,
-.status-cancelled {
-  color: #d64545;
-  border-color: #d64545;
-}
-
-.migration-job-error {
-  margin-top: 0.65rem;
-  color: #d64545;
-  font-size: 0.83rem;
-}
-
-.migration-job-metrics {
-  margin-top: 0.75rem;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.metric-item {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.metric-label {
-  color: var(--color-text-secondary);
-  font-size: 0.78rem;
-}
-
-.metric-value {
-  color: var(--color-text-primary);
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.migration-job-meta {
-  margin-top: 0.7rem;
-  color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
 @media (width <= 768px) {
   .migration-source-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .migration-job-metrics {
     grid-template-columns: 1fr;
   }
 }

@@ -172,6 +172,40 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 	}, a.deleteTag, authModel.ScopeEchoWrite)
+
+	reg.RegisterTool(ToolDefinition{
+		Name:        "get_hot_posts",
+		Title:       "Get Hot Posts",
+		Description: "Return the most popular posts, ranked by a weighted score of likes and comment count. Returns an array of post objects.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"limit": map[string]any{"type": "integer", "description": "Number of posts to return (1–100)", "default": 5},
+			},
+		},
+	}, a.getHotPosts, authModel.ScopeEchoRead)
+
+	reg.RegisterTool(ToolDefinition{
+		Name:        "get_random_post",
+		Title:       "Get Random Post",
+		Description: "Return a single randomly selected post. Returns the post object, or null if there are no posts. No parameters needed.",
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	}, a.getRandomPost, authModel.ScopeEchoRead)
+
+	reg.RegisterTool(ToolDefinition{
+		Name:        "get_on_this_day_posts",
+		Title:       "Get On This Day Posts",
+		Description: "Return posts from past years that share the same month and day as today ('on this day' / this day in history). The day boundary depends on the timezone parameter. Returns an array of post objects.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"timezone": map[string]any{"type": "string", "description": "IANA timezone name (e.g. Asia/Shanghai, America/New_York). Defaults to UTC if omitted."},
+			},
+		},
+	}, a.getOnThisDayPosts, authModel.ScopeEchoRead)
 }
 
 func (a *Adapter) registerEchoResources(reg *Registry) {
@@ -200,15 +234,10 @@ func (a *Adapter) registerEchoResources(reg *Registry) {
 	}, a.resourcePostByID, authModel.ScopeEchoRead)
 }
 
-// --- Tool handlers ---
-
 func (a *Adapter) searchPosts(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
 	query := stringArg(args, "query")
 	page := intArg(args, "page", 1)
-	pageSize := intArg(args, "page_size", 20)
-	if pageSize > 100 {
-		pageSize = 100
-	}
+	pageSize := min(intArg(args, "page_size", 20), 100)
 	sortBy := stringArg(args, "sort_by")
 	sortOrder := stringArg(args, "sort_order")
 
@@ -350,7 +379,31 @@ func (a *Adapter) deleteTag(ctx context.Context, args map[string]any) (*ToolCall
 	return jsonResult(map[string]string{"id": id, "message": "tag deleted successfully"})
 }
 
-// --- Resource handlers ---
+func (a *Adapter) getHotPosts(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
+	limit := min(max(intArg(args, "limit", 5), 1), 100)
+	posts, err := a.echoSvc.GetHotEchos(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return jsonResult(posts)
+}
+
+func (a *Adapter) getRandomPost(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {
+	post, err := a.echoSvc.GetRandomEcho(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return jsonResult(post)
+}
+
+func (a *Adapter) getOnThisDayPosts(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
+	timezone := stringArg(args, "timezone")
+	posts, err := a.echoSvc.GetOnThisDayEchos(ctx, timezone)
+	if err != nil {
+		return nil, err
+	}
+	return jsonResult(posts)
+}
 
 func (a *Adapter) resourceTags(_ context.Context, _ string) (*ResourceReadResult, error) {
 	tags, err := a.echoSvc.GetAllTags()

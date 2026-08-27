@@ -3,18 +3,14 @@
 
 package busen
 
-// Event is the typed value delivered to handlers.
+import "maps"
+
 type Event[T any] struct {
-	// Topic carries optional routing metadata supplied at publish time.
-	Topic string
-	// Key carries the optional ordering key supplied at publish time.
-	Key string
-	// Value is the typed event payload.
-	Value T
-	// Headers contains a shallow copy of publish headers visible to handlers.
+	Topic   string
+	Key     string
+	Value   T
 	Headers map[string]string
-	// Meta contains structured envelope metadata visible to handlers.
-	Meta map[string]string
+	Meta    map[string]string
 }
 
 type envelope struct {
@@ -41,8 +37,6 @@ func cloneHeaders(headers map[string]string) map[string]string {
 	}
 
 	cloned := make(map[string]string, len(headers))
-	for k, v := range headers {
-		cloned[k] = v
-	}
+	maps.Copy(cloned, headers)
 	return cloned
 }

@@ -8,35 +8,23 @@ import (
 	"fmt"
 )
 
-// ShutdownMode controls how bus shutdown handles queued async events.
 type ShutdownMode int
 
 const (
-	// ShutdownDrain waits for async queues to drain.
 	ShutdownDrain ShutdownMode = iota
-	// ShutdownBestEffort stops accepting work and waits until context ends.
 	ShutdownBestEffort
-	// ShutdownAbort stops accepting work and drops queued async events.
 	ShutdownAbort
 )
 
-// ShutdownResult reports structured shutdown outcomes.
 type ShutdownResult struct {
-	Mode ShutdownMode
-	// Processed is the number of handler executions observed during shutdown.
-	Processed int64
-	// Dropped is the number of dropped events observed during shutdown.
-	// It includes backpressure drops and abort-mode queue drops.
-	Dropped int64
-	// Rejected is the number of rejected events observed during shutdown.
-	Rejected int64
-	// TimedOutSubscribers contains subscriber IDs that did not stop before ctx ended.
+	Mode                ShutdownMode
+	Processed           int64
+	Dropped             int64
+	Rejected            int64
 	TimedOutSubscribers []uint64
-	// Completed reports whether shutdown fully completed before context cancellation.
-	Completed bool
+	Completed           bool
 }
 
-// Shutdown stops accepting new publishes and subscriptions according to mode.
 func (b *Bus) Shutdown(ctx context.Context, mode ShutdownMode) (ShutdownResult, error) {
 	result := ShutdownResult{Mode: mode}
 
@@ -50,9 +38,9 @@ func (b *Bus) Shutdown(ctx context.Context, mode ShutdownMode) (ShutdownResult, 
 		ctx = context.Background()
 	}
 
+	before := snapshotSubscriptionStats(b.allSubscriptions())
 	b.gate.Close()
 	subs := b.allSubscriptions()
-	before := snapshotSubscriptionStats(subs)
 
 	if err := b.gate.Wait(ctx); err != nil {
 		result.Completed = false

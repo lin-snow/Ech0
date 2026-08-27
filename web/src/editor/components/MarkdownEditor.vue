@@ -167,7 +167,6 @@ function onWindowKeydown(event: KeyboardEvent) {
     (key === 'z' && event.ctrlKey && event.shiftKey && !event.metaKey && !event.altKey)
 
   if ((isUndo || isRedo) && textareaRef.value) {
-    // Let native textarea undo/redo handle history to avoid deprecated execCommand.
     if (document.activeElement !== textareaRef.value) {
       return
     }

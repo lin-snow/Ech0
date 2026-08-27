@@ -1,5 +1,3 @@
-# 使用模板「登记到 Ech0 Hub」开 Issue 并带上标签 hub 时，
-# 解析 Instance ID / Instance URL，更新 hub/public/hub.json 并自动开 PR（需维护者合并）。
 name: Hub register from issue
 
 on:
@@ -22,7 +20,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Parse issue and update hub.json
         id: hub
@@ -33,7 +31,7 @@ jobs:
 
             const hubPath = 'hub/public/hub.json';
             const issueNumber = context.eventName === 'workflow_dispatch'
-              ? Number(core.getInput('issue_number'))
+              ? Number(context.payload.inputs.issue_number)
               : context.issue.number;
 
             if (!Number.isInteger(issueNumber) || issueNumber <= 0) {

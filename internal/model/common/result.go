@@ -3,7 +3,6 @@
 
 package model
 
-// Result 定义统一的API响应格式
 type Result[T any] struct {
 	Code          int            `json:"code"`
 	Message       string         `json:"msg"`
@@ -18,12 +17,10 @@ const (
 	DEFAULT_FAILED_CODE  = 0
 )
 
-// OK 返回成功的结果
 func OK[T any](data T, messages ...string) Result[T] {
-	// 如果没有传入自定义消息，则使用默认消息
 	message := SUCCESS_MESSAGE
 	if len(messages) > 0 {
-		message = messages[0] // 如果有自定义消息，就使用它
+		message = messages[0]
 	}
 
 	return Result[T]{
@@ -33,7 +30,6 @@ func OK[T any](data T, messages ...string) Result[T] {
 	}
 }
 
-// Fail 返回失败的结果
 func Fail[T any](message string) Result[T] {
 	var zero T
 	return Result[T]{
@@ -58,12 +54,10 @@ func FailWithLocalized[T any](message, errorCode, messageKey string, params map[
 	return res
 }
 
-// OKWithCode 返回成功的结果，并允许自定义状态码
 func OKWithCode[T any](data T, code int, messages ...string) Result[T] {
-	// 如果没有传入自定义消息，则使用默认消息
 	message := SUCCESS_MESSAGE
 	if len(messages) > 0 {
-		message = messages[0] // 如果有自定义消息，就使用它
+		message = messages[0]
 	}
 
 	return Result[T]{
