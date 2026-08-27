@@ -102,7 +102,7 @@ import PublishIcon from '@/components/icons/publish.vue'
 import PanelIcon from '@/components/icons/panel.vue'
 import LightIcon from '@/components/icons/light.vue'
 import DarkIcon from '@/components/icons/dark.vue'
-import LeafIcon from '@/components/icons/leaf.vue'
+import TreeIcon from '@/components/icons/tree.vue'
 import SystemIcon from '@/components/icons/system.vue'
 import Rss from '@/components/icons/rss.vue'
 import Zen from '@/components/icons/zen.vue'
@@ -206,7 +206,7 @@ const themeIcon = computed(() => {
   if (themeStore.mode === 'system') return SystemIcon
   if (themeStore.mode === 'light') return LightIcon
   if (themeStore.mode === 'dark') return DarkIcon
-  return LeafIcon
+  return TreeIcon
 })
 const currentThemeModeLabel = computed(() => {
   if (themeStore.mode === 'system') return String(t('homeNav.themeSystem'))
