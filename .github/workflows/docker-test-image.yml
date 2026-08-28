@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "镜像标签（留空自动生成 test-<run>-<sha7>）"
+        description: "镜像标签（留空自动生成 sha-<sha7>）"
         required: false
         type: string
       push_test_latest:
-        description: "额外推送 test-latest 标签"
+        description: "额外推送 latest 标签"
         required: true
         type: boolean
         default: true
@@ -137,7 +137,7 @@ jobs:
           if [ -n "${{ inputs.image_tag }}" ]; then
             TAG="${{ inputs.image_tag }}"
           else
-            TAG="test-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+            TAG="sha-${GITHUB_SHA::7}"
           fi
 
           {
@@ -146,7 +146,7 @@ jobs:
             echo "tags<<EOF"
             echo "${IMAGE}:${TAG}"
             if [ "${{ inputs.push_test_latest }}" = "true" ]; then
-              echo "${IMAGE}:test-latest"
+              echo "${IMAGE}:latest"
             fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
