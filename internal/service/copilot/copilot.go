@@ -16,6 +16,7 @@ type CopilotService struct {
 	durableKV      kvstore.Store
 	storage        *storage.Manager
 	recentGenGroup singleflight.Group
+	asks           *askRegistry
 }
 
 var (
@@ -41,5 +42,6 @@ func NewCopilotService(
 		userReader:  userReader,
 		durableKV:   durableKV,
 		storage:     storageManager,
+		asks:        newAskRegistry(),
 	}
 }

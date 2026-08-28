@@ -17,6 +17,7 @@ func (a *Adapter) registerCommonResources(reg *Registry) {
 		Title:       "Post Heatmap",
 		Description: "Daily post counts for the past 30 calendar days (UTC day boundaries). Returns an array of {date, count} objects, suitable for calendar heatmap rendering.",
 		MimeType:    "application/json",
+		Cache:       privateCache(liveTTLMs),
 	}, a.resourceHeatmap, authModel.ScopeEchoRead)
 }
 

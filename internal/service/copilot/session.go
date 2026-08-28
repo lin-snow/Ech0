@@ -89,6 +89,7 @@ type ChatMessage struct {
 	Sources     []embeddingModel.SearchResult `json:"sources,omitempty"`
 	Reasoning   string                        `json:"reasoning,omitempty"`
 	ReasoningMs int64                         `json:"reasoning_ms,omitempty"`
+	Asks        []AskExchange                 `json:"asks,omitempty"`
 }
 
 func chatSessionKey(userID string) string {
@@ -135,10 +136,17 @@ type assistantTurn struct {
 	sources     []embeddingModel.SearchResult
 	reasoning   string
 	reasoningMs int64
+	asks        []AskExchange
 }
 
+// persistTurn writes the turn down, or drops it when there is nothing in it.
+//
+// An answered question counts as something in it. A turn that ended right after
+// a confirmation — approved and applied, or declined — may have produced no
+// prose and no sources, and dropping it would erase the one exchange the person
+// actually took part in.
 func (s *CopilotService) persistTurn(ctx context.Context, userID, question string, turn assistantTurn) {
-	if strings.TrimSpace(turn.answer) == "" && len(turn.sources) == 0 {
+	if strings.TrimSpace(turn.answer) == "" && len(turn.sources) == 0 && len(turn.asks) == 0 {
 		return
 	}
 	s.appendTurn(ctx, userID,
@@ -149,6 +157,7 @@ func (s *CopilotService) persistTurn(ctx context.Context, userID, question strin
 			Sources:     turn.sources,
 			Reasoning:   turn.reasoning,
 			ReasoningMs: turn.reasoningMs,
+			Asks:        turn.asks,
 		},
 	)
 }

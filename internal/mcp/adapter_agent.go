@@ -19,6 +19,7 @@ func (a *Adapter) registerAgentTools(reg *Registry) {
 			"type":       "object",
 			"properties": map[string]any{},
 		},
+		Annotations: readOnlyHints(),
 	}, a.getRecent, authModel.ScopeEchoRead)
 }
 

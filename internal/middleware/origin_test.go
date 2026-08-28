@@ -55,7 +55,7 @@ func TestOriginGuardNoOriginHeader(t *testing.T) {
 	}
 }
 
-func TestOriginGuardEmptyAllowList(t *testing.T) {
+func TestOriginGuardEmptyAllowListRejectsForeignOrigin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(OriginGuard(nil))
@@ -65,7 +65,39 @@ func TestOriginGuardEmptyAllowList(t *testing.T) {
 	req.Header.Set("Origin", "https://anything.com")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("empty allow list: status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestOriginGuardAllowsSameOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(OriginGuard(nil))
+	r.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Host = "localhost:6277"
+	req.Header.Set("Origin", "http://localhost:6277")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
-		t.Errorf("empty allow list: status = %d, want %d", rec.Code, http.StatusOK)
+		t.Errorf("same origin: status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestOriginGuardRejectsSchemeDowngrade(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(OriginGuard(nil))
+	r.GET("/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Host = "ech0.example.com"
+	req.Header.Set("Origin", "https://ech0.example.com")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("scheme mismatch: status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }

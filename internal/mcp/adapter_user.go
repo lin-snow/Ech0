@@ -18,6 +18,7 @@ func (a *Adapter) registerUserResources(reg *Registry) {
 		Title:       "Current User Profile",
 		Description: "JSON object with id, username, email, avatar URL, and admin flag of the token owner.",
 		MimeType:    "application/json",
+		Cache:       privateCache(liveTTLMs),
 	}, a.resourceProfile, authModel.ScopeProfileRead)
 }
 

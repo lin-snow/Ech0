@@ -33,6 +33,38 @@ declare namespace App {
         truncated: boolean
       }
 
+      type ChatAskOption = {
+        label: string
+        description?: string
+      }
+
+      type ChatAskQuestion = {
+        id: string
+        text: string
+        header?: string
+        detail?: string
+        options?: ChatAskOption[]
+        multi?: boolean
+        /** Index into `options`. A hint the model leaves; never a default. */
+        recommended?: number
+      }
+
+      type ChatAsk = {
+        ask_id: string
+        questions: ChatAskQuestion[]
+      }
+
+      type ChatAskAnswer = {
+        question_id: string
+        selected?: string[]
+        custom?: string
+      }
+
+      type ChatAskExchange = {
+        questions: ChatAskQuestion[]
+        answers: ChatAskAnswer[]
+      }
+
       type ChatMessage = {
         role: 'user' | 'assistant'
         content: string
@@ -43,6 +75,9 @@ declare namespace App {
         reasoning?: string
         reasoning_ms?: number
         reasoningActive?: boolean
+        asks?: ChatAskExchange[]
+        /** Transient, client-only: the round currently blocking the run. */
+        pendingAsk?: ChatAsk
       }
 
       type StreamEvent =
@@ -53,6 +88,8 @@ declare namespace App {
         | { type: 'reasoning_done'; data: { duration_ms: number } }
         | { type: 'delta'; data: { text: string } }
         | { type: 'error'; data: { message: string } }
+        | { type: 'ask'; data: ChatAsk }
+        | { type: 'ask_closed'; data: { ask_id: string } }
         | { type: 'done'; data: { done: boolean } }
     }
   }

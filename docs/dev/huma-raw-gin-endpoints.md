@@ -89,9 +89,9 @@
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
 | POST | `/mcp` | `MCPHandler.ServeEndpoint` | MCP 组 · RequireAuth + RateLimit + OriginGuard + Audience `mcp-remote` |
-| GET | `/mcp` | `MCPHandler.ServeEndpoint` | 同上 |
+| GET / DELETE | `/mcp` | `MCPHandler.ServeEndpoint` | 同上；处理器一律返回 405（无会话、无独立 SSE 流） |
 
-JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audience/scope）与普通 API 不同。
+JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audience/scope）与普通 API 不同。同一端点双时代服务 `2026-07-28` 与 `initialize` 握手时代客户端。
 
 ### H. 非 JSON 资源 / SPA / 静态文件（6）
 

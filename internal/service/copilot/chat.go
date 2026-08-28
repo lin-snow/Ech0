@@ -90,6 +90,15 @@ func (s *CopilotService) AskStream(ctx context.Context, question string, locale 
 
 	history := historyForModel(s.loadSession(ctx, userID), locale, historyBudget, loc)
 
+	askEvents := make(chan askEvent, 4)
+	ask := &asker{
+		registry: s.asks,
+		events:   askEvents,
+		userID:   userID,
+		budget:   time.Duration(config.Config().Agent.AskTimeoutSeconds) * time.Second,
+		strs:     askStringsFor(locale),
+	}
+
 	temp := chatTemperature
 	stream, err := agent.Run(ctx, agent.RunRequest{
 		Setting:  agentSetting,
@@ -98,6 +107,10 @@ func (s *CopilotService) AskStream(ctx context.Context, question string, locale 
 			s.searchEchosTool(allTags, agentSetting.Multimodal, locale, loc, agentSetting.ContextWindow, user),
 			s.summarizeEchosTool(allTags, agentSetting, locale, loc, user),
 			s.statsOverviewTool(allTags, locale, loc, user),
+			s.askUserTool(ask, locale),
+			s.createEchoTool(ask, locale, loc),
+			s.updateEchoTool(ask, locale, loc),
+			s.deleteEchoTool(ask, locale, loc),
 		},
 		MaxRounds:        config.Config().Agent.MaxRounds,
 		Temp:             &temp,
@@ -113,6 +126,16 @@ func (s *CopilotService) AskStream(ctx context.Context, question string, locale 
 	keepAlive := time.NewTicker(15 * time.Second)
 	defer keepAlive.Stop()
 
+	finish := func() {
+		endReasoning()
+		s.persistTurn(ctx, userID, question, assistantTurn{
+			answer: assistantBuf.String(), sources: collectedSources,
+			reasoning: reasoningBuf.String(), reasoningMs: reasoningMs,
+			asks: ask.exchanges(),
+		})
+		writeSSE(w, flusher, "done", map[string]bool{"done": true})
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -122,12 +145,7 @@ func (s *CopilotService) AskStream(ctx context.Context, question string, locale 
 			flusher.Flush()
 		case ev, ok := <-stream:
 			if !ok {
-				endReasoning()
-				s.persistTurn(ctx, userID, question, assistantTurn{
-					answer: assistantBuf.String(), sources: collectedSources,
-					reasoning: reasoningBuf.String(), reasoningMs: reasoningMs,
-				})
-				writeSSE(w, flusher, "done", map[string]bool{"done": true})
+				finish()
 				return nil
 			}
 			switch ev.Kind {
@@ -159,16 +177,18 @@ func (s *CopilotService) AskStream(ctx context.Context, question string, locale 
 					writeSSE(w, flusher, "coverage", meta)
 				}
 			case agent.AgentDone:
-				endReasoning()
-				s.persistTurn(ctx, userID, question, assistantTurn{
-					answer: assistantBuf.String(), sources: collectedSources,
-					reasoning: reasoningBuf.String(), reasoningMs: reasoningMs,
-				})
-				writeSSE(w, flusher, "done", map[string]bool{"done": true})
+				finish()
 				return nil
 			case agent.AgentError:
 				writeSSE(w, flusher, "error", map[string]string{"message": ev.Err.Error()})
 				return nil
+			}
+		case ev := <-askEvents:
+			if ev.Open != nil {
+				writeSSE(w, flusher, "ask", ev.Open)
+			}
+			if ev.Closed != "" {
+				writeSSE(w, flusher, "ask_closed", map[string]string{"ask_id": ev.Closed})
 			}
 		}
 	}

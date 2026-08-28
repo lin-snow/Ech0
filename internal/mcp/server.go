@@ -19,7 +19,10 @@ import (
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
-const toolTimeout = 10 * time.Second
+const (
+	toolTimeout     = 10 * time.Second
+	maxRequestBytes = 256 * 1024
+)
 
 type ctxKey int
 
@@ -62,7 +65,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 256*1024))
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBytes))
 	if err != nil {
 		writeRPCError(w, nil, &RPCError{Code: ErrCodeParse, Message: "failed to read request body"})
 		return
@@ -100,12 +103,13 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 
 	v := viewer.MustFromContext(ctx)
 
-	result, rpcErr := s.dispatch(r, &req, v)
+	result, requestEra, rpcErr := s.dispatch(r, &req, v)
 
 	logUtil.GetLogger().Info("mcp_request",
 		slog.String("method", req.Method),
 		slog.String("user_id", v.UserID()),
 		slog.String("token_id", v.TokenID()),
+		slog.String("era", eraName(requestEra)),
 		slog.Duration("latency", time.Since(start)),
 		slog.Bool("error", rpcErr != nil),
 	)
@@ -114,8 +118,10 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 		writeRPCError(w, req.ID, rpcErr)
 		return
 	}
-	if c, ok := result.(completer); ok {
-		c.complete(serverInfo())
+	if requestEra == eraModern {
+		if c, ok := result.(completer); ok {
+			c.complete(serverInfo())
+		}
 	}
 	writeRPCResult(w, req.ID, result)
 }
@@ -126,60 +132,89 @@ type requestParams struct {
 	URI  string         `json:"uri"`
 }
 
-func (s *Server) dispatch(r *http.Request, req *Request, v viewer.Context) (any, *RPCError) {
-	if req.Method == "initialize" {
-		return nil, &RPCError{
-			Code: ErrCodeMethodNotFound,
-			Message: "the initialize handshake was removed in MCP 2026-07-28; " +
-				"this server only speaks stateless protocol versions: " + strings.Join(SupportedVersions, ", "),
-			Data: map[string]any{"supported": SupportedVersions},
-		}
-	}
-
+func (s *Server) dispatch(r *http.Request, req *Request, v viewer.Context) (any, era, *RPCError) {
 	var params requestParams
 	if len(req.Params) > 0 {
 		if err := json.Unmarshal(req.Params, &params); err != nil {
-			return nil, &RPCError{Code: ErrCodeInvalidRequest, Message: "params must be an object"}
+			return nil, eraLegacy, &RPCError{Code: ErrCodeInvalidRequest, Message: "params must be an object"}
 		}
 	}
-	if rpcErr := validateTransport(r, req.Method, &params); rpcErr != nil {
-		return nil, rpcErr
+
+	requestEra, rpcErr := resolveEra(r, &params)
+	if rpcErr != nil {
+		return nil, requestEra, rpcErr
+	}
+	if requestEra == eraModern {
+		if rpcErr := validateModernTransport(r, req.Method, &params); rpcErr != nil {
+			return nil, requestEra, rpcErr
+		}
 	}
 
 	switch req.Method {
+	case "initialize":
+		if requestEra == eraModern {
+			return nil, requestEra, initializeRemoved()
+		}
+		return s.handleInitialize(req), requestEra, nil
+	case "ping":
+		if requestEra == eraModern {
+			return nil, requestEra, methodNotFound(req.Method)
+		}
+		return struct{}{}, requestEra, nil
 	case "server/discover":
-		return s.handleDiscover(), nil
+		return s.handleDiscover(requestEra), requestEra, nil
 	case "tools/list":
-		return s.handleToolsList()
+		return s.handleToolsList(requestEra), requestEra, nil
 	case "tools/call":
-		return s.handleToolsCall(r, req, v)
+		result, rpcErr := s.handleToolsCall(r, req, v)
+		return result, requestEra, rpcErr
 	case "resources/list":
-		return s.handleResourcesList()
+		return s.handleResourcesList(requestEra), requestEra, nil
+	case "resources/templates/list":
+		return s.handleResourceTemplatesList(requestEra), requestEra, nil
 	case "resources/read":
-		return s.handleResourcesRead(r, req, v)
+		result, rpcErr := s.handleResourcesRead(r, req, v, requestEra)
+		return result, requestEra, rpcErr
 	default:
-		return nil, &RPCError{Code: ErrCodeMethodNotFound, Message: fmt.Sprintf("method %q not found", req.Method)}
+		return nil, requestEra, methodNotFound(req.Method)
 	}
 }
 
-func validateTransport(r *http.Request, method string, params *requestParams) *RPCError {
-	headerVersion := r.Header.Get("Mcp-Protocol-Version")
-	if headerVersion == "" {
+func resolveEra(r *http.Request, params *requestParams) (era, *RPCError) {
+	headerVersion := r.Header.Get("MCP-Protocol-Version")
+	bodyVersion, _ := params.Meta[metaKeyProtocolVersion].(string)
+
+	if headerVersion != "" && bodyVersion != "" && headerVersion != bodyVersion {
+		return eraLegacy, headerMismatch(fmt.Sprintf(
+			"MCP-Protocol-Version header %q does not match body value %q", headerVersion, bodyVersion))
+	}
+
+	version := headerVersion
+	if version == "" {
+		version = bodyVersion
+	}
+
+	switch {
+	case version == "":
+		return eraLegacy, nil
+	case version == ProtocolVersion:
+		return eraModern, nil
+	case isLegacyVersion(version):
+		return eraLegacy, nil
+	default:
+		return eraLegacy, unsupportedVersion(version)
+	}
+}
+
+func validateModernTransport(r *http.Request, method string, params *requestParams) *RPCError {
+	if r.Header.Get("MCP-Protocol-Version") == "" {
 		return headerMismatch("required header MCP-Protocol-Version is missing")
 	}
-	bodyVersion, _ := params.Meta[metaKeyProtocolVersion].(string)
-	if bodyVersion == "" {
-		return headerMismatch("params._meta is missing " + metaKeyProtocolVersion)
+	if _, ok := params.Meta[metaKeyProtocolVersion].(string); !ok {
+		return malformedMeta("params._meta is missing " + metaKeyProtocolVersion)
 	}
-	if headerVersion != bodyVersion {
-		return headerMismatch(fmt.Sprintf("MCP-Protocol-Version header %q does not match body value %q", headerVersion, bodyVersion))
-	}
-	if bodyVersion != ProtocolVersion {
-		return &RPCError{
-			Code:    ErrCodeUnsupportedProtocolVersion,
-			Message: "Unsupported protocol version",
-			Data:    map[string]any{"supported": SupportedVersions, "requested": bodyVersion},
-		}
+	if _, ok := params.Meta[metaKeyClientCapabilities]; !ok {
+		return malformedMeta("params._meta is missing " + metaKeyClientCapabilities)
 	}
 
 	headerMethod := r.Header.Get("Mcp-Method")
@@ -214,6 +249,45 @@ func headerMismatch(msg string) *RPCError {
 	return &RPCError{Code: ErrCodeHeaderMismatch, Message: "Header mismatch: " + msg}
 }
 
+func malformedMeta(msg string) *RPCError {
+	return (&RPCError{
+		Code:    ErrCodeInvalidParams,
+		Message: "Malformed request metadata: " + msg,
+	}).withHTTPStatus(http.StatusBadRequest)
+}
+
+func unsupportedVersion(requested string) *RPCError {
+	return &RPCError{
+		Code:    ErrCodeUnsupportedProtocolVersion,
+		Message: "Unsupported protocol version",
+		Data:    map[string]any{"supported": SupportedVersions, "requested": requested},
+	}
+}
+
+func methodNotFound(method string) *RPCError {
+	return &RPCError{Code: ErrCodeMethodNotFound, Message: fmt.Sprintf("method %q not found", method)}
+}
+
+func initializeRemoved() *RPCError {
+	return &RPCError{
+		Code: ErrCodeMethodNotFound,
+		Message: "the initialize handshake was removed in MCP " + ProtocolVersion +
+			"; send requests statelessly, or open with one of: " + strings.Join(SupportedVersions[1:], ", "),
+		Data: map[string]any{"supported": SupportedVersions},
+	}
+}
+
+func insufficientScope(required []string) *RPCError {
+	scope := strings.Join(required, " ")
+	return (&RPCError{
+		Code:    ErrCodeInsufficientScope,
+		Message: "insufficient scope: this token is missing " + scope,
+		Data:    map[string]any{"requiredScopes": required},
+	}).
+		withHTTPStatus(http.StatusForbidden).
+		withChallenge(`Bearer error="insufficient_scope", scope="` + scope + `"`)
+}
+
 const (
 	b64SentinelPrefix = "=?base64?"
 	b64SentinelSuffix = "?="
@@ -231,23 +305,47 @@ func decodeSentinel(v string) (string, error) {
 	return string(raw), nil
 }
 
-func (s *Server) handleDiscover() *DiscoverResult {
-	return &DiscoverResult{
-		SupportedVersions: SupportedVersions,
-		Capabilities: ServerCapabilities{
-			Tools:     &ToolsCapability{ListChanged: false},
-			Resources: &ResourcesCapability{Subscribe: false, ListChanged: false},
-		},
-		Instructions: "Ech0 personal microblog. Manage posts, tags, comments, files, connects and webhooks via tools; read site data via ech0:// resources.",
-		TTLMs:        discoverTTLMs, CacheScope: cacheScopePublic,
+type initializeParams struct {
+	ProtocolVersion string `json:"protocolVersion"`
+}
+
+func (s *Server) handleInitialize(req *Request) *InitializeResult {
+	var params initializeParams
+	if len(req.Params) > 0 {
+		_ = json.Unmarshal(req.Params, &params)
+	}
+	negotiated := preferredLegacyVersion
+	if isLegacyVersion(params.ProtocolVersion) {
+		negotiated = params.ProtocolVersion
+	}
+	return &InitializeResult{
+		ProtocolVersion: negotiated,
+		Capabilities:    serverCapabilities(),
+		ServerInfo:      serverInfo(),
+		Instructions:    serverInstructions,
 	}
 }
 
-func (s *Server) handleToolsList() (*ToolsListResult, *RPCError) {
-	return &ToolsListResult{
-		TTLMs: listTTLMs, CacheScope: cacheScopePublic,
-		Tools: s.registry.ToolDefinitions(),
-	}, nil
+func (s *Server) handleDiscover(requestEra era) *DiscoverResult {
+	result := &DiscoverResult{
+		SupportedVersions: SupportedVersions,
+		Capabilities:      serverCapabilities(),
+		Instructions:      serverInstructions,
+	}
+	if requestEra == eraModern {
+		cache := publicCache(discoverTTLMs)
+		result.CacheInfo = &cache
+	}
+	return result
+}
+
+func (s *Server) handleToolsList(requestEra era) *ToolsListResult {
+	result := &ToolsListResult{Tools: s.registry.ToolDefinitions()}
+	if requestEra == eraModern {
+		cache := publicCache(listTTLMs)
+		result.CacheInfo = &cache
+	}
+	return result
 }
 
 func (s *Server) handleToolsCall(r *http.Request, req *Request, v viewer.Context) (*ToolCallResult, *RPCError) {
@@ -256,64 +354,86 @@ func (s *Server) handleToolsCall(r *http.Request, req *Request, v viewer.Context
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "invalid tool call params"}
 	}
 
-	handler, requiredScopes, ok := s.registry.LookupTool(params.Name)
+	binding, ok := s.registry.LookupTool(params.Name)
 	if !ok {
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("tool %q not found", params.Name)}
 	}
 
-	if !checkScopes(v.Scopes(), requiredScopes) {
-		return &ToolCallResult{
-			Content: []ContentItem{{Type: "text", Text: "permission denied: insufficient scopes"}},
-			IsError: true,
-		}, nil
+	if !checkScopes(v.Scopes(), binding.Scopes) {
+		return nil, insufficientScope(binding.Scopes)
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), toolTimeout)
 	defer cancel()
 
-	result, err := handler(ctx, params.Arguments)
+	result, err := handlerResult(ctx, binding.Handler, params.Arguments)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return &ToolCallResult{
-				Content: []ContentItem{{Type: "text", Text: "tool execution timed out"}},
-				IsError: true,
-			}, nil
-		}
-		return &ToolCallResult{
-			Content: []ContentItem{{Type: "text", Text: err.Error()}},
-			IsError: true,
-		}, nil
+		return nil, err
 	}
 	return result, nil
 }
 
-func (s *Server) handleResourcesList() (*ResourcesListResult, *RPCError) {
-	return &ResourcesListResult{
-		TTLMs: listTTLMs, CacheScope: cacheScopePublic,
-		Resources: s.registry.ResourceDefinitions(),
-	}, nil
+func handlerResult(ctx context.Context, handler ToolHandler, args map[string]any) (*ToolCallResult, *RPCError) {
+	result, err := handler(ctx, args)
+	if err == nil {
+		return result, nil
+	}
+	if ctx.Err() == context.DeadlineExceeded {
+		return textError("tool execution timed out"), nil
+	}
+	return textError(err.Error()), nil
 }
 
-func (s *Server) handleResourcesRead(r *http.Request, req *Request, v viewer.Context) (*ResourceReadResult, *RPCError) {
+func (s *Server) handleResourcesList(requestEra era) *ResourcesListResult {
+	result := &ResourcesListResult{Resources: s.registry.ResourceDefinitions()}
+	if requestEra == eraModern {
+		cache := publicCache(listTTLMs)
+		result.CacheInfo = &cache
+	}
+	return result
+}
+
+func (s *Server) handleResourceTemplatesList(requestEra era) *ResourceTemplatesListResult {
+	result := &ResourceTemplatesListResult{ResourceTemplates: s.registry.ResourceTemplateDefinitions()}
+	if requestEra == eraModern {
+		cache := publicCache(listTTLMs)
+		result.CacheInfo = &cache
+	}
+	return result
+}
+
+func (s *Server) handleResourcesRead(
+	r *http.Request,
+	req *Request,
+	v viewer.Context,
+	requestEra era,
+) (*ResourceReadResult, *RPCError) {
 	var params ResourceReadParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "invalid resource read params"}
 	}
 
-	handler, requiredScopes, ok := s.registry.LookupResource(params.URI)
+	binding, ok := s.registry.LookupResource(params.URI)
 	if !ok {
-		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("resource %q not found", params.URI)}
+		return nil, &RPCError{
+			Code:    ErrCodeInvalidParams,
+			Message: fmt.Sprintf("resource %q not found", params.URI),
+			Data:    map[string]any{"uri": params.URI},
+		}
 	}
 
-	if !checkScopes(v.Scopes(), requiredScopes) {
-		return nil, &RPCError{Code: ErrCodeInternal, Message: "permission denied: insufficient scopes"}
+	if !checkScopes(v.Scopes(), binding.Scopes) {
+		return nil, insufficientScope(binding.Scopes)
 	}
 
-	result, err := handler(r.Context(), params.URI)
+	result, err := binding.Handler(r.Context(), params.URI)
 	if err != nil {
 		return nil, &RPCError{Code: ErrCodeInternal, Message: err.Error()}
 	}
-	result.CacheInfo = CacheInfo{TTLMs: 0, CacheScope: cacheScopePrivate}
+	if requestEra == eraModern {
+		cache := binding.Cache
+		result.CacheInfo = &cache
+	}
 	return result, nil
 }
 
@@ -333,6 +453,13 @@ func checkScopes(actual, required []string) bool {
 	return true
 }
 
+func eraName(requestEra era) string {
+	if requestEra == eraModern {
+		return ProtocolVersion
+	}
+	return "legacy"
+}
+
 func writeRPCResult(w http.ResponseWriter, id json.RawMessage, result any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(Response{
@@ -344,7 +471,10 @@ func writeRPCResult(w http.ResponseWriter, id json.RawMessage, result any) {
 
 func writeRPCError(w http.ResponseWriter, id json.RawMessage, rpcErr *RPCError) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(httpStatusFor(rpcErr.Code))
+	if rpcErr.challenge != "" {
+		w.Header().Set("WWW-Authenticate", rpcErr.challenge)
+	}
+	w.WriteHeader(httpStatusFor(rpcErr))
 	_ = json.NewEncoder(w).Encode(Response{
 		JSONRPC: "2.0",
 		ID:      id,
@@ -352,8 +482,11 @@ func writeRPCError(w http.ResponseWriter, id json.RawMessage, rpcErr *RPCError) 
 	})
 }
 
-func httpStatusFor(code int) int {
-	switch code {
+func httpStatusFor(rpcErr *RPCError) int {
+	if rpcErr.httpStatus != 0 {
+		return rpcErr.httpStatus
+	}
+	switch rpcErr.Code {
 	case ErrCodeParse, ErrCodeInvalidRequest, ErrCodeHeaderMismatch, ErrCodeUnsupportedProtocolVersion:
 		return http.StatusBadRequest
 	case ErrCodeMethodNotFound:

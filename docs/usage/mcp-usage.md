@@ -12,6 +12,12 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 若运行环境只支持本地 stdio 进程而非远程 HTTP，可通过网关或代理转发到本端点。
 
+## 在管理后台查看
+
+管理后台 **功能扩展 → MCP** 展示当前实例的端点地址、传输方式、令牌 audience、支持的协议版本，以及按权限分组的完整 Tool / Resource 名单。破坏性操作标红；点击任意名称弹出详情，显示类型、所需 Scope 与完整描述——Tool 的 `description` 是写给模型看的提示词，平铺在面板上只会挤占版面。
+
+该页面读取 `GET /api/mcp/manifest`（需要 `admin:token` scope，与访问令牌管理同权限），数据直接由 MCP 注册表推导——注册新的 Tool 或 Resource 会自动出现，不存在需要手工同步的第二份清单。端点地址按打开面板的来源拼出，所以显示的地址一定是可达的。
+
 ## 快速开始
 
 ### 1. 创建 MCP 专用 Access Token
@@ -65,13 +71,14 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 ## MCP Endpoint
 
 - **地址**：`/mcp`（复用主服务端口，默认 6277）
-- **协议**：MCP Streamable HTTP（JSON-RPC 2.0 over HTTP POST，协议版本 `2026-07-28`）
+- **协议**：MCP Streamable HTTP（JSON-RPC 2.0 over HTTP POST），同时支持 `2026-07-28` 与 `initialize` 握手时代的 `2025-11-25` / `2025-06-18` / `2025-03-26`
 - **POST /mcp**：处理 JSON-RPC 请求（唯一入口）
-- **GET / DELETE /mcp**：返回 405（新版协议为无状态 POST-only，旧版的 GET 状态查询已移除）
+- **GET / DELETE /mcp**：返回 405（服务端无会话，也不提供独立 SSE 流）
+- **Origin 校验**：带 `Origin` 头的跨源请求会被拒绝（403），用于防御 DNS rebinding。同源请求始终放行；需要额外放行的浏览器来源用 `ECH0_WEB_CORS_ALLOWED_ORIGINS` 配置。原生 MCP Host / CLI 不发送 `Origin`，不受影响。
 
 ## 能力总览
 
-当前 MCP 共暴露 **29 个 Tool** 与 **10 个 Resource**，按业务域整理如下。
+当前 MCP 共暴露 **29 个 Tool**、**9 个 Resource** 与 **1 个 Resource Template**，按业务域整理如下。每个 Tool 都带 `annotations` 行为提示（`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`），Host 可据此决定是否需要人工确认；返回 **JSON 对象**的 Tool 额外提供 `structuredContent`（数组结果不带，因为 2026-07-28 之前的修订版把该字段定义为对象，旧客户端遇到数组会直接报错——完整数据始终在文本块里）。
 
 ### Posts & Tags
 
@@ -90,7 +97,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 | Tool | `like_post` | 帖子点赞数 +1 | `echo:write` |
 | Tool | `delete_tag` | 删除标签并解除与所有帖子的关联 | `echo:write` |
 | Resource | `ech0://posts/recent` | 最近 20 条帖子（可附 `?limit=N`） | `echo:read` |
-| Resource | `ech0://posts/{id}` | 按 UUID 读取单篇帖子 | `echo:read` |
+| Resource Template | `ech0://posts/{id}` | 按 UUID 读取单篇帖子（通过 `resources/templates/list` 公布） | `echo:read` |
 | Resource | `ech0://tags` | 全部标签及使用次数 | `echo:read` |
 | Resource | `ech0://stats/heatmap` | 过去 30 个日历日每日发帖数（热力图，UTC 日界） | `echo:read` |
 | Resource | `ech0://stats/visitors` | 过去 7 天每日访客统计 `{date, pv, uv}`（UTC 日界）；仅管理员 | `admin:settings` |
@@ -160,25 +167,49 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 ## 协议兼容
 
-- 协议版本：`2026-07-28`（MCP 最新正式版；**不再支持** `2025-11-25` 及更早的 `initialize` 握手时代协议）
-- 支持方法：`server/discover`、`tools/list`、`tools/call`、`resources/list`、`resources/read`
-- 传输方式：Streamable HTTP（与 MCP 规范一致，无会话、无 `Mcp-Session-Id`）
+Ech0 的 `/mcp` **同时支持两代协议**，无需任何配置：
 
-2026-07-28 是无状态协议：没有 `initialize` 握手，每个请求都要自带协议元数据。客户端必须：
+| 客户端 | 开场方式 | 服务端行为 |
+|---|---|---|
+| 2026-07-28（最新） | 直接发请求，自带 `_meta` | 无状态处理，结果带 `resultType` 与缓存提示 |
+| 2025-11-25 / 2025-06-18 / 2025-03-26 | `initialize` 握手 | 正常握手并按该版本语义服务，结果不带 2026 专有字段 |
 
-1. 在请求体 `params._meta` 中携带 `io.modelcontextprotocol/protocolVersion: "2026-07-28"`；
+`server/discover` 与版本错误里都会列出全部支持版本：`["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"]`。
+
+- 支持方法（两代通用）：`tools/list`、`tools/call`、`resources/list`、`resources/templates/list`、`resources/read`
+- 仅 2026-07-28：`server/discover`
+- 仅旧版：`initialize`、`notifications/initialized`、`ping`
+- 传输方式：Streamable HTTP。**不发放会话**（无 `Mcp-Session-Id`），`GET` / `DELETE /mcp` 一律返回 405；旧客户端收到 405 后会自动关闭独立 SSE 流，不影响使用。
+
+### 2026-07-28 客户端的额外要求
+
+新版是无状态协议：没有握手，每个请求都要自带协议元数据。客户端必须：
+
+1. 在请求体 `params._meta` 中携带 `io.modelcontextprotocol/protocolVersion: "2026-07-28"` 与 `io.modelcontextprotocol/clientCapabilities`（缺任一项返回 HTTP 400 + `-32602`）；
 2. 携带 `MCP-Protocol-Version: 2026-07-28` 请求头（必须与 body 一致，否则 HTTP 400 + `-32020`）；
 3. 携带 `Mcp-Method` 请求头（与 body 的 `method` 一致）；
 4. `tools/call` / `resources/read` 还需携带 `Mcp-Name` 请求头（与 `params.name` / `params.uri` 一致，非 ASCII 安全值用 `=?base64?…?=` 编码）。
 
-不受支持的协议版本会返回 HTTP 400 + `-32022`（`data.supported` 中列出支持的版本）；旧版客户端发送的 `initialize` 会返回 HTTP 404 + `-32601`，错误信息中会注明本服务支持的版本。所有成功结果都带 `resultType: "complete"` 与 `_meta` 中的 serverInfo；`server/discover`、`tools/list`、`resources/list`、`resources/read` 结果还带缓存提示（`ttlMs` + `cacheScope`）。
+使用官方 SDK 时以上头与 `_meta` 均由 SDK 自动处理，无需手工构造。
 
-使用官方 SDK（TypeScript v2 / Go v1.7+ / Python / C# v2 等支持 `2026-07-28` 的版本）时以上头与 `_meta` 均由 SDK 自动处理，无需手工构造。
+### 错误对照
+
+| 场景 | HTTP | JSON-RPC code |
+|---|---|---|
+| 传输头缺失或与 body 不一致 | 400 | `-32020` |
+| `_meta` 必填字段缺失 | 400 | `-32602` |
+| 协议版本不受支持 | 400 | `-32022`（`data.supported` 列出全部支持版本） |
+| 未知方法 | 404 | `-32601` |
+| Token scope 不足 | 403 + `WWW-Authenticate: Bearer error="insufficient_scope", scope="…"` | `-40300` |
+| Tool / Resource 不存在 | 200 | `-32602` |
+| Tool 执行失败（含超时） | 200 | 结果 `isError: true`，供模型自行纠正 |
 
 ## 示例：使用 curl 测试
 
+### 新版（2026-07-28）
+
 ```bash
-META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}'
+META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}'
 
 # Discover（查询服务器支持的协议版本与能力）
 curl -X POST http://localhost:6277/mcp \
@@ -213,4 +244,27 @@ curl -X POST http://localhost:6277/mcp \
   -H "Mcp-Method: tools/call" \
   -H "Mcp-Name: create_post" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"create_post","arguments":{"content":"Hello from MCP!","tags":["mcp","test"]},'"$META"'}}'
+```
+
+### 旧版（`initialize` 握手时代）
+
+```bash
+# 1. 握手：服务端回显你支持的版本（不支持的会协商到 2025-11-25）
+curl -X POST http://localhost:6277/mcp \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"my-host","version":"1.0"}}}'
+
+# 2. 握手确认（返回 202，无 body）
+curl -X POST http://localhost:6277/mcp \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+# 3. 之后的请求只需带版本头，不需要 Mcp-Method / Mcp-Name / _meta
+curl -X POST http://localhost:6277/mcp \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2025-11-25" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```

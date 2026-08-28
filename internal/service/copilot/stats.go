@@ -31,7 +31,8 @@ func (s *CopilotService) statsOverviewTool(allTags []echoModel.Tag, locale strin
 			Description: "统计某时间区间内 Echo 的精确量化指标（总条数、活跃天数、按月分布、最活跃月份、配图数、常用标签 Top N）。回答“我（今年/某段时间）发了多少条”“最活跃的月份”“最常用的标签”这类需要**确切数字**的问题时用它——数据来自数据库精确统计，而非采样估算。必须提供 date_from 与 date_to；可选 tags（按标签名限定主题）。",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"date_from":{"type":"string","description":"起始日期，格式 YYYY-MM-DD，含当天"},"date_to":{"type":"string","description":"结束日期，格式 YYYY-MM-DD，含当天"},"tags":{"type":"array","items":{"type":"string"},"description":"可选，按标签名限定主题；可用标签见系统提示"}},"required":["date_from","date_to"]}`),
 		},
-		Execute: func(ctx context.Context, args json.RawMessage) (agent.ToolOutput, error) {
+		Effect: agent.EffectRead,
+		Run: func(ctx context.Context, args json.RawMessage) (agent.ToolOutput, error) {
 			var a statsArgs
 			_ = json.Unmarshal(args, &a)
 			from := parseDay(a.DateFrom, false, loc)

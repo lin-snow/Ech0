@@ -24,6 +24,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 				"storage_type": map[string]any{"type": "string", "enum": []string{"local", "s3"}, "description": "Filter by storage backend"},
 			},
 		},
+		Annotations: readOnlyHints(),
 	}, a.listFiles, authModel.ScopeFileRead)
 
 	reg.RegisterTool(ToolDefinition{
@@ -37,6 +38,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 				"id": map[string]any{"type": "string", "format": "uuid", "description": "File UUID"},
 			},
 		},
+		Annotations: readOnlyHints(),
 	}, a.getFile, authModel.ScopeFileRead)
 
 	reg.RegisterTool(ToolDefinition{
@@ -50,6 +52,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 				"id": map[string]any{"type": "string", "format": "uuid", "description": "File UUID"},
 			},
 		},
+		Annotations: destructiveHints(),
 	}, a.deleteFile, authModel.ScopeFileWrite)
 
 	reg.RegisterTool(ToolDefinition{
@@ -69,6 +72,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 				"height":       map[string]any{"type": "integer", "description": "Image/video height in pixels"},
 			},
 		},
+		Annotations: createHints(),
 	}, a.createExternalFile, authModel.ScopeFileWrite)
 }
 
@@ -79,6 +83,7 @@ func (a *Adapter) registerFileResources(reg *Registry) {
 		Title:       "File Upload Guide",
 		Description: "Step-by-step instructions for uploading files via the REST API so they can be referenced in create_post/update_post echo_files.",
 		MimeType:    "text/markdown",
+		Cache:       publicCache(staticTTLMs),
 	}, a.resourceFileUploadGuide, authModel.ScopeFileRead)
 }
 

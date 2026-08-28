@@ -174,9 +174,11 @@ func jsonResult(v any) (*ToolCallResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal result: %w", err)
 	}
-	return &ToolCallResult{
-		Content: []ContentItem{{Type: "text", Text: string(data)}},
-	}, nil
+	result := &ToolCallResult{Content: []ContentItem{{Type: "text", Text: string(data)}}}
+	if len(data) > 0 && data[0] == '{' {
+		result.StructuredContent = v
+	}
+	return result, nil
 }
 
 func textResult(msg string) *ToolCallResult {
@@ -191,3 +193,22 @@ func textError(msg string) *ToolCallResult {
 		IsError: true,
 	}
 }
+
+func toolHints(readOnly, destructive, idempotent, openWorld bool) *ToolAnnotations {
+	return &ToolAnnotations{
+		ReadOnlyHint:    &readOnly,
+		DestructiveHint: &destructive,
+		IdempotentHint:  &idempotent,
+		OpenWorldHint:   &openWorld,
+	}
+}
+
+func readOnlyHints() *ToolAnnotations { return toolHints(true, false, true, false) }
+
+func remoteReadHints() *ToolAnnotations { return toolHints(true, false, true, true) }
+
+func createHints() *ToolAnnotations { return toolHints(false, false, false, false) }
+
+func destructiveHints() *ToolAnnotations { return toolHints(false, true, true, false) }
+
+func remoteWriteHints() *ToolAnnotations { return toolHints(false, false, false, true) }

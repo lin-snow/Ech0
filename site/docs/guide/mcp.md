@@ -111,7 +111,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 | Tool     | `like_post`                                   | 点赞                    |
 | Tool     | `delete_tag`                                  | 删除标签并解除关联      |
 | Resource | `ech0://posts/recent`                         | 最近帖子                |
-| Resource | `ech0://posts/{id}`                           | 单篇                    |
+| Resource Template | `ech0://posts/{id}`                  | 单篇（见 `resources/templates/list`） |
 | Resource | `ech0://tags`                                 | 全部标签                |
 | Resource | `ech0://stats/heatmap`                        | 热力图数据              |
 
@@ -162,7 +162,18 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 | -------- | ------------------- | -------------------- |
 | Resource | `ech0://profile/me` | 当前令牌对应用户资料 |
 
-完整方法名、参数 Schema 以客户端 **`tools/list`** 与 **`resources/list`** 返回为准。
+完整方法名、参数 Schema 以客户端 **`tools/list`**、**`resources/list`** 与 **`resources/templates/list`** 返回为准。
+
+---
+
+## 协议版本
+
+`/mcp` 同时支持两代 MCP 协议，客户端用哪种都能连上：
+
+- **2026-07-28（最新）**：无状态，没有 `initialize`，每个请求自带 `_meta` 与 `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` 头。
+- **2025-11-25 / 2025-06-18 / 2025-03-26**：传统 `initialize` 握手，之后只需带 `MCP-Protocol-Version` 头。
+
+服务端不发放会话（无 `Mcp-Session-Id`），`GET` / `DELETE /mcp` 返回 405。详见 [MCP 接入指南](https://github.com/lin-snow/Ech0/blob/main/docs/usage/mcp-usage.md#协议兼容)。
 
 ---
 

@@ -87,6 +87,7 @@ func registerOperations(api huma.API, h *handler.Bundle, revoker authService.Tok
 	registerComment(api, h, revoker)
 	registerMigration(api, h, revoker)
 	registerEmbedding(api, h, revoker)
+	registerMCP(api, h, revoker)
 }
 
 func GenerateOpenAPIYAML() ([]byte, error) {

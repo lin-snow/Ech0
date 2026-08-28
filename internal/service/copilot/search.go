@@ -50,10 +50,11 @@ func (s *CopilotService) searchEchosTool(allTags []echoModel.Tag, multimodal boo
 	return agent.Tool{
 		Def: agent.ToolDef{
 			Name:        "search_echos",
-			Description: "检索用户过往发布的 Echo（微博客/碎碎念）。可用 query 做语义/关键词检索，并可选地用 tags（标签名）与 date_from/date_to（日期范围）做精确筛选；三者可组合，但至少提供其一。query 传精炼核心词，不要整句。",
+			Description: "检索用户过往发布的 Echo（微博客/碎碎念）。可用 query 做语义/关键词检索，并可选地用 tags（标签名）与 date_from/date_to（日期范围）做精确筛选；三者可组合，但至少提供其一。query 传精炼核心词，不要整句。每条结果形如「【1】(2026-01-02) id=019ce0ea-… 正文」——其中 id= 后面那串 UUID 是这条 Echo 的真实 ID，要改或要删时照抄它；【1】只是本次结果的编号，不能当 ID 用。",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"语义/关键词检索词，传与问题最相关的核心词（精炼，不要整句）；仅按标签或时间筛选时可省略"},"tags":{"type":"array","items":{"type":"string"},"description":"按标签名筛选（标签名而非ID），如 [\"读书\",\"旅行\"]；可用标签见系统提示"},"date_from":{"type":"string","description":"起始日期，格式 YYYY-MM-DD，含当天"},"date_to":{"type":"string","description":"结束日期，格式 YYYY-MM-DD，含当天"},"limit":{"type":"integer","description":"可选，返回条数（1~20），默认按上下文自动取值；需要更多结果再综合时可调大"}}}`),
 		},
-		Execute: func(ctx context.Context, args json.RawMessage) (agent.ToolOutput, error) {
+		Effect: agent.EffectRead,
+		Run: func(ctx context.Context, args json.RawMessage) (agent.ToolOutput, error) {
 			var a searchArgs
 			_ = json.Unmarshal(args, &a)
 			a.Query = strings.TrimSpace(a.Query)
@@ -181,6 +182,13 @@ func searchHintOf(args json.RawMessage) string {
 	return strings.Join(parts, " ")
 }
 
+// formatSearchResults renders hits for the model to read.
+//
+// The `id=` field is what makes update_echo and delete_echo usable at all: the
+// bracketed 【N】 is a position within this one result set, and a model told to
+// pass "the id" will quote it — so a request to edit the first hit arrives as
+// id "1" and resolves to nothing. The primary key is spelled out instead, and
+// verbatim, because it is the only handle that survives the next round.
 func formatSearchResults(results []embeddingModel.SearchResult, exts map[string]string, loc *time.Location) string {
 	if len(results) == 0 {
 		return "（没有检索到相关的 Echo）"
@@ -191,7 +199,7 @@ func formatSearchResults(results []embeddingModel.SearchResult, exts map[string]
 	var b strings.Builder
 	for i, r := range results {
 		day := time.Unix(r.EchoCreated, 0).In(loc).Format("2006-01-02")
-		parts := []string{fmt.Sprintf("【%d】(%s)", i+1, day)}
+		parts := []string{fmt.Sprintf("【%d】(%s) id=%s", i+1, day, r.EchoID)}
 		if c := strings.TrimSpace(r.Content); c != "" {
 			parts = append(parts, c)
 		}

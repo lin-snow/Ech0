@@ -29,45 +29,25 @@
           <p v-if="msg.role === 'user'" class="bubble">{{ msg.content }}</p>
 
           <template v-else>
-            <ChatReasoning
-              v-if="msg.reasoning !== undefined"
-              :text="msg.reasoning"
-              :active="msg.reasoningActive"
-              :duration-ms="msg.reasoning_ms"
-            />
+            <div v-if="hasTrace(msg)" class="trace">
+              <ChatReasoning
+                v-if="msg.reasoning !== undefined"
+                :text="msg.reasoning"
+                :active="msg.reasoningActive"
+                :duration-ms="msg.reasoning_ms"
+              />
 
-            <div v-if="msg.searches && msg.searches.length > 0" class="searching">
-              <span
-                v-for="(query, qi) in msg.searches"
-                :key="qi"
-                class="searching__chip"
-                :class="{
-                  'searching__chip--live': isStreaming(idx) && qi === msg.searches.length - 1,
-                }"
-              >
-                {{ t('chatPanel.searching', { query }) }}
-              </span>
+              <ChatRetrieval
+                v-if="(msg.searches && msg.searches.length > 0) || msg.coverage"
+                :searches="msg.searches ?? []"
+                :coverage="msg.coverage"
+                :active="isStreaming(idx) && msg.content.length === 0"
+              />
             </div>
 
-            <div v-if="msg.coverage" class="searching">
-              <span class="searching__chip">
-                {{
-                  msg.coverage.truncated
-                    ? t('chatPanel.coverageTruncated', { returned: msg.coverage.returned })
-                    : t('chatPanel.coverage', { total: msg.coverage.total })
-                }}
-              </span>
-            </div>
-
-            <div
+            <ChatWaiting
               v-if="msg.content.length === 0 && isStreaming(idx) && !msg.reasoningActive"
-              class="thinking"
-              :aria-label="t('chatPanel.send')"
-            >
-              <span class="thinking__dot" />
-              <span class="thinking__dot" />
-              <span class="thinking__dot" />
-            </div>
+            />
             <div v-else-if="msg.content.length > 0" class="answer">
               <AnimatedMarkdown
                 v-if="showAnimated(idx)"
@@ -79,34 +59,36 @@
               <TheMdPreview v-else :content="msg.content" />
             </div>
 
-            <div v-if="isRetryable(idx)" class="retry">
-              <span v-if="msg.content.trim().length === 0" class="retry__hint">
-                {{ t('chatPanel.noResponse') }}
-              </span>
-              <button class="retry__btn" :title="t('chatPanel.retry')" @click="retryLast">
-                <svg
-                  class="retry__icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                  <path d="M21 3v6h-6" />
-                </svg>
-                <span>{{ t('chatPanel.retry') }}</span>
-              </button>
-            </div>
-          </template>
+            <ChatAskExchange
+              v-for="(exchange, ei) in msg.asks ?? []"
+              :key="ei"
+              :exchange="exchange"
+            />
 
-          <ChatSources
-            v-if="msg.sources && msg.sources.length > 0"
-            :sources="msg.sources"
-            @open="goToEcho"
-          />
+            <ChatAskPicker
+              v-if="openAskOn(msg)"
+              :ask="openAskOn(msg)!"
+              :index="askDraft!.index"
+              :pending="askPending"
+              :error="askError"
+              @answer="submitAskAnswer"
+              @back="askBack"
+            />
+
+            <ChatSources
+              v-if="msg.sources && msg.sources.length > 0"
+              :sources="msg.sources"
+              @open="goToEcho"
+            />
+
+            <ChatActions
+              v-if="showActions(idx)"
+              :text="msg.content"
+              :can-retry="canRetry(idx)"
+              :hint="retryHint(idx)"
+              @retry="retryLast"
+            />
+          </template>
         </div>
       </div>
     </div>
@@ -191,11 +173,16 @@ import { TheMdPreview } from '@/components/advanced/md'
 import AnimatedMarkdown from './AnimatedMarkdown.vue'
 import ChatSources from './ChatSources.vue'
 import ChatReasoning from './ChatReasoning.vue'
+import ChatRetrieval from './ChatRetrieval.vue'
+import ChatWaiting from './ChatWaiting.vue'
+import ChatActions from './ChatActions.vue'
+import ChatAskPicker from './ChatAskPicker.vue'
+import ChatAskExchange from './ChatAskExchange.vue'
 import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { chatStream } from '@/service/api'
-import { getChatSession, clearChatSession } from '@/service/api/chat'
+import { getChatSession, clearChatSession, answerChatAsk } from '@/service/api/chat'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { theToast } from '@/utils/toast'
 
@@ -364,6 +351,101 @@ const autoGrow = () => {
 const goHome = () => router.push('/')
 const goToEcho = (echoId: string) => router.push(`/echo/${echoId}`)
 
+/**
+ * The round the run is currently blocked on lives on the message (`pendingAsk`),
+ * so it renders under the turn that raised it. The draft beside it carries how
+ * far through that round the reader is, keyed on `ask_id` so a new round
+ * replaces the old one instead of stacking behind it.
+ */
+const askDraft = ref<{
+  askId: string
+  index: number
+  answers: App.Api.Chat.ChatAskAnswer[]
+} | null>(null)
+const askPending = ref<boolean>(false)
+const askError = ref<string>('')
+
+const openAskOn = (msg: App.Api.Chat.ChatMessage): App.Api.Chat.ChatAsk | undefined => {
+  const ask = msg.pendingAsk
+  return ask && askDraft.value?.askId === ask.ask_id ? ask : undefined
+}
+
+const askedMessage = (askId: string): App.Api.Chat.ChatMessage | undefined =>
+  messages.value.find((m) => m.pendingAsk?.ask_id === askId)
+
+/**
+ * The run stopped waiting — its budget ran out, it was stopped, or it ended. The
+ * picker leaves without recording anything, because nobody answered it.
+ */
+const dropAsk = (askId?: string) => {
+  for (const m of messages.value) {
+    if (m.pendingAsk && (askId === undefined || m.pendingAsk.ask_id === askId)) {
+      m.pendingAsk = undefined
+    }
+  }
+  if (askId === undefined || askDraft.value?.askId === askId) {
+    askDraft.value = null
+    askPending.value = false
+    askError.value = ''
+  }
+}
+
+const askBack = () => {
+  const draft = askDraft.value
+  if (!draft || askPending.value || draft.index === 0) return
+  askDraft.value = { ...draft, index: draft.index - 1 }
+  askError.value = ''
+}
+
+/**
+ * Questions are answered one at a time; the POST fires once, on the last one,
+ * carrying every answer in the order the questions arrived.
+ *
+ * Returns false only when an answer was written and did not land, so a caller
+ * holding the reader's typed text knows whether it is safe to discard.
+ */
+const submitAskAnswer = async (answer: App.Api.Chat.ChatAskAnswer): Promise<boolean> => {
+  const draft = askDraft.value
+  if (!draft || askPending.value) return true
+  const msg = askedMessage(draft.askId)
+  const questions = msg?.pendingAsk?.questions
+  if (!msg || !questions || draft.index >= questions.length) return true
+
+  const answers = [...draft.answers.slice(0, draft.index), answer]
+  if (draft.index < questions.length - 1) {
+    askDraft.value = { askId: draft.askId, index: draft.index + 1, answers }
+    askError.value = ''
+    return true
+  }
+
+  askPending.value = true
+  askError.value = ''
+  let delivered = false
+  try {
+    // `request` resolves with the envelope and has already surfaced the server's
+    // own message, so the code is what says whether the run got the answer.
+    delivered = (await answerChatAsk(draft.askId, answers)).code === 1
+  } catch {
+    delivered = false
+  }
+  askPending.value = false
+
+  // The round may have closed while the answer was in flight; there is nothing
+  // to record against a run that has stopped waiting for it.
+  if (askDraft.value?.askId !== draft.askId) return true
+
+  if (!delivered) {
+    askDraft.value = { askId: draft.askId, index: draft.index, answers }
+    askError.value = String(t('chatPanel.askSubmitFailed'))
+    return false
+  }
+
+  msg.asks = [...(msg.asks ?? []), { questions, answers }]
+  msg.pendingAsk = undefined
+  askDraft.value = null
+  return true
+}
+
 const streamInto = (question: string, assistant: App.Api.Chat.ChatMessage) => {
   loading.value = true
   assistantRevealing.value = true
@@ -411,20 +493,61 @@ const streamInto = (question: string, assistant: App.Api.Chat.ChatMessage) => {
     onDelta: (text) => {
       assistant.content += text
     },
+    onAsk: (ask) => {
+      // `loading` deliberately stays true: the run is alive, just waiting, which
+      // is also what keeps the Stop button — the only way to refuse — in reach.
+      assistant.pendingAsk = ask
+      askDraft.value = { askId: ask.ask_id, index: 0, answers: [] }
+      askPending.value = false
+      askError.value = ''
+    },
+    onAskClosed: (askId) => {
+      dropAsk(askId)
+    },
+    onAskMalformed: () => {
+      // The run is parked behind a question this client cannot draw, and it will
+      // stay parked until its budget runs out. Say so, and offer Stop — silence
+      // here is indistinguishable from the assistant having given up.
+      theToast.error(String(t('chatPanel.askMalformed')))
+    },
     onError: (message) => {
       loading.value = false
+      dropAsk()
       assistant.failed = true
       theToast.error(message || String(t('chatPanel.errorGeneric')))
     },
     onDone: () => {
       loading.value = false
+      dropAsk()
     },
   })
 }
 
 const send = (question: string) => {
   const q = question.trim()
-  if (q.length === 0 || loading.value) return
+  if (q.length === 0) return
+
+  // A picker is open: the composer answers it rather than starting a new turn.
+  // The text is the reader's own words — it is never matched against an option,
+  // so typing what an option says is a typed answer, not a pick.
+  const draft = askDraft.value
+  if (draft) {
+    if (askPending.value) return
+    const current = askedMessage(draft.askId)?.pendingAsk?.questions[draft.index]
+    if (!current) return
+    input.value = ''
+    nextTick(autoGrow)
+    void submitAskAnswer({ question_id: current.id, selected: [], custom: q }).then((ok) => {
+      // An answer that did not land leaves the picker open, so the words that
+      // were meant for it go back in the composer rather than being lost.
+      if (ok) return
+      input.value = q
+      nextTick(autoGrow)
+    })
+    return
+  }
+
+  if (loading.value) return
 
   messages.value.push({ role: 'user', content: q })
   messages.value.push({ role: 'assistant', content: '', sources: [], searches: [] })
@@ -432,14 +555,29 @@ const send = (question: string) => {
   streamInto(q, messages.value[messages.value.length - 1])
 }
 
-const isRetryable = (idx: number): boolean => {
+/** Anything the run reported about how it worked: a thought, queries, coverage. */
+const hasTrace = (msg: App.Api.Chat.ChatMessage): boolean =>
+  msg.reasoning !== undefined ||
+  (msg.searches !== undefined && msg.searches.length > 0) ||
+  msg.coverage !== undefined
+
+/** Only the newest turn re-runs, because `retryLast` rewrites that turn in place. */
+const canRetry = (idx: number): boolean =>
+  !loading.value &&
+  messages.value.length >= 2 &&
+  idx === messages.value.length - 1 &&
+  messages.value[idx]?.role === 'assistant'
+
+const retryHint = (idx: number): string => {
   const m = messages.value[idx]
-  if (!m || m.role !== 'assistant') return false
-  if (isStreaming(idx) || idx !== messages.value.length - 1) return false
-  if (m.failed === true) return true
-  const noText = m.content.trim().length === 0
-  const noSources = !m.sources || m.sources.length === 0
-  return noText && noSources
+  if (!m || !canRetry(idx) || m.content.trim().length > 0) return ''
+  return String(t('chatPanel.noResponse'))
+}
+
+const showActions = (idx: number): boolean => {
+  const m = messages.value[idx]
+  if (!m || m.role !== 'assistant' || isStreaming(idx)) return false
+  return m.content.trim().length > 0 || canRetry(idx)
 }
 
 const retryLast = () => {
@@ -458,6 +596,9 @@ const retryLast = () => {
   assistant.reasoning = undefined
   assistant.reasoning_ms = undefined
   assistant.reasoningActive = false
+  assistant.asks = undefined
+  // Clears this turn's open round too, along with any draft answer behind it.
+  dropAsk()
   streamInto(user.content, assistant)
 }
 
@@ -472,6 +613,8 @@ const handleStop = () => {
   if (abort) abort()
   abort = null
   loading.value = false
+  // Stopping the run is how an open question is refused.
+  dropAsk()
 }
 
 watch(loading, (now, prev) => {
@@ -490,6 +633,7 @@ const handleClear = () => {
       abort = null
       loading.value = false
       assistantRevealing.value = false
+      dropAsk()
       pinned.value = true
       tailSpace.value = 0
       jumping = false
@@ -702,139 +846,16 @@ onBeforeUnmount(() => {
   line-height: 1.8;
 }
 
-.retry {
+/* Reasoning and retrieval read as one column of activity rows, tighter than the
+   turn's own rhythm, with the gap to the answer owned here instead of by each
+   row's own margin. */
+.trace {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  margin-top: 0.15rem;
-}
-
-.retry__hint {
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: var(--color-text-muted);
-}
-
-.retry__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem 0.2rem 0.4rem;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.5;
-  cursor: pointer;
-  transition:
-    color 0.18s ease,
-    background 0.18s ease;
-}
-
-.retry__btn:hover {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-.retry__icon {
-  width: 0.95rem;
-  height: 0.95rem;
-  flex-shrink: 0;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.retry__btn:hover .retry__icon {
-  transform: rotate(180deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .retry__icon {
-    transition: none;
-  }
-}
-
-.thinking {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0;
-}
-
-.thinking__dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 999px;
-  background: var(--color-text-muted);
-  opacity: 0.5;
-  animation: thinking-bounce 1.2s ease-in-out infinite;
-}
-
-.thinking__dot:nth-child(2) {
-  animation-delay: 0.16s;
-}
-
-.thinking__dot:nth-child(3) {
-  animation-delay: 0.32s;
-}
-
-@keyframes thinking-bounce {
-  0%,
-  80%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.35;
-  }
-
-  40% {
-    transform: translateY(-0.28rem);
-    opacity: 1;
-  }
-}
-
-.searching {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  width: 100%;
   margin-bottom: 0.5rem;
-}
-
-.searching__chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 22rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  color: var(--color-text-secondary);
-  font-size: 0.72rem;
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.searching__chip::before {
-  content: '🔍';
-  margin-right: 0.3rem;
-  font-size: 0.7rem;
-  font-variant-emoji: text;
-}
-
-.searching__chip--live {
-  animation: searching-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes searching-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-
-  50% {
-    opacity: 1;
-  }
 }
 
 .composer {

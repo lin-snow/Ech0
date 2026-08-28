@@ -96,4 +96,5 @@ const (
 const (
 	CHAT_SESSION_GET_SUCCESS   = "获取会话成功"
 	CHAT_SESSION_CLEAR_SUCCESS = "清除会话成功"
+	CHAT_ASK_ANSWER_SUCCESS    = "回答已送达"
 )

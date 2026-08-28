@@ -180,8 +180,9 @@ type MigrationConfig struct {
 }
 
 type AgentConfig struct {
-	TimeoutSeconds int `env:"ECH0_AGENT_TIMEOUT_SECONDS"`
-	MaxRounds      int `env:"ECH0_AGENT_MAX_ROUNDS"`
+	TimeoutSeconds    int `env:"ECH0_AGENT_TIMEOUT_SECONDS"`
+	MaxRounds         int `env:"ECH0_AGENT_MAX_ROUNDS"`
+	AskTimeoutSeconds int `env:"ECH0_AGENT_ASK_TIMEOUT_SECONDS"`
 }
 
 func Config() *AppConfig {
@@ -321,8 +322,9 @@ func defaultConfig() *AppConfig {
 			},
 		},
 		Agent: AgentConfig{
-			TimeoutSeconds: 120,
-			MaxRounds:      4,
+			TimeoutSeconds:    300,
+			MaxRounds:         20,
+			AskTimeoutSeconds: 300,
 		},
 	}
 }

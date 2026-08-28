@@ -508,3 +508,143 @@ usable  = max(window * 0.6 - 8_000, 2_000)            // 扣掉 system/工具定
 
 - map-reduce 的 LLM 调用次数 ≈ 月份数（+1 次可选 reduce），受 `maxAggregateEchos` 与「放得下直接塞」双重收敛；普通用户一整年常落在「直接塞、零额外调用」。
 - **后续（本期不做，守轻量原则）**：① 月度 digest 缓存 + 事件失效（复用 `GetRecent` 的 `EchoCreated/Updated` 失效范式）大幅降重复年终请求成本；② map 阶段 bounded 并行降延迟；③ 独立「年度回顾」端点 + UI 入口（带缓存），把 chat 内的能力沉淀为一等公民功能。
+
+## 19. 阻塞式提问与写操作确认门
+
+本节是 Copilot 从「只读 RAG」扩展到「可管理 Echo」时新增的机制：一个可阻塞的提问原语，以及一道由 Loop 强制、模型无法绕开的写操作确认门。被否掉的备选方案记在 §19.7。
+
+### 19.1 问题
+
+Copilot 要能发布 / 修改 / 删除 Echo，就必须有一个人类确认环节。而 SSE 是单向的：问题送出去之后，同一条连接上收不到回答。原有的 `Tool.Execute` 只有「成功 / 失败」两种结局，Loop 里也没有任何可挂起的点。
+
+### 19.2 决策一：确认由 Loop 强制，不靠 prompt
+
+**prompt 不是门。** 「写之前先确认」这类指令，会在上下文变长、话题转换、或模型被说服之后被忘记，而唯一忘记的那一次就是一次没人同意的写入。所以确认必须是**类型与控制流**上的强制，而不是模型需要记住的约定：
+
+```go
+type ToolEffect uint8
+const (
+    EffectUnset ToolEffect = iota // 零值 = 最严格：Loop 拒绝执行
+    EffectRead                    // 什么都不改
+    EffectMutate                  // 改用户自己的数据，必须过确认
+)
+
+type Tool struct {
+    Def      ToolDef
+    Effect   ToolEffect
+    Run      func(ctx, args) (ToolOutput, error) // 只读工具的函数体
+    Mutation *Mutation                            // 写工具的函数体
+    Interactive bool                              // 等人；EffectMutate 隐含为真
+}
+
+type Mutation struct {
+    Plan    func(ctx, args) (Plan, error)   // 算出「会改什么」，并描述它；不得执行任何写
+    Confirm func(ctx, Plan) (Decision, error) // 由调用方提供、由 Loop 调用
+}
+type Plan struct {
+    Prompt any                                    // 对 agent 包不透明（领域零侵入，§2.2）
+    Apply  func(ctx) (ToolOutput, error)          // 真正的写；只能被 Loop 在同意之后调用
+}
+type Decision struct { Approved bool; Refusal string }
+```
+
+关键在于 `Apply` **只存在于 `Plan` 里**，而 `Plan` 只由 `dispatchTool` → `applyMutation` 消费：从「模型发出 tool_call」到「数据库被改」这条路径上，没有一条不经过 `Confirm`。工具自己从不调用 `Confirm`，所以它没有「忘记调用」的可能。
+
+`EffectUnset` 是零值，这个顺序是刻意的：以后有人加了个写工具却忘了声明，它**不会执行**，而不是默认放行。同理，`Mutation` 缺了 `Plan` / `Confirm` / `Apply` 任一半，或 `EffectRead` 却没有 `Run`，都按「本仓库有 bug」处理并拒绝执行（error 级日志 + `RunStrings.Malformed` 作为工具结果喂回模型）。
+
+护栏由 `internal/agent/gate_test.go` 逐条钉住：拒绝路径、零值 `Decision`、`Confirm` 报错、未声明 effect、未知 effect、半声明 mutation、`Plan→Confirm→Apply` 的次序与各调用一次、以及「同一参数第二次仍然要重新问」。
+
+### 19.3 决策二：谁提问 —— 通用 asker 在 copilot 层
+
+`internal/agent` 仍然不知道「问题」长什么样（§2.2）。`Confirm` 与 `ask_user` 的实现都在 `internal/service/copilot`：
+
+- `asker`（`ask.go`）绑定一次请求：一个 userID、一条事件流、一份本轮问答记录。绑定而非查找——能自己挑 asker 的工具，就是能回答别人问题的工具。
+- 问题**不走 agent 事件流**，走 `AskStream` 另开的 `askEvents` channel。Loop 对提问一无所知，问题是从「停在工具调用里的那一点」发出来的。
+
+### 19.4 决策三：会合点用进程内 channel，不用 DB 轮询
+
+Ech0 是单进程单二进制，且 run 随发起它的请求一起结束——回答不需要跨副本送达，也没有请求结束后还活着的 run 需要恢复。所以会合点就是 `askRegistry`（`map[askID]*pendingAsk` + mutex），回答是零延迟的。
+
+**否掉的备选：把 pending 状态落库 + 定时轮询。** 这是多副本部署下唯一可行的形状（提交回答的请求和等待它的 goroutine 可能落在不同实例上），代价是每个等待中的 round 每个 tick 一次行读、以及一套没人写得出来的孤儿清扫（run 崩掉时，没有任何活着的东西能去写那个过期标记）。Ech0 两个前提都不成立，落库只会买来这些代价而不解决任何问题。真要支持多副本，这里就得整体换成那个形状——而不是给 channel 打补丁。
+
+「恰好只能回答一次」是**删除动作本身**保证的：`answer` 在同一把锁里查到 entry 并 `delete`，两个标签页抢同一次点击只有一个能拿到它。这是写谓词的语义，不是「先查再写」的检查——后者两个标签页会同时通过。未知 askID / 已回答 / 别人的 round 共用同一条错误信息，避免被用来探测活跃 round。
+
+顺序上，**先登记后展示**：反过来的话，快到在 slot 建立之前就回答的客户端，它的回答会落在零行上并静默消失，而 run 会一直等一个再也不会来的答复。
+
+### 19.5 决策四：等人的时间不花运行预算
+
+`ECH0_AGENT_TIMEOUT_SECONDS`（默认 120s）是**生成预算**，尺度对着模型和 API 延迟。任何紧到能抓住卡死 provider 的期限，人一定会超过。所以：
+
+- `budget`（`run.go`）持有 deadline，按步派生 context，而不是给整个 run 一个 deadline；
+- interactive 调用在 `b.base`（请求 context）下执行，结束后把等待时长 `credit` 回 deadline；
+- 人的等待另有预算：`ECH0_AGENT_ASK_TIMEOUT_SECONDS`（默认 300s）。
+
+**超时不自动选择**。`Recommended` 只是个标记，永远不会被代选——沉默不能变成没人给过的同意。超时的结局是 `ask_closed` + 工具报错，模型据此用自己的话告诉用户。
+
+### 19.6 SSE 与端点（加法兼容，§2.4）
+
+新增两个事件：
+
+| 事件 | payload | 含义 |
+|---|---|---|
+| `ask` | `{ask_id, questions:[{id,text,header?,detail?,options?,multi?,recommended?}]}` | run 停下来等人 |
+| `ask_closed` | `{ask_id}` | 没等到回答就不等了（超时 / 取消）；客户端撤掉 picker |
+
+回答走另一条已认证请求：`POST /api/chat/answer`，body `{ask_id, answers:[{question_id, selected?, custom?}]}`，`ScopeAdminSettings`。`ask_id` 是**核对**而非信任的——过期标签页手里那个 picker 的点击必须被拒绝，而不是覆盖已经给出的回答。
+
+`ChatMessage` 新增 `asks: []AskExchange`（问了什么 + 选了什么）。保留两半，因为决定是这一轮里**唯一由人做出**的部分；只存结果的话，「这次删除是谁批的」在重开会话后就无从回答了。`persistTurn` 因此也把「有 asks」算作这一轮有内容——停在确认上的一轮可能既没有正文也没有 sources，丢掉它就等于抹掉那次交互。
+
+`detail` 是写确认的关键：它是**具体的那条 Echo**（ID / 内容 / 标签 / 发布日期），以预格式化文本渲染。「删除 Echo 019a…」不是一个人能同意的东西。
+
+### 19.6.1 写工具的 id 从哪来（一个已修的坑）
+
+`update_echo` / `delete_echo` 要的是 Echo 主键，而**唯一能给出它的地方是 `search_echos` 的工具结果**。原来那份结果只有位置编号：
+
+```
+【1】(2026-03-01) 今天读了三体
+```
+
+于是「把第一条改一下」这件事，模型会老老实实地传 `id: "1"`——那是它看到的唯一像 id 的东西。`GetEchoById("1")` 查不到，模型于是告诉用户「这条 Echo 不存在」。错的不是它的推理，是我们没把主键给它。
+
+现在每条结果都带上真实主键，`formatSearchResults` 输出：
+
+```
+【1】(2026-03-01) id=019ce0ea-82dd-774f-ae2d-5445512d42ad 今天读了三体
+```
+
+编号保留（模型在正文里说「第 1 条」时用得上），但主键是照抄用的那一份。这份格式同时用于**跨轮历史回放**（`historyForModel` 里上一轮 sources 的那段），所以下一轮说「删掉刚才那条」也拿得到 id。
+
+另一半是**强制**：`echoIDArg` 在 Plan 阶段校验 id 必须是 UUID，不是就直接报错，且报错文案指名道姓地说「照抄 id= 后面那串」。这一步在读库之前、提问之前，所以传错编号既不会读到东西、也不会弹确认；而模型读到这条工具错误后能在同一次 run 里自我纠正。schema 与 prompt 也各写了一遍，但那两处是给注意力有限的模型看的，校验才是那条不会忘的。
+
+### 19.6.2 写工具能写什么（以及为什么未知字段必须报错）
+
+`create_echo` / `update_echo` 只写三样东西：**正文、标签、可见性**。一条 Echo 还有图片（`EchoFiles`）、扩展卡片（`Extension`：音乐/视频/网站/位置/GitHub 项目）、`Layout`，这些都不在对话可写的范围内 —— 附件要先走上传，扩展卡片要先解析外链，两者都属于界面里的流程，不是一次工具调用能凑出来的东西。
+
+边界本身不新鲜，`encoding/json` 的默认行为才是问题所在：**未知字段被静默丢掉**。模型传 `{"content":"...","files":[...]}`，`json.Unmarshal` 不报错，工具照样弹确认、照样写入、照样返回「已发布」，于是模型对用户说「已经帮你带图发出去了」。这句话是假的，而链路上没有任何一环会否认它。
+
+所以 `decodeWriteArgs` 用 `DisallowUnknownFields`：传了写不了的字段就报错，报错文案说明「图片和扩展卡片无法通过对话创建或修改，请在界面里操作」。这与 §19.6.1 的 id 校验是同一类东西 —— schema 和 prompt 也各写了一遍，但那两处是给注意力有限的模型看的，解码器才是不会忘的那一层。
+
+两段解码的顺序是有意的：**先宽松、后严格**。JSON 截断、类型不对是模型自己的手误，必须原样回传；只有「字段不存在」才套上那句解释。反过来会把 `unexpected EOF` 说成「不支持这个参数」，把模型送去找一个它压根没传的字段。
+
+`update_echo` 这一侧还有个更硬的约束：仓储层的 `UpdateEcho` 会**先删后建** files 与 extension 行，所以工具必须把 `GetEchoById` 读到的整条 Echo 原样带进写入（`next := *current`），confirmation 没展示的字段一个都不能丢。改一句正文顺手抹掉配图，是这个功能能犯的最严重的错误 —— `TestUpdateEchoTool_CarriesUnshownFieldsThrough` 就是守这个的，fixture 里特意放了 file、music 扩展和非默认 layout。
+
+### 19.7 否掉的备选方案
+
+| 备选 | 为什么否 |
+|---|---|
+| **prompt 里写「写之前先确认」** | 不是门。上下文一长、话题一转、或模型被说服，这条指令就没了；而唯一忘掉的那一次就是一次没人同意的写入。确认必须是控制流上的强制。 |
+| **只给 `ask_user`，让模型自己在写之前调它** | 同上，而且更糟：它看起来像有门。模型少调一次，写入照样发生，而日志里看不出区别。 |
+| **一个 `EffectApproval` 档：这类工具 Loop 直接拒绝、永不执行** | 对 Ech0 没有对应物。真的要发/改/删，需要的是「问过之后执行」，不是「一律拒绝」。为不存在的动作建的审批分支是永不执行的代码，而真正决定行为的会变成那个默认值。`EffectUnset` 保留了 fail-closed 的默认，但它守的是「下一个忘了声明的工具」，不是某个虚构的动作类别。 |
+| **`Confirm` 由工具自己调用（`Execute` 里 plan → ask → apply）** | 最初的实现就是这样，被否了：它把「先问再写」变成每个写工具都要记得遵守的约定，而不是一条它无法绕开的路径。第四个写工具直接调 `Apply` 就能悄悄绕过，且编译通过、测试也不会红。现在 `Apply` 只存在于 `Plan` 里，只有 `applyMutation` 能拿到它。 |
+| **落库 + 轮询的会合点** | 见 §19.4。 |
+| **超时自动选中 `Recommended`** | 沉默不能变成没人给过的同意。超时的结局必须是「什么都没发生」。 |
+| **picker 上加「跳过 / 关闭」** | 关掉 picker 只会留下一个仍在等待、却已无处回答的 run。放弃这次回答就是放弃这次回答——Stop 已经是那个动作了。 |
+| **写确认的选项标签由模型生成** | `consented` 要拿人的选择和肯定项标签作比较，标签由模型给就等于让模型定义什么算同意。标签一律由 `writeStringsFor` 提供。 |
+| **打字内容与选项标签做匹配** | 打「删除」两个字是在说话，不是点了按钮。对写确认，打字永远不是同意，只作为「为什么没写」回传给模型。 |
+| **未知字段沿用 `encoding/json` 的静默丢弃** | 见 §19.6.2。丢掉 `files` 换来的是一句「已帮你带图发布」——工具成功、模型撒谎、用户被骗，三者都不报错。 |
+| **在 args 结构体里逐个声明 `files` / `images` / `extension` 再判空** | 等于用穷举去追模型的拼法，漏一个就退回静默丢弃。`DisallowUnknownFields` 守的是「schema 里没有的一切」，不需要预判模型会怎么编字段名。 |
+| **让 `update_echo` 支持改图片/扩展卡片** | 附件要先上传、扩展卡片要先解析外链，都不是一次工具调用能凑出来的；硬塞进来只会让确认界面开始展示模型没能力保证的东西。 |
+
+### 19.8 前端契约
+
+picker 内联在 transcript 里，**从不是模态框**：它挡住的是助手，不是读者——读者必须还能往回滚，看清那条促成这个问题的回答再做选择。没有关闭按钮：把 picker 关掉只会留下一个仍在等待、却已无处回答的 run，而 Stop 就在下面。`label` / `description` 只作为文本渲染，不参与任何客户端分支。一轮多问逐题回答，POST 在最后一题时**只发一次**。

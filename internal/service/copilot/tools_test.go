@@ -118,7 +118,7 @@ func TestSearchEchosTool_NeedsQueryOrFilter(t *testing.T) {
 	s := &CopilotService{echoService: &stubEchoSvc{}, embedding: &stubEmbeddingSvc{}}
 	tool := s.searchEchosTool(nil, false, "zh-CN", time.UTC, 0, newSearchUser())
 
-	_, err := tool.Execute(context.Background(), mustArgs(t, searchArgs{}))
+	_, err := tool.Run(context.Background(), mustArgs(t, searchArgs{}))
 	if err == nil || !strings.Contains(err.Error(), "检索需要 query") {
 		t.Fatalf("want missing-criteria error, got %v", err)
 	}
@@ -141,7 +141,7 @@ func TestSearchEchosTool_StructuredWithCoverageNote(t *testing.T) {
 	s := &CopilotService{echoService: echoSvc, embedding: &stubEmbeddingSvc{}}
 	tool := s.searchEchosTool(nil, false, "zh-CN", time.UTC, 0, newSearchUser())
 
-	out, err := tool.Execute(context.Background(), mustArgs(t, searchArgs{
+	out, err := tool.Run(context.Background(), mustArgs(t, searchArgs{
 		Query: "三体", DateFrom: "2026-01-01", DateTo: "2026-01-31",
 	}))
 	if err != nil {
@@ -174,7 +174,7 @@ func TestSearchEchosTool_SemanticPath(t *testing.T) {
 	s := &CopilotService{echoService: echoSvc, embedding: emb}
 	tool := s.searchEchosTool(nil, false, "zh-CN", time.UTC, 0, newSearchUser())
 
-	out, err := tool.Execute(context.Background(), mustArgs(t, searchArgs{Query: "意识"}))
+	out, err := tool.Run(context.Background(), mustArgs(t, searchArgs{Query: "意识"}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestSearchEchosTool_DefaultSQLFallback(t *testing.T) {
 	s := &CopilotService{echoService: echoSvc, embedding: &stubEmbeddingSvc{enabled: false}}
 	tool := s.searchEchosTool(nil, false, "zh-CN", time.UTC, 0, newSearchUser())
 
-	out, err := tool.Execute(context.Background(), mustArgs(t, searchArgs{Query: "fallback"}))
+	out, err := tool.Run(context.Background(), mustArgs(t, searchArgs{Query: "fallback"}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestSearchEchosTool_QueryErrorPropagates(t *testing.T) {
 	s := &CopilotService{echoService: echoSvc, embedding: &stubEmbeddingSvc{}}
 	tool := s.searchEchosTool(nil, false, "zh-CN", time.UTC, 0, newSearchUser())
 
-	_, err := tool.Execute(context.Background(), mustArgs(t, searchArgs{Query: "x", DateFrom: "2026-01-01"}))
+	_, err := tool.Run(context.Background(), mustArgs(t, searchArgs{Query: "x", DateFrom: "2026-01-01"}))
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("want propagated db error, got %v", err)
 	}
@@ -235,7 +235,7 @@ func TestStatsOverviewTool_NeedsDateRange(t *testing.T) {
 	s := &CopilotService{echoService: &stubEchoSvc{}}
 	tool := s.statsOverviewTool(nil, "zh-CN", time.UTC, newSearchUser())
 
-	_, err := tool.Execute(context.Background(), mustArgs(t, statsArgs{}))
+	_, err := tool.Run(context.Background(), mustArgs(t, statsArgs{}))
 	if err == nil || !strings.Contains(err.Error(), "stats_overview 需要") {
 		t.Fatalf("want date-range error, got %v", err)
 	}
@@ -250,7 +250,7 @@ func TestStatsOverviewTool_HappyPath(t *testing.T) {
 	s := &CopilotService{echoService: &stubEchoSvc{queryFn: singlePage(items, int64(len(items)))}}
 	tool := s.statsOverviewTool(nil, "zh-CN", time.UTC, newSearchUser())
 
-	out, err := tool.Execute(context.Background(), mustArgs(t, statsArgs{DateFrom: "2026-01-01", DateTo: "2026-02-28"}))
+	out, err := tool.Run(context.Background(), mustArgs(t, statsArgs{DateFrom: "2026-01-01", DateTo: "2026-02-28"}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestStatsOverviewTool_CollectErrorPropagates(t *testing.T) {
 	}}}
 	tool := s.statsOverviewTool(nil, "zh-CN", time.UTC, newSearchUser())
 
-	_, err := tool.Execute(context.Background(), mustArgs(t, statsArgs{DateFrom: "2026-01-01", DateTo: "2026-02-28"}))
+	_, err := tool.Run(context.Background(), mustArgs(t, statsArgs{DateFrom: "2026-01-01", DateTo: "2026-02-28"}))
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("want propagated error, got %v", err)
 	}
@@ -276,7 +276,7 @@ func TestSummarizeEchosTool_NeedsDateRange(t *testing.T) {
 	s := &CopilotService{echoService: &stubEchoSvc{}}
 	tool := s.summarizeEchosTool(nil, settingModel.AgentSetting{}, "zh-CN", time.UTC, newSearchUser())
 
-	_, err := tool.Execute(context.Background(), mustArgs(t, summarizeArgs{}))
+	_, err := tool.Run(context.Background(), mustArgs(t, summarizeArgs{}))
 	if err == nil || !strings.Contains(err.Error(), "summarize_echos 需要") {
 		t.Fatalf("want date-range error, got %v", err)
 	}
@@ -290,7 +290,7 @@ func TestSummarizeEchosTool_HappyPathFitsBudget(t *testing.T) {
 	s := &CopilotService{echoService: &stubEchoSvc{queryFn: singlePage(items, int64(len(items)))}}
 	tool := s.summarizeEchosTool(nil, settingModel.AgentSetting{}, "zh-CN", time.UTC, newSearchUser())
 
-	out, err := tool.Execute(context.Background(), mustArgs(t, summarizeArgs{
+	out, err := tool.Run(context.Background(), mustArgs(t, summarizeArgs{
 		DateFrom: "2026-01-01", DateTo: "2026-02-28", Focus: "工作",
 	}))
 	if err != nil {
@@ -321,7 +321,7 @@ func TestSummarizeEchosTool_CollectErrorPropagates(t *testing.T) {
 	}}}
 	tool := s.summarizeEchosTool(nil, settingModel.AgentSetting{}, "zh-CN", time.UTC, newSearchUser())
 
-	_, err := tool.Execute(context.Background(), mustArgs(t, summarizeArgs{DateFrom: "2026-01-01", DateTo: "2026-02-28"}))
+	_, err := tool.Run(context.Background(), mustArgs(t, summarizeArgs{DateFrom: "2026-01-01", DateTo: "2026-02-28"}))
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("want propagated error, got %v", err)
 	}

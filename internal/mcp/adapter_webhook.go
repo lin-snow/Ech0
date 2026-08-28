@@ -19,6 +19,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			"type":       "object",
 			"properties": map[string]any{},
 		},
+		Annotations: readOnlyHints(),
 	}, a.listWebhooks, authModel.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
@@ -35,6 +36,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 				"is_active": map[string]any{"type": "boolean", "description": "Enable or disable the webhook", "default": true},
 			},
 		},
+		Annotations: createHints(),
 	}, a.createWebhook, authModel.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
@@ -52,6 +54,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 				"is_active": map[string]any{"type": "boolean", "description": "Enable or disable the webhook"},
 			},
 		},
+		Annotations: destructiveHints(),
 	}, a.updateWebhook, authModel.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
@@ -65,6 +68,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 				"id": map[string]any{"type": "string", "format": "uuid", "description": "Webhook UUID"},
 			},
 		},
+		Annotations: destructiveHints(),
 	}, a.deleteWebhook, authModel.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
@@ -78,6 +82,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 				"id": map[string]any{"type": "string", "format": "uuid", "description": "Webhook UUID"},
 			},
 		},
+		Annotations: remoteWriteHints(),
 	}, a.testWebhook, authModel.ScopeAdminSettings)
 }
 

@@ -45,4 +45,12 @@ func registerCopilot(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Summary:     "清除持久化 Chat 会话",
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.ClearSession)
+
+	route(api, secured(revoker, authModel.ScopeAdminSettings), huma.Operation{
+		OperationID: "copilot-chat-answer",
+		Method:      http.MethodPost,
+		Path:        "/chat/answer",
+		Summary:     "回答 Copilot 正在等待的提问/确认",
+		Tags:        []string{"Copilot"},
+	}, h.CopilotHandler.AnswerAsk)
 }

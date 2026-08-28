@@ -48,6 +48,7 @@ func (a *Adapter) registerCommentTools(reg *Registry) {
 				"echo_id": map[string]any{"type": "string", "format": "uuid", "description": "Post UUID whose comments to retrieve"},
 			},
 		},
+		Annotations: readOnlyHints(),
 	}, a.listComments, authModel.ScopeCommentRead)
 
 	reg.RegisterTool(ToolDefinition{
@@ -57,6 +58,7 @@ func (a *Adapter) registerCommentTools(reg *Registry) {
 			"no captcha or form_token; source is marked integration; subject to integration rate limits and duplicate checks. " +
 			"Requires comment:write. See resource ech0://guide/integration-comment for the REST equivalent (curl) and audience rules.",
 		InputSchema: integrationCommentInputSchema,
+		Annotations: createHints(),
 	}, a.createIntegrationComment, authModel.ScopeCommentWrite)
 
 	reg.RegisterTool(ToolDefinition{
@@ -64,6 +66,7 @@ func (a *Adapter) registerCommentTools(reg *Registry) {
 		Title:       "Create Comment (Integration)",
 		Description: "Alias of create_integration_comment. Prefer this name in agent workflows; behavior and requirements are identical.",
 		InputSchema: integrationCommentInputSchema,
+		Annotations: createHints(),
 	}, a.createIntegrationComment, authModel.ScopeCommentWrite)
 }
 
@@ -74,6 +77,7 @@ func (a *Adapter) registerCommentResources(reg *Registry) {
 		Title:       "Recent Comments",
 		Description: "The 20 most recent approved public comments across all posts, newest first.",
 		MimeType:    "application/json",
+		Cache:       privateCache(liveTTLMs),
 	}, a.resourceRecentComments, authModel.ScopeCommentRead)
 
 	reg.RegisterResource(ResourceDefinition{
@@ -82,6 +86,7 @@ func (a *Adapter) registerCommentResources(reg *Registry) {
 		Title:       "Integration Comment Guide",
 		Description: "REST and MCP usage for posting integration/AI comments without captcha (same as POST /api/comments/integration).",
 		MimeType:    "text/markdown",
+		Cache:       publicCache(staticTTLMs),
 	}, a.resourceIntegrationCommentGuide, authModel.ScopeCommentRead)
 }
 

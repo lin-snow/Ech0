@@ -39,7 +39,9 @@ Install [Swagger](https://github.com/swaggo/gin-swagger) to generate/use OpenAPI
 - `ECH0_EVENT_WEBHOOK_POOL_WORKERS` / `ECH0_EVENT_WEBHOOK_POOL_QUEUE`
 
 📌 **Agent (Copilot) Parameters**
-- `ECH0_AGENT_TIMEOUT_SECONDS` — per-run timeout (seconds) for a single Copilot chat run, covering the whole tool loop; default `120`, `<=0` disables the extra timeout.
+- `ECH0_AGENT_TIMEOUT_SECONDS` — generation budget (seconds) for one Copilot chat run: model streaming plus non-interactive tools; default `120`, `<=0` disables it. Time spent waiting on a person is credited back rather than charged here.
+- `ECH0_AGENT_MAX_ROUNDS` — how many tool-calling rounds one run may take before it must answer; default `4`.
+- `ECH0_AGENT_ASK_TIMEOUT_SECONDS` — how long a run parks waiting for you to answer a question or confirm a write (`ask_user`, `create_echo`, `update_echo`, `delete_echo`); default `300`. A round that expires performs nothing.
 
 📌 **OpenAPI Docs Panel**
 - `ECH0_OPENAPI_DOCS_RENDERER` — renderer for the `/api/docs` panel: `stoplight` (default, Huma's built-in Stoplight Elements, loaded from CDN) or `scalar` (self-hosted offline Scalar, asset embedded in the binary — no network needed). Unknown values fall back to `stoplight`.

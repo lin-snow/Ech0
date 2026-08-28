@@ -57,8 +57,9 @@ func drain(out <-chan AgentEvent) []AgentEvent {
 func countingTool(name string, output ToolOutput, err error) (Tool, *int) {
 	calls := 0
 	t := Tool{
-		Def: ToolDef{Name: name, Description: "test tool", Parameters: json.RawMessage(`{"type":"object"}`)},
-		Execute: func(_ context.Context, _ json.RawMessage) (ToolOutput, error) {
+		Def:    ToolDef{Name: name, Description: "test tool", Parameters: json.RawMessage(`{"type":"object"}`)},
+		Effect: EffectRead,
+		Run: func(_ context.Context, _ json.RawMessage) (ToolOutput, error) {
 			calls++
 			return output, err
 		},
@@ -266,7 +267,7 @@ func TestRunLoop_CtxCancelled(t *testing.T) {
 
 func runChan(ctx context.Context, provider Provider, req RunRequest) <-chan AgentEvent {
 	out := make(chan AgentEvent)
-	go runLoop(ctx, provider, req, out)
+	go runLoop(newBudget(ctx, req.Timeout), provider, req, out)
 	return out
 }
 
@@ -321,12 +322,14 @@ func TestRunLoop_CustomImageNote(t *testing.T) {
 
 func TestRunLoop_ParallelToolsSingleRound(t *testing.T) {
 	toolA := Tool{
-		Def:     ToolDef{Name: "tool_a", Description: "a", Parameters: json.RawMessage(`{"type":"object"}`)},
-		Execute: func(_ context.Context, _ json.RawMessage) (ToolOutput, error) { return ToolOutput{Content: "AAA"}, nil },
+		Def:    ToolDef{Name: "tool_a", Description: "a", Parameters: json.RawMessage(`{"type":"object"}`)},
+		Effect: EffectRead,
+		Run:    func(_ context.Context, _ json.RawMessage) (ToolOutput, error) { return ToolOutput{Content: "AAA"}, nil },
 	}
 	toolB := Tool{
-		Def:     ToolDef{Name: "tool_b", Description: "b", Parameters: json.RawMessage(`{"type":"object"}`)},
-		Execute: func(_ context.Context, _ json.RawMessage) (ToolOutput, error) { return ToolOutput{Content: "BBB"}, nil },
+		Def:    ToolDef{Name: "tool_b", Description: "b", Parameters: json.RawMessage(`{"type":"object"}`)},
+		Effect: EffectRead,
+		Run:    func(_ context.Context, _ json.RawMessage) (ToolOutput, error) { return ToolOutput{Content: "BBB"}, nil },
 	}
 	fp := &fakeProvider{scripts: [][]Event{
 		{toolCallEvent("c1", "tool_a", `{}`), toolCallEvent("c2", "tool_b", `{}`), doneEvent()},

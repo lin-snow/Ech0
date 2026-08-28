@@ -20,6 +20,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			"type":       "object",
 			"properties": map[string]any{},
 		},
+		Annotations: readOnlyHints(),
 	}, a.listConnects, authModel.ScopeConnectRead)
 
 	reg.RegisterTool(ToolDefinition{
@@ -30,6 +31,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			"type":       "object",
 			"properties": map[string]any{},
 		},
+		Annotations: remoteReadHints(),
 	}, a.getConnectsInfo, authModel.ScopeConnectRead)
 
 	reg.RegisterTool(ToolDefinition{
@@ -43,6 +45,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 				"connect_url": map[string]any{"type": "string", "format": "uri", "description": "Full URL to the remote instance's /connect endpoint"},
 			},
 		},
+		Annotations: remoteWriteHints(),
 	}, a.addConnect, authModel.ScopeConnectWrite)
 
 	reg.RegisterTool(ToolDefinition{
@@ -56,6 +59,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 				"id": map[string]any{"type": "string", "format": "uuid", "description": "Connect UUID"},
 			},
 		},
+		Annotations: destructiveHints(),
 	}, a.deleteConnect, authModel.ScopeConnectWrite)
 }
 
@@ -66,6 +70,7 @@ func (a *Adapter) registerConnectResources(reg *Registry) {
 		Title:       "Current Instance Info",
 		Description: "Public card of this Ech0 instance: server name, URL, logo, today/total post counts, owner username, and version.",
 		MimeType:    "application/json",
+		Cache:       privateCache(liveTTLMs),
 	}, a.resourceConnectSelf, authModel.ScopeConnectRead)
 }
 

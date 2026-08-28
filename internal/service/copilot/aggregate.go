@@ -50,7 +50,8 @@ func (s *CopilotService) summarizeEchosTool(
 			Description: "聚合某时间区间内的【全部】Echo，用于生成跨度较长的总结/回顾（如年终、年度、季度、月度总结）。它会覆盖区间内所有记录而非只采样几条，正是「帮我写年终/年度总结」这类需求该用的工具——这类请求请直接用它，不要先用 search_echos 采样。必须提供 date_from 与 date_to；可选 tags（按标签名限定主题）、focus（侧重点，如“工作”“读书”“心情”）。",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"date_from":{"type":"string","description":"起始日期，格式 YYYY-MM-DD，含当天"},"date_to":{"type":"string","description":"结束日期，格式 YYYY-MM-DD，含当天"},"tags":{"type":"array","items":{"type":"string"},"description":"可选，按标签名限定主题；可用标签见系统提示"},"focus":{"type":"string","description":"可选，总结的侧重点，如“工作”“读书”“心情”"}},"required":["date_from","date_to"]}`),
 		},
-		Execute: func(ctx context.Context, args json.RawMessage) (agent.ToolOutput, error) {
+		Effect: agent.EffectRead,
+		Run: func(ctx context.Context, args json.RawMessage) (agent.ToolOutput, error) {
 			var a summarizeArgs
 			_ = json.Unmarshal(args, &a)
 			from := parseDay(a.DateFrom, false, loc)

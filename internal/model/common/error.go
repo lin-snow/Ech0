@@ -150,3 +150,7 @@ const (
 	AGENT_MODEL_MISSING      = "未配置 Agent 模型名称或模型名称不能为空"
 	AGENT_SETTING_NOT_FOUND  = "未找到 Agent 设置"
 )
+
+const (
+	CHAT_ASK_NOT_PENDING = "该提问已失效或已被回答"
+)

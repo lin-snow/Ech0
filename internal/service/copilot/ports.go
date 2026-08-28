@@ -20,6 +20,7 @@ type ChatService interface {
 	AskStream(ctx context.Context, question string, locale string, timezone string, w http.ResponseWriter) error
 	GetSession(ctx context.Context) ([]ChatMessage, error)
 	ClearSession(ctx context.Context) error
+	AnswerAsk(ctx context.Context, askID string, answers []AskAnswer) error
 }
 
 type (

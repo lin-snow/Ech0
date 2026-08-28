@@ -5,7 +5,8 @@
     <BaseSegmented v-model="tab" :options="tabOptions" />
 
     <TheConnectSetting v-if="tab === 'connect'" />
-    <TheCopilotSetting v-else />
+    <TheCopilotSetting v-else-if="tab === 'copilot'" />
+    <TheMCPSetting v-else />
   </div>
 </template>
 
@@ -15,12 +16,14 @@ import { useI18n } from 'vue-i18n'
 import BaseSegmented from '@/components/common/BaseSegmented.vue'
 import TheConnectSetting from './TheSetting/TheConnectSetting.vue'
 import TheCopilotSetting from './TheCopilot/TheCopilotSetting.vue'
+import TheMCPSetting from './TheSetting/TheMCPSetting.vue'
 
 const { t } = useI18n()
 const tab = ref('connect')
 const tabOptions = computed(() => [
   { label: String(t('extensionManagement.tabConnect')), value: 'connect' },
   { label: String(t('extensionManagement.tabCopilot')), value: 'copilot' },
+  { label: String(t('extensionManagement.tabMCP')), value: 'mcp' },
 ])
 </script>
 

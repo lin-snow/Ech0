@@ -9,12 +9,30 @@ type ResourceDefinition struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 	MimeType    string `json:"mimeType,omitempty"`
+
+	Cache CacheInfo `json:"-"`
+}
+
+type ResourceTemplateDefinition struct {
+	URITemplate string `json:"uriTemplate"`
+	Name        string `json:"name"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+
+	Cache CacheInfo `json:"-"`
 }
 
 type ResourcesListResult struct {
 	ResultEnvelope
-	CacheInfo
+	*CacheInfo
 	Resources []ResourceDefinition `json:"resources"`
+}
+
+type ResourceTemplatesListResult struct {
+	ResultEnvelope
+	*CacheInfo
+	ResourceTemplates []ResourceTemplateDefinition `json:"resourceTemplates"`
 }
 
 type ResourceReadParams struct {
@@ -29,6 +47,6 @@ type ResourceContent struct {
 
 type ResourceReadResult struct {
 	ResultEnvelope
-	CacheInfo
+	*CacheInfo
 	Contents []ResourceContent `json:"contents"`
 }

@@ -17,6 +17,7 @@ func (a *Adapter) registerDashboardResources(reg *Registry) {
 		Title:       "Visitor Stats",
 		Description: "Daily visitor statistics (page views and unique visitors) for the past 7 days (UTC day boundaries). Returns an array of {date, pv, uv} objects. Requires admin scope.",
 		MimeType:    "application/json",
+		Cache:       privateCache(liveTTLMs),
 	}, a.resourceVisitorStats, authModel.ScopeAdminSettings)
 }
 

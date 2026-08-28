@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
+	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
@@ -66,7 +67,7 @@ func setupRouterGroup(r *gin.Engine, mwDeps *middleware.Deps) *AppRouterGroup {
 	optionalAuth := r.Group("/api")
 	optionalAuth.Use(middleware.NoCache(), middleware.OptionalAuth(revoker))
 	ws := r.Group("/ws")
-	mcpGroup := r.Group("/mcp")
+	mcpGroup := r.Group(mcp.MCPEndpointPath)
 	mcpGroup.Use(middleware.NoCache(), middleware.RequireAuth(revoker))
 	return &AppRouterGroup{
 		ResourceGroup:           resource,
