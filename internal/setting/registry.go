@@ -28,6 +28,7 @@ var (
 				ServerLogo:    c.ServerLogo,
 				ServerName:    c.Servername,
 				ServerURL:     urlUtil.TrimURL(c.Serverurl),
+				HomeLayout:    "single",
 				AllowRegister: c.AllowRegister,
 				DefaultLocale: string(commonModel.DefaultLocale),
 				ICPNumber:     c.Icpnumber,
@@ -40,6 +41,9 @@ var (
 		},
 		Normalize: func(s *settingModel.SystemSetting) {
 			s.DefaultLocale = i18nUtil.ResolveLocale(s.DefaultLocale)
+			if s.HomeLayout != "three" {
+				s.HomeLayout = "single"
+			}
 		},
 	}
 

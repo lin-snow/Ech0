@@ -10,6 +10,7 @@ declare namespace App {
         server_logo_file_id?: string
         server_name: string
         server_url: string
+        home_layout: 'single' | 'three'
         allow_register: boolean
         default_locale: string
         ICP_number: string

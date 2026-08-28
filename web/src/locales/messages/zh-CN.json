@@ -572,6 +572,9 @@
     "customJsPlaceholder": "请输入自定义 Script",
     "allowRegister": "允许注册",
     "defaultLocale": "默认语言",
+    "homeLayout": "主页布局",
+    "homeLayoutSingle": "单栏",
+    "homeLayoutThree": "三栏",
     "logoUploading": "服务器 Logo 上传中...",
     "logoUploadSuccess": "服务器 Logo 上传成功！",
     "uploadFailed": "上传失败，请稍后再试"

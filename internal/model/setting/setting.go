@@ -19,6 +19,7 @@ type SystemSetting struct {
 	ServerLogo    string `json:"server_logo"`
 	ServerName    string `json:"server_name"`
 	ServerURL     string `json:"server_url"`
+	HomeLayout    string `json:"home_layout"`
 	AllowRegister bool   `json:"allow_register"`
 	DefaultLocale string `json:"default_locale"`
 	ICPNumber     string `json:"ICP_number"`

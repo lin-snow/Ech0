@@ -572,6 +572,9 @@
     "customJsPlaceholder": "カスタム Script を入力してください",
     "allowRegister": "登録を許可",
     "defaultLocale": "既定の言語",
+    "homeLayout": "ホームレイアウト",
+    "homeLayoutSingle": "1列",
+    "homeLayoutThree": "3列",
     "logoUploading": "サーバーロゴをアップロード中...",
     "logoUploadSuccess": "サーバーロゴをアップロードしました！",
     "uploadFailed": "アップロードに失敗しました。しばらくしてから再試行してください"

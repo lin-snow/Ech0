@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="home-page">
+  <div class="home-page" :class="{ 'home-page--three-column': isThreeColumn }">
     <div class="home-shell">
       <!-- 左栏：品牌 + 主导航 + 快捷操作（≥820px 显示） -->
-      <HomeLeftRail class="home-shell__left" />
+      <HomeLeftRail v-if="isThreeColumn" class="home-shell__left" />
 
       <!-- 中栏：主信息流 / 编辑器 / 标签 / 广场 / 状态 -->
       <main class="home-shell__main">
@@ -46,6 +46,7 @@
 
       <!-- 右栏：搜索 + 常驻 widgets + version（≥1100px 显示） -->
       <HomeRightRail
+        v-if="isThreeColumn"
         class="home-shell__right"
         @open-palette="paletteOpen = true"
         @open-chat="chatLauncherOpen = true"
@@ -85,8 +86,9 @@ const userStore = useUserStore()
 const settingStore = useSettingStore()
 const echoStore = useEchoStore()
 const { isLogin } = storeToRefs(userStore)
-const { AgentSetting } = storeToRefs(settingStore)
+const { AgentSetting, SystemSetting } = storeToRefs(settingStore)
 const { searchingMode, isFilteringMode } = storeToRefs(echoStore)
+const isThreeColumn = computed(() => SystemSetting.value.home_layout === 'three')
 const mobileSearchOpen = ref(false)
 const activeTab = computed<'home' | 'publish' | 'status' | 'tags' | 'hub'>(() => {
   if (route.query.tab === 'publish' && isLogin.value) return 'publish'
@@ -230,7 +232,7 @@ onBeforeUnmount(() => {
 
 /* === 平板 (820-1099px)：左栏 sticky + 中栏自然滚动 === */
 @media (width >= 820px) {
-  .home-shell {
+  .home-page--three-column .home-shell {
     display: grid;
     grid-template-columns: var(--home-rail-left) minmax(0, 1fr);
     gap: 0;
@@ -239,7 +241,7 @@ onBeforeUnmount(() => {
     align-items: start;
   }
 
-  .home-shell__left {
+  .home-page--three-column .home-shell__left {
     display: flex;
     position: sticky;
     top: 0;
@@ -250,30 +252,30 @@ onBeforeUnmount(() => {
   }
 
   /* 中栏跟随整页滚动；不再独立 overflow 容器 */
-  .home-shell__main {
+  .home-page--three-column .home-shell__main {
     padding: 1.25rem 1.5rem 2rem;
     border-right: 1px solid var(--color-border-subtle);
   }
 
   /* 桌面布局下隐藏中栏顶部移动端品牌 */
-  .home-shell__mobile-top {
+  .home-page--three-column .home-shell__mobile-top {
     display: none;
   }
 }
 
 /* === 桌面 (≥1100px)：完整三栏，右栏自然跟随页面滚动 === */
 @media (width >= 1100px) {
-  .home-shell {
+  .home-page--three-column .home-shell {
     grid-template-columns: var(--home-rail-left) minmax(0, 1fr) var(--home-rail-right);
     max-width: calc(var(--home-rail-left) + var(--home-main-max) + var(--home-rail-right));
   }
 
-  .home-shell__main {
+  .home-page--three-column .home-shell__main {
     border-right: 1px solid var(--color-border-subtle);
   }
 
   /* 右栏不再 sticky / 独立滚动；与中栏一起跟随页面滚动 */
-  .home-shell__right {
+  .home-page--three-column .home-shell__right {
     display: flex;
     flex-direction: column;
   }

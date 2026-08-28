@@ -9,6 +9,7 @@ type SystemSettingDto struct {
 	ServerLogoFileID string `json:"server_logo_file_id"`
 	ServerName       string `json:"server_name"`
 	ServerURL        string `json:"server_url"`
+	HomeLayout       string `json:"home_layout"`
 	AllowRegister    bool   `json:"allow_register"`
 	DefaultLocale    string `json:"default_locale"`
 	ICPNumber        string `json:"ICP_number"`

@@ -32,6 +32,7 @@ describe('settingStore.init', () => {
         server_logo: '/Ech0.svg',
         server_name: 'Ech0',
         server_url: '',
+        home_layout: 'single',
         allow_register: true,
         default_locale: 'zh-CN',
         ICP_number: '',

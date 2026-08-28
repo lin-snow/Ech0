@@ -572,6 +572,9 @@
     "customJsPlaceholder": "Enter custom script",
     "allowRegister": "Allow registration",
     "defaultLocale": "Default language",
+    "homeLayout": "Home layout",
+    "homeLayoutSingle": "Single column",
+    "homeLayoutThree": "Three columns",
     "logoUploading": "Uploading server logo...",
     "logoUploadSuccess": "Server logo uploaded successfully!",
     "uploadFailed": "Upload failed, please try again later"

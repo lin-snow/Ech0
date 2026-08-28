@@ -87,6 +87,7 @@ func bake(in bakeInput) (*dataset, error) {
 			ServerLogo:    rebaseLogo(site.ServerLogo, in.baseURL),
 			ServerName:    site.ServerName,
 			ServerURL:     site.ServerURL,
+			HomeLayout:    site.HomeLayout,
 			AllowRegister: false,
 			DefaultLocale: site.DefaultLocale,
 			ICPNumber:     site.ICPNumber,

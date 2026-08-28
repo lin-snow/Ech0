@@ -2271,6 +2271,8 @@ components:
           type: string
         footer_link:
           type: string
+        home_layout:
+          type: string
         meting_api:
           type: string
         server_logo:
@@ -2298,6 +2300,8 @@ components:
         footer_content:
           type: string
         footer_link:
+          type: string
+        home_layout:
           type: string
         meting_api:
           type: string

@@ -572,6 +572,9 @@
     "customJsPlaceholder": "Eigenes Script eingeben",
     "allowRegister": "Registrierung erlauben",
     "defaultLocale": "Standardsprache",
+    "homeLayout": "Startseitenlayout",
+    "homeLayoutSingle": "Einspaltig",
+    "homeLayoutThree": "Dreispaltig",
     "logoUploading": "Server-Logo wird hochgeladen…",
     "logoUploadSuccess": "Server-Logo hochgeladen!",
     "uploadFailed": "Upload fehlgeschlagen, bitte später erneut versuchen"

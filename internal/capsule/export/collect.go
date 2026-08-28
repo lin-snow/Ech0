@@ -179,6 +179,7 @@ func collectSite(ctx context.Context, deps Deps, data *dataset) error {
 		ServerLogo:    system.ServerLogo,
 		ServerName:    system.ServerName,
 		ServerURL:     system.ServerURL,
+		HomeLayout:    system.HomeLayout,
 		DefaultLocale: system.DefaultLocale,
 		ICPNumber:     system.ICPNumber,
 		FooterContent: system.FooterContent,

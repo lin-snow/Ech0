@@ -28,6 +28,7 @@ type Site struct {
 	ServerLogo    string `yaml:"server_logo,omitempty"`
 	ServerName    string `yaml:"server_name,omitempty"`
 	ServerURL     string `yaml:"server_url,omitempty"`
+	HomeLayout    string `yaml:"home_layout,omitempty"`
 	DefaultLocale string `yaml:"default_locale,omitempty"`
 	ICPNumber     string `yaml:"ICP_number,omitempty"`
 	FooterContent string `yaml:"footer_content,omitempty"`

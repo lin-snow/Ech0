@@ -241,6 +241,23 @@
           class="w-fit h-8"
         />
       </div>
+      <div
+        class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 mb-1"
+      >
+        <h2 class="font-semibold min-w-28 md:min-w-32 shrink-0 break-words leading-5">
+          {{ t('systemSetting.homeLayout') }}:
+        </h2>
+        <span v-if="!editMode" class="flex-1 min-w-0 truncate">
+          {{ homeLayoutLabel }}
+        </span>
+        <BaseSelect
+          v-else
+          v-model="SystemSetting.home_layout"
+          :options="homeLayoutOptions"
+          class="w-fit h-8"
+        />
+      </div>
+
       <div class="flex flex-row items-center justify-start text-[var(--color-text-secondary)]">
         <h2 class="font-semibold min-w-28 md:min-w-32 shrink-0 break-words leading-5">
           {{ t('systemSetting.allowRegister') }}:
@@ -282,6 +299,15 @@ const defaultLocaleLabel = computed(
   () =>
     LOCALE_ENDONYMS[SystemSetting.value?.default_locale as AppLocale] || LOCALE_ENDONYMS['zh-CN'],
 )
+const homeLayoutLabel = computed(() =>
+  SystemSetting.value.home_layout === 'three'
+    ? t('systemSetting.homeLayoutThree')
+    : t('systemSetting.homeLayoutSingle'),
+)
+const homeLayoutOptions = computed(() => [
+  { label: String(t('systemSetting.homeLayoutSingle')), value: 'single' },
+  { label: String(t('systemSetting.homeLayoutThree')), value: 'three' },
+])
 const { enqueueUpload, waitForTask, clearFinishedUploads } = useFileQueue()
 
 const handleUpdateSystemSetting = async () => {
