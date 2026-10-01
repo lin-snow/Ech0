@@ -33,7 +33,7 @@
     "@dicebear/styles": "^10.6.0",
     "@headlessui/vue": "^1.7.23",
     "@vue/devtools-api": "^8.2.1",
-    "@vueuse/core": "^14.4.0",
+    "@vueuse/core": "^15.0.0",
     "floating-vue": "^5.4.0",
     "highlight.js": "^11.12.0",
     "leaflet": "^1.9.4",
