@@ -10,8 +10,8 @@ github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
-github.com/anthropics/anthropic-sdk-go v1.75.0 h1:2oajsgiYwI0Hc8E6K9GttVe6CLwZlfhdxaqFqKVUnvA=
-github.com/anthropics/anthropic-sdk-go v1.75.0/go.mod h1:x+lPk/cCl48uRegeP0hlYYBN1b7bEBTveInIMgLicnY=
+github.com/anthropics/anthropic-sdk-go v1.78.0 h1:8uluL7g84HtSSm347tMGtrUuCEBLmme7vOcFCMn7bnk=
+github.com/anthropics/anthropic-sdk-go v1.78.0/go.mod h1:x+lPk/cCl48uRegeP0hlYYBN1b7bEBTveInIMgLicnY=
 github.com/asg017/sqlite-vec-go-bindings v0.1.6 h1:Nx0jAzyS38XpkKznJ9xQjFXz2X9tI7KqjwVxV8RNoww=
 github.com/asg017/sqlite-vec-go-bindings v0.1.6/go.mod h1:A8+cTt/nKFsYCQF6OgzSNpKZrzNo5gQsXBTfsXHXY0Q=
 github.com/atotto/clipboard v0.1.4 h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4=
@@ -40,8 +40,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 h1:29SvnfGhX
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4/go.mod h1:wm04I5DMuNVvZHFe/dHnUxincvNbbK7AiNBbYsQivek=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.4 h1:pPiWfgeNxqluKEph7hvU88kuGKBPOWzO+Dk9t2zqqNs=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.4/go.mod h1:YlwGoIUDG/3kBQbdNOVs/xKZ9J01G8e/6D1mRBj9uTk=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4 h1:n6kO3OlBvnDEksQpvBLbAldjHwGlu8kErvhHJkhlaRY=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4/go.mod h1:9APRWGLFITKD+xzWSIyT9V7QV4bNlEuIieWlzXgGFlI=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0 h1:VMAdYqr4Jn/8ATs9BHC5riwrs0d6m1Z2ohFriSwZwm0=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0/go.mod h1:9APRWGLFITKD+xzWSIyT9V7QV4bNlEuIieWlzXgGFlI=
 github.com/aws/aws-sdk-go-v2/service/signin v1.10.1 h1:DzCCWLzcIRQ77F3DEUljud7bEjTgFOIKXP52NmVRyhU=
 github.com/aws/aws-sdk-go-v2/service/signin v1.10.1/go.mod h1:xpo/geVldu8payT375WekctUzopG/hBU7miiqItMUlw=
 github.com/aws/aws-sdk-go-v2/service/sso v1.38.1 h1:Umtl/0YZhng4xndfW3lKJrYYP7NLEjI6bGXVomwLcs0=
@@ -210,8 +210,8 @@ github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELU
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/nicksnyder/go-i18n/v2 v2.6.1 h1:JDEJraFsQE17Dut9HFDHzCoAWGEQJom5s0TRd17NIEQ=
 github.com/nicksnyder/go-i18n/v2 v2.6.1/go.mod h1:Vee0/9RD3Quc/NmwEjzzD7VTZ+Ir7QbXocrkhOzmUKA=
-github.com/openai/openai-go/v3 v3.66.0 h1:hykUFik2rqpkKf8O2bc41OpSZuVA1lGFUu+UfjvYn1k=
-github.com/openai/openai-go/v3 v3.66.0/go.mod h1:+dSPa+nbX+dNoXg1jecMnVpgRP+E/5IBA6Jiz9Pc8WM=
+github.com/openai/openai-go/v3 v3.70.0 h1:mfYOmcoTJeb/hTcZUyKelluNnb1ApkziYg/Li8afZTQ=
+github.com/openai/openai-go/v3 v3.70.0/go.mod h1:+dSPa+nbX+dNoXg1jecMnVpgRP+E/5IBA6Jiz9Pc8WM=
 github.com/pb33f/ordered-map/v2 v2.3.1 h1:5319HDO0aw4DA4gzi+zv4FXU9UlSs3xGZ40wcP1nBjY=
 github.com/pb33f/ordered-map/v2 v2.3.1/go.mod h1:qxFQgd0PkVUtOMCkTapqotNgzRhMPL7VvaHKbd1HnmQ=
 github.com/pelletier/go-toml/v2 v2.4.3 h1:GTRvJQutkOSftxIFD5xw9aepkYNuPWmVJpffdDPYVpY=
@@ -232,8 +232,8 @@ github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzG
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/sashabaranov/go-openai v1.42.1 h1:9nK2UgDVVSIyoEUNDeWqu3Ttj8EqCO6FT8HK0Cv8VEo=
-github.com/sashabaranov/go-openai v1.42.1/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
+github.com/sashabaranov/go-openai v1.43.0 h1:HNRpO8TAQ01ssO7aPXO/68QRlcCCYQQ5GfHbFceRZcY=
+github.com/sashabaranov/go-openai v1.43.0/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=

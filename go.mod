@@ -5,12 +5,12 @@ go 1.27.1
 require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
-	github.com/anthropics/anthropic-sdk-go v1.75.0
+	github.com/anthropics/anthropic-sdk-go v1.78.0
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0
 	github.com/aws/smithy-go v1.28.2
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/coreos/go-oidc/v3 v3.21.0
@@ -26,9 +26,9 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
-	github.com/openai/openai-go/v3 v3.66.0
+	github.com/openai/openai-go/v3 v3.70.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/sashabaranov/go-openai v1.42.1
+	github.com/sashabaranov/go-openai v1.43.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/wneessen/go-mail v0.8.1
