@@ -177,11 +177,47 @@ The tag pushes [`release-cli.yml`](../../.github/workflows/release-cli.yml), whi
 - Publishes `@ech0/cli` and one `@ech0/cli-<os>-<arch>` package per platform to npm. Prerelease
   versions publish to npm's `next` dist-tag, stable ones to `latest`; already-published versions
   are skipped.
-- Requires the repository secret `NPM_TOKEN` (an npm automation token for the `@ech0` scope) and
-  uses OIDC provenance (`id-token: write`).
+- Does not touch the repo-wide "Latest" release pointer (`gh release create --latest=false`): the
+  CLI is not the application.
+
+### npm authentication (trusted publishing)
+
+npm publishing uses **trusted publishing (OIDC)**, not a token — there is no `NPM_TOKEN` secret.
+Tokens that bypass 2FA are being retired for publishing, and a 2FA-guarded one fails the publish
+step with `EOTP`, which is why the workflow no longer reads a token. For each of the five packages
+(`@ech0/cli`, `@ech0/cli-darwin-arm64`, `@ech0/cli-darwin-x64`, `@ech0/cli-linux-arm64`,
+`@ech0/cli-linux-x64`) add a trusted publisher on npmjs.com → package → Settings → Trusted
+publishing, or from the CLI (npm ≥ 11.15.0, account 2FA on, package already published):
+
+```bash
+npm trust github @ech0/cli --repo lin-snow/Ech0 --file release-cli.yml --allow-publish
+# ...one call per platform package; `--allow-publish` is required — configurations created after
+# 2026-09-03 default to staged publishing only.
+```
+
+The workflow's `release-cli.yml` name, the `lin-snow/Ech0` repository and the `id-token: write`
+permission must all match. A new trust configuration expires after 2 days unless the first publish
+succeeds, and provenance is then generated automatically.
+
+Bootstrapping a package that does not exist yet (trust needs an existing package): publish the
+first version by hand from the CI artifact, with interactive 2FA. This version has no provenance.
+
+```bash
+gh run download <run-id> -n npm-packages -D /tmp/ech0-npm
+cd /tmp/ech0-npm
+for d in cli-darwin-arm64 cli-darwin-x64 cli-linux-arm64 cli-linux-x64 cli; do
+  (cd "$d" && npm publish --access public)   # platform packages before the launcher
+done
+```
+
+After that, configure the five trusted publishers. A skipped publish does not validate a trust
+configuration, so the first real publish after configuring must be a *new* version: bump
+`apps/cli/package.json` to the next patch and push its `cli-vX.Y.Z` tag. The workflow then publishes
+that version through OIDC, which validates all five configurations.
 
 To rebuild an existing CLI tag, run the workflow manually with its `tag` input (e.g.
-`cli-v0.1.0`).
+`cli-v0.1.1`). The tag must still match `apps/cli/package.json`, so only the current version can be
+re-run.
 
 Verify after it finishes:
 

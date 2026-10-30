@@ -93,7 +93,9 @@ function packageName(target: Target): string {
   return `@ech0/cli-${label(target)}`;
 }
 
-const repository = process.env.GITHUB_REPOSITORY ?? "lin-snow/ech0";
+// Trusted publishing matches `repository.url` against the GitHub repository, so
+// the fallback keeps the real casing (GITHUB_REPOSITORY in CI).
+const repository = process.env.GITHUB_REPOSITORY ?? "lin-snow/Ech0";
 
 function repositoryField(): Record<string, string> {
   return {

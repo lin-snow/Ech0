@@ -431,7 +431,7 @@ ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内�
 - **版本**：`apps/cli/package.json` 是开发版本来源，发布时 workflow 校验 `cli-vX.Y.Z` tag 后，用 `--define process.env.ECH0_CLI_VERSION="<version>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本仍用 `ech0 common hello`（catalog 命令）。
 - **本地复现**：`just cli dist 0.1.0` → `apps/cli/dist/release/`（四个二进制、tar.gz、`SHA256SUMS` 与可直接 `npm publish` 的目录）。
 - macOS 从浏览器下载 release 资产会被打上 quarantine 标记；二进制未签名，首次运行前需 `xattr -d com.apple.quarantine ech0`（走 npm 无此问题）。
-- npm 发布需要仓库 secret `NPM_TOKEN`（能发布 `@ech0` scope）；启用 OIDC provenance（`id-token: write`）。已发布的版本会跳过，重跑 workflow 不报错。
+- npm 发布用 trusted publishing（OIDC，`id-token: write`），不读 `NPM_TOKEN`：五个包各自在 npm 上配置 trusted publisher（`lin-snow/Ech0` + `release-cli.yml`，并允许 `npm publish`），provenance 自动生成。首次发布的目标包必须已存在，且 trust 配置 2 天内要有一次成功发布才生效。已发布的版本会跳过，重跑 workflow 不报错。
 
 ## 10. 验证
 

@@ -5,8 +5,11 @@ name: Release CLI
 # source of truth is `apps/cli/package.json`, and a release is cut by pushing a
 # `cli-vX.Y.Z` tag. `workflow_dispatch` rebuilds an existing CLI tag.
 #
-# Required secret: NPM_TOKEN — an npm automation token allowed to publish the
-# `@ech0` scope (`@ech0/cli` + `@ech0/cli-<os>-<arch>`).
+# Publishing authenticates with npm trusted publishing (OIDC), not a token: every
+# package (`@ech0/cli` + the four `@ech0/cli-<os>-<arch>`) must have a trusted
+# publisher pointing at this workflow, with `npm publish` allowed. See
+# docs/dev/release-process.md ("CLI release"). Tokens that bypass 2FA are being
+# retired for publishing; a 2FA-guarded token fails here with EOTP.
 
 on:
   push:
@@ -122,7 +125,9 @@ jobs:
             echo "release ${TAG} already exists"
             exit 0
           fi
-          args=(--verify-tag --title "ech0 CLI ${VERSION}" --generate-notes)
+          # The CLI is not the application: never take the repo-wide "Latest"
+          # pointer from the server release.
+          args=(--verify-tag --latest=false --title "ech0 CLI ${VERSION}" --generate-notes)
           case "${VERSION}" in *-*) args+=(--prerelease) ;; esac
           gh release create "${TAG}" "${args[@]}"
 
@@ -162,17 +167,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
 
+      - name: Ensure npm supports trusted publishing
+        run: |
+          set -euo pipefail
+          # OIDC publishing needs npm >= 11.5.1. No NODE_AUTH_TOKEN: the CLI sees
+          # GitHub's id-token and exchanges it for a short-lived publish credential.
+          current="$(npm --version)"
+          if [ "$(printf '%s\n' "${current}" 11.5.1 | sort -V | head -n1)" != "11.5.1" ]; then
+            npm install -g npm@^11.15.0
+          fi
+          npm --version
+
       - name: Publish packages
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.build.outputs.version }}
           DIST_TAG: ${{ needs.build.outputs.dist_tag }}
         run: |
           set -euo pipefail
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error title=Missing NPM_TOKEN::Add an npm automation token as the repository secret NPM_TOKEN to publish @ech0/cli."
-            exit 1
-          fi
 
           publish() {
             local dir="$1" name published
@@ -183,7 +194,10 @@ jobs:
               return 0
             fi
             echo "publish ${name}@${VERSION} (dist-tag: ${DIST_TAG})"
-            (cd "${dir}" && npm publish --provenance --access public --tag "${DIST_TAG}")
+            if ! (cd "${dir}" && npm publish --provenance --access public --tag "${DIST_TAG}"); then
+              echo "::error title=npm publish failed::${name}@${VERSION} was rejected. Publishing is OIDC-only: add a trusted publisher for it (lin-snow/Ech0, release-cli.yml, allow npm publish). A token with 2FA fails here with EOTP."
+              exit 1
+            fi
           }
 
           # Platform packages first: the launcher depends on them.
