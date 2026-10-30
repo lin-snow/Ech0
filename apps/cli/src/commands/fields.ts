@@ -15,6 +15,7 @@ export const RESERVED_FLAGS: Record<string, true> = {
   color: true,
   help: true,
   version: true,
+  yes: true,
 };
 
 export interface FieldOption {

@@ -339,6 +339,7 @@ ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Ech
 ech0 echo list --page 1 --page-size 20
 ech0 echo update --id <id> --content "edited"        # 同样返回更新后的 Echo
 ech0 echo get --id <uuid>
+ech0 echo delete --id <uuid>                         # 交互确认；脚本加 --yes
 
 ech0 file upload --file photo.png                    # 上传字节，返回 file id
 ech0 file external --url https://example.com/a.png   # 只登记外链
@@ -400,6 +401,7 @@ ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内�
 - stdout 只放数据；错误与提示走 stderr。
 - 颜色：TTY 且未设 `NO_COLOR` 才启用；`--no-color` 关闭。
 - 退出码：`0` 成功；`1` 业务/网络错误；`2` 用法错误（含缺少必填 flag）。
+- 危险操作（catalog `effect=destructive`）：交互终端先打印 `[y/N]` 确认，提示里带真实 `METHOD path`；`--yes` 跳过。非 TTY（管道 / CI）与 `--json`/`--yaml` 不弹提示，未传 `--yes` 直接退出码 2。
 - 人读表格只保留在 `config list`（catalog 操作的数据形状不可预知，表格化留给后续 `kind` 渲染）。
 
 ## 8. 配置与 profile

@@ -4,6 +4,7 @@
 import { Command } from "commander";
 
 import { COMMAND_NAMES, ECHO_COMPOSE_OPERATIONS, inScope } from "../catalog/scope.ts";
+import { confirmDestructive } from "./confirm.ts";
 import { assertUploadStorage, categoryForFile, UPLOAD_OPERATION } from "./files.ts";
 import { editPayload, readPayload } from "./payload.ts";
 import type { Catalog, CatalogOp } from "../catalog/types.ts";
@@ -239,6 +240,9 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
     if (id === UPLOAD_OPERATION) {
       command.option("--file-name <name>", "上传时使用的文件名（stdin 上传务必带扩展名）");
     }
+    if (op.effect === "destructive") {
+      command.option("-y, --yes", "跳过危险操作确认（非交互环境与 --json/--yaml 必须显式传入）");
+    }
     const compose = ECHO_COMPOSE_OPERATIONS.has(id);
     if (compose) {
       command.option("--from <file>", "从 JSON 文件读取 payload（- 表示 stdin）");
@@ -280,6 +284,16 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
             : `用法：${usage}（运行 \`ech0 help ${pathOf(command).join(" ")}\` 查看完整说明）`,
         );
       }
+
+      const flags = readGlobalFlags(command);
+      if (op.effect === "destructive") {
+        await confirmDestructive(op, values, {
+          yes: parsed.yes === true,
+          json: flags.json,
+          yaml: flags.yaml,
+        });
+      }
+
       let payload: Record<string, unknown> | undefined;
       if (parsed.from !== undefined && parsed.edit === true) {
         throw new UsageError("--from 与 --edit 不能同时使用");
@@ -287,7 +301,6 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       if (parsed.edit === true) payload = await editPayload();
       else if (typeof parsed.from === "string") payload = await readPayload(parsed.from);
 
-      const flags = readGlobalFlags(command);
       const result = await options
         .run(command, op, values, {
           output: typeof parsed.output === "string" ? parsed.output : undefined,

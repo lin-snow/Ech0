@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+import { createInterface } from "node:readline/promises";
+
 import { UsageError } from "../output/console.ts";
 
 /** Reads one line from stdin; `-` arguments use it as the payload. */
@@ -9,6 +11,17 @@ export async function readStdin(): Promise<string> {
     throw new UsageError("需要从 stdin 读取内容，但 stdin 是终端");
   }
   return Bun.stdin.text();
+}
+
+/** Reads a yes/no answer from an interactive terminal; anything but y/yes is no. */
+export async function confirm(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const answer = (await rl.question(question)).trim().toLowerCase();
+    return answer === "y" || answer === "yes";
+  } finally {
+    rl.close();
+  }
 }
 
 /** Reads a password without echo; pipes must use `--password-stdin`. */

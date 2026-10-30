@@ -97,11 +97,13 @@ want to keep. `--id` is required.
 ## Delete
 
 ```bash
-ech0 echo delete --id <echo_id>
+ech0 echo delete --id <echo_id> --yes
 ```
 
-Destructive and admin-only; there is no confirmation prompt, so verify `--server`
-and the id first. Deleting an Echo also deletes its attachments.
+Destructive and admin-only. Interactive terminals print the exact `DELETE`
+target and ask `[y/N]`; non-interactive runs (agents, pipes, CI) never prompt
+and require `--yes`, so ask the human before passing it. Verify `--server` and
+the id first. Deleting an Echo also deletes its attachments.
 
 ## Read
 

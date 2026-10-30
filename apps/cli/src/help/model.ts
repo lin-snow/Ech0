@@ -321,7 +321,7 @@ function hintsOf(command: Command, op: CatalogOp | undefined): string[] {
   if (Object.values(op.bind).includes("form")) {
     hints.push("上传字段：文件用 --<字段> <path>，- 表示从 stdin 读取");
   }
-  if (op.effect === "destructive") hints.push("危险操作：确认 --profile / --server 指向目标实例后再执行");
+  if (op.effect === "destructive") hints.push("危险操作：交互确认后执行；--yes 跳过（非 TTY 与 --json/--yaml 必须显式传入）");
   if (op.deprecated) hints.push("已弃用：服务端可能在下个版本移除该操作");
   return hints;
 }

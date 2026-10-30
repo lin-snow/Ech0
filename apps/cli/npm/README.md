@@ -19,6 +19,7 @@ bun add -g @ech0/cli
 ```bash
 ech0 auth login --server https://your-instance.example.com --device
 ech0 echo create --content "hello"
+ech0 echo delete --id <id> --yes   # 删除前默认要求确认；脚本里显式 --yes
 ech0 help
 ```
 

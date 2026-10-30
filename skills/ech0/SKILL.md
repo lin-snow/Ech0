@@ -48,8 +48,8 @@ ech0 file external --url https://example.com/photo.png --category image --json
 ech0 echo get --id <echo_id> --json
 ech0 echo update --id <echo_id> --content "改过的正文" --tag daily
 
-# Delete (ask the human first)
-ech0 echo delete --id <echo_id>
+# Delete (ask the human first; non-interactive runs must add --yes)
+ech0 echo delete --id <echo_id> --yes
 ```
 
 Create, update and delete require an admin account. Field meanings, attachment
