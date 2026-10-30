@@ -174,7 +174,7 @@ The tag pushes [`release-cli.yml`](../../.github/workflows/release-cli.yml), whi
   `darwin/{arm64,x64}` and `linux/{arm64,x64}` with `bun build --compile`.
 - Creates the `cli-vX.Y.Z` GitHub Release when it does not exist and uploads
   `ech0-cli-<os>-<arch>.tar.gz` plus `SHA256SUMS`.
-- Publishes `@ech0/cli` and one `@ech0/cli-<os>-<arch>` package per platform to npm. Prerelease
+- Publishes `@useech0/cli` and one `@useech0/cli-<os>-<arch>` package per platform to npm. Prerelease
   versions publish to npm's `next` dist-tag, stable ones to `latest`; already-published versions
   are skipped.
 - Does not touch the repo-wide "Latest" release pointer (`gh release create --latest=false`): the
@@ -185,12 +185,12 @@ The tag pushes [`release-cli.yml`](../../.github/workflows/release-cli.yml), whi
 npm publishing uses **trusted publishing (OIDC)**, not a token — there is no `NPM_TOKEN` secret.
 Tokens that bypass 2FA are being retired for publishing, and a 2FA-guarded one fails the publish
 step with `EOTP`, which is why the workflow no longer reads a token. For each of the five packages
-(`@ech0/cli`, `@ech0/cli-darwin-arm64`, `@ech0/cli-darwin-x64`, `@ech0/cli-linux-arm64`,
-`@ech0/cli-linux-x64`) add a trusted publisher on npmjs.com → package → Settings → Trusted
+(`@useech0/cli`, `@useech0/cli-darwin-arm64`, `@useech0/cli-darwin-x64`, `@useech0/cli-linux-arm64`,
+`@useech0/cli-linux-x64`) add a trusted publisher on npmjs.com → package → Settings → Trusted
 publishing, or from the CLI (npm ≥ 11.15.0, account 2FA on, package already published):
 
 ```bash
-npm trust github @ech0/cli --repo lin-snow/Ech0 --file release-cli.yml --allow-publish
+npm trust github @useech0/cli --repo lin-snow/Ech0 --file release-cli.yml --allow-publish
 # ...one call per platform package; `--allow-publish` is required — configurations created after
 # 2026-09-03 default to staged publishing only.
 ```
@@ -223,8 +223,8 @@ Verify after it finishes:
 
 ```bash
 gh release view cli-vX.Y.Z                 # ech0-cli-*.tar.gz + SHA256SUMS present
-npm view @ech0/cli@X.Y.Z version           # package on npm
-npx -y @ech0/cli --version                 # matches X.Y.Z
+npm view @useech0/cli@X.Y.Z version           # package on npm
+npx -y @useech0/cli --version                 # matches X.Y.Z
 ```
 
 To reproduce locally, run `just cli dist X.Y.Z` (outputs binaries, tarballs and publishable npm

@@ -4,7 +4,7 @@
 
 /**
  * Build the distributable CLI: standalone binaries (for GitHub Releases) and
- * the npm packages (`@ech0/cli` + one `@ech0/cli-<os>-<arch>` per platform).
+ * the npm packages (`@useech0/cli` + one `@useech0/cli-<os>-<arch>` per platform).
  *
  *   bun run scripts/dist.ts --version 0.1.0 [--out dist/release] [--targets darwin-arm64,linux-x64]
  *
@@ -16,7 +16,7 @@
  *   <out>/bin/ech0-<os>-<arch>              raw binaries
  *   <out>/ech0-cli-<os>-<arch>.tar.gz       release assets (`ech0` + LICENSE)
  *   <out>/SHA256SUMS                        checksums of the tarballs
- *   <out>/npm/cli                           publishable @ech0/cli (launcher + optionalDeps)
+ *   <out>/npm/cli                           publishable @useech0/cli (launcher + optionalDeps)
  *   <out>/npm/cli-<os>-<arch>               publishable platform packages
  */
 
@@ -90,7 +90,7 @@ function label(target: Target): string {
 }
 
 function packageName(target: Target): string {
-  return `@ech0/cli-${label(target)}`;
+  return `@useech0/cli-${label(target)}`;
 }
 
 // Trusted publishing matches `repository.url` against the GitHub repository, so
@@ -175,7 +175,7 @@ chmodSync(join(metaDir, "bin", "ech0.cjs"), 0o755);
 copyFileSync(join(CLI_DIR, "npm", "README.md"), join(metaDir, "README.md"));
 copyFileSync(LICENSE, join(metaDir, "LICENSE"));
 writeJSON(join(metaDir, "package.json"), {
-  name: "@ech0/cli",
+  name: "@useech0/cli",
   version,
   description: "Ech0 command line — talks to a running Ech0 instance over its REST API",
   license: "AGPL-3.0-or-later",

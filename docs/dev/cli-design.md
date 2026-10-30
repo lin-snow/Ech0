@@ -28,13 +28,13 @@ v1 目标用户：实例 owner（admin）。非目标：
 | 校验 | `zod` v4 | catalog 文档校验（v4 API，如 `z.record(k, v)`） |
 | 类型/schema 生成 | `@hey-api/openapi-ts` 0.99（`@hey-api/typescript` + `zod`） | 单工具同时产出 `types.gen.ts` 与 `zod.gen.ts`；`orval` 8.45 因 Huma 的 `ResultInterface {}` schema 名失败 |
 | 测试 | `bun test` | 28 用例：envelope、catalog 缓存、动态命令、412 重试、退出码 |
-| 包名 | `@ech0/cli`，bin `ech0` | npm `ech0` 已被空占位包占用 |
+| 包名 | `@useech0/cli`，bin `ech0` | npm `ech0` 已被空占位包占用 |
 
 ## 3. 目录结构
 
 ```
 apps/cli/
-  package.json            # @ech0/cli, bin: ech0, type: module
+  package.json            # @useech0/cli, bin: ech0, type: module
   tsconfig.json           # ES2024 / bundler / strict / noEmit
   openapi-ts.config.ts    # 生成配置（input = ../../internal/openapi/openapi.yaml）
   justfile                # 根 justfile 通过 `mod cli "apps/cli/justfile"` 暴露
@@ -425,8 +425,8 @@ ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内�
 
 - **GitHub Release**：`ech0-cli-<os>-<arch>.tar.gz`（darwin/linux × arm64/x64，包内是 `ech0` + `LICENSE`）与 `SHA256SUMS`，由 `bun build --compile --target=bun-<os>-<arch>` 在 Linux runner 上交叉编译，资产上传到 `cli-vX.Y.Z` 这次 CLI release（不存在时创建）；命名用 `ech0-cli-*`，不与服务端的 `ech0-linux-*` 混用。
 - **npm**：
-  - `@ech0/cli`：启动器（`bin/ech0.cjs`，Node ≥18），按 `process.platform` / `process.arch` 找到平台包并 exec 二进制；
-  - `@ech0/cli-<os>-<arch>`：只含编译产物，用 `os` / `cpu` 字段限制安装平台；四个平台包作为 `optionalDependencies`，npm 只安装匹配的那一个；
+  - `@useech0/cli`：启动器（`bin/ech0.cjs`，Node ≥18），按 `process.platform` / `process.arch` 找到平台包并 exec 二进制；
+  - `@useech0/cli-<os>-<arch>`：只含编译产物，用 `os` / `cpu` 字段限制安装平台；四个平台包作为 `optionalDependencies`，npm 只安装匹配的那一个；
   - 没有 postinstall 下载，安装后离线可用。
 - **版本**：`apps/cli/package.json` 是开发版本来源，发布时 workflow 校验 `cli-vX.Y.Z` tag 后，用 `--define process.env.ECH0_CLI_VERSION="<version>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本仍用 `ech0 common hello`（catalog 命令）。
 - **本地复现**：`just cli dist 0.1.0` → `apps/cli/dist/release/`（四个二进制、tar.gz、`SHA256SUMS` 与可直接 `npm publish` 的目录）。
@@ -457,7 +457,7 @@ go test ./internal/openapi/... ./internal/router/...
 | M2 | 后端 operation catalog（`/api/_catalog` + 指纹 + 412）与 CLI 动态命令；token 登录、profile/凭据存储；`auth/config/catalog/version` 本地命令 | 已完成 |
 | M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 已完成 |
 | M4 | device authorization：后端端点 + Web `/device` 批准页 + CLI 轮询 | 已完成 |
-| M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@ech0/cli` + 平台包），由 `release-cli.yml` 在 `cli-v*` tag 上独立发版 | 已完成 |
+| M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@useech0/cli` + 平台包），由 `release-cli.yml` 在 `cli-v*` tag 上独立发版 | 已完成 |
 | M6 | shell completion、旧服务端 `/api/openapi.json` 兜底、`curl \| sh` 安装脚本 | 待做 |
 
 ## 12. 未决

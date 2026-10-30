@@ -1,4 +1,4 @@
-# @ech0/cli
+# @useech0/cli
 
 Ech0 的命令行客户端：登录到一台 Ech0 实例，在终端完成 Echo 的增删改查。命令树由实例下发的
 operation catalog 生成，服务端新增接口不需要升级 CLI。
@@ -6,9 +6,9 @@ operation catalog 生成，服务端新增接口不需要升级 CLI。
 ## 安装
 
 ```bash
-npm install -g @ech0/cli
+npm install -g @useech0/cli
 # 或者
-bun add -g @ech0/cli
+bun add -g @useech0/cli
 ```
 
 安装包按平台分发（`darwin` / `linux` × `arm64` / `x64`），自带运行时，不需要 Bun 或 Go。

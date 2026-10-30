@@ -3,7 +3,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 // Launcher for the platform-specific binary shipped as an optional dependency
-// (@ech0/cli-<os>-<arch>). Kept as plain CommonJS so `npm install -g` works with
+// (@useech0/cli-<os>-<arch>). Kept as plain CommonJS so `npm install -g` works with
 // any supported Node version and no install scripts run.
 
 "use strict";
@@ -30,14 +30,14 @@ if (!SUPPORTED[platform] || !SUPPORTED[platform].includes(arch)) {
   process.exit(1);
 }
 
-const pkg = `@ech0/cli-${platform}-${arch}`;
+const pkg = `@useech0/cli-${platform}-${arch}`;
 let binary;
 try {
   binary = path.join(path.dirname(require.resolve(`${pkg}/package.json`)), "bin", "ech0");
 } catch {
   console.error(
     `ech0: the optional dependency ${pkg} is not installed. ` +
-      "Reinstall without --omit=optional: npm install -g @ech0/cli",
+      "Reinstall without --omit=optional: npm install -g @useech0/cli",
   );
   process.exit(1);
 }

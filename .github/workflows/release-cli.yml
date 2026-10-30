@@ -6,7 +6,7 @@ name: Release CLI
 # `cli-vX.Y.Z` tag. `workflow_dispatch` rebuilds an existing CLI tag.
 #
 # Publishing authenticates with npm trusted publishing (OIDC), not a token: every
-# package (`@ech0/cli` + the four `@ech0/cli-<os>-<arch>`) must have a trusted
+# package (`@useech0/cli` + the four `@useech0/cli-<os>-<arch>`) must have a trusted
 # publisher pointing at this workflow, with `npm publish` allowed. See
 # docs/dev/release-process.md ("CLI release"). Tokens that bypass 2FA are being
 # retired for publishing; a 2FA-guarded token fails here with EOTP.
@@ -79,7 +79,7 @@ jobs:
             exit 1
           fi
 
-          # Prerelease versions go to `next` so `npm i -g @ech0/cli` keeps resolving
+          # Prerelease versions go to `next` so `npm i -g @useech0/cli` keeps resolving
           # the latest stable release.
           dist_tag="latest"
           case "${version}" in *-*) dist_tag="next" ;; esac
