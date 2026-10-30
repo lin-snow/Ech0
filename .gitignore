@@ -52,6 +52,7 @@ docs/_book
 
 node_modules/
 web/dist/
+apps/cli/dist/
 npm-debug.log
 yarn-error.log
 

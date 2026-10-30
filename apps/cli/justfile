@@ -1,0 +1,28 @@
+# Ech0 CLI (Bun + TypeScript, talks to a running instance over the REST API)
+
+default:
+    @just --list
+
+dev:
+    bun run src/index.ts
+
+help:
+    bun run src/index.ts --help
+
+# Regenerate src/api from internal/openapi/openapi.yaml (Huma spec = SSOT)
+gen:
+    bun run gen:api
+
+gen-check: gen
+    git diff --exit-code -- src/api
+
+build:
+    bun run build
+
+typecheck:
+    bun run typecheck
+
+test:
+    bun test
+
+check: typecheck gen-check
