@@ -15,7 +15,7 @@ export interface Envelope<T> {
   data: T;
 }
 
-export type QueryValue = string | number | boolean | undefined;
+export type QueryValue = string | number | boolean | readonly string[] | undefined;
 
 export interface RequestSpec {
   method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -26,8 +26,17 @@ export interface RequestSpec {
   headers?: Record<string, string>;
 }
 
+export interface RawResponse {
+  status: number;
+  ok: boolean;
+  text: string;
+  headers: Headers;
+}
+
 export interface CallResult<T> {
   data: T;
+  /** Envelope message, e.g. the success text for a body-less operation. */
+  message: string;
   /** Response body as received. `--json` prints this verbatim (no re-encoding). */
   text: string;
   status: number;
@@ -55,6 +64,10 @@ function buildQuery(query: Record<string, QueryValue> | undefined): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, String(item));
+      continue;
+    }
     params.set(key, String(value));
   }
   const encoded = params.toString();
@@ -92,7 +105,8 @@ export class Client {
     this.fetchImpl = opts.fetch ?? fetch;
   }
 
-  async call<T>(spec: RequestSpec): Promise<CallResult<T>> {
+  /** Sends a request without interpreting the body (catalog fetch, binary). */
+  async raw(spec: RequestSpec): Promise<RawResponse> {
     const url = `${this.baseUrl}${spec.path}${buildQuery(spec.query)}`;
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -114,11 +128,25 @@ export class Client {
       throw new Ech0Error(`无法连接 ${this.baseUrl}：${reason}`);
     }
 
-    const text = await response.text();
-    const envelope = parseEnvelope(text);
+    return {
+      status: response.status,
+      ok: response.ok,
+      text: await response.text(),
+      headers: response.headers,
+    };
+  }
+
+  async call<T>(spec: RequestSpec): Promise<CallResult<T>> {
+    const response = await this.raw(spec);
+    const envelope = parseEnvelope(response.text);
     if (!response.ok || envelope === undefined || envelope.code !== SUCCESS_CODE) {
-      throw toEch0Error(response.status, envelope, text);
+      throw toEch0Error(response.status, envelope, response.text);
     }
-    return { data: envelope.data as T, text, status: response.status };
+    return {
+      data: envelope.data as T,
+      message: envelope.msg ?? "",
+      text: response.text,
+      status: response.status,
+    };
   }
 }

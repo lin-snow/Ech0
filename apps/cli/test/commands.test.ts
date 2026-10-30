@@ -6,125 +6,20 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Client } from "../src/api/http.ts";
 import * as auth from "../src/commands/auth.ts";
-import * as echo from "../src/commands/echo.ts";
 import { readToken } from "../src/config/credentials.ts";
 import { loadConfig } from "../src/config/store.ts";
 import { UsageError } from "../src/output/console.ts";
-import { loadContext, openSession, type Session } from "../src/session.ts";
+import { loadContext, openSession } from "../src/session.ts";
 import { startFakeApi, type FakeApi } from "./helpers.ts";
 
 process.env.ECH0_NO_KEYCHAIN = "1";
-
-const SAMPLE = {
-  id: "11111111-1111-7111-8111-111111111111",
-  content: "hello world\nsecond line",
-  created_at: 1_700_000_000,
-  private: false,
-  username: "owner",
-  fav_count: 2,
-  tags: [{ name: "dev" }],
-};
 
 let api: FakeApi | undefined;
 
 afterEach(() => {
   api?.stop();
   api = undefined;
-});
-
-function session(server: string, token = "tok"): Session {
-  return {
-    profile: "test",
-    server,
-    config: { profiles: { test: { server } } },
-    token,
-    tokenSource: "flag",
-    client: new Client({ server, token }),
-  };
-}
-
-describe("echo commands", () => {
-  test("add posts content, visibility and tags", async () => {
-    api = startFakeApi({
-      "POST /api/echo": () => ({ body: { code: 1, msg: "ok", data: null } }),
-    });
-    const output = await echo.add(session(api.baseUrl), {
-      content: "hi there",
-      private: true,
-      tags: ["dev", "go"],
-    });
-
-    expect(api.calls[0]?.body).toEqual({
-      content: "hi there",
-      private: true,
-      tags: [{ name: "dev" }, { name: "go" }],
-    });
-    expect(output.human).toContain("已发布");
-    expect(output.json).toContain('"code":1');
-  });
-
-  test("add rejects empty content", async () => {
-    api = startFakeApi({});
-    await expect(echo.add(session(api.baseUrl), { content: "  ", private: false })).rejects.toBeInstanceOf(
-      UsageError,
-    );
-  });
-
-  test("list renders a table and keeps the raw envelope for --json", async () => {
-    const envelope = { code: 1, msg: "ok", data: { items: [SAMPLE], total: 1 } };
-    api = startFakeApi({ "POST /api/echo/query": () => ({ body: envelope }) });
-
-    const output = await echo.list(session(api.baseUrl), { limit: 10, page: 1, all: false });
-
-    expect(api.calls[0]?.body).toEqual({ page: 1, pageSize: 10, search: "" });
-    expect(output.human).toContain("hello world");
-    expect(output.human).toContain("11111111");
-    expect(output.human).toContain("共 1 条");
-    expect(output.json).toBe(JSON.stringify(envelope));
-  });
-
-  test("list --all walks every page", async () => {
-    api = startFakeApi({
-      "POST /api/echo/query": (request) => {
-        const body = request.body as { page?: number };
-        const page = body.page ?? 1;
-        return {
-          body: {
-            code: 1,
-            msg: "ok",
-            data:
-              page === 1
-                ? { items: [SAMPLE, { ...SAMPLE, id: "2222", content: "second" }], total: 3 }
-                : { items: [{ ...SAMPLE, id: "3333", content: "third" }], total: 3 },
-          },
-        };
-      },
-    });
-
-    const output = await echo.list(session(api.baseUrl), { limit: 2, page: 1, all: true });
-
-    expect(api.calls).toHaveLength(2);
-    expect(output.human).toContain("共 3 条");
-    expect(output.json.split("\n")).toHaveLength(3);
-  });
-
-  test("show renders a single echo", async () => {
-    api = startFakeApi({ "GET /api/echo/1111": () => ({ body: { code: 1, msg: "ok", data: SAMPLE } }) });
-    const output = await echo.show(session(api.baseUrl), "1111");
-
-    expect(output.human).toContain("hello world");
-    expect(output.human).toContain("dev");
-  });
-
-  test("rm deletes after confirmation", async () => {
-    api = startFakeApi({ "DELETE /api/echo/1111": () => ({ body: { code: 1, msg: "ok", data: null } }) });
-    const output = await echo.remove(session(api.baseUrl), "1111", true);
-
-    expect(api.calls[0]?.method).toBe("DELETE");
-    expect(output.human).toContain("已删除");
-  });
 });
 
 describe("auth login", () => {

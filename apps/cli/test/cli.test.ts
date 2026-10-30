@@ -40,7 +40,7 @@ describe("cli wiring", () => {
   });
 
   test("commands without credentials fail as usage errors", () => {
-    const result = runCli(["me"]);
+    const result = runCli(["auth", "status"]);
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("未配置任何 profile");
   });

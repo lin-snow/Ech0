@@ -40,7 +40,7 @@ function overrideExit(command: Command): void {
   for (const child of command.commands) overrideExit(child);
 }
 
-const program = createRootCommand();
+const program = await createRootCommand();
 overrideExit(program);
 
 try {

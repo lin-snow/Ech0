@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import type { Echo, Tag, User } from "../api/types.gen.ts";
 import { colors } from "./console.ts";
 
 /** Display width in terminal cells; CJK and fullwidth forms count as 2. */
@@ -28,16 +27,6 @@ function isWide(code: number): boolean {
   );
 }
 
-function truncate(text: string, width: number): string {
-  if (displayWidth(text) <= width) return text;
-  let out = "";
-  for (const char of text) {
-    if (displayWidth(out + char) > width - 1) break;
-    out += char;
-  }
-  return `${out}…`;
-}
-
 /** Renders rows as a left-aligned table with a dim header. */
 export function renderTable(headers: string[], rows: string[][]): string {
   const widths = headers.map((header, column) =>
@@ -53,67 +42,4 @@ export function renderTable(headers: string[], rows: string[][]): string {
   const separator = dim(widths.map((width) => "─".repeat(width)).join("  "));
   const body = rows.map((row) => row.map((value, column) => cell(value ?? "", column)).join("  "));
   return [headerLine, separator, ...body].join("\n");
-}
-
-export function formatEpoch(epoch?: number): string {
-  if (epoch === undefined || epoch === null || epoch <= 0) return "-";
-  const date = new Date(epoch * 1000);
-  const pad2 = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-}
-
-export function shortId(id?: string): string {
-  return id ? id.slice(0, 8) : "-";
-}
-
-function firstLine(content?: string): string {
-  const line = (content ?? "").split("\n").find((candidate) => candidate.trim() !== "") ?? "";
-  return line.trim();
-}
-
-export function tagNames(tags?: Tag[] | null): string[] {
-  return (tags ?? []).flatMap((tag) => (tag.name ? [tag.name] : []));
-}
-
-/** One row per echo: time, short id, flags, first content line. */
-export function renderEchoList(echos: Echo[]): string {
-  const width = Math.max(40, Math.min(process.stdout.columns ?? 100, 160));
-  const contentWidth = Math.max(20, width - 26);
-  const rows = echos.map((echo) => [
-    formatEpoch(echo.created_at),
-    shortId(echo.id),
-    echo.private ? "私密" : "-",
-    truncate(
-      (echo.content ?? "").split("\n").find((line) => line.trim() !== "")?.trim() ?? "",
-      contentWidth,
-    ),
-  ]);
-  return renderTable(["时间", "ID", "可见性", "内容"], rows);
-}
-
-export function renderEchoDetail(echo: Echo): string {
-  const { bold, dim } = colors();
-  const lines = [
-    `${bold("ID")}        ${echo.id ?? "-"}`,
-    `${bold("时间")}      ${formatEpoch(echo.created_at)}`,
-    `${bold("作者")}      ${echo.username ?? "-"}`,
-    `${bold("可见性")}    ${echo.private ? "私密" : "公开"}`,
-    `${bold("标签")}      ${tagNames(echo.tags).join(", ") || "-"}`,
-    `${bold("喜欢")}      ${echo.fav_count ?? 0}`,
-  ];
-  if (echo.echo_files && echo.echo_files.length > 0) {
-    lines.push(`${bold("媒体")}      ${echo.echo_files.length} 个文件`);
-  }
-  lines.push("", dim("─".repeat(48)), echo.content ?? "");
-  return lines.join("\n");
-}
-
-export function renderUser(user: User): string {
-  const { bold } = colors();
-  return [
-    `${bold("用户")}    ${user.username ?? "-"}`,
-    `${bold("ID")}      ${user.id ?? "-"}`,
-    `${bold("邮箱")}    ${user.email || "-"}`,
-    `${bold("角色")}    ${user.is_admin ? "管理员" : "普通用户"}${user.is_owner ? "（owner）" : ""}`,
-  ].join("\n");
 }

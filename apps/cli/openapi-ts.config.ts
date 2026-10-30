@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 export default {
   input: fileURLToPath(new URL("../../internal/openapi/openapi.yaml", import.meta.url)),
   output: {
-    path: "src/api",
+    path: "src/api/generated",
     header: [
       "// SPDX-License-Identifier: AGPL-3.0-or-later",
       "// Copyright (C) 2025-2026 lin-snow",

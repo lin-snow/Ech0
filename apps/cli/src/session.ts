@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+import type { Command } from "commander";
+
 import { Client } from "./api/http.ts";
 import { credentialsFilePath, configFilePath } from "./config/paths.ts";
 import { readToken, type TokenSource } from "./config/credentials.ts";
@@ -34,6 +36,18 @@ export interface Session extends ResolvedTarget {
   token: string;
   tokenSource: "flag" | "env" | TokenSource;
   client: Client;
+}
+
+/** Reads the global flags declared on the root command, from any subcommand. */
+export function readGlobalFlags(command: Command): GlobalFlags {
+  const options = command.optsWithGlobals();
+  return {
+    profile: typeof options.profile === "string" ? options.profile : undefined,
+    server: typeof options.server === "string" ? options.server : undefined,
+    token: typeof options.token === "string" ? options.token : undefined,
+    lang: typeof options.lang === "string" ? options.lang : undefined,
+    json: options.json === true,
+  };
 }
 
 export function loadContext(
@@ -91,9 +105,4 @@ export async function openSession(ctx: CliContext): Promise<Session> {
     tokenSource,
     client: new Client({ server: target.server, token, lang }),
   };
-}
-
-/** Client for endpoints that need no credentials (`/hello`). */
-export function openPublicClient(server: string, lang?: string): Client {
-  return new Client({ server, lang });
 }

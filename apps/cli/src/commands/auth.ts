@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import type { User } from "../api/types.gen.ts";
+import type { User } from "../api/generated/types.gen.ts";
 import { Client } from "../api/http.ts";
 import { deleteToken, readToken, writeToken } from "../config/credentials.ts";
 import { activeProfileName, saveConfig, withProfile, withoutProfile } from "../config/store.ts";
 import { UsageError, colors } from "../output/console.ts";
-import { renderUser } from "../output/render.ts";
 import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
@@ -99,7 +98,7 @@ export async function status(ctx: CliContext, args: StatusArgs): Promise<Command
   const client = new Client({ server: target.server, token, lang: ctx.flags.lang ?? ctx.env.ECH0_LANG });
   const result = await client.call<User>({ path: "/user" });
   return {
-    human: renderUser(result.data),
+    human: JSON.stringify(result.data, null, 2) ?? "",
     json: result.text,
   };
 }

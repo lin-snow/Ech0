@@ -14,7 +14,7 @@ gen:
     bun run gen:api
 
 gen-check: gen
-    git diff --exit-code -- src/api
+    git diff --exit-code -- src/api/generated
 
 build:
     bun run build
