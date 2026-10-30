@@ -8,9 +8,13 @@ export const EXIT_USAGE = 2;
 
 /** Bad invocation (missing flag, unusable input): maps to EXIT_USAGE. */
 export class UsageError extends Error {
-  constructor(message: string) {
+  /** One actionable line printed after the message; absent when the message suffices. */
+  readonly hint?: string;
+
+  constructor(message: string, hint?: string) {
     super(message);
     this.name = "UsageError";
+    this.hint = hint;
   }
 }
 
@@ -19,6 +23,8 @@ export interface ErrorDetails {
   errorCode?: string;
   messageKey?: string;
   messageParams?: Record<string, unknown>;
+  /** One actionable line printed after the message, e.g. which command to inspect. */
+  hint?: string;
 }
 
 /** Any server- or network-side failure: maps to EXIT_ERROR. */

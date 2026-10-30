@@ -15,7 +15,7 @@ import { parseCatalog, type Catalog, type CatalogOp } from "../src/catalog/types
 import { registerCatalogCommands } from "../src/commands/dynamic.ts";
 import { buildRequest, invokeOperation, type FieldValues } from "../src/commands/operation.ts";
 import type { CommandOutput } from "../src/commands/types.ts";
-import { Ech0Error } from "../src/output/console.ts";
+import { Ech0Error, UsageError } from "../src/output/console.ts";
 import type { Session } from "../src/session.ts";
 import { startFakeApi, type FakeApi } from "./helpers.ts";
 
@@ -144,6 +144,26 @@ describe("buildRequest", () => {
     expect(spec.method).toBe("POST");
     expect(spec.body).toEqual({ content: "hi", private: true, tags: ["dev"] });
   });
+
+  test("sends an empty body when every body field is optional", () => {
+    const list: CatalogOp = {
+      summary: "list",
+      method: "POST",
+      path: "/echo/query",
+      scopes: [],
+      effect: "read",
+      kind: "json",
+      input: {
+        type: "object",
+        properties: { page: { type: "integer" }, search: { type: "string" } },
+      },
+      bind: { page: "body", search: "body" },
+      deprecated: false,
+    };
+
+    expect(buildRequest(list, {}).body).toEqual({});
+    expect(buildRequest(list, { page: 2 }).body).toEqual({ page: 2 });
+  });
 });
 
 describe("dynamic commands", () => {
@@ -217,7 +237,8 @@ describe("dynamic commands", () => {
     expect(names.sort()).toEqual(["create", "get"]);
     expect(names).not.toContain("like");
 
-    // file upload is part of the surface; other file operations are not.
+    // Only the curated operations that exist in this catalog are exposed;
+    // `echo.like` is a write op outside the allowlist.
     const file = program.commands.find((command) => command.name() === "file");
     expect(file?.commands.map((command) => command.name())).toEqual(["upload"]);
   });
@@ -267,6 +288,15 @@ describe("dynamic commands", () => {
   test("missing required input is a usage error", async () => {
     const program = programWith(async () => ({ human: "", json: "" }));
     await expect(program.parseAsync(["echo", "create"], { from: "user" })).rejects.toThrow("缺少必填参数 --content");
+  });
+
+  test("missing required input points at the command usage", async () => {
+    const program = programWith(async () => ({ human: "", json: "" }));
+    const error = await program.parseAsync(["echo", "get"], { from: "user" }).catch((reason: unknown) => reason);
+
+    expect(error).toBeInstanceOf(UsageError);
+    expect((error as UsageError).hint).toContain("ech0 echo get --id <id>");
+    expect((error as UsageError).hint).toContain("ech0 help echo get");
   });
 });
 

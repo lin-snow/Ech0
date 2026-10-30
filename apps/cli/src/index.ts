@@ -17,19 +17,26 @@ import {
 /** What the caller can do next, keyed by the failure the server reported. */
 function errorHints(error: Ech0Error): string[] {
   const status = error.details.status;
+  const hints = error.details.hint === undefined ? [] : [error.details.hint];
+  if (status === 400 || status === 422) {
+    if (hints.length === 0) {
+      hints.push("请求参数未被接受：核对字段与取值（`ech0 <命令> --help`），服务端刚升级时先 `ech0 catalog refresh`");
+    }
+    return hints;
+  }
   if (status === 401) {
-    return ["token 无效或已过期：运行 `ech0 auth status --verify` 检查", "重新登录：`ech0 auth login`"];
+    return [...hints, "token 无效或已过期：运行 `ech0 auth status --verify` 检查", "重新登录：`ech0 auth login`"];
   }
   if (status === 403) {
-    return ["token 缺少所需 scope：在面板重新铸造，或 `ech0 auth login --scopes <list>`"];
+    return [...hints, "token 缺少所需 scope：在面板重新铸造，或 `ech0 auth login --scopes <list>`"];
   }
   if (status === undefined) {
-    return ["无法连接实例：检查 --server / profile（`ech0 config list`）与网络"];
+    return [...hints, "无法连接实例：检查 --server / profile（`ech0 config list`）与网络"];
   }
   if (status >= 500) {
-    return ["服务端错误：稍后重试；必要时 `ech0 catalog refresh`"];
+    return [...hints, "服务端错误：稍后重试；必要时 `ech0 catalog refresh`"];
   }
-  return [];
+  return hints;
 }
 
 function report(error: unknown): number {
@@ -42,6 +49,7 @@ function report(error: unknown): number {
   const palette = colors();
   if (error instanceof UsageError) {
     printErr(`${palette.red("错误")} ${error.message}`);
+    if (error.hint !== undefined) printErr(palette.dim(`  提示：${error.hint}`));
     return EXIT_USAGE;
   }
   if (error instanceof Ech0Error) {

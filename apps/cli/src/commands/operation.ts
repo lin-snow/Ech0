@@ -45,22 +45,25 @@ export function buildRequest(op: CatalogOp, values: FieldValues): RequestSpec {
   let path = op.path;
   const query: Record<string, QueryValue> = {};
   const body: Record<string, unknown> = {};
+  let hasBody = false;
 
   for (const [field, location] of Object.entries(op.bind)) {
     const value = values[field];
-    if (value === undefined) continue;
     if (location === "path") {
-      path = path.replace(`{${field}}`, encodeURIComponent(String(value)));
+      if (value !== undefined) path = path.replace(`{${field}}`, encodeURIComponent(String(value)));
     } else if (location === "query") {
-      query[field] = queryValue(value);
+      if (value !== undefined) query[field] = queryValue(value);
     } else if (location === "body") {
-      body[field] = value;
+      // Huma marks a struct body required even when every field is optional;
+      // send `{}` so `ech0 echo list` without flags is a valid request.
+      hasBody = true;
+      if (value !== undefined) body[field] = value;
     }
   }
 
   const spec: RequestSpec = { method: requestMethod(op.method), path };
   if (Object.keys(query).length > 0) spec.query = query;
-  if (Object.keys(body).length > 0) spec.body = body;
+  if (hasBody) spec.body = body;
   return spec;
 }
 

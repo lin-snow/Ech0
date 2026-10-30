@@ -3,12 +3,12 @@
 
 import { Command } from "commander";
 
-import { ECHO_COMPOSE_OPERATIONS, inScope } from "../catalog/scope.ts";
+import { COMMAND_NAMES, ECHO_COMPOSE_OPERATIONS, inScope } from "../catalog/scope.ts";
 import { assertUploadStorage, categoryForFile, UPLOAD_OPERATION } from "./files.ts";
 import { editPayload, readPayload } from "./payload.ts";
 import type { Catalog, CatalogOp } from "../catalog/types.ts";
-import { setCommandExamples, setCommandHints, setCommandOp } from "../help/model.ts";
-import { UsageError } from "../output/console.ts";
+import { exampleFor, pathOf, setCommandExamples, setCommandHints, setCommandOp } from "../help/model.ts";
+import { Ech0Error, UsageError } from "../output/console.ts";
 import { printResult } from "../output/result.ts";
 import { readGlobalFlags } from "../session.ts";
 import {
@@ -128,6 +128,30 @@ function composeHints(id: string, op: CatalogOp): string[] {
   return hints;
 }
 
+/** Server schemas stay generic; these distinctions are command-level UX. */
+function fileHints(id: string): string[] {
+  if (id === "file.upload") return ["只上传本地字节；已有 URL 的资源用 ech0 file external 登记，不下载不复制"];
+  if (id === "file.external") return ["只登记 URL，不上传字节；本地文件用 ech0 file upload"];
+  if (id === "file.list") return ["--storage-type 取 local / s3 / object；不传时包含 external 记录"];
+  if (id === "file.tree") return ["--storage-type 取 local / s3 / object，需与实例存储配置一致"];
+  return [];
+}
+
+/** Server rejected the input: point at the descriptor that lists its fields. */
+function withCommandHint(error: unknown, command: Command): unknown {
+  if (
+    error instanceof Ech0Error &&
+    error.details.hint === undefined &&
+    (error.details.status === 400 || error.details.status === 422)
+  ) {
+    return new Ech0Error(error.message, {
+      ...error.details,
+      hint: `请求参数未被服务端接受：运行 \`ech0 ${pathOf(command).join(" ")} --help\` 核对字段与取值`,
+    });
+  }
+  return error;
+}
+
 export interface DynamicOptions {
   run: (
     command: Command,
@@ -189,17 +213,16 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
   );
 
   for (const [id, op] of entries) {
-    const segments = id
-      .split(".")
-      .filter((segment) => segment !== "")
-      .map(kebab);
+    const commandPath = COMMAND_NAMES[id] ?? id;
+    const pathSegments = commandPath.split(".").filter((segment) => segment !== "");
+    const segments = pathSegments.map(kebab);
     if (segments.length === 0) continue;
 
     // A callable command cannot also be a namespace: commander would parse the
     // parent's flags out of the child's argv. Such a child moves up a level and
     // joins its remaining segments (`comment.create.integration` becomes
     // `ech0 comment create-integration`), so a leaf never has subcommands.
-    const conflict = callablePrefix(id.split("."));
+    const conflict = callablePrefix(pathSegments);
     const parentSegments = conflict > 0 ? segments.slice(0, conflict - 1) : segments.slice(0, -1);
     const name = segments.slice(parentSegments.length).join("-");
     if (name === "") continue;
@@ -223,8 +246,9 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       command.option("--tag <name>", "标签，可重复；与 --tags 合并", collect, []);
       command.option("--file-id <id>", "已上传的文件 id，可重复；与 --echo-files 合并", collect, []);
       setCommandExamples(command, composeExamples(id));
-      setCommandHints(command, composeHints(id, op));
     }
+    const hints = [...(compose ? composeHints(id, op) : []), ...fileHints(id)];
+    if (hints.length > 0) setCommandHints(command, hints);
     setCommandOp(command, op);
 
     command.action(async () => {
@@ -244,10 +268,17 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
           assertUploadStorage(values.storage_type);
         }
       }
-      for (const field of fields) {
-        if (field.required && values[field.field] === undefined) {
-          throw new UsageError(`缺少必填参数 --${field.flag}`);
-        }
+      const missing = fields
+        .filter((field) => field.required && values[field.field] === undefined)
+        .map((field) => `--${field.flag}`);
+      if (missing.length > 0) {
+        const usage = exampleFor(command);
+        throw new UsageError(
+          `缺少必填参数 ${missing.join(", ")}`,
+          usage === undefined
+            ? undefined
+            : `用法：${usage}（运行 \`ech0 help ${pathOf(command).join(" ")}\` 查看完整说明）`,
+        );
       }
       let payload: Record<string, unknown> | undefined;
       if (parsed.from !== undefined && parsed.edit === true) {
@@ -257,14 +288,18 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       else if (typeof parsed.from === "string") payload = await readPayload(parsed.from);
 
       const flags = readGlobalFlags(command);
-      const result = await options.run(command, op, values, {
-        output: typeof parsed.output === "string" ? parsed.output : undefined,
-        compose,
-        payload,
-        tags: Array.isArray(parsed.tag) ? (parsed.tag as string[]) : undefined,
-        fileIds: Array.isArray(parsed.fileId) ? (parsed.fileId as string[]) : undefined,
-        uploadFileName: typeof parsed.fileName === "string" ? parsed.fileName : undefined,
-      });
+      const result = await options
+        .run(command, op, values, {
+          output: typeof parsed.output === "string" ? parsed.output : undefined,
+          compose,
+          payload,
+          tags: Array.isArray(parsed.tag) ? (parsed.tag as string[]) : undefined,
+          fileIds: Array.isArray(parsed.fileId) ? (parsed.fileId as string[]) : undefined,
+          uploadFileName: typeof parsed.fileName === "string" ? parsed.fileName : undefined,
+        })
+        .catch((error: unknown) => {
+          throw withCommandHint(error, command);
+        });
       // Streaming and binary commands have already written their output.
       if (result.human !== "" || result.json !== "") emit(result, flags);
     });

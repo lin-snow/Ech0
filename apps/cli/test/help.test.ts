@@ -352,6 +352,43 @@ describe("help", () => {
     expect(result.stderr).toContain("ech0 auth login");
   });
 
+  test("a rejected request points at the command descriptor", async () => {
+    let received: unknown;
+    api = startFakeApi({
+      "GET /api/_catalog": () => ({ body: CATALOG }),
+      "POST /api/echo/query": (request) => {
+        received = request.body;
+        return {
+          status: 400,
+          body: { code: 0, msg: "无效的请求", error_code: "INVALID_REQUEST", message_key: "common.invalid_request" },
+        };
+      },
+    });
+    const result = await run(["echo", "list"], {
+      ECH0_SERVER: api.baseUrl,
+      ECH0_TOKEN: "tok",
+      ECH0_PROFILE: "test",
+    });
+
+    expect(received).toEqual({});
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("无效的请求");
+    expect(result.stderr).toContain("ech0 echo list --help");
+  });
+
+  test("missing required flags print the runnable usage", async () => {
+    const server = withCatalog();
+    const result = await run(["echo", "create"], {
+      ECH0_SERVER: server.baseUrl,
+      ECH0_TOKEN: "tok",
+      ECH0_PROFILE: "test",
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("缺少必填参数 --content");
+    expect(result.stderr).toContain("ech0 echo create --content <content>");
+  });
+
   test("without an instance the map still explains how to get one", async () => {
     const result = await run(["help"]);
 

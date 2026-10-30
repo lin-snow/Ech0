@@ -43,7 +43,30 @@ cat photo.png | ech0 file upload --file - --file-name photo.png --json
 ```
 
 `--storage-type local|s3|object` picks the target when the instance has more than
-one. `external` files are registered by URL, not uploaded.
+one. `external` files are registered by URL, not uploaded:
+
+```bash
+ech0 file external --url https://example.com/photo.png --category image --json
+```
+
+`upload` and `external` stay separate commands because they are separate
+operations: `upload` sends `multipart/form-data`, `external` sends a JSON body
+and never transfers bytes. Both still create the same kind of file record, so
+`--file-id`, `file list` and `file get` treat them identically;
+`file download` redirects external files to their original URL.
+
+### Browse, inspect and download
+
+```bash
+ech0 file list --page 1 --page-size 20 --search photo --json
+ech0 file get --id <file_id> --json            # metadata, including url
+ech0 file tree --storage-type local            # browse by storage prefix
+ech0 file download --id <file_id> --output ./photo.png
+```
+
+`file download` streams the content: `--output -` writes stdout, and a non-TTY
+stdout is the default target. `file tree` needs the storage type the instance
+uses (`local`, `s3`, `object`).
 
 ### Full payload
 

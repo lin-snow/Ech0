@@ -1,6 +1,6 @@
 ---
 name: ech0
-description: 'Use the ech0 CLI to read and publish on an Ech0 timeline: browse Echoes, upload media, create and edit posts with tags, files and extensions, and log in with profiles or device authorization. Use when the task involves ech0, an Ech0 instance, or its timeline.'
+description: 'Use the ech0 CLI to read and publish on an Ech0 timeline: browse Echoes and files, upload media, create and edit posts with tags, files and extensions, and log in with profiles or device authorization. Use when the task involves ech0, an Ech0 instance, or its timeline.'
 ---
 
 # ech0
@@ -35,6 +35,14 @@ ech0 echo create --content "今天的想法" --tag daily
 # Publish with a file: upload first, then reference the file id
 ech0 file upload --file ./photo.png --json
 ech0 echo create --content "配图" --file-id <file_id>
+
+# Browse files, inspect metadata, download content
+ech0 file list --search photo --json
+ech0 file get --id <file_id> --json
+ech0 file download --id <file_id> --output ./photo.png
+
+# Register media that already lives elsewhere (no bytes uploaded)
+ech0 file external --url https://example.com/photo.png --category image --json
 
 # Edit: fetch it, change it, send it back
 ech0 echo get --id <echo_id> --json

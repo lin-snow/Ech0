@@ -8,7 +8,7 @@
 
 一句话：**登录到一台指定的 Ech0 实例，在终端完成 Echo 的增删改查**。
 
-范围的取舍：登录之后只暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件上传（`file.upload`）与外链文件登记（`file.external`），其余接口（评论、文件下载、迁移、系统日志、Copilot 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动。
+范围的取舍：登录之后只暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）与文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`），其余接口（评论、迁移、系统日志、Copilot 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`）。
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
@@ -119,16 +119,16 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 
 ### 4.4 命令生成
 
-- 操作 id 按 `.` 分段：`echo.create` → `ech0 echo create`，`system.logs.stream` → `ech0 system logs stream`。
-- **可调用的 id 不能再当命名空间**：commander 会先解析父命令的 flag，子命令的同名 flag 会被父命令吞掉（实测 `file.stream` + `file.stream.by_id` 都对 `--output` 生效时，子命令的值为空）。因此当某个 id 的某个前缀本身就是操作时，子命令上移一层并合并剩余段：`comment.create.integration` → `ech0 comment create-integration`，`file.stream.by_id` → `ech0 file stream-by-id`，`migration.export.download` → `ech0 migration export-download`。纯分组的命名空间（`system.logs`）照常嵌套。
+- 操作 id 按 `.` 分段：`echo.create` → `ech0 echo create`，`system.logs.stream` → `ech0 system logs stream`。`COMMAND_NAMES` 可覆盖命令路径而不改 catalog id。
+- **可调用的 id 不能再当命名空间**：commander 会先解析父命令的 flag，子命令的同名 flag 会被父命令吞掉（实测 `file.stream` + `file.stream.by_id` 都对 `--output` 生效时，子命令的值为空）。因此当某个 id 的某个前缀本身就是操作时，子命令上移一层并合并剩余段：`comment.create.integration` → `ech0 comment create-integration`，`migration.export.download` → `ech0 migration export-download`。纯分组的命名空间（`system.logs`）照常嵌套。`file.stream.by_id` 本来会变成 `ech0 file stream-by-id`，现在被 `COMMAND_NAMES` 改名为 `ech0 file download`。
 - 输入字段 → flags：snake_case/camelCase 统一转 kebab（`pageSize` → `--page-size`）；boolean 无值；整数/数字/逗号数组/JSON 对象分别解析；`format: binary` 的字段是 `--file <path>`（`-` 读 stdin）。
 - 数组字段两种写法：`--tags a,b`（逗号）或 `--tags '[{"name":"a"}]'`（以 `[` 开头按 JSON 解析）。
 - 与 CLI 保留 flag 重名（`json/profile/server/token/lang/color/help/version`）的字段改名为 `--input-<name>`。
 - 必填字段在 action 里校验（缺失 → 退出码 2 + `缺少必填参数 --x`），不用 `requiredOption`：可调用 id 一旦有子命令，父命令的必填项会连子命令一起拦下。
-- 命令树只注册 `CLI_OPERATIONS` 里的 id（默认 5 个 Echo CRUD），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
+- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 文件面六条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
 - help 末尾附 `METHOD /path · scopes: ...`，便于确认权限与效果。
 
-### 4.5 传输层：流式、上传与下载（后端 + CLI 已实现，暂不暴露命令）
+### 4.5 传输层：流式、上传与下载（后端 + CLI 已实现）
 
 裸 gin 的 7 个操作由 `internal/openapi/catalog/raw.go` 手写，带完整 `transport`：
 
@@ -142,7 +142,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 | `file.stream.by_id` | `GET /api/file/{id}/stream` | binary |
 | `migration.export.download` | `GET /api/migration/export/download` | binary（zip） |
 
-> 其中 `file.upload` 与 `file.external` 在 `CLI_OPERATIONS` 里；SSE、二进制下载与 WebSocket 的客户端实现与单测都在，但未开放命令，把对应 id 加进白名单即可。Copilot（`POST /api/chat`）按产品决定暂不支持，也不在 catalog 里。
+> CLI 开放了上表的 `file.upload` 与 `file.stream.by_id`（命令名 `ech0 file download`），以及 Huma 的 `file.external` / `file.list` / `file.get` / `file.tree`。SSE 与 WebSocket 的客户端实现与单测都在，但未开放命令，把对应 id 加进白名单即可。Copilot（`POST /api/chat`）按产品决定暂不支持，也不在 catalog 里。
 
 `transport` 形状（Huma 操作仅在非纯 JSON 时才带）：
 
@@ -228,6 +228,30 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 **为什么不做 stateful 的 draft/workspace**：上传出来的文件在 Echo 创建前是 temp 记录（TTL 到期清理），草稿目录会引入格式版本、profile 绑定、孤儿清理和部分失败语义，而且不可脚本化。JSON 文件本身就是草稿：可以进 git、可以由 agent 生成、可以 `--edit` 手改。注意草稿里存 **file_id** 会过期，长周期草稿应在提交前重新上传附件。
 
+### 4.7 文件浏览、元信息与下载
+
+文件面分两条写入路径和三条读取路径，命令名与 server operation 一一对应：
+
+| 命令 | operation | 说明 |
+| --- | --- | --- |
+| `ech0 file upload --file <path>` | `file.upload` | multipart 写入存储；`-` 读 stdin |
+| `ech0 file external --url <url>` | `file.external` | 只登记外链，不上传字节 |
+| `ech0 file list [--page --page-size --search --storage-type]` | `file.list` | 分页列出文件 |
+| `ech0 file get --id <file_id>` | `file.get` | 文件元信息（name / url / storage_type / category…） |
+| `ech0 file tree --storage-type <local\|s3\|object>` | `file.tree` | 按存储前缀浏览目录树 |
+| `ech0 file download --id <file_id> [--output <path>]` | `file.stream.by_id` | 下载内容；非 TTY 默认写 stdout，`--output` 原子落盘 |
+
+`file download` 的 catalog id 仍是 `file.stream.by_id`（`COMMAND_NAMES` 只改命令路径），所以 help、scope 检查和请求指纹不变。
+
+**两者在数据库里是同一张表**：上传和外链都会写一行 `File`（`files` 表）。external 行只是 `storage_type` / `provider` 为 `external`、`bucket` 为空、`key` 为 `external/<category>/<sha256(normalized_url)>`、`size=0`、`url` 保存原始链接；上传行记录 local/s3/object 的路由与真实 key。因此 `file list`（不传 storage_type 时）、`file get`、`--file-id` 对两者一视同仁：
+
+- `file download` 对 external 返回 307 重定向到原 URL，对 local/s3/object 才真的读字节。
+- `file tree` 只列 local/object 的物理存储，external 没有物理 key。
+- 两者都会建 `TempFile` 记录（未挂到 Echo 前有 TTL）；temp 清理对 external 只删记录，不删远端文件。
+- external 的 `key` 由 URL + category 哈希得到，同 URL 同 category 重复登记会返回已有记录（unique route 索引）。
+
+**为什么 `upload` 和 `external` 不合并成一个 `create`**：它们是两个 HTTP 操作，传输与字段都不同——`file.upload` 是 `multipart/form-data`（`file` 二进制 + category + storage_type），`file.external` 是 JSON（`url` + name/content_type/width/height）。合并只能在 CLI 里手写一个分派命令（有 `--file` 调上传、有 `--url` 调外链），这会打破「命令树完全由 catalog 生成」的约束：字段变化不再自动跟进，help/示例/必填校验都要另写一份，而且两条操作的 scope 与错误语义会被藏进同一个命令。保留两个动词更直观，也保留 help 里的传输卡片。
+
 ## 5. 认证与凭据
 
 ### 5.1 三种登录方式
@@ -304,13 +328,20 @@ ech0 version
 ech0 help [words...] [--full] [--json]
 ```
 
-服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（当前为 Echo CRUD 五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
+服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 文件面六条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
 
 ```
 ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Echo（含 id）
 ech0 echo list --page 1 --page-size 20
 ech0 echo update --id <id> --content "edited"        # 同样返回更新后的 Echo
 ech0 echo get --id <uuid>
+
+ech0 file upload --file photo.png                    # 上传字节，返回 file id
+ech0 file external --url https://example.com/a.png   # 只登记外链
+ech0 file list --search cat --page-size 20
+ech0 file get --id <file_id>
+ech0 file tree --storage-type local
+ech0 file download --id <file_id> --output ./a.png   # binary；非 TTY 默认 stdout
 ```
 
 全局选项（任意位置）：`--profile`、`--server`、`--token`、`--lang`、`--json`、`--yaml`、`--no-color`。注意：commander 会把与父命令同名的选项归到父命令，所以这些只在根命令声明一次。
@@ -334,7 +365,7 @@ ech0 echo get --id <uuid>
 - **参数**：`input.properties` → kebab flag；布尔无值；文件字段（`format: binary`）显示 `--file <path>`；`required`、`enum`、`default` 进标签或说明；`bind` 标出 path/query/form。字段说明取自 schema 的 `description`，也就是 Go 结构体上的 `doc:"..."` 标签——参数语义写在后端 DTO，CLI 不重复维护。对象数组（`echo_files`、`tags`）显示 `--x <json>`，只接受 JSON，不再用逗号简写。
 - **示例**：所有必填字段 + 文件字段拼成一条可直接改用的命令行，占位符写作 `<字段名>`；`echo create/update` 这类组合操作改用固定示例序列（上传 → 引用 file_id、`--tag`、`--from`），因为“必填字段”表达不了两步流程。
 - **分组**：catalog 生成的命名空间是纯容器（`addHelpCommand(false)`），渲染时现算操作数与操作名。
-- **提示**：从 op 元数据派生的下一步——缺 token（`ech0 auth login`）、scope 与 403、流式（Ctrl-C / `--json`）、二进制（`--output`）、multipart（`<path>` / `-`）、危险操作与弃用；运行时失败也按状态码给提示（401/403/网络/5xx），不用翻文档猜。
+- **提示**：从 op 元数据派生的下一步——缺 token（`ech0 auth login`）、scope 与 403、流式（Ctrl-C / `--json`）、二进制（`--output`）、multipart（`<path>` / `-`）、危险操作与弃用；运行时失败按状态码给提示（400/422 指向命令 `--help`，401/403/网络/5xx 指向对应修复动作），缺少必填参数时同时打印可直接改用的用法行，不用翻文档猜。
 - **CLI 专属提示**：catalog 描述不了的东西由命令自己补——组合操作的 `--tag` / `--file-id` / `--from` / `--edit` 语义与合并规则、update 的整体覆盖、登录三种模式（设备码流程、`--token -`、管理员铸造 `audience=cli` 令牌、`--scopes` 默认值）。
 - **不设独立 skills 文件**：教程就是描述符本身——参数说明、示例序列、提示都在 `ech0 help <命令>` 里，且随 catalog/CLI 版本走，不会和实现脱节。
 - **catalog 不可用**：地图仍然完整；服务端命令一栏说明原因并给出 `ech0 auth login` / `ECH0_SERVER` 的下一步，不静默失败。
@@ -421,11 +452,10 @@ go test ./internal/openapi/... ./internal/router/...
 | M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 已完成 |
 | M4 | device authorization：后端端点 + Web `/device` 批准页 + CLI 轮询 | 已完成 |
 | M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@ech0/cli` + 平台包），由 `release-cli.yml` 发版后自动执行 | 已完成 |
-| M6 | `kind=stream/binary` 渲染、shell completion、旧服务端 `/api/openapi.json` 兜底、`curl \| sh` 安装脚本 | 待做 |
+| M6 | shell completion、旧服务端 `/api/openapi.json` 兜底、`curl \| sh` 安装脚本 | 待做 |
 
 ## 12. 未决
 
 - 无 `/api/_catalog` 的旧服务端：当前明确报错并提示升级；是否用 `/api/openapi.json` 现场推导 catalog 作为兜底。
-- `kind=stream`（SSE，如 copilot chat）与 `kind=binary`（导出/下载）的 CLI 渲染。
 - catalog 是否需要声明兼容区间（server 版本 ↔ CLI 版本），用于提示「你的 CLI 太旧」。
-- 上传类操作（multipart）catalog 尚未建模（`bind=file` 未落地）。
+- 文件面尚未开放 `file.delete` / `file.update-meta`（写入类操作），需要时加入 `CLI_OPERATIONS` 即可。
