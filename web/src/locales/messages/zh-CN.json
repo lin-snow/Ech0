@@ -1204,5 +1204,20 @@
     "exportPhasePending": "准备",
     "exportPhasePacking": "打包",
     "exportPhaseCompleted": "完成"
+  },
+  "devicePage": {
+    "title": "设备授权",
+    "subtitle": "确认终端 CLI 的登录请求。",
+    "codeLabel": "设备码",
+    "codePlaceholder": "输入终端显示的 8 位设备码",
+    "lookup": "查询",
+    "approve": "确认授权",
+    "client": "客户端：",
+    "scopes": "申请的权限",
+    "pending": "该请求将在 {seconds} 秒后过期。",
+    "approved": "已授权，请回到终端继续。",
+    "lookupFailed": "设备码无效或已过期。",
+    "approveFailed": "授权失败，请重试。",
+    "backHome": "返回首页"
   }
 }

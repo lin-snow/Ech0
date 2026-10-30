@@ -1204,5 +1204,20 @@
     "exportPhasePending": "準備",
     "exportPhasePacking": "圧縮",
     "exportPhaseCompleted": "完了"
+  },
+  "devicePage": {
+    "title": "デバイス認証",
+    "subtitle": "ターミナルの CLI からのサインイン要求を承認します。",
+    "codeLabel": "デバイスコード",
+    "codePlaceholder": "ターミナルに表示された8桁のコードを入力",
+    "lookup": "確認",
+    "approve": "承認する",
+    "client": "クライアント:",
+    "scopes": "要求されたスコープ",
+    "pending": "このリクエストは {seconds} 秒後に失効します。",
+    "approved": "承認しました。ターミナルに戻って続行してください。",
+    "lookupFailed": "デバイスコードが無効か期限切れです。",
+    "approveFailed": "認可に失敗しました。もう一度お試しください。",
+    "backHome": "ホームに戻る"
   }
 }

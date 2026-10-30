@@ -1204,5 +1204,20 @@
     "exportPhasePending": "Prepare",
     "exportPhasePacking": "Pack",
     "exportPhaseCompleted": "Done"
+  },
+  "devicePage": {
+    "title": "Device authorization",
+    "subtitle": "Approve a sign-in request from a terminal CLI.",
+    "codeLabel": "Device code",
+    "codePlaceholder": "Enter the 8-character code shown in your terminal",
+    "lookup": "Look up",
+    "approve": "Approve",
+    "client": "Client:",
+    "scopes": "Requested scopes",
+    "pending": "This request expires in {seconds} seconds.",
+    "approved": "Approved. Return to your terminal to continue.",
+    "lookupFailed": "The device code is invalid or expired.",
+    "approveFailed": "Authorization failed, please try again.",
+    "backHome": "Back to home"
   }
 }

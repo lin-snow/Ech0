@@ -1204,5 +1204,20 @@
     "exportPhasePending": "Vorber.",
     "exportPhasePacking": "Packen",
     "exportPhaseCompleted": "Fertig"
+  },
+  "devicePage": {
+    "title": "Geräteautorisierung",
+    "subtitle": "Bestätige eine Anmeldeanfrage einer Terminal-CLI.",
+    "codeLabel": "Gerätecode",
+    "codePlaceholder": "Gib den 8-stelligen Code aus deinem Terminal ein",
+    "lookup": "Prüfen",
+    "approve": "Bestätigen",
+    "client": "Client:",
+    "scopes": "Angeforderte Berechtigungen",
+    "pending": "Diese Anfrage läuft in {seconds} Sekunden ab.",
+    "approved": "Bestätigt. Kehre zum Terminal zurück.",
+    "lookupFailed": "Der Gerätecode ist ungültig oder abgelaufen.",
+    "approveFailed": "Autorisierung fehlgeschlagen, bitte erneut versuchen.",
+    "backHome": "Zurück zur Startseite"
   }
 }

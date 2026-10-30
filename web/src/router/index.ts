@@ -108,6 +108,17 @@ const router = createRouter({
       },
     },
     {
+      path: '/device',
+      name: 'device',
+      component: () => import('../views/device/DeviceView.vue'),
+      meta: {
+        title: 'Device Authorization',
+        description: 'Approve a CLI sign-in request for this Ech0 instance.',
+        requiresAuth: true,
+        noindex: true,
+      },
+    },
+    {
       path: '/widget',
       name: 'widget',
       component: () => import('../views/widget/WidgetView.vue'),
