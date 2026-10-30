@@ -23,6 +23,10 @@ func setupAuthRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.PublicRouterGroup.POST("/auth/refresh", middleware.NoCache(), h.AuthHandler.Refresh())
 	appRouterGroup.PublicRouterGroup.POST("/auth/logout", middleware.NoCache(), h.AuthHandler.Logout())
 	appRouterGroup.PublicRouterGroup.POST("/auth/exchange", middleware.NoCache(), h.AuthHandler.Exchange())
+	appRouterGroup.PublicRouterGroup.POST("/auth/device/code", middleware.NoCache(), h.AuthHandler.DeviceCode())
+	appRouterGroup.PublicRouterGroup.POST("/auth/device/token", middleware.NoCache(), h.AuthHandler.DeviceToken())
+	appRouterGroup.AuthRouterGroup.GET("/auth/device/pending", middleware.NoCache(), h.AuthHandler.DevicePending())
+	appRouterGroup.AuthRouterGroup.POST("/auth/device/approve", middleware.NoCache(), h.AuthHandler.DeviceApprove())
 
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/begin",

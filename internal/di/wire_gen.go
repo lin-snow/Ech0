@@ -37,33 +37,33 @@ import (
 	"github.com/lin-snow/ech0/internal/model/job"
 	repository14 "github.com/lin-snow/ech0/internal/repository"
 	repository7 "github.com/lin-snow/ech0/internal/repository/auth"
-	repository8 "github.com/lin-snow/ech0/internal/repository/comment"
+	repository9 "github.com/lin-snow/ech0/internal/repository/comment"
 	repository5 "github.com/lin-snow/ech0/internal/repository/common"
 	repository11 "github.com/lin-snow/ech0/internal/repository/connect"
 	repository2 "github.com/lin-snow/ech0/internal/repository/echo"
 	"github.com/lin-snow/ech0/internal/repository/embedding"
 	repository6 "github.com/lin-snow/ech0/internal/repository/file"
-	repository9 "github.com/lin-snow/ech0/internal/repository/init"
+	repository10 "github.com/lin-snow/ech0/internal/repository/init"
 	repository12 "github.com/lin-snow/ech0/internal/repository/job"
 	"github.com/lin-snow/ech0/internal/repository/keyvalue"
-	repository10 "github.com/lin-snow/ech0/internal/repository/setting"
+	repository8 "github.com/lin-snow/ech0/internal/repository/setting"
 	repository4 "github.com/lin-snow/ech0/internal/repository/user"
 	repository13 "github.com/lin-snow/ech0/internal/repository/visitor"
 	repository3 "github.com/lin-snow/ech0/internal/repository/webhook"
 	"github.com/lin-snow/ech0/internal/server"
 	service13 "github.com/lin-snow/ech0/internal/service"
 	"github.com/lin-snow/ech0/internal/service/auth"
-	service6 "github.com/lin-snow/ech0/internal/service/comment"
+	service7 "github.com/lin-snow/ech0/internal/service/comment"
 	service4 "github.com/lin-snow/ech0/internal/service/common"
 	service9 "github.com/lin-snow/ech0/internal/service/connect"
 	service12 "github.com/lin-snow/ech0/internal/service/copilot"
 	service11 "github.com/lin-snow/ech0/internal/service/dashboard"
-	service5 "github.com/lin-snow/ech0/internal/service/echo"
+	service6 "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/service/embedding"
 	service2 "github.com/lin-snow/ech0/internal/service/file"
 	service8 "github.com/lin-snow/ech0/internal/service/init"
 	service10 "github.com/lin-snow/ech0/internal/service/migrator"
-	service7 "github.com/lin-snow/ech0/internal/service/setting"
+	service5 "github.com/lin-snow/ech0/internal/service/setting"
 	service3 "github.com/lin-snow/ech0/internal/service/user"
 	"github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/storage"
@@ -143,22 +143,22 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	userService := service3.NewUserService(tx, userRepository, persistent, fileService, ebProvider)
 	userHandler := handler3.NewUserHandler(userService)
 	authRepository := repository7.NewAuthRepository(dbProvider, appCache)
-	authService := auth.NewAuthService(tx, authRepository, authRepository, persistent)
-	authHandler := handler4.NewAuthHandler(authService, userService)
 	commonService := service4.NewCommonService(commonRepository, appCache)
-	echoRepository := repository2.NewEchoRepository(dbProvider, appCache)
-	echoService := service5.NewEchoService(tx, commonService, fileService, echoRepository, ebProvider)
-	echoHandler := handler5.NewEchoHandler(echoService)
-	fileHandler := handler6.NewFileHandler(fileService)
-	commentRepository := repository8.NewCommentRepository(dbProvider)
-	goMailSender := service6.NewGoMailSender()
-	commentService := service6.NewCommentService(commonService, commentRepository, persistent, ebProvider, goMailSender)
-	commentHandler := handler7.NewCommentHandler(commentService)
-	initRepository := repository9.NewInitRepository(dbProvider)
-	settingRepository := repository10.NewSettingRepository(dbProvider)
+	settingRepository := repository8.NewSettingRepository(dbProvider)
 	webhookRepository := repository3.NewWebhookRepository(dbProvider)
 	sender := webhook.NewSender()
-	settingService := service7.NewSettingService(tx, commonService, fileService, storageManager, persistent, settingRepository, webhookRepository, sender, authRepository, ebProvider)
+	settingService := service5.NewSettingService(tx, commonService, fileService, storageManager, persistent, settingRepository, webhookRepository, sender, authRepository, ebProvider)
+	authService := auth.NewAuthService(tx, authRepository, authRepository, persistent, settingService)
+	authHandler := handler4.NewAuthHandler(authService, userService)
+	echoRepository := repository2.NewEchoRepository(dbProvider, appCache)
+	echoService := service6.NewEchoService(tx, commonService, fileService, echoRepository, ebProvider)
+	echoHandler := handler5.NewEchoHandler(echoService)
+	fileHandler := handler6.NewFileHandler(fileService)
+	commentRepository := repository9.NewCommentRepository(dbProvider)
+	goMailSender := service7.NewGoMailSender()
+	commentService := service7.NewCommentService(commonService, commentRepository, persistent, ebProvider, goMailSender)
+	commentHandler := handler7.NewCommentHandler(commentService)
+	initRepository := repository10.NewInitRepository(dbProvider)
 	initService := service8.NewInitService(initRepository, userService, settingService)
 	initHandler := handler8.NewInitHandler(initService)
 	commonHandler := handler9.NewCommonHandler(commonService)

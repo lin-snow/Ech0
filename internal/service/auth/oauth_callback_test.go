@@ -79,7 +79,7 @@ func newSvc(
 	repo := authmock.NewMockRepository(t)
 	authRepo := authmock.NewMockAuthRepo(t)
 	tx := txmock.NewMockTransactor(t)
-	svc := NewAuthService(tx, repo, authRepo, kv)
+	svc := NewAuthService(tx, repo, authRepo, kv, nil)
 	return svc, repo, authRepo, tx
 }
 
