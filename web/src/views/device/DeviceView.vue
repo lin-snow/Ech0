@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import BaseInput from '@/components/common/BaseInput.vue'
@@ -17,30 +17,53 @@ const userCode = ref(typeof route.query.code === 'string' ? route.query.code : '
 const pending = ref<App.Api.Device.PendingInfo | null>(null)
 const approved = ref(false)
 const busy = ref(false)
+const lookupFailed = ref(false)
 
-const canLookup = computed(() => userCode.value.trim().length >= 8 && !busy.value)
+/** Codes are 8 letters/digits; the hyphen is decoration, so it is added for the API call. */
+const normalizedCode = computed(() => userCode.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+const codeReady = computed(() => normalizedCode.value.length === 8)
+const formattedCode = computed(() =>
+  codeReady.value ? `${normalizedCode.value.slice(0, 4)}-${normalizedCode.value.slice(4)}` : '',
+)
 
-async function lookup() {
-  if (!canLookup.value) return
+let lastLookup = ''
+let debounce: ReturnType<typeof setTimeout> | undefined
+
+async function lookup(code: string) {
+  lastLookup = code
   busy.value = true
   try {
-    const res = await fetchDevicePending(userCode.value.trim())
+    const res = await fetchDevicePending(code)
+    // A newer keystroke may have superseded this request; only apply matching results.
+    if (code !== formattedCode.value) return
     if (res.code === 1 && res.data) {
       pending.value = res.data
       return
     }
-    pending.value = null
-    theToast.error(t('devicePage.lookupFailed'))
+    lookupFailed.value = true
   } finally {
     busy.value = false
   }
+}
+
+function scheduleLookup() {
+  clearTimeout(debounce)
+  pending.value = null
+  lookupFailed.value = false
+  if (!codeReady.value) {
+    lastLookup = ''
+    return
+  }
+  const code = formattedCode.value
+  if (code === lastLookup) return
+  debounce = setTimeout(() => void lookup(code), 300)
 }
 
 async function approve() {
   if (!pending.value || busy.value) return
   busy.value = true
   try {
-    const res = await fetchDeviceApprove(userCode.value.trim())
+    const res = await fetchDeviceApprove(formattedCode.value)
     if (res.code === 1) {
       approved.value = true
       pending.value = null
@@ -52,9 +75,14 @@ async function approve() {
   }
 }
 
+// Typing a complete code is the intent to look it up — there is no separate submit step.
+watch(normalizedCode, scheduleLookup)
+
 onMounted(() => {
-  if (userCode.value.trim() !== '') void lookup()
+  if (codeReady.value) void lookup(formattedCode.value)
 })
+
+onBeforeUnmount(() => clearTimeout(debounce))
 </script>
 
 <template>
@@ -87,14 +115,14 @@ onMounted(() => {
           class="mb-4"
           autocomplete="one-time-code"
         />
-        <div class="flex justify-end gap-2">
-          <BaseButton :loading="busy" :disabled="!canLookup" @click="lookup">
-            {{ t('devicePage.lookup') }}
-          </BaseButton>
-          <BaseButton v-if="pending" :loading="busy" @click="approve">
+        <div v-if="pending" class="flex justify-end gap-2">
+          <BaseButton :loading="busy" @click="approve">
             {{ t('devicePage.approve') }}
           </BaseButton>
         </div>
+        <p v-if="lookupFailed" class="mt-2 text-sm text-[var(--color-danger)]">
+          {{ t('devicePage.lookupFailed') }}
+        </p>
 
         <div
           v-if="pending"
