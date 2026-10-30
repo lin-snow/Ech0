@@ -1,0 +1,401 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later
+   Copyright (C) 2025-2026 lin-snow */
+
+/* Timeline entry mirrors web/src/components/advanced/echo/cards/TheEchoCard.vue:
+ * date on the axis, 2px vertical rule, 11/12 markdown column, 88% media. */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.stickyBlock {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--canvas);
+}
+
+/* --- toolbar -------------------------------------------------------------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px var(--feed-pad) 0;
+}
+
+.search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-width: 72px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.search:focus-within {
+  border-color: var(--line-ink);
+}
+
+.searchIcon {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-11);
+}
+
+.searchInput::placeholder {
+  color: var(--ink-3);
+}
+
+.searchClear {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+}
+
+.searchClear:hover {
+  color: var(--ink);
+}
+
+.tagFilter {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-11);
+  white-space: nowrap;
+}
+
+.tagFilter:hover {
+  border-color: var(--ink);
+}
+
+/* --- timeline ------------------------------------------------------------- */
+.scrollBody {
+  padding: 18px var(--feed-pad) 32px;
+}
+
+.toolbarRail {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+}
+
+.toolbarRailTop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarRailTop .search {
+  flex: 0 1 180px;
+  min-width: 96px;
+}
+
+.toolbarTrailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.entry {
+  position: relative;
+}
+
+.entryHead {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  background: var(--canvas);
+}
+
+.marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  height: 100%;
+  margin-right: 7px;
+  margin-left: 1px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--accent);
+}
+
+.date {
+  color: var(--accent);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.privateFlag {
+  display: inline-flex;
+  color: var(--ink-3);
+}
+
+.grow {
+  flex: 1;
+}
+
+.menuPopup {
+  z-index: 20;
+  min-width: 96px;
+  padding: 3px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: var(--fs-11);
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.menuItem[data-highlighted] {
+  background: var(--muted);
+}
+
+/* --- axis content --------------------------------------------------------- */
+.content {
+  position: relative;
+  margin-left: 5px;
+  padding: 0 14px 18px 16px;
+}
+
+.content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--line-strong);
+  pointer-events: none;
+}
+
+/* --- markdown ------------------------------------------------------------- */
+.markdown {
+  width: calc(100% - 1.25rem);
+  margin-left: 0.25rem;
+  color: var(--ink);
+  font-size: var(--fs-14);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p {
+  margin: 0 0 9px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 14px 0 6px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.markdown h1 {
+  font-size: var(--fs-17);
+}
+
+.markdown h2 {
+  font-size: var(--fs-15);
+}
+
+.markdown h3,
+.markdown h4 {
+  font-size: var(--fs-14);
+}
+
+.markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown strong {
+  font-weight: 600;
+}
+
+.markdown del {
+  color: var(--ink-3);
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 9px;
+  padding-left: 1.3em;
+  list-style: revert;
+}
+
+.markdown li {
+  margin: 2px 0;
+}
+
+.markdown blockquote {
+  margin: 10px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-2);
+}
+
+.markdown code {
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.markdown pre {
+  max-height: 260px;
+  margin: 10px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  overflow: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.markdown hr {
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown table {
+  width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+  font-size: var(--fs-12);
+}
+
+.markdown th,
+.markdown td {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+/* --- images (88% width, rounded 8px, like the existing gallery) ---------- */
+.images {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  width: 88%;
+  margin: 10px auto 0;
+}
+
+.images[data-count='2'],
+.images[data-count='3'] {
+  grid-template-columns: 1fr 1fr;
+}
+
+.imageButton {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.imageButton img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* --- empty ---------------------------------------------------------------- */
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--ink-3);
+  font-size: var(--fs-11);
+}
+
+.empty .mono {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+@container frame (width <= 560px) {
+  .markdown {
+    font-size: var(--fs-13);
+  }
+
+  .content {
+    padding-right: 10px;
+    padding-left: 13px;
+  }
+
+  .images {
+    width: 100%;
+  }
+}

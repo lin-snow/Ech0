@@ -87,3 +87,7 @@ quality-report.md
 .cache/
 .worktrees/
 .pnpm-store/vecspike
+
+# 6.x UI 草图（独立 Vite 应用）
+design/dist/
+design/.screenshot-*.png

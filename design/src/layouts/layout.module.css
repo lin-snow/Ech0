@@ -1,0 +1,77 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+/* Fixed microblog column (448–480px). Extra room is whitespace or a rail. */
+
+.three {
+  display: grid;
+  grid-template-columns: 400px minmax(0, 480px);
+  justify-content: center;
+  height: 100%;
+  background: var(--canvas);
+}
+
+.left {
+  display: contents;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  --feed-pad: 16px;
+  overflow-y: auto;
+}
+
+@container frame (width <= 880px) {
+  .three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .left {
+    display: none;
+  }
+
+  .center {
+    justify-self: center;
+    width: min(480px, 100%);
+  }
+
+  .scroll {
+    --feed-pad: 16px;
+  }
+
+}
+
+/* --- focus ---------------------------------------------------------------- */
+.focus {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--canvas);
+}
+
+.focusScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.focusContent {
+  width: min(448px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 16px 0 32px;
+  --feed-pad: 0;
+}
+
+.activityBlock {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}

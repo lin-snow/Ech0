@@ -1,0 +1,10 @@
+# Ech0 6.x homepage design sketch (standalone Vite app, not part of the binary)
+
+dev:
+    pnpm dev
+
+build:
+    pnpm build
+
+typecheck:
+    pnpm typecheck

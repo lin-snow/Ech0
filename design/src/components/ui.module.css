@@ -1,0 +1,143 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+/* Raw controls: Base UI demo recipes — 1px ink border, square, hover/active
+ * fills, 2px focus outline. No colour, no radius, no shadow. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-13);
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.button:active:not(:disabled) {
+  background: var(--muted-2);
+}
+
+.button:disabled {
+  color: var(--ink-3);
+  border-color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: var(--ink);
+  color: var(--ink-inverse);
+  border-color: var(--ink);
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+
+.button--primary:active:not(:disabled) {
+  background: var(--ink);
+}
+
+.button--primary:disabled {
+  background: var(--muted);
+  color: var(--ink-3);
+  border-color: var(--line-strong);
+}
+
+.button--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.button--ghost:hover:not(:disabled) {
+  background: var(--muted);
+  color: var(--ink);
+}
+
+.button--sm {
+  height: var(--control-h-sm);
+  padding: 0 8px;
+  font-size: var(--fs-12);
+}
+
+.button--full {
+  width: 100%;
+}
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  color: var(--ink-3);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.iconButton:hover {
+  color: var(--ink);
+  background: var(--muted);
+}
+
+.iconButton:active {
+  background: var(--muted-2);
+}
+
+.tipPositioner {
+  z-index: 60;
+}
+
+.tipPopup {
+  padding: 3px 6px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.avatar {
+  display: block;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  object-fit: cover;
+}
