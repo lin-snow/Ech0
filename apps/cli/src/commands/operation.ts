@@ -70,8 +70,10 @@ export interface InvokeOptions {
 export async function invokeOperation(options: InvokeOptions): Promise<CommandOutput> {
   const spec = buildRequest(options.op, options.values);
   let catalog = options.catalog;
+  let catalogRetried = false;
+  let authRetried = false;
 
-  for (let attempt = 0; ; attempt += 1) {
+  for (;;) {
     try {
       const result = await options.session.client.call<unknown>({
         ...spec,
@@ -79,9 +81,19 @@ export async function invokeOperation(options: InvokeOptions): Promise<CommandOu
       });
       return { human: render(result.data, result.message), json: result.text };
     } catch (error) {
-      const stale = error instanceof Ech0Error && (error.details.status === 412 || error.details.status === 404);
-      if (attempt > 0 || !stale) throw error;
-      catalog = await options.refresh();
+      if (!(error instanceof Ech0Error)) throw error;
+
+      const status = error.details.status;
+      if (!catalogRetried && (status === 412 || status === 404)) {
+        catalogRetried = true;
+        catalog = await options.refresh();
+        continue;
+      }
+      if (!authRetried && status === 401 && (await options.session.refresh())) {
+        authRetried = true;
+        continue;
+      }
+      throw error;
     }
   }
 }

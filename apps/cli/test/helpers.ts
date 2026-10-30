@@ -11,6 +11,7 @@ export interface RecordedRequest {
 export interface RouteReply {
   status?: number;
   body: unknown;
+  headers?: Record<string, string>;
 }
 
 export interface FakeApi {
@@ -50,7 +51,7 @@ export function startFakeApi(routes: Record<string, (request: RecordedRequest) =
         : { status: 404, body: { code: 0, msg: `no route: ${key}` } };
       return new Response(JSON.stringify(reply.body), {
         status: reply.status ?? 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...reply.headers },
       });
     },
   });

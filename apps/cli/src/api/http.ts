@@ -35,6 +35,8 @@ export interface RawResponse {
 
 export interface CallResult<T> {
   data: T;
+  /** Response headers, e.g. Set-Cookie after login/refresh. */
+  headers: Headers;
   /** Envelope message, e.g. the success text for a body-less operation. */
   message: string;
   /** Response body as received. `--json` prints this verbatim (no re-encoding). */
@@ -105,6 +107,11 @@ export class Client {
     this.fetchImpl = opts.fetch ?? fetch;
   }
 
+  /** Swaps the bearer token after a refresh, keeping the same instance. */
+  setToken(token: string): void {
+    this.opts.token = token;
+  }
+
   /** Sends a request without interpreting the body (catalog fetch, binary). */
   async raw(spec: RequestSpec): Promise<RawResponse> {
     const url = `${this.baseUrl}${spec.path}${buildQuery(spec.query)}`;
@@ -144,6 +151,7 @@ export class Client {
     }
     return {
       data: envelope.data as T,
+      headers: response.headers,
       message: envelope.msg ?? "",
       text: response.text,
       status: response.status,

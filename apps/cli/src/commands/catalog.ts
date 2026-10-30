@@ -15,7 +15,7 @@ export async function refreshCatalog(flags: GlobalFlags): Promise<LoadedCatalog>
   const stored = await readToken(target.profile, ctx.credentialsPath);
   return loadCatalog({
     server: target.server,
-    token: flags.token ?? ctx.env.ECH0_TOKEN ?? stored?.token,
+    token: flags.token ?? ctx.env.ECH0_TOKEN ?? stored?.value,
     lang: flags.lang ?? ctx.env.ECH0_LANG,
     configPath: ctx.configPath,
     force: true,

@@ -5,7 +5,13 @@ import type { Command } from "commander";
 
 import { Client } from "./api/http.ts";
 import { credentialsFilePath, configFilePath } from "./config/paths.ts";
-import { readToken, type TokenSource } from "./config/credentials.ts";
+import {
+  REFRESH_COOKIE_NAME,
+  readRefreshCookie,
+  readToken,
+  writeRefreshCookie,
+  type TokenSource,
+} from "./config/credentials.ts";
 import { activeProfileName, loadConfig, type Config } from "./config/store.ts";
 import { UsageError } from "./output/console.ts";
 
@@ -36,6 +42,8 @@ export interface Session extends ResolvedTarget {
   token: string;
   tokenSource: "flag" | "env" | TokenSource;
   client: Client;
+  /** Rotates the access token from the stored refresh cookie; false when it cannot. */
+  refresh: () => Promise<boolean>;
 }
 
 /** Reads the global flags declared on the root command, from any subcommand. */
@@ -77,6 +85,52 @@ export function resolveTarget(ctx: CliContext): ResolvedTarget {
   return { profile, server, config: ctx.config };
 }
 
+/** Extracts one cookie value from a response's Set-Cookie headers. */
+export function setCookieValue(headers: Headers, name: string): string | undefined {
+  const cookies = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [];
+  for (const cookie of cookies) {
+    const [pair = ""] = cookie.split(";");
+    const separator = pair.indexOf("=");
+    if (separator <= 0) continue;
+    if (pair.slice(0, separator).trim() === name) {
+      return pair.slice(separator + 1);
+    }
+  }
+  return undefined;
+}
+
+interface RefreshedToken {
+  token: string;
+}
+
+async function refreshAccessToken(
+  ctx: CliContext,
+  profile: string,
+  server: string,
+): Promise<RefreshedToken | undefined> {
+  const stored = await readRefreshCookie(profile, ctx.credentialsPath);
+  if (!stored) return undefined;
+
+  const client = new Client({ server, lang: ctx.flags.lang ?? ctx.env.ECH0_LANG });
+  try {
+    const result = await client.call<{ access_token?: string }>({
+      method: "POST",
+      path: "/auth/refresh",
+      headers: { Cookie: `${REFRESH_COOKIE_NAME}=${stored.value}` },
+    });
+    const token = typeof result.data?.access_token === "string" ? result.data.access_token : "";
+    if (token === "") return undefined;
+
+    const rotated = setCookieValue(result.headers, REFRESH_COOKIE_NAME);
+    if (rotated) {
+      await writeRefreshCookie(profile, rotated, ctx.credentialsPath);
+    }
+    return { token };
+  } catch {
+    return undefined;
+  }
+}
+
 /** Resolves profile + server + token and builds a request client. */
 export async function openSession(ctx: CliContext): Promise<Session> {
   const target = resolveTarget(ctx);
@@ -95,14 +149,29 @@ export async function openSession(ctx: CliContext): Promise<Session> {
     if (!stored) {
       throw new UsageError(`profile "${target.profile}" 没有可用 token：先运行 \`ech0 auth login\``);
     }
-    token = stored.token;
+    token = stored.value;
     tokenSource = stored.source;
   }
 
-  return {
+  const session: Session = {
     ...target,
     token,
     tokenSource,
     client: new Client({ server: target.server, token, lang }),
+    refresh: async () => false,
   };
+
+  // Explicit flags/env tokens are the caller's to manage; only stored
+  // credentials can be renewed from the refresh cookie.
+  if (!ctx.flags.token && !ctx.env.ECH0_TOKEN) {
+    session.refresh = async () => {
+      const refreshed = await refreshAccessToken(ctx, target.profile, target.server);
+      if (!refreshed) return false;
+      session.token = refreshed.token;
+      session.client.setToken(refreshed.token);
+      return true;
+    };
+  }
+
+  return session;
 }

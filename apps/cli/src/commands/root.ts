@@ -15,7 +15,7 @@ import {
   UsageError,
 } from "../output/console.ts";
 import { loadContext, openSession, readGlobalFlags, type GlobalFlags } from "../session.ts";
-import { readStdin } from "../ui/prompt.ts";
+import { readPassword, readStdin } from "../ui/prompt.ts";
 import * as auth from "./auth.ts";
 import * as catalogCommands from "./catalog.ts";
 import * as config from "./config.ts";
@@ -23,6 +23,20 @@ import { registerCatalogCommands } from "./dynamic.ts";
 import { invokeOperation } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
 import * as version from "./version.ts";
+
+function readScopes(raw: unknown): string[] | undefined {
+  if (typeof raw !== "string") return undefined;
+  const scopes = raw
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter((scope) => scope !== "");
+  return scopes.length > 0 ? scopes : undefined;
+}
+
+function profileServer(ctx: ReturnType<typeof loadContext>, profile: string | undefined): string | undefined {
+  const name = profile ?? activeProfileName(ctx.config, undefined, ctx.env);
+  return name ? ctx.config.profiles[name]?.server : undefined;
+}
 
 function emit(result: CommandOutput, json: boolean): void {
   print(json ? result.json : result.human);
@@ -33,17 +47,60 @@ function authCommand(): Command {
 
   group
     .command("login")
-    .description("用 access token 登录实例（首次会写入 profile）")
+    .description("登录实例：access token / 密码 / 设备授权")
+    .option("--device", "使用浏览器设备授权登录", false)
+    .option("-u, --username <name>", "用户名（密码登录）")
+    .option("--password-stdin", "从 stdin 读取密码", false)
+    .option("--scopes <list>", "逗号分隔的 scope（密码/设备登录铸造令牌时使用）")
     .action(async (_options, command: Command) => {
       const flags = readGlobalFlags(command);
       const ctx = loadContext(flags);
-      const rawToken = flags.token ?? ctx.env.ECH0_TOKEN;
-      if (!rawToken) {
-        throw new UsageError("缺少 token：--token <token>（或在面板铸造后通过 ECH0_TOKEN 传入）");
+      const options = command.opts();
+      const scopes = readScopes(options.scopes);
+
+      const inlineToken = flags.token ?? ctx.env.ECH0_TOKEN;
+      if (inlineToken !== undefined && inlineToken !== "") {
+        const token = inlineToken === "-" ? (await readStdin()).trim() : inlineToken;
+        emit(await auth.login(ctx, { server: flags.server, token, profile: flags.profile }), flags.json);
+        return;
       }
-      const token = rawToken === "-" ? (await readStdin()).trim() : rawToken;
-      const result = await auth.login(ctx, { server: flags.server, token, profile: flags.profile });
-      emit(result, flags.json);
+
+      if (options.device === true) {
+        const server = flags.server ?? ctx.env.ECH0_SERVER ?? profileServer(ctx, flags.profile);
+        const result = await auth.loginWithDevice(ctx, {
+          server: flags.server,
+          profile: flags.profile,
+          scopes,
+          onCode: (code) => {
+            const where = server ? `${server.replace(/\/+$/, "")}${code.verification_uri_complete}` : code.verification_uri_complete;
+            printErr(`${colors().bold("在浏览器中确认")} ${where}`);
+            printErr(`${colors().bold("设备码")} ${code.user_code}（${code.expires_in}s 内有效）`);
+          },
+        });
+        emit(result, flags.json);
+        return;
+      }
+
+      if (typeof options.username === "string") {
+        const password =
+          options.passwordStdin === true
+            ? ((await readStdin()).split("\n")[0] ?? "")
+            : await readPassword("密码: ");
+        if (password === "") throw new UsageError("密码为空");
+        emit(
+          await auth.loginWithPassword(ctx, {
+            server: flags.server,
+            profile: flags.profile,
+            username: options.username,
+            password,
+            scopes,
+          }),
+          flags.json,
+        );
+        return;
+      }
+
+      throw new UsageError("登录方式：--token <token>（access token）、-u/--username（密码）或 --device（浏览器授权）");
     });
 
   group

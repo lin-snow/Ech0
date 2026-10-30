@@ -42,7 +42,7 @@ describe("auth login", () => {
     expect(saved.default).toBe("memo");
     expect(saved.profiles.memo?.user).toBe("owner");
     expect(saved.profiles.memo?.isAdmin).toBe(true);
-    expect((await readToken("memo", ctx.credentialsPath))?.token).toBe("tok-login");
+    expect((await readToken("memo", ctx.credentialsPath))?.value).toBe("tok-login");
   });
 });
 

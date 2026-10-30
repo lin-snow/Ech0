@@ -124,8 +124,8 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 | 方式 | 命令 | 状态 |
 | --- | --- | --- |
 | 粘贴 access token | `ech0 auth login --server URL --token -` | **已实现**（token 经 `/api/user` 校验后入 keychain/文件） |
-| 用户名 + 密码 | `ech0 auth login --server URL` | M3 |
-| device authorization（RFC 8628） | `ech0 auth login --server URL` | M4，需后端新端点 |
+| 用户名 + 密码 | `ech0 auth login --server URL -u <user>` | **已实现**（提示符隐藏输入；CI 用 `--password-stdin`） |
+| device authorization | `ech0 auth login --server URL --device` | **已实现**（CLI 轮询 + Web `/device` 批准页） |
 
 ### 5.2 密码登录（M3）
 
@@ -139,28 +139,41 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 
 ### 5.3 Device authorization（M4，后端改造）
 
-新增 3 个端点（raw gin，与 login 同族，不进 Huma spec）：
+新增 4 个端点（raw gin，与 login 同族，不进 Huma spec）：
 
 | 方法 | 路径 | 认证 | 请求 | 响应 |
 | --- | --- | --- | --- | --- |
 | POST | `/api/auth/device/code` | public | `{client_name, scopes[]}` | `{device_code, user_code, verification_uri, verification_uri_complete, expires_in: 600, interval: 5}` |
-| POST | `/api/auth/device/token` | public | `{device_code}` | 成功 `{access_token, token_type:"Bearer", expires_in, scopes[]}`；失败 400 `{error: authorization_pending \| slow_down \| access_denied \| expired_token}` |
-| POST | `/api/auth/device/approve` | 已登录会话 | `{user_code, scopes[]}` | `204` |
+| POST | `/api/auth/device/token` | public | `{device_code}` | 成功 `{access_token, token_type:"Bearer", expires_in, scopes[]}`；未批准/过期/拒绝时 HTTP 400 + 稳定 `error_code` |
+| GET | `/api/auth/device/pending?user_code=` | 已登录会话 | — | `{client_name, scopes[], expires_in}` |
+| POST | `/api/auth/device/approve` | 已登录会话 | `{user_code}` | `200 {code:1}` |
+
+错误码（`error_code`，保留 `msg` 作为人类可读回退）：
+
+| error_code | 含义 |
+| --- | --- |
+| `DEVICE_AUTHORIZATION_PENDING` | 尚未在浏览器批准，CLI 继续轮询 |
+| `DEVICE_SLOW_DOWN` | 轮询快于 `interval`，CLI 退避 5s |
+| `DEVICE_EXPIRED` | 设备码过期（10 分钟） |
+| `DEVICE_ACCESS_DENIED` | 用户拒绝 |
+| `DEVICE_CODE_UNKNOWN` | 设备码不存在或已被消费 |
 
 约束：
 
-- `user_code` 8 位 `XXXX-XXXX`，剔除易混字符（`0O1I`），不区分大小写。
-- 批准者须 admin（与 access token 铸造一致）；按请求 scopes 交集落库为 `audience=cli` 的 access token。
-- 存储：进程内 map + mutex + 10 分钟 TTL。Ech0 为单实例 SQLite 部署，重启丢挂在途授权可接受（多实例需换持久化，记录为已知限制）。
-- CLI 按 `interval` 轮询，`slow_down` 加 5s；web 新增 `/device` 批准页。
-- 新端点登记到 `docs/dev/huma-raw-gin-endpoints.md`。
+- `user_code` 8 位 `XXXX-XXXX`，字符集剔除易混的 `0O1I`；查询/批准时忽略大小写、空格与连字符。
+- 请求的 scope 在 `/device/code` 时确定，批准页只展示、不再选择，避免批准阶段提权。
+- 批准复用 `/api/access-tokens` 的铸造链路（同一 admin 校验、同一 scope 白名单、同一 `audience=cli`），因此非 admin 批准会得到权限错误。
+- 存储：进程内 map + mutex + 10 分钟 TTL；已批准/已拒绝的条目在取走或过期后删除（一次性）。Ech0 为单实例 SQLite 部署，重启丢挂在途授权可接受；多实例需换持久化（已知限制）。
+- CLI 按 `interval` 轮询，`slow_down` 加 5s；Web 新增 `/device` 批准页（需登录，`requiresAuth`）。设备码与批准 URL 输出到 stderr，stdout 只放数据。
+- 新端点已登记到 `docs/dev/huma-raw-gin-endpoints.md`。
 
 ### 5.4 凭据存储
 
 优先级：`--token` > `ECH0_TOKEN` > 系统钥匙串 > 回退文件。
 
-- 钥匙串：`Bun.secrets`（service `ech0-cli`，name `token:<profile>`）。
+- 钥匙串：`Bun.secrets`（service `ech0-cli`，name `token:<profile>` / `cookie:<profile>`）。
 - 回退：`<config dir>/credentials.json`，权限 `0600`；`ECH0_NO_KEYCHAIN=1` 强制文件（headless CI / 测试）。
+- 密码登录成功后：admin 存 CLI 令牌并删除 cookie；非 admin 存会话令牌 + refresh cookie，命令遇 401 自动 `POST /api/auth/refresh` 续签一次并重试。
 - `ech0 auth logout [--purge]` 清 keychain、文件与可选 profile。
 
 ### 5.5 权限
@@ -235,6 +248,7 @@ go test ./internal/openapi/... ./internal/router/...
 - Go：catalog 派生单测（bind/effect/kind/scopes/$ref 内联/指纹稳定性）+ 路由测试（`/api/_catalog` 指纹与 body 哈希一致、过期指纹 412 且 `error_code=catalog_stale`）。
 - CLI：`bun test` 覆盖 envelope 映射、catalog 缓存、动态命令 flag 解析、412 重试、CLI 退出码。
 - 端到端实测（真实 Go 服务端 + CLI）：init owner → login → 铸造 `audience=cli` token → `auth login` → `catalog refresh`（104 ops）→ `echo create` → `echo page get`；把缓存文件改脏后 `echo create` 收到 412，CLI 自动刷新并重试成功。
+- 密码登录：`printf 'pw' | ech0 auth login -u owner --password-stdin` → 自动铸造 CLI 令牌 → `echo create` 成功；device 登录：CLI 打印设备码 → 浏览器/curl 批准 → CLI 拿到令牌 → `echo create` 成功；轮询的 pending / slow_down / unknown 三个 `error_code` 在真实服务端复核。
 
 ## 11. 里程碑
 
@@ -242,8 +256,8 @@ go test ./internal/openapi/... ./internal/router/...
 | --- | --- | --- |
 | M1 | 目录骨架、commander 根命令、Huma→TS/zod 生成链、SPDX、gen-check | 已完成 |
 | M2 | 后端 operation catalog（`/api/_catalog` + 指纹 + 412）与 CLI 动态命令；token 登录、profile/凭据存储；`auth/config/catalog/version` 本地命令 | 已完成 |
-| M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 待做 |
-| M4 | device authorization：后端 3 端点 + Web `/device` 批准页 + CLI 轮询 | 待做 |
+| M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 已完成 |
+| M4 | device authorization：后端端点 + Web `/device` 批准页 + CLI 轮询 | 已完成 |
 | M5 | Release 编译产物、npm 包、curl 脚本 | 待做 |
 | M6 | `kind=stream/binary` 渲染、shell completion、旧服务端 `/api/openapi.json` 兜底 | 待做 |
 

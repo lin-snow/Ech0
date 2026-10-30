@@ -9,10 +9,14 @@ import { credentialsFilePath } from "./paths.ts";
 
 const SERVICE = "ech0-cli";
 
-export type TokenSource = "keychain" | "file";
+/** Server-side refresh cookie (httpOnly, path /api/auth). */
+export const REFRESH_COOKIE_NAME = "ech0_refresh_token";
 
-export interface StoredToken {
-  token: string;
+export type TokenSource = "keychain" | "file";
+export type SecretKind = "token" | "cookie";
+
+export interface StoredSecret {
+  value: string;
   source: TokenSource;
 }
 
@@ -21,6 +25,14 @@ function keychain(): typeof Bun.secrets | undefined {
   if (process.env.ECH0_NO_KEYCHAIN) return undefined;
   const secrets: typeof Bun.secrets | undefined = Bun.secrets;
   return typeof secrets?.get === "function" ? secrets : undefined;
+}
+
+function secretName(profile: string, kind: SecretKind): string {
+  return kind === "token" ? `token:${profile}` : `cookie:${profile}`;
+}
+
+function fileKey(profile: string, kind: SecretKind): string {
+  return kind === "token" ? profile : `${profile}:cookie`;
 }
 
 function readFileMap(file: string): Record<string, string> {
@@ -50,57 +62,102 @@ function writeFileMap(file: string, map: Record<string, string>): void {
 }
 
 /** Keychain first (`Bun.secrets`), then a 0600 file next to the config. */
-export async function readToken(
+async function readSecret(
+  kind: SecretKind,
   profile: string,
-  file: string = credentialsFilePath(),
-): Promise<StoredToken | undefined> {
+  file: string,
+): Promise<StoredSecret | undefined> {
   const secrets = keychain();
   if (secrets) {
     try {
-      const value = await secrets.get({ service: SERVICE, name: `token:${profile}` });
-      if (value) return { token: value, source: "keychain" };
+      const value = await secrets.get({ service: SERVICE, name: secretName(profile, kind) });
+      if (value) return { value, source: "keychain" };
     } catch {
       // Keychain unavailable (headless Linux, locked keyring): fall through.
     }
   }
-  const value = readFileMap(file)[profile];
-  return value ? { token: value, source: "file" } : undefined;
+  const value = readFileMap(file)[fileKey(profile, kind)];
+  return value ? { value, source: "file" } : undefined;
 }
 
-/** Returns the backend that ended up holding the token. */
-export async function writeToken(
+/** Returns the backend that ended up holding the secret. */
+async function writeSecret(
+  kind: SecretKind,
   profile: string,
-  token: string,
-  file: string = credentialsFilePath(),
+  value: string,
+  file: string,
 ): Promise<TokenSource> {
   const secrets = keychain();
   if (secrets) {
     try {
-      await secrets.set({ service: SERVICE, name: `token:${profile}`, value: token });
+      await secrets.set({ service: SERVICE, name: secretName(profile, kind), value });
       return "keychain";
     } catch {
-      // Fall back to the file, see readToken.
+      // Fall back to the file, see readSecret.
     }
   }
   const map = readFileMap(file);
-  map[profile] = token;
+  map[fileKey(profile, kind)] = value;
   writeFileMap(file, map);
   return "file";
 }
 
-/** Clears the token from both backends; missing entries are not an error. */
-export async function deleteToken(profile: string, file: string = credentialsFilePath()): Promise<void> {
+async function removeSecret(kind: SecretKind, profile: string, file: string): Promise<void> {
   const secrets = keychain();
   if (secrets) {
     try {
-      await secrets.delete({ service: SERVICE, name: `token:${profile}` });
+      await secrets.delete({ service: SERVICE, name: secretName(profile, kind) });
     } catch {
       // Nothing stored in the keychain.
     }
   }
   const map = readFileMap(file);
-  if (profile in map) {
-    delete map[profile];
+  const key = fileKey(profile, kind);
+  if (key in map) {
+    delete map[key];
     writeFileMap(file, map);
   }
+}
+
+export async function readToken(
+  profile: string,
+  file: string = credentialsFilePath(),
+): Promise<StoredSecret | undefined> {
+  return readSecret("token", profile, file);
+}
+
+export async function writeToken(
+  profile: string,
+  token: string,
+  file: string = credentialsFilePath(),
+): Promise<TokenSource> {
+  return writeSecret("token", profile, token, file);
+}
+
+export async function readRefreshCookie(
+  profile: string,
+  file: string = credentialsFilePath(),
+): Promise<StoredSecret | undefined> {
+  return readSecret("cookie", profile, file);
+}
+
+export async function writeRefreshCookie(
+  profile: string,
+  cookie: string,
+  file: string = credentialsFilePath(),
+): Promise<TokenSource> {
+  return writeSecret("cookie", profile, cookie, file);
+}
+
+export async function deleteRefreshCookie(
+  profile: string,
+  file: string = credentialsFilePath(),
+): Promise<void> {
+  await removeSecret("cookie", profile, file);
+}
+
+/** Clears the token and the refresh cookie; missing entries are not an error. */
+export async function deleteToken(profile: string, file: string = credentialsFilePath()): Promise<void> {
+  await removeSecret("token", profile, file);
+  await removeSecret("cookie", profile, file);
 }

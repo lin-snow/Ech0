@@ -74,7 +74,7 @@ describe("credential storage", () => {
     expect(statSync(file).mode & 0o777).toBe(0o600);
 
     const stored = await readToken("memo", file);
-    expect(stored).toEqual({ token: "tok-1", source: "file" });
+    expect(stored).toEqual({ value: "tok-1", source: "file" });
 
     await deleteToken("memo", file);
     expect(await readToken("memo", file)).toBeUndefined();

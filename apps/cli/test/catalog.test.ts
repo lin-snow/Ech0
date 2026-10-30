@@ -76,6 +76,7 @@ function session(server: string, token = "tok"): Session {
     token,
     tokenSource: "flag",
     client: new Client({ server, token }),
+    refresh: async () => false,
   };
 }
 
