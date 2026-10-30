@@ -86,6 +86,16 @@ docker run -d \
 
 Weitere Optionen wie Docker Compose und Helm findest du unter [Schnelles Deployment](./DEPLOYMENT.md#quick-deployment).
 
+### CLI
+
+Installiere den `ech0`-Kommandozeilenclient (macOS / Linux; separat vom Server-Binary):
+
+```shell
+npm install -g @useech0/cli
+```
+
+Alternativ `ech0-cli-<os>-<arch>.tar.gz` von den [Releases](https://github.com/lin-snow/Ech0/releases) herunterladen. Nutzung und Befehle: [`apps/cli`](./apps/cli).
+
 ## Vollständige Funktionsliste
 
 <details>

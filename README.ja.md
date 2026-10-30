@@ -86,6 +86,16 @@ docker run -d \
 
 Docker Compose や Helm を使った手順は [かんたんデプロイ](#かんたんデプロイ) を参照してください。
 
+### CLI
+
+`ech0` コマンドラインクライアントをインストールします（macOS / Linux のみ、サーバーバイナリとは別物）：
+
+```shell
+npm install -g @useech0/cli
+```
+
+または [Releases](https://github.com/lin-snow/Ech0/releases) から `ech0-cli-<os>-<arch>.tar.gz` をダウンロードしてください。使い方とコマンドは [`apps/cli`](./apps/cli) を参照。
+
 ## 機能一覧
 
 <details>

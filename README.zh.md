@@ -88,6 +88,16 @@ docker run -d \
 
 更多部署方式见 [极速部署](./DEPLOYMENT.md#quick-deployment)。
 
+### CLI
+
+安装 `ech0` 命令行客户端（macOS / Linux，独立于服务端二进制）：
+
+```shell
+npm install -g @useech0/cli
+```
+
+也可从 [Releases](https://github.com/lin-snow/Ech0/releases) 下载 `ech0-cli-<os>-<arch>.tar.gz`。用法与命令见 [`apps/cli`](./apps/cli)。
+
 ## 完整能力清单
 
 <details>

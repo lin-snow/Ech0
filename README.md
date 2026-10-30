@@ -87,6 +87,16 @@ Then open `http://ip:6277`:
 
 See [Quick Deployment](./DEPLOYMENT.md#quick-deployment) for Docker Compose and Helm options.
 
+### CLI
+
+Install the `ech0` command-line client (macOS / Linux; separate from the server binary):
+
+```shell
+npm install -g @useech0/cli
+```
+
+Or download `ech0-cli-<os>-<arch>.tar.gz` from [Releases](https://github.com/lin-snow/Ech0/releases). Usage and commands live in [`apps/cli`](./apps/cli).
+
 ## Full Feature List
 
 <details>
