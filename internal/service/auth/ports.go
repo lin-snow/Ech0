@@ -9,6 +9,7 @@ import (
 	"time"
 
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	model "github.com/lin-snow/ech0/internal/model/user"
 )
 
@@ -27,7 +28,17 @@ type Service interface {
 	DeletePasskey(ctx context.Context, passkeyID string) error
 	UpdatePasskeyDeviceName(ctx context.Context, passkeyID string, deviceName string) error
 	PasskeyBoundary(ctx context.Context) (rpID string, origins []string)
+	StartDeviceAuthorization(clientName string, scopes []string) (authModel.DeviceCodeResponse, error)
+	DeviceAuthorizationInfo(userCode string) (authModel.DevicePendingInfo, error)
+	ApproveDeviceAuthorization(ctx context.Context, userCode string) error
+	PollDeviceAuthorization(deviceCode string) (authModel.DeviceTokenResponse, error)
 	TokenRevoker
+}
+
+// TokenIssuer is satisfied by the setting service; the device approval path
+// mints the same kind of access token the panel does.
+type TokenIssuer interface {
+	CreateAccessToken(ctx context.Context, dto *settingModel.AccessTokenSettingDto) (string, error)
 }
 
 type TokenRevoker interface {

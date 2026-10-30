@@ -352,6 +352,7 @@ import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useSaveShortcut } from '@/composables/useSaveShortcut'
 import { theToast } from '@/utils/toast'
 import { AccessTokenExpiration } from '@/enums/enums'
+import { ACCESS_SCOPE_GROUPS, ACCESS_SCOPE_LABEL_KEYS } from '@/constants/accessScopes'
 
 const { openConfirm } = useBaseDialog()
 const { t } = useI18n()
@@ -362,47 +363,7 @@ const { AccessTokens } = storeToRefs(useSetting)
 const detailModalOpen = ref(false)
 const selectedToken = ref<App.Api.Setting.AccessToken | null>(null)
 
-const scopeGroups = [
-  {
-    labelKey: 'accessTokenSetting.scopeGroupContent',
-    items: [
-      { value: 'echo:read', labelKey: 'accessTokenSetting.scopeEchoRead' },
-      { value: 'echo:write', labelKey: 'accessTokenSetting.scopeEchoWrite' },
-      { value: 'comment:read', labelKey: 'accessTokenSetting.scopeCommentRead' },
-      { value: 'comment:write', labelKey: 'accessTokenSetting.scopeCommentWrite' },
-      { value: 'comment:moderate', labelKey: 'accessTokenSetting.scopeCommentModerate' },
-    ],
-  },
-  {
-    labelKey: 'accessTokenSetting.scopeGroupFile',
-    items: [
-      { value: 'file:read', labelKey: 'accessTokenSetting.scopeFileRead' },
-      { value: 'file:write', labelKey: 'accessTokenSetting.scopeFileWrite' },
-    ],
-  },
-  {
-    labelKey: 'accessTokenSetting.scopeGroupConnect',
-    items: [
-      { value: 'connect:read', labelKey: 'accessTokenSetting.scopeConnectRead' },
-      { value: 'connect:write', labelKey: 'accessTokenSetting.scopeConnectWrite' },
-    ],
-  },
-  {
-    labelKey: 'accessTokenSetting.scopeGroupProfile',
-    items: [
-      { value: 'profile:read', labelKey: 'accessTokenSetting.scopeProfileRead' },
-      { value: 'profile:write', labelKey: 'accessTokenSetting.scopeProfileWrite' },
-    ],
-  },
-  {
-    labelKey: 'accessTokenSetting.scopeGroupAdmin',
-    items: [
-      { value: 'admin:settings', labelKey: 'accessTokenSetting.scopeAdminSettings' },
-      { value: 'admin:user', labelKey: 'accessTokenSetting.scopeAdminUser' },
-      { value: 'admin:token', labelKey: 'accessTokenSetting.scopeAdminToken' },
-    ],
-  },
-] as const
+const scopeGroups = ACCESS_SCOPE_GROUPS
 
 const audienceOptions = computed(() => [
   {
@@ -448,22 +409,6 @@ const nameError = ref('')
 const scopesError = ref('')
 
 const isSubmitting = ref<boolean>(false)
-const scopeLabelMap: Record<string, string> = {
-  'echo:read': 'accessTokenSetting.scopeEchoRead',
-  'echo:write': 'accessTokenSetting.scopeEchoWrite',
-  'comment:read': 'accessTokenSetting.scopeCommentRead',
-  'comment:write': 'accessTokenSetting.scopeCommentWrite',
-  'comment:moderate': 'accessTokenSetting.scopeCommentModerate',
-  'file:read': 'accessTokenSetting.scopeFileRead',
-  'file:write': 'accessTokenSetting.scopeFileWrite',
-  'connect:read': 'accessTokenSetting.scopeConnectRead',
-  'connect:write': 'accessTokenSetting.scopeConnectWrite',
-  'profile:read': 'accessTokenSetting.scopeProfileRead',
-  'profile:write': 'accessTokenSetting.scopeProfileWrite',
-  'admin:settings': 'accessTokenSetting.scopeAdminSettings',
-  'admin:user': 'accessTokenSetting.scopeAdminUser',
-  'admin:token': 'accessTokenSetting.scopeAdminToken',
-}
 
 const selectedTokenScopes = computed(() => parseTokenScopes(selectedToken.value?.scopes))
 
@@ -502,7 +447,7 @@ function parseTokenScopes(rawScopes: App.Api.Setting.AccessToken['scopes']) {
 }
 
 function getScopeLabel(scope: string) {
-  const key = scopeLabelMap[scope]
+  const key = ACCESS_SCOPE_LABEL_KEYS[scope]
   return key ? String(t(key)) : scope
 }
 

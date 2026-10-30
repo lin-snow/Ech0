@@ -17,6 +17,16 @@ export const useUserStore = defineStore('userStore', () => {
   const isLogin = computed(() => !!user.value)
   const initialized = ref<boolean>(false)
 
+  /** Returns to the deep link captured by the auth guard, else the home page. */
+  function navigateAfterLogin() {
+    const target = router.currentRoute.value.query.redirect
+    if (typeof target === 'string' && target.startsWith('/') && !target.startsWith('//')) {
+      router.push(target)
+      return
+    }
+    router.push({ name: 'home' })
+  }
+
   async function login(userInfo: App.Api.Auth.LoginParams) {
     const res = await fetchLogin(userInfo)
     if (res.code === 1 && res.data?.access_token) {
@@ -29,7 +39,7 @@ export const useUserStore = defineStore('userStore', () => {
       const echoStore = useEchoStore()
       echoStore.clearEchos()
 
-      router.push({ name: 'home' })
+      navigateAfterLogin()
     }
   }
 
@@ -44,7 +54,7 @@ export const useUserStore = defineStore('userStore', () => {
       const echoStore = useEchoStore()
       echoStore.clearEchos()
 
-      router.push({ name: 'home' })
+      navigateAfterLogin()
     }
   }
 

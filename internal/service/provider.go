@@ -51,6 +51,8 @@ var (
 	SettingSet = wire.NewSet(
 		settingService.NewSettingService,
 		wire.Bind(new(settingService.Service), new(*settingService.SettingService)),
+		// Device approval mints access tokens through the setting service.
+		wire.Bind(new(authService.TokenIssuer), new(*settingService.SettingService)),
 	)
 	ConnectSet = wire.NewSet(
 		connectService.NewConnectService,

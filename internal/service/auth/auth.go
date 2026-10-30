@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -46,6 +47,9 @@ type AuthService struct {
 	authRepo       AuthRepo
 	durableKV      kvstore.Store
 	resolveAdapter func(provider string) (oauthProviderAdapter, error)
+	tokenIssuer    TokenIssuer
+	deviceMu       sync.Mutex
+	devices        map[string]*deviceEntry
 }
 
 func NewAuthService(
@@ -53,6 +57,7 @@ func NewAuthService(
 	repository Repository,
 	authRepo AuthRepo,
 	durableKV kvstore.Store,
+	tokenIssuer TokenIssuer,
 ) *AuthService {
 	return &AuthService{
 		transactor:     tx,
@@ -60,6 +65,8 @@ func NewAuthService(
 		authRepo:       authRepo,
 		durableKV:      durableKV,
 		resolveAdapter: getOAuthProviderAdapter,
+		tokenIssuer:    tokenIssuer,
+		devices:        make(map[string]*deviceEntry),
 	}
 }
 

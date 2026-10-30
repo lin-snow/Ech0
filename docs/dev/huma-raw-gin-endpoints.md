@@ -61,7 +61,7 @@
 
 响应是 `Location` 重定向到 IdP / 回前端，非 JSON。`:provider` 统一覆盖 github/google/qq/custom。
 
-### E. Cookie 读写 / token 签发 / WebAuthn 仪式（8）
+### E. Cookie 读写 / token 签发 / WebAuthn 仪式 / 设备授权（12）
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 | 具体原因 |
 |---|---|---|---|---|
@@ -73,8 +73,12 @@
 | POST | `/api/passkey/login/finish` | `AuthHandler.PasskeyLoginFinishV2` | Public | 同上 + 写 refresh cookie |
 | POST | `/api/passkey/register/begin` | `AuthHandler.PasskeyRegisterBeginV2` | Auth · `profile:write` | 从 gin 请求读 Origin 推导 RP-ID/Origin |
 | POST | `/api/passkey/register/finish` | `AuthHandler.PasskeyRegisterFinishV2` | Auth · `profile:write` | 同上 |
+| POST | `/api/auth/device/code` | `AuthHandler.DeviceCode` | Public | 返回 CLI 展示用的设备码 / 用户码 |
+| POST | `/api/auth/device/token` | `AuthHandler.DeviceToken` | Public | 轮询；pending / slow_down / expired / denied 用固定 `error_code` 表达 |
+| GET | `/api/auth/device/pending` | `AuthHandler.DevicePending` | Auth | 批准页展示申请的 client / scopes |
+| POST | `/api/auth/device/approve` | `AuthHandler.DeviceApprove` | Auth（须 admin） | 批准后由服务端直接铸造 `audience=cli` 的 access token |
 
-这批都需要直接操作 `*gin.Context`（写/读 cookie，或经 `getPasskeyOriginAndRPID` 从原始请求头推导 WebAuthn 的 RP-ID 与 Origin），超出框架中立 handler 的能力边界，整组留在裸 gin。
+这批都需要直接操作 `*gin.Context`（写/读 cookie，或经 `getPasskeyOriginAndRPID` 从原始请求头推导 WebAuthn 的 RP-ID 与 Origin），超出框架中立 handler 的能力边界，整组留在裸 gin。设备授权的轮询把“尚未批准”当作稳定的 `error_code` 而非错误文案，走 Huma 的统一错误映射会丢语义，因此同样保留裸 gin。
 
 ### F. 第三方 captcha（1）
 

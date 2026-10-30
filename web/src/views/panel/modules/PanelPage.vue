@@ -340,12 +340,19 @@ const handleLogout = () => {
 
 .panel-welcome-actions {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.5rem;
 }
 
-.panel-home-btn {
+/*
+ * BaseButton renders through BaseTooltip, so the button is not the direct root
+ * that receives this component's scope id; :deep is required for these rules
+ * to match at all. Without them the button collapses to icon + padding and
+ * flex-shrinks when a longer locale makes the welcome text wider.
+ */
+.panel-welcome-actions :deep(.panel-home-btn) {
   border: 1px solid var(--color-border-subtle) !important;
   border-radius: 999px !important;
   background: var(--color-bg-surface) !important;
@@ -361,7 +368,7 @@ const handleLogout = () => {
     background-color 0.2s ease;
 }
 
-.panel-home-btn:hover {
+.panel-welcome-actions :deep(.panel-home-btn:hover) {
   border-color: var(--color-border-strong) !important;
   background: var(--color-bg-muted) !important;
 }

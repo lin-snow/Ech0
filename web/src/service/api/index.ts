@@ -2,6 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 export * from './auth.ts'
+export * from './device.ts'
 export * from './user.ts'
 export * from './echo.ts'
 export * from './file.ts'

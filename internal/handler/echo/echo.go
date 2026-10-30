@@ -74,18 +74,20 @@ type (
 	EmptyOutput    = commonModel.Result[any]
 )
 
-func (echoHandler *EchoHandler) PostEcho(ctx context.Context, in *EchoUpsertInput) (EmptyOutput, error) {
-	if err := echoHandler.echoService.PostEcho(ctx, in.Body.ToModel()); err != nil {
-		return EmptyOutput{}, err
+func (echoHandler *EchoHandler) PostEcho(ctx context.Context, in *EchoUpsertInput) (EchoOutput, error) {
+	saved, err := echoHandler.echoService.PostEcho(ctx, in.Body.ToModel())
+	if err != nil {
+		return EchoOutput{}, err
 	}
-	return commonModel.OK[any](nil, commonModel.POST_ECHO_SUCCESS), nil
+	return commonModel.OK(saved, commonModel.POST_ECHO_SUCCESS), nil
 }
 
-func (echoHandler *EchoHandler) UpdateEcho(ctx context.Context, in *EchoUpsertInput) (EmptyOutput, error) {
-	if err := echoHandler.echoService.UpdateEcho(ctx, in.Body.ToModel()); err != nil {
-		return EmptyOutput{}, err
+func (echoHandler *EchoHandler) UpdateEcho(ctx context.Context, in *EchoUpsertInput) (EchoOutput, error) {
+	saved, err := echoHandler.echoService.UpdateEcho(ctx, in.Body.ToModel())
+	if err != nil {
+		return EchoOutput{}, err
 	}
-	return commonModel.OK[any](nil, commonModel.UPDATE_ECHO_SUCCESS), nil
+	return commonModel.OK(saved, commonModel.UPDATE_ECHO_SUCCESS), nil
 }
 
 func (echoHandler *EchoHandler) DeleteEcho(ctx context.Context, in *EchoIDInput) (EmptyOutput, error) {

@@ -360,6 +360,7 @@ components:
       additionalProperties: true
       properties:
         name:
+          description: 标签名
           type: string
       type: object
     DayStat:
@@ -434,22 +435,29 @@ components:
       properties:
         payload:
           additionalProperties: {}
+          description: 扩展渲染所需的任意字段
           type: object
         type:
+          description: 扩展卡片类型，如 weather / music
           type: string
       type: object
     EchoFile:
       additionalProperties: true
       properties:
         echo_id:
+          description: 所属 Echo ID，提交时忽略
           type: string
         file:
           $ref: "#/components/schemas/File"
+          description: 文件元数据，提交时忽略（服务端按 file_id 填充）
         file_id:
+          description: 已上传文件的 ID（上传接口返回）
           type: string
         id:
+          description: 关联记录 ID，提交时忽略
           type: string
         sort_order:
+          description: 同一 Echo 内的排序，从 0 开始
           format: int64
           type: integer
       type: object
@@ -487,11 +495,14 @@ components:
       additionalProperties: true
       properties:
         content:
+          description: 正文（Markdown）；与附件、扩展至少有一项
           type: string
         created_at:
+          description: 发布时间（Unix 秒），缺省为当前时间
           format: int64
           type: integer
         echo_files:
+          description: 附件引用列表：{file_id, sort_order}；文件先通过上传接口获取 file_id
           items:
             $ref: "#/components/schemas/EchoFile"
           type:
@@ -499,13 +510,18 @@ components:
             - "null"
         extension:
           $ref: "#/components/schemas/EchoExtensionDto"
+          description: 扩展卡片 {type, payload}
         id:
+          description: 更新时的 Echo ID；创建时忽略
           type: string
         layout:
+          description: 布局：waterfall / grid / horizontal / carousel / stack / none
           type: string
         private:
+          description: 仅自己可见
           type: boolean
         tags:
+          description: 标签列表，元素为 {name}；同名标签复用
           items:
             $ref: "#/components/schemas/Tag"
           type:
@@ -2327,13 +2343,17 @@ components:
       additionalProperties: true
       properties:
         created_at:
+          description: 创建时间，提交时忽略
           format: int64
           type: integer
         id:
+          description: 标签 ID，提交时忽略
           type: string
         name:
+          description: 标签名；同名标签复用
           type: string
         usage_count:
+          description: 引用次数，提交时忽略
           format: int64
           type: integer
       type: object
@@ -2999,7 +3019,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultInterface {}"
+                $ref: "#/components/schemas/ResultEcho"
           description: OK
         default:
           content:
@@ -3026,7 +3046,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultInterface {}"
+                $ref: "#/components/schemas/ResultEcho"
           description: OK
         default:
           content:
@@ -3186,7 +3206,7 @@ paths:
         - Echo
   /echo/query:
     post:
-      operationId: echo-query
+      operationId: echo-list
       requestBody:
         content:
           application/json:
@@ -3206,7 +3226,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
-      summary: 统一查询 Echo 列表
+      summary: 分页/筛选 Echo 列表
       tags:
         - Echo
   /echo/random:

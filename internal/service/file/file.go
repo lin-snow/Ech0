@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -791,6 +792,7 @@ func (s *FileService) streamReader(
 ) {
 	defer func() { _ = reader.Close() }()
 	ctx.Header("Content-Type", contentType)
+	ctx.Header("Content-Disposition", inlineDisposition(fileName))
 
 	readSeeker, ok := reader.(io.ReadSeeker)
 	if ok {
@@ -805,6 +807,22 @@ func (s *FileService) streamReader(
 			logUtil.Err(err),
 		)
 	}
+}
+
+// inlineDisposition names the payload after the stored file so clients that
+// save it (CLI download, browser "save as") keep the original name. The
+// endpoint serves content inline, so renderable types preview and the rest
+// still fall back to the browser download behaviour. Non-ASCII names take the
+// RFC 5987 form (`filename*=utf-8...`) that mime.FormatMediaType emits.
+func inlineDisposition(fileName string) string {
+	name := strings.TrimSpace(fileName)
+	if name == "" {
+		name = "download"
+	}
+	if value := mime.FormatMediaType("inline", map[string]string{"filename": name}); value != "" {
+		return value
+	}
+	return "inline"
 }
 
 func (s *FileService) GetFilePresignURL(

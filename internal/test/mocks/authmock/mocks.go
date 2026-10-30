@@ -53,6 +53,63 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// ApproveDeviceAuthorization provides a mock function for the type MockService
+func (_mock *MockService) ApproveDeviceAuthorization(ctx context.Context, userCode string) error {
+	ret := _mock.Called(ctx, userCode)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApproveDeviceAuthorization")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, userCode)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_ApproveDeviceAuthorization_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApproveDeviceAuthorization'
+type MockService_ApproveDeviceAuthorization_Call struct {
+	*mock.Call
+}
+
+// ApproveDeviceAuthorization is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userCode string
+func (_e *MockService_Expecter) ApproveDeviceAuthorization(ctx any, userCode any) *MockService_ApproveDeviceAuthorization_Call {
+	return &MockService_ApproveDeviceAuthorization_Call{Call: _e.mock.On("ApproveDeviceAuthorization", ctx, userCode)}
+}
+
+func (_c *MockService_ApproveDeviceAuthorization_Call) Run(run func(ctx context.Context, userCode string)) *MockService_ApproveDeviceAuthorization_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ApproveDeviceAuthorization_Call) Return(err error) *MockService_ApproveDeviceAuthorization_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_ApproveDeviceAuthorization_Call) RunAndReturn(run func(ctx context.Context, userCode string) error) *MockService_ApproveDeviceAuthorization_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // BindOAuth provides a mock function for the type MockService
 func (_mock *MockService) BindOAuth(ctx context.Context, provider string, redirectURI string) (string, error) {
 	ret := _mock.Called(ctx, provider, redirectURI)
@@ -178,6 +235,66 @@ func (_c *MockService_DeletePasskey_Call) Return(err error) *MockService_DeleteP
 }
 
 func (_c *MockService_DeletePasskey_Call) RunAndReturn(run func(ctx context.Context, passkeyID string) error) *MockService_DeletePasskey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeviceAuthorizationInfo provides a mock function for the type MockService
+func (_mock *MockService) DeviceAuthorizationInfo(userCode string) (model.DevicePendingInfo, error) {
+	ret := _mock.Called(userCode)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeviceAuthorizationInfo")
+	}
+
+	var r0 model.DevicePendingInfo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string) (model.DevicePendingInfo, error)); ok {
+		return returnFunc(userCode)
+	}
+	if returnFunc, ok := ret.Get(0).(func(string) model.DevicePendingInfo); ok {
+		r0 = returnFunc(userCode)
+	} else {
+		r0 = ret.Get(0).(model.DevicePendingInfo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
+		r1 = returnFunc(userCode)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_DeviceAuthorizationInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeviceAuthorizationInfo'
+type MockService_DeviceAuthorizationInfo_Call struct {
+	*mock.Call
+}
+
+// DeviceAuthorizationInfo is a helper method to define mock.On call
+//   - userCode string
+func (_e *MockService_Expecter) DeviceAuthorizationInfo(userCode any) *MockService_DeviceAuthorizationInfo_Call {
+	return &MockService_DeviceAuthorizationInfo_Call{Call: _e.mock.On("DeviceAuthorizationInfo", userCode)}
+}
+
+func (_c *MockService_DeviceAuthorizationInfo_Call) Run(run func(userCode string)) *MockService_DeviceAuthorizationInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_DeviceAuthorizationInfo_Call) Return(devicePendingInfo model.DevicePendingInfo, err error) *MockService_DeviceAuthorizationInfo_Call {
+	_c.Call.Return(devicePendingInfo, err)
+	return _c
+}
+
+func (_c *MockService_DeviceAuthorizationInfo_Call) RunAndReturn(run func(userCode string) (model.DevicePendingInfo, error)) *MockService_DeviceAuthorizationInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -984,6 +1101,66 @@ func (_c *MockService_PasskeyRegisterFinish_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// PollDeviceAuthorization provides a mock function for the type MockService
+func (_mock *MockService) PollDeviceAuthorization(deviceCode string) (model.DeviceTokenResponse, error) {
+	ret := _mock.Called(deviceCode)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PollDeviceAuthorization")
+	}
+
+	var r0 model.DeviceTokenResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string) (model.DeviceTokenResponse, error)); ok {
+		return returnFunc(deviceCode)
+	}
+	if returnFunc, ok := ret.Get(0).(func(string) model.DeviceTokenResponse); ok {
+		r0 = returnFunc(deviceCode)
+	} else {
+		r0 = ret.Get(0).(model.DeviceTokenResponse)
+	}
+	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
+		r1 = returnFunc(deviceCode)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_PollDeviceAuthorization_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PollDeviceAuthorization'
+type MockService_PollDeviceAuthorization_Call struct {
+	*mock.Call
+}
+
+// PollDeviceAuthorization is a helper method to define mock.On call
+//   - deviceCode string
+func (_e *MockService_Expecter) PollDeviceAuthorization(deviceCode any) *MockService_PollDeviceAuthorization_Call {
+	return &MockService_PollDeviceAuthorization_Call{Call: _e.mock.On("PollDeviceAuthorization", deviceCode)}
+}
+
+func (_c *MockService_PollDeviceAuthorization_Call) Run(run func(deviceCode string)) *MockService_PollDeviceAuthorization_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_PollDeviceAuthorization_Call) Return(deviceTokenResponse model.DeviceTokenResponse, err error) *MockService_PollDeviceAuthorization_Call {
+	_c.Call.Return(deviceTokenResponse, err)
+	return _c
+}
+
+func (_c *MockService_PollDeviceAuthorization_Call) RunAndReturn(run func(deviceCode string) (model.DeviceTokenResponse, error)) *MockService_PollDeviceAuthorization_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RevokeToken provides a mock function for the type MockService
 func (_mock *MockService) RevokeToken(jti string, remainTTL time.Duration) {
 	_mock.Called(jti, remainTTL)
@@ -1027,6 +1204,72 @@ func (_c *MockService_RevokeToken_Call) Return() *MockService_RevokeToken_Call {
 
 func (_c *MockService_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration)) *MockService_RevokeToken_Call {
 	_c.Run(run)
+	return _c
+}
+
+// StartDeviceAuthorization provides a mock function for the type MockService
+func (_mock *MockService) StartDeviceAuthorization(clientName string, scopes []string) (model.DeviceCodeResponse, error) {
+	ret := _mock.Called(clientName, scopes)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartDeviceAuthorization")
+	}
+
+	var r0 model.DeviceCodeResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string, []string) (model.DeviceCodeResponse, error)); ok {
+		return returnFunc(clientName, scopes)
+	}
+	if returnFunc, ok := ret.Get(0).(func(string, []string) model.DeviceCodeResponse); ok {
+		r0 = returnFunc(clientName, scopes)
+	} else {
+		r0 = ret.Get(0).(model.DeviceCodeResponse)
+	}
+	if returnFunc, ok := ret.Get(1).(func(string, []string) error); ok {
+		r1 = returnFunc(clientName, scopes)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_StartDeviceAuthorization_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartDeviceAuthorization'
+type MockService_StartDeviceAuthorization_Call struct {
+	*mock.Call
+}
+
+// StartDeviceAuthorization is a helper method to define mock.On call
+//   - clientName string
+//   - scopes []string
+func (_e *MockService_Expecter) StartDeviceAuthorization(clientName any, scopes any) *MockService_StartDeviceAuthorization_Call {
+	return &MockService_StartDeviceAuthorization_Call{Call: _e.mock.On("StartDeviceAuthorization", clientName, scopes)}
+}
+
+func (_c *MockService_StartDeviceAuthorization_Call) Run(run func(clientName string, scopes []string)) *MockService_StartDeviceAuthorization_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 []string
+		if args[1] != nil {
+			arg1 = args[1].([]string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_StartDeviceAuthorization_Call) Return(deviceCodeResponse model.DeviceCodeResponse, err error) *MockService_StartDeviceAuthorization_Call {
+	_c.Call.Return(deviceCodeResponse, err)
+	return _c
+}
+
+func (_c *MockService_StartDeviceAuthorization_Call) RunAndReturn(run func(clientName string, scopes []string) (model.DeviceCodeResponse, error)) *MockService_StartDeviceAuthorization_Call {
+	_c.Call.Return(run)
 	return _c
 }
 

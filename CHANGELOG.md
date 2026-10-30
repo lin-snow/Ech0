@@ -9,6 +9,42 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.0] - 2026-10-30
+
+### Added
+
+* **A first-party `ech0` command-line client.** `apps/cli` (Bun + TypeScript) signs in to one instance and covers Echo CRUD (`ech0 echo create|list|get|update|delete`) plus the file surface (`ech0 file upload|external|list|get|tree|download`). Sign in with a pasted access token, username/password, or `--device` browser approval; named profiles keep several instances apart, and credentials live in the system keychain with a file fallback (`ECH0_NO_KEYCHAIN=1`). Human output by default, `--json` / `--yaml` for scripts, exit codes `0`/`1`/`2` (plus `130` on Ctrl+C) and a hint on every error. The CLI has its own version line, starting at `0.1.0`, and ships as `ech0-cli-<os>-<arch>.tar.gz` + `SHA256SUMS` on GitHub Releases and as `@ech0/cli` with per-platform binaries on npm (darwin/linux × arm64/x64; Windows is unsupported). Reference: [`docs/dev/cli-design.md`](docs/dev/cli-design.md).
+
+* **Agent skill installer.** `ech0 install skills <dir>` writes the bundled skill (command surface, auth, Echo and operation references) into a skills root such as `~/.claude/skills`; `--from <folder>` installs a local copy instead. The same skill lives at [`skills/ech0`](skills/ech0).
+
+* **Device authorization for sign-in without a browser session.** `POST /api/auth/device/code` returns a `ABCD-EFGH` code (ambiguous characters omitted) valid for 10 minutes; the CLI polls `/api/auth/device/token` every 5 seconds and gets a one-month token with `audience=cli` once approved. `GET /api/auth/device/pending` and `POST /api/auth/device/approve` back the new `/device` page, which looks the code up while you type (debounced, 4-4 grouping), shows the client name, localized scopes, a countdown and the signed-in account with switch-account — and only lets admins approve, matching the rule for minting a token in the panel. The code survives the login redirect, so signing in from the link lands back on the approval.
+
+* **`GET /api/_catalog`: an operation catalog the CLI builds its commands from.** Public, canonical JSON describing every callable operation (method, path, scopes, effect, JSON Schema input, transport for SSE/WebSocket/multipart/binary) merged from the Huma document and the hand-written raw-gin routes. Each `/api` response carries `X-Ech0-Catalog: <fingerprint>`; a request that sends a different fingerprint is rejected with `412` and `error_code: catalog_stale` before the handler runs, so stale clients detect drift instead of failing obscurely. The CLI caches the document per host and refreshes once on `412`/`404`. A router test asserts every catalog op has a route and every `/api` route is described.
+
+* **Echo writes return the stored record.** `POST /echo` and `PUT /echo` now answer with `Result[Echo]` (id, tags, files, timestamps) instead of `null`, so clients learn the new id without a follow-up list/get. Callers that ignored the body are unaffected.
+
+* **Downloads keep the original file name.** Stored files on local, S3 and object storage now send `Content-Disposition: inline; filename=…` (RFC 5987 `filename*` for non-ASCII names, `download` when blank), so a browser "save as" and `ech0 file download` without `--output` use the name the file was uploaded with. Renderable types still preview inline.
+
+### Changed
+
+* **The page query operation is now `echo-list`.** `echo-query` is renamed (`POST /echo/query` is unchanged); only consumers that address operations by `operationId` — the CLI, and anything reading the OpenAPI spec — are affected. The deprecated `/echo/page` endpoints stay as they are.
+
+* **Echo request fields are documented in the spec.** Huma `doc` tags on the echo, tag and extension DTOs now spell out layout values, attachment semantics (`file_id` from the upload endpoint), tag reuse and the server-filled fields to ignore. The same text becomes the generated CLI flag help.
+
+### Fixed
+
+* **Access tokens ignored the chosen expiry.** The create path passed a `time.Duration` (nanoseconds) where seconds were expected, and the resulting `time.Duration(expiry) * time.Second` overflowed: an "8 hours" token came back with `exp` in 2058 and a "one month" token expired in 1995, so freshly minted tokens were already dead. Presets now map to seconds (8h → 28800, 1 month → 2592000, never → no expiry) with an 8-hour fallback for unknown values. Device authorization uses the same code path.
+
+* **The panel welcome buttons keep their size.** Their styling was scoped to a root element that `BaseButton` does not render, so it never applied: the home button collapsed to icon + padding and shrank once a longer locale widened the welcome text. `:deep` selectors and a non-shrinking action column fix both.
+
+### Internal
+
+* **CLI releases are independent.** Pushing a `cli-vX.Y.Z` tag runs [`release-cli.yml`](.github/workflows/release-cli.yml), which checks the tag against `apps/cli/package.json`, cross-compiles the four targets, creates the GitHub Release, and publishes the npm packages with OIDC provenance. Server releases no longer build or publish the CLI; `just cli dist X.Y.Z` reproduces the artifacts locally.
+
+* **CLI types are generated from the committed OpenAPI spec** (`@hey-api/openapi-ts`, TypeScript pinned to 5.9 inside the package), so a server spec change is a compile error in the client.
+
+* **Docs.** New [`docs/dev/cli-design.md`](docs/dev/cli-design.md) (catalog contract, transports, auth, command generation); `docs/design` and `docs/imgs` are consolidated under `docs/assets`.
+
 ## [5.8.3] - 2026-10-25
 
 ### Added

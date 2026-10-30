@@ -34,7 +34,7 @@ func TestEchoHandler_PostEcho(t *testing.T) {
 			PostEcho(mock.Anything, mock.MatchedBy(func(e *echoModel.Echo) bool {
 				return e != nil && e.Content == "hi" && e.Private
 			})).
-			Return(nil).Once()
+			Return(&echoModel.Echo{ID: "e1", Content: "hi", Private: true}, nil).Once()
 
 		h := handler.NewEchoHandler(svc)
 		out, err := h.PostEcho(helpers.CtxAsUser("u1"), &handler.EchoUpsertInput{
@@ -44,12 +44,13 @@ func TestEchoHandler_PostEcho(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
 		assert.Equal(t, commonModel.POST_ECHO_SUCCESS, out.Message)
-		assert.Nil(t, out.Data)
+		require.NotNil(t, out.Data)
+		assert.Equal(t, "e1", out.Data.ID)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := echomock.NewMockService(t)
-		svc.EXPECT().PostEcho(mock.Anything, mock.Anything).Return(errBoom).Once()
+		svc.EXPECT().PostEcho(mock.Anything, mock.Anything).Return(nil, errBoom).Once()
 
 		h := handler.NewEchoHandler(svc)
 		out, err := h.PostEcho(helpers.CtxAsUser("u1"), &handler.EchoUpsertInput{
@@ -57,7 +58,7 @@ func TestEchoHandler_PostEcho(t *testing.T) {
 		})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.EmptyOutput{}, out)
+		assert.Equal(t, handler.EchoOutput{}, out)
 	})
 }
 
@@ -68,7 +69,7 @@ func TestEchoHandler_UpdateEcho(t *testing.T) {
 			UpdateEcho(mock.Anything, mock.MatchedBy(func(e *echoModel.Echo) bool {
 				return e != nil && e.ID == "e1" && e.Content == "edited"
 			})).
-			Return(nil).Once()
+			Return(&echoModel.Echo{ID: "e1", Content: "edited"}, nil).Once()
 
 		h := handler.NewEchoHandler(svc)
 		out, err := h.UpdateEcho(helpers.CtxAsUser("u1"), &handler.EchoUpsertInput{
@@ -77,11 +78,13 @@ func TestEchoHandler_UpdateEcho(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, commonModel.UPDATE_ECHO_SUCCESS, out.Message)
+		require.NotNil(t, out.Data)
+		assert.Equal(t, "e1", out.Data.ID)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := echomock.NewMockService(t)
-		svc.EXPECT().UpdateEcho(mock.Anything, mock.Anything).Return(errBoom).Once()
+		svc.EXPECT().UpdateEcho(mock.Anything, mock.Anything).Return(nil, errBoom).Once()
 
 		h := handler.NewEchoHandler(svc)
 		_, err := h.UpdateEcho(helpers.CtxAsUser("u1"), &handler.EchoUpsertInput{

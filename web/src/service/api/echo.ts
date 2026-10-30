@@ -20,7 +20,7 @@ export async function fetchGetEchosByPage(searchParams: App.Api.Ech0.ParamsByPag
 }
 
 export function fetchAddEcho(echoToAdd: App.Api.Ech0.EchoToAdd) {
-  return request({
+  return request<App.Api.Ech0.Echo>({
     url: `/echo`,
     method: 'POST',
     data: echoToAdd,
@@ -28,14 +28,14 @@ export function fetchAddEcho(echoToAdd: App.Api.Ech0.EchoToAdd) {
 }
 
 export function fetchDeleteEcho(echoId: string) {
-  return request({
+  return request<null>({
     url: `/echo/${echoId}`,
     method: 'DELETE',
   })
 }
 
 export function fetchUpdateEcho(echo: App.Api.Ech0.EchoToUpdate) {
-  return request({
+  return request<App.Api.Ech0.Echo>({
     url: `/echo`,
     method: 'PUT',
     data: echo,

@@ -1,0 +1,34 @@
+# Ech0 CLI (Bun + TypeScript, talks to a running instance over the REST API)
+
+default:
+    @just --list
+
+dev:
+    bun run src/index.ts
+
+help:
+    bun run src/index.ts --help
+
+# Regenerate src/api from internal/openapi/openapi.yaml (Huma spec = SSOT)
+gen:
+    bun run gen:api
+
+gen-check: gen
+    git diff --exit-code -- src/api/generated
+
+build:
+    bun run build
+
+# Release artifacts: standalone binaries, release tarballs, SHA256SUMS, and
+# publishable npm packages under dist/release. Version is the CLI release tag
+# without the `cli-v` prefix (e.g. `just cli dist 0.1.0`).
+dist VERSION:
+    bun run scripts/dist.ts --version {{VERSION}} --out dist/release
+
+typecheck:
+    bun run typecheck
+
+test:
+    bun test
+
+check: typecheck test gen-check

@@ -142,11 +142,57 @@ After the workflow completes:
 
 2. **Promote the draft release to published.** GitHub release notes default to auto-generated PR titles since the last release; replace them with the relevant `[X.Y.Z]` section from `CHANGELOG.md`.
 
+   Publishing this release does not touch the CLI; the CLI has its own version line and release tags
+   (see [CLI release](#cli-release-independent) below).
+
 3. **Pull the Docker image** to confirm:
    ```bash
    docker pull ghcr.io/lin-snow/ech0:vX.Y.Z
    docker run --rm ghcr.io/lin-snow/ech0:vX.Y.Z version
    ```
+
+## CLI release (independent)
+
+The `ech0` CLI (`apps/cli`) is versioned independently from the server, starting at `0.1.0`.
+[`apps/cli/package.json`](../../apps/cli/package.json) is the source of truth; server releases do
+not build or publish the CLI.
+
+To cut a CLI release:
+
+1. Bump `version` in `apps/cli/package.json`.
+2. Commit it as `chore(cli-release): vX.Y.Z`.
+3. Tag that commit with the `cli-v` prefix and push the tag:
+
+   ```bash
+   git tag -a cli-vX.Y.Z -m 'Release ech0 CLI vX.Y.Z'
+   git push origin cli-vX.Y.Z
+   ```
+
+The tag pushes [`release-cli.yml`](../../.github/workflows/release-cli.yml), which:
+
+- Verifies `cli-vX.Y.Z` matches `apps/cli/package.json`, then compiles
+  `darwin/{arm64,x64}` and `linux/{arm64,x64}` with `bun build --compile`.
+- Creates the `cli-vX.Y.Z` GitHub Release when it does not exist and uploads
+  `ech0-cli-<os>-<arch>.tar.gz` plus `SHA256SUMS`.
+- Publishes `@ech0/cli` and one `@ech0/cli-<os>-<arch>` package per platform to npm. Prerelease
+  versions publish to npm's `next` dist-tag, stable ones to `latest`; already-published versions
+  are skipped.
+- Requires the repository secret `NPM_TOKEN` (an npm automation token for the `@ech0` scope) and
+  uses OIDC provenance (`id-token: write`).
+
+To rebuild an existing CLI tag, run the workflow manually with its `tag` input (e.g.
+`cli-v0.1.0`).
+
+Verify after it finishes:
+
+```bash
+gh release view cli-vX.Y.Z                 # ech0-cli-*.tar.gz + SHA256SUMS present
+npm view @ech0/cli@X.Y.Z version           # package on npm
+npx -y @ech0/cli --version                 # matches X.Y.Z
+```
+
+To reproduce locally, run `just cli dist X.Y.Z` (outputs binaries, tarballs and publishable npm
+directories under `apps/cli/dist/release/`).
 
 ## Hot-fix releases
 

@@ -108,6 +108,17 @@ const router = createRouter({
       },
     },
     {
+      path: '/device',
+      name: 'device',
+      component: () => import('../views/device/DeviceView.vue'),
+      meta: {
+        title: 'Device Authorization',
+        description: 'Approve a CLI sign-in request for this Ech0 instance.',
+        requiresAuth: true,
+        noindex: true,
+      },
+    },
+    {
       path: '/widget',
       name: 'widget',
       component: () => import('../views/widget/WidgetView.vue'),
@@ -225,7 +236,8 @@ router.beforeEach(async (to) => {
     (to.meta.optionalAuth && !userStore.isLogin && needRedirect === 'true')
   ) {
     localStorage.removeItem('needLoginRedirect')
-    return { name: 'auth' }
+    // Keep the full target so protected deep links (e.g. /device?code=...) survive login.
+    return { name: 'auth', query: { redirect: to.fullPath } }
   }
 
   return true
