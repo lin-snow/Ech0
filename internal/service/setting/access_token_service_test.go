@@ -62,3 +62,23 @@ func TestCreateAccessToken_RejectsAdminScopeForNonAdminUser(t *testing.T) {
 		t.Fatal("expected error for admin scope on non-admin user")
 	}
 }
+
+func TestAccessTokenExpirySeconds(t *testing.T) {
+	cases := []struct {
+		name   string
+		expiry string
+		want   int64
+	}{
+		{name: "eight hours", expiry: model.EIGHT_HOUR_EXPIRY, want: 8 * 3600},
+		{name: "one month", expiry: model.ONE_MONTH_EXPIRY, want: 30 * 24 * 3600},
+		{name: "never", expiry: model.NEVER_EXPIRY, want: 0},
+		{name: "unknown falls back to eight hours", expiry: "bogus", want: 8 * 3600},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := accessTokenExpirySeconds(testCase.expiry); got != testCase.want {
+				t.Fatalf("accessTokenExpirySeconds(%q) = %d, want %d", testCase.expiry, got, testCase.want)
+			}
+		})
+	}
+}

@@ -77,20 +77,11 @@ func (settingService *SettingService) CreateAccessToken(
 		return "", err
 	}
 	jti := uuidUtil.NewV7()
-	var expiryDuration time.Duration
+	// CreateAccessClaimsWithExpiry takes seconds; passing a time.Duration here
+	// overflows the JWT exp claim and issues an already-expired token.
+	expirySeconds := accessTokenExpirySeconds(expiry)
 
-	switch expiry {
-	case model.EIGHT_HOUR_EXPIRY:
-		expiryDuration = 8 * time.Hour
-	case model.ONE_MONTH_EXPIRY:
-		expiryDuration = 30 * 24 * time.Hour
-	case model.NEVER_EXPIRY:
-		expiryDuration = 0
-	default:
-		expiryDuration = 8 * time.Hour
-	}
-
-	claims := jwtUtil.CreateAccessClaimsWithExpiry(user, int64(expiryDuration), scopes, audience, jti)
+	claims := jwtUtil.CreateAccessClaimsWithExpiry(user, expirySeconds, scopes, audience, jti)
 	tokenString, err := jwtUtil.GenerateToken(claims)
 	if err != nil {
 		return "", err
@@ -100,7 +91,7 @@ func (settingService *SettingService) CreateAccessToken(
 	if expiry == model.NEVER_EXPIRY {
 		expiryPtr = nil
 	} else {
-		t := time.Now().UTC().Add(expiryDuration).Unix()
+		t := time.Now().UTC().Add(time.Duration(expirySeconds) * time.Second).Unix()
 		expiryPtr = &t
 	}
 
@@ -146,6 +137,19 @@ func validateAccessTokenRequest(user userModel.User, dto *model.AccessTokenSetti
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 	return nil
+}
+
+// accessTokenExpirySeconds maps a stored expiry preset to the JWT lifetime in
+// seconds. Unknown presets fall back to the eight-hour default.
+func accessTokenExpirySeconds(expiry string) int64 {
+	switch expiry {
+	case model.ONE_MONTH_EXPIRY:
+		return int64(30 * 24 * time.Hour / time.Second)
+	case model.NEVER_EXPIRY:
+		return 0
+	default:
+		return int64(8 * time.Hour / time.Second)
+	}
 }
 
 func normalizeScopes(scopes []string) []string {
