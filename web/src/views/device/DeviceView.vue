@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { fetchDeviceApprove, fetchDevicePending } from '@/service/api/device'
+import { resolveAvatarUrl } from '@/service/request/shared'
 import { ACCESS_SCOPE_LABEL_KEYS } from '@/constants/accessScopes'
 import { useSettingStore, useUserStore } from '@/stores'
 import { theToast } from '@/utils/toast'
@@ -38,6 +39,9 @@ const expired = ref(false)
 const remaining = ref(0)
 
 const siteName = computed(() => String(SystemSetting.value?.server_name || 'Ech0'))
+const accountAvatar = computed(() =>
+  resolveAvatarUrl(user.value?.avatar || SystemSetting.value?.server_logo),
+)
 const username = computed(() => user.value?.username || '')
 /** Approving mints an access token, which the backend restricts to admins. */
 const canApprove = computed(() => user.value?.is_admin === true)
@@ -157,19 +161,31 @@ onBeforeUnmount(() => {
         <span class="text-lg italic font-bold font-serif text-[var(--color-text-muted)]">
           {{ siteName }}
         </span>
-        <p class="mt-1.5 flex items-center gap-1.5 text-xs">
-          <span class="text-[var(--color-text-muted)]">{{ t('devicePage.signedInAs') }}</span>
-          <span class="font-medium text-[var(--color-text-secondary)]">{{ username }}</span>
-          <span class="text-[var(--color-border-strong)]">·</span>
-          <button
-            type="button"
-            class="cursor-pointer text-[var(--color-accent)] hover:opacity-80"
-            @click="switchAccount"
-          >
-            {{ t('devicePage.switchAccount') }}
-          </button>
-        </p>
       </header>
+
+      <div
+        class="mt-5 flex items-center gap-2.5 rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] px-3 py-2"
+      >
+        <img
+          :src="accountAvatar"
+          alt=""
+          loading="lazy"
+          class="w-6 h-6 shrink-0 rounded-full object-cover ring-1 ring-[var(--color-border-subtle)]"
+        />
+        <p class="flex min-w-0 flex-1 items-baseline gap-1.5 text-xs">
+          <span class="shrink-0 text-[var(--color-text-muted)]">{{
+            t('devicePage.signedInAs')
+          }}</span>
+          <span class="truncate font-medium text-[var(--color-text-primary)]">{{ username }}</span>
+        </p>
+        <button
+          type="button"
+          class="shrink-0 cursor-pointer text-xs text-[var(--color-accent)] hover:opacity-80"
+          @click="switchAccount"
+        >
+          {{ t('devicePage.switchAccount') }}
+        </button>
+      </div>
 
       <div v-if="approved" class="mt-10 text-center">
         <p class="text-sm text-[var(--color-text-primary)]">{{ t('devicePage.approved') }}</p>
@@ -200,7 +216,9 @@ onBeforeUnmount(() => {
 
         <section v-if="pending" class="mt-6 space-y-4">
           <div class="flex items-baseline gap-1.5 text-sm">
-            <span class="shrink-0 text-[var(--color-text-muted)]">{{ t('devicePage.client') }}</span>
+            <span class="shrink-0 text-[var(--color-text-muted)]">{{
+              t('devicePage.client')
+            }}</span>
             <span class="font-medium text-[var(--color-text-primary)] break-all">
               {{ pending.client_name }}
             </span>
