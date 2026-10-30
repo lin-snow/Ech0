@@ -236,7 +236,8 @@ router.beforeEach(async (to) => {
     (to.meta.optionalAuth && !userStore.isLogin && needRedirect === 'true')
   ) {
     localStorage.removeItem('needLoginRedirect')
-    return { name: 'auth' }
+    // Keep the full target so protected deep links (e.g. /device?code=...) survive login.
+    return { name: 'auth', query: { redirect: to.fullPath } }
   }
 
   return true

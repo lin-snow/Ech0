@@ -1206,17 +1206,22 @@
     "exportPhaseCompleted": "完成"
   },
   "devicePage": {
-    "title": "设备授权",
-    "subtitle": "确认终端 CLI 的登录请求。",
     "codeLabel": "设备码",
-    "codePlaceholder": "输入终端显示的 8 位设备码",
+    "codePlaceholder": "ABCD-EFGH",
+    "codeHelp": "输入终端中显示的 8 位设备码。",
     "approve": "确认授权",
+    "approving": "授权中…",
     "client": "客户端：",
     "scopes": "申请的权限",
-    "pending": "该请求将在 {seconds} 秒后过期。",
+    "expiresIn": "剩余有效期",
+    "expired": "该设备码已过期，请在终端重新发起授权。",
     "approved": "已授权，请回到终端继续。",
     "lookupFailed": "设备码无效或已过期。",
     "approveFailed": "授权失败，请重试。",
-    "backHome": "返回首页"
+    "backHome": "返回首页",
+    "signedInAs": "当前登录账户",
+    "switchAccount": "切换账户",
+    "adminRequired": "只有管理员可以授权设备登录。",
+    "securityHint": "只授权你在自己终端发起的请求。"
   }
 }

@@ -1206,17 +1206,22 @@
     "exportPhaseCompleted": "Done"
   },
   "devicePage": {
-    "title": "Device authorization",
-    "subtitle": "Approve a sign-in request from a terminal CLI.",
     "codeLabel": "Device code",
-    "codePlaceholder": "Enter the 8-character code shown in your terminal",
+    "codePlaceholder": "ABCD-EFGH",
+    "codeHelp": "Enter the 8-character code shown in your terminal.",
     "approve": "Approve",
+    "approving": "Approving…",
     "client": "Client:",
     "scopes": "Requested scopes",
-    "pending": "This request expires in {seconds} seconds.",
+    "expiresIn": "Expires in",
+    "expired": "This code has expired. Start a new request in your terminal.",
     "approved": "Approved. Return to your terminal to continue.",
     "lookupFailed": "The device code is invalid or expired.",
     "approveFailed": "Authorization failed, please try again.",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "signedInAs": "Signed in as",
+    "switchAccount": "Switch account",
+    "adminRequired": "Only administrators can approve device sign-ins.",
+    "securityHint": "Only approve codes you started in your own terminal."
   }
 }

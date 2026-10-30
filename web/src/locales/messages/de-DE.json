@@ -1206,17 +1206,22 @@
     "exportPhaseCompleted": "Fertig"
   },
   "devicePage": {
-    "title": "Geräteautorisierung",
-    "subtitle": "Bestätige eine Anmeldeanfrage einer Terminal-CLI.",
     "codeLabel": "Gerätecode",
-    "codePlaceholder": "Gib den 8-stelligen Code aus deinem Terminal ein",
+    "codePlaceholder": "ABCD-EFGH",
+    "codeHelp": "Gib den 8-stelligen Code aus deinem Terminal ein.",
     "approve": "Bestätigen",
+    "approving": "Wird bestätigt…",
     "client": "Client:",
     "scopes": "Angeforderte Berechtigungen",
-    "pending": "Diese Anfrage läuft in {seconds} Sekunden ab.",
+    "expiresIn": "Läuft ab in",
+    "expired": "Dieser Code ist abgelaufen. Starte im Terminal eine neue Anfrage.",
     "approved": "Bestätigt. Kehre zum Terminal zurück.",
     "lookupFailed": "Der Gerätecode ist ungültig oder abgelaufen.",
     "approveFailed": "Autorisierung fehlgeschlagen, bitte erneut versuchen.",
-    "backHome": "Zurück zur Startseite"
+    "backHome": "Zurück zur Startseite",
+    "signedInAs": "Angemeldet als",
+    "switchAccount": "Konto wechseln",
+    "adminRequired": "Nur Administratoren können Geräteanmeldungen genehmigen.",
+    "securityHint": "Genehmige nur Codes, die du selbst im Terminal gestartet hast."
   }
 }

@@ -1206,17 +1206,22 @@
     "exportPhaseCompleted": "完了"
   },
   "devicePage": {
-    "title": "デバイス認証",
-    "subtitle": "ターミナルの CLI からのサインイン要求を承認します。",
     "codeLabel": "デバイスコード",
-    "codePlaceholder": "ターミナルに表示された8桁のコードを入力",
+    "codePlaceholder": "ABCD-EFGH",
+    "codeHelp": "ターミナルに表示された 8 文字のコードを入力してください。",
     "approve": "承認する",
+    "approving": "承認中…",
     "client": "クライアント:",
     "scopes": "要求されたスコープ",
-    "pending": "このリクエストは {seconds} 秒後に失効します。",
+    "expiresIn": "残り時間",
+    "expired": "このコードは期限切れです。ターミナルで新しい要求を開始してください。",
     "approved": "承認しました。ターミナルに戻って続行してください。",
     "lookupFailed": "デバイスコードが無効か期限切れです。",
     "approveFailed": "認可に失敗しました。もう一度お試しください。",
-    "backHome": "ホームに戻る"
+    "backHome": "ホームに戻る",
+    "signedInAs": "サインイン中のアカウント",
+    "switchAccount": "アカウントを切り替え",
+    "adminRequired": "デバイスのサインインを承認できるのは管理者のみです。",
+    "securityHint": "自分のターミナルで開始したコードのみ承認してください。"
   }
 }
