@@ -58,6 +58,7 @@
 |------|------|
 | [dev/auth-design.md](dev/auth-design.md) | 认证体系：双 Token、OAuth / Passkey、吊销策略 |
 | [dev/access-token-scope-design.md](dev/access-token-scope-design.md) | Access Token 的 `typ` / scope / audience 设计背景（实现以代码为准） |
+| [dev/cli-design.md](dev/cli-design.md) | CLI（`apps/cli`）：Bun/TS 技术栈、Huma→TS/zod 生成链、三种登录与 device flow、输出契约 |
 | [dev/config-and-settings-architecture.md](dev/config-and-settings-architecture.md) | config / setting / kvstore / transaction 四层依赖、"读直连写走域" |
 | [dev/timezone-design.md](dev/timezone-design.md) | 时间与时区：UTC epoch 存储、本地展示、跨时区一致性 |
 | [dev/job-runner-design.md](dev/job-runner-design.md) | 长时有状态作业子系统（Job Runner） |
