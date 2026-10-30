@@ -8,7 +8,7 @@
 
 一句话：**登录到一台指定的 Ech0 实例，在终端完成 Echo 的增删改查**。
 
-范围的取舍：登录之后只暴露 Echo CRUD（`echo.create` / `echo.page.get` / `echo.get` / `echo.update` / `echo.delete`），其余接口（评论、文件、迁移、系统日志、Copilot 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动。
+范围的取舍：登录之后只暴露 Echo CRUD（`echo.create` / `echo.page.get` / `echo.get` / `echo.update` / `echo.delete`）、文件上传（`file.upload`）与外链文件登记（`file.external`），其余接口（评论、文件下载、迁移、系统日志、Copilot 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动。
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
@@ -38,6 +38,11 @@ apps/cli/
   tsconfig.json           # ES2024 / bundler / strict / noEmit
   openapi-ts.config.ts    # 生成配置（input = ../../internal/openapi/openapi.yaml）
   justfile                # 根 justfile 通过 `mod cli "apps/cli/justfile"` 暴露
+  scripts/
+    dist.ts               # 发布产物：交叉编译二进制、tar.gz、SHA256SUMS、npm 包目录
+  npm/
+    ech0.cjs              # npm 启动器：按平台 exec optionalDependency 里的二进制
+    README.md             # npm 包页面说明
   src/
     index.ts              # #!/usr/bin/env bun → createRootCommand → parseAsync
     session.ts            # profile/server/token 解析、全局 flags
@@ -137,7 +142,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 | `file.stream.by_id` | `GET /api/file/{id}/stream` | binary |
 | `migration.export.download` | `GET /api/migration/export/download` | binary（zip） |
 
-> 这些操作当前都不在 `CLI_OPERATIONS` 里：CLI 只做 Echo CRUD。传输层（SSE 解析、multipart、二进制落盘、`auth=query`）已实现并有单测，放开时把对应 id 加进白名单即可。Copilot（`POST /api/chat`）按产品决定暂不支持，也不在 catalog 里。
+> 其中 `file.upload` 与 `file.external` 在 `CLI_OPERATIONS` 里；SSE、二进制下载与 WebSocket 的客户端实现与单测都在，但未开放命令，把对应 id 加进白名单即可。Copilot（`POST /api/chat`）按产品决定暂不支持，也不在 catalog 里。
 
 `transport` 形状（Huma 操作仅在非纯 JSON 时才带）：
 
@@ -172,27 +177,41 @@ CLI 按 `kind` 分派：
 - 中断：SIGINT → `AbortController.abort()`，退出码 130；下载中断删除 `.part`。
 - 流式请求同样享受 412 刷新重试与 401 续签重试（在响应头返回、body 未消费前判断）。
 
-### 4.6 组合 Echo：payload、标签与附件
+### 4.6 组合 Echo：先上传，再引用
 
-Echo 可以由「文本 + 附件 + 标签 + extension」组成，而附件必须先上传拿到 `file_id` 才能挂到 Echo 上。CLI 不把这两步暴露给用户，而是在一条命令里完成：
+Echo 可以由「文本 + 附件 + 标签 + extension」组成。HTTP 侧附件本来就是独立的 `POST /files/upload`，CLI 保持同样的两步，不把上传藏进 `echo create`：
 
 ```bash
+# 1) 上传，拿 file_id（category 省略时按扩展名推断）
+ech0 file upload --file ./cover.png
+# {"code":1,"data":{"id":"01a18c…","name":"cover.png","storage_type":"local","url":"/api/files/images/…"}}
+
+# 2) 引用 file_id 发 Echo
 ech0 echo create \
   --content "今天听了这张" \
-  --tag music --tag ambient \
-  --attach ./cover.png \
+  --tag music \
+  --file-id 01a18c… \
   --extension '{"type":"MUSIC","payload":{"url":"https://music.example/1"}}'
 ```
 
-| flag | 行为 |
+| 命令 / flag | 行为 |
 | --- | --- |
+| `ech0 file upload --file <path>` | multipart 上传；`-` 读 stdin。`--category` 省略时按扩展名推断（image/video/audio/pdf/markdown/file） |
+| `--file-name <name>` | 覆盖 multipart 文件名；stdin 上传必须带扩展名（服务端按文件名判定类型） |
+| `--storage-type <local\|s3>` | 上传目标；默认 `local`。`external` 不是上传，传了直接报错并提示改用 `file external` |
+| `ech0 file external --url <url>` | 外链文件：只登记 URL（服务端校验 http/https、按 URL 推断 `content_type` 与 category），返回 `storage_type=external` 的 file id |
+| `ech0 echo create --file-id <id>` | 可重复；按顺序写入 `echo_files:[{file_id,sort_order}]` |
 | `--tag <name>` | 可重复；追加到 `tags`（与 `--tags` 合并） |
-| `--attach <path>` | 可重复；内部调用 catalog 的 `file.upload`（按扩展名推断 category），拿到 id 后写成 `echo_files:[{file_id,sort_order}]` |
-| `--attach-storage <type>` | 上传目标存储：`local` / `s3`（默认 `local`）。`external` 不是上传，服务端会把 `storage_type=external` 归一成 `local`，CLI 直接拒绝并提示用 URL 注册 |
-| `--from <file\|->` | 从 JSON 读取完整 payload；`-` 表示 stdin（agent/管道） |
-| `--edit` | 用 `$EDITOR` 打开 JSON 模板，保存退出即提交；与 `--from` 互斥 |
+| `--from <file\|->` / `--edit` | 用 JSON payload 提交；`--edit` 打开 `$EDITOR`，不保留任何状态 |
 
-合并优先级：payload 文件打底 → 同名 flag 覆盖 → `--tags`/`--tag` 追加、`--attach` 追加到 `echo_files` 末尾（`sort_order` 续号）。附件类别不一致（如 png + mp3）在**上传前**就报错，因为服务端 `validateSingleFileCategory` 要求同一条 Echo 的附件同类别。
+合并优先级：payload 文件打底 → 同名 flag 覆盖 → `--tags`/`--tag` 追加、`--file-id`/`--echo-files` 追加到 `echo_files` 末尾（`sort_order` 续号）。附件类别必须一致（服务端 `validateSingleFileCategory`），上传时应选同一个 `--category`。
+
+外链媒体走登记而不是上传，之后同样用 `--file-id` 挂到 Echo：
+
+```bash
+ech0 file external --url https://example.com/photo.png --category image
+ech0 echo create --content "外链图片" --file-id <返回的 id>
+```
 
 payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
@@ -207,7 +226,7 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 }
 ```
 
-**为什么不做 stateful 的 draft/workspace**：草稿目录会引入格式版本、profile 绑定、孤儿附件清理、部分失败语义，而且不可脚本化。上面的 JSON 文件本身就是草稿——可以放进 git、可以由 agent 生成、可以 `--edit` 手改；附件用**本地路径**记录（提交时才上传），避免草稿里保存会过期的 `file_id`。将来若需要定时发布或跨设备续写，那是服务端能力，不是 CLI 草稿。
+**为什么不做 stateful 的 draft/workspace**：上传出来的文件在 Echo 创建前是 temp 记录（TTL 到期清理），草稿目录会引入格式版本、profile 绑定、孤儿清理和部分失败语义，而且不可脚本化。JSON 文件本身就是草稿：可以进 git、可以由 agent 生成、可以 `--edit` 手改。注意草稿里存 **file_id** 会过期，长周期草稿应在提交前重新上传附件。
 
 ## 5. 认证与凭据
 
@@ -280,6 +299,7 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 ech0 auth login|status|logout
 ech0 config list|use|unset|path
 ech0 catalog refresh|path
+ech0 install skills <dir> [--from <folder>]
 ech0 version
 ech0 help [words...] [--full] [--json]
 ```
@@ -287,7 +307,7 @@ ech0 help [words...] [--full] [--json]
 服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（当前为 Echo CRUD 五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
 
 ```
-ech0 echo create --content "hi" --private --tags dev
+ech0 echo create --content "hi" --private --tag dev
 ech0 echo page get --page 1 --page-size 20
 ech0 echo get --id <uuid>
 ```
@@ -310,13 +330,30 @@ ech0 echo get --id <uuid>
 描述符的每一段都由 catalog 推导，不手写：
 
 - **接口卡片**：`METHOD /api|/ws<path>`、效果（只读/写入/危险操作）、`scope`、`transport`（multipart 上传、token 走查询参数、SSE 事件名、二进制/WebSocket）。
-- **参数**：`input.properties` → kebab flag；布尔无值；文件字段（`format: binary`）显示 `--file <path>`；`required`、`enum`、`default` 进标签或说明；`bind` 标出 path/query/form。
-- **示例**：所有必填字段 + 文件字段拼成一条可直接改用的命令行，占位符写作 `<字段名>`。
+- **参数**：`input.properties` → kebab flag；布尔无值；文件字段（`format: binary`）显示 `--file <path>`；`required`、`enum`、`default` 进标签或说明；`bind` 标出 path/query/form。字段说明取自 schema 的 `description`，也就是 Go 结构体上的 `doc:"..."` 标签——参数语义写在后端 DTO，CLI 不重复维护。对象数组（`echo_files`、`tags`）显示 `--x <json>`，只接受 JSON，不再用逗号简写。
+- **示例**：所有必填字段 + 文件字段拼成一条可直接改用的命令行，占位符写作 `<字段名>`；`echo create/update` 这类组合操作改用固定示例序列（上传 → 引用 file_id、`--tag`、`--from`），因为“必填字段”表达不了两步流程。
 - **分组**：catalog 生成的命名空间是纯容器（`addHelpCommand(false)`），渲染时现算操作数与操作名。
 - **提示**：从 op 元数据派生的下一步——缺 token（`ech0 auth login`）、scope 与 403、流式（Ctrl-C / `--json`）、二进制（`--output`）、multipart（`<path>` / `-`）、危险操作与弃用；运行时失败也按状态码给提示（401/403/网络/5xx），不用翻文档猜。
+- **CLI 专属提示**：catalog 描述不了的东西由命令自己补——组合操作的 `--tag` / `--file-id` / `--from` / `--edit` 语义与合并规则、update 的整体覆盖、登录三种模式（设备码流程、`--token -`、管理员铸造 `audience=cli` 令牌、`--scopes` 默认值）。
+- **不设独立 skills 文件**：教程就是描述符本身——参数说明、示例序列、提示都在 `ech0 help <命令>` 里，且随 catalog/CLI 版本走，不会和实现脱节。
 - **catalog 不可用**：地图仍然完整；服务端命令一栏说明原因并给出 `ech0 auth login` / `ECH0_SERVER` 的下一步，不静默失败。
 
 未知命令报退出码 2，并给最近似的命令（编辑距离）与搜索提示；`ech0 <namespace>` 裸调用打印该组帮助并退出 0。
+
+### 6.2 skills 安装
+
+`ech0 install skills <dir>` 把内置的 Ech0 skill 写进一个 skills 根目录（例如 Claude Code 的 `~/.claude/skills`），最终布局是 `<dir>/ech0/SKILL.md` + `<dir>/ech0/references/*.md`：
+
+```bash
+ech0 install skills ~/.claude/skills
+ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内置版本
+```
+
+- skill 源码在仓库根目录 `skills/ech0/`，是普通 Markdown（`SKILL.md` 带 frontmatter 的 name/description），不绑定某个 agent；安装只是复制。
+- 构建时用 Bun 的文本导入（`import … with { type: "text" }`）把文件嵌进 CLI，因此 `bun build` / `bun build --compile` 产出的二进制离线可用，不需要随包附带 `skills/` 目录。
+- 安装会整体替换 `<dir>/ech0`：旧版本残留的 references 不会留下。
+- `~` 按调用者 HOME 展开；`--from` 必须是包含 `SKILL.md` 的文件夹，否则退出码 2。
+- 输出：人类可读的安装路径与文件列表；`--json` 返回 `{target, files}`。
 
 ## 7. 输出契约
 
@@ -346,9 +383,17 @@ ech0 echo get --id <uuid>
 
 ## 9. 分发
 
-- 一期：GitHub Release 附带 `ech0-cli-<os>-<arch>.tar.gz`（darwin/linux × arm64/amd64），`bun build --compile` 交叉编译；独立 workflow job，不并入现有 `ech0-linux-*` glob。
-- 二期：npm `@ech0/cli` + `curl | sh` 安装脚本。
-- 版本：`--version` 取 package 版本；服务端版本用 `ech0 common hello`（catalog 命令）。
+发布由 `.github/workflows/release-cli.yml` 驱动：监听 `release: published`（也支持 `workflow_dispatch` 指定历史 tag 重跑），版本号取 release tag 去掉 `v`，与 Ech0 发版一一对应；预发布版本（如 `4.7.0-rc.1`）发布到 npm 的 `next` dist-tag，稳定版发 `latest`。
+
+- **GitHub Release**：`ech0-cli-<os>-<arch>.tar.gz`（darwin/linux × arm64/x64，包内是 `ech0` + `LICENSE`）与 `SHA256SUMS`，由 `bun build --compile --target=bun-<os>-<arch>` 在 Linux runner 上交叉编译，资产上传到同一次 release；命名用 `ech0-cli-*`，不并入 `ech0-linux-*` glob。
+- **npm**：
+  - `@ech0/cli`：启动器（`bin/ech0.cjs`，Node ≥18），按 `process.platform` / `process.arch` 找到平台包并 exec 二进制；
+  - `@ech0/cli-<os>-<arch>`：只含编译产物，用 `os` / `cpu` 字段限制安装平台；四个平台包作为 `optionalDependencies`，npm 只安装匹配的那一个；
+  - 没有 postinstall 下载，安装后离线可用。
+- **版本**：编译时用 `--define process.env.ECH0_CLI_VERSION="<tag>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本仍用 `ech0 common hello`（catalog 命令）。
+- **本地复现**：`just cli dist 4.7.0` → `apps/cli/dist/release/`（四个二进制、tar.gz、`SHA256SUMS` 与可直接 `npm publish` 的目录）。
+- macOS 从浏览器下载 release 资产会被打上 quarantine 标记；二进制未签名，首次运行前需 `xattr -d com.apple.quarantine ech0`（走 npm 无此问题）。
+- npm 发布需要仓库 secret `NPM_TOKEN`（能发布 `@ech0` scope）；启用 OIDC provenance（`id-token: write`）。已发布的版本会跳过，重跑 workflow 不报错。
 
 ## 10. 验证
 
@@ -357,6 +402,7 @@ just cli typecheck    # tsc --noEmit（TS 5.9）
 just cli test         # bun test
 just cli gen-check    # 生成物漂移检查
 just cli build        # bun build --target=bun
+just cli dist 4.7.0   # 发布用二进制 + tar.gz + npm 包（apps/cli/dist/release）
 go test ./internal/openapi/... ./internal/router/...
 ```
 
@@ -373,8 +419,8 @@ go test ./internal/openapi/... ./internal/router/...
 | M2 | 后端 operation catalog（`/api/_catalog` + 指纹 + 412）与 CLI 动态命令；token 登录、profile/凭据存储；`auth/config/catalog/version` 本地命令 | 已完成 |
 | M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 已完成 |
 | M4 | device authorization：后端端点 + Web `/device` 批准页 + CLI 轮询 | 已完成 |
-| M5 | Release 编译产物、npm 包、curl 脚本 | 待做 |
-| M6 | `kind=stream/binary` 渲染、shell completion、旧服务端 `/api/openapi.json` 兜底 | 待做 |
+| M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@ech0/cli` + 平台包），由 `release-cli.yml` 发版后自动执行 | 已完成 |
+| M6 | `kind=stream/binary` 渲染、shell completion、旧服务端 `/api/openapi.json` 兜底、`curl \| sh` 安装脚本 | 待做 |
 
 ## 12. 未决
 

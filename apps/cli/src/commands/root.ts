@@ -14,6 +14,7 @@ import {
   helpModel,
   nodeAt,
   setCommandExamples,
+  setCommandHints,
   setHelpContext,
 } from "../help/model.ts";
 import { formatCommand, renderHelp } from "../help/render.ts";
@@ -29,12 +30,14 @@ import {
 import { loadContext, openSession, readGlobalFlags, type GlobalFlags } from "../session.ts";
 import { readPassword, readStdin } from "../ui/prompt.ts";
 import * as auth from "./auth.ts";
+import { installCommand } from "./install.ts";
 import * as catalogCommands from "./catalog.ts";
 import * as config from "./config.ts";
 import { registerCatalogCommands } from "./dynamic.ts";
 import { createHelpCommand } from "./help.ts";
 import { invokeOperation } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
+import { CLI_VERSION } from "../version-info.ts";
 import * as version from "./version.ts";
 
 function readScopes(raw: unknown): string[] | undefined {
@@ -58,7 +61,7 @@ function emit(result: CommandOutput, flags: GlobalFlags): void {
 function authCommand(): Command {
   const group = new Command("auth").description("登录、查看与清除实例凭据");
 
-  group
+  const login = group
     .command("login")
     .description("登录实例：access token / 密码 / 设备授权")
     .option("--device", "使用浏览器设备授权登录", false)
@@ -115,6 +118,13 @@ function authCommand(): Command {
 
       throw new UsageError("登录方式：--token <token>（access token）、-u/--username（密码）或 --device（浏览器授权）");
     });
+  setCommandHints(login, [
+    "--device：CLI 打印设备码与确认链接；浏览器批准后保存 1 个月设备令牌",
+    "--token -：从 stdin 读取 access token（CI 也可用 ECH0_TOKEN）",
+    "-u <name>：密码登录；管理员会额外铸造 audience=cli 的 1 个月令牌，普通用户保存会话令牌 + refresh cookie",
+    `--scopes：只在密码/设备登录铸造令牌时生效，默认 ${auth.DEFAULT_CLI_SCOPES.join(",")}`,
+    "凭据按 profile 保存（ech0 config list 查看）；--no-keychain 或 ECH0_NO_KEYCHAIN=1 可跳过系统钥匙串",
+  ]);
 
   group
     .command("status")
@@ -206,7 +216,7 @@ function versionCommand(): Command {
     .description("显示 CLI 版本")
     .action((_options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(version.version(pkg.version), flags);
+      emit(version.version(CLI_VERSION), flags);
     });
 }
 
@@ -257,6 +267,7 @@ function localExamples(program: Command): void {
       ["auth", "login"],
       [
         "ech0 auth login --server https://example.com --device",
+        "ech0 auth login --server https://example.com -u admin",
         "ech0 auth login --server https://example.com --token -",
       ],
     ],
@@ -264,6 +275,7 @@ function localExamples(program: Command): void {
     [["config", "use"], ["ech0 config use memo"]],
     [["config", "list"], ["ech0 config list"]],
     [["catalog", "refresh"], ["ech0 catalog refresh"]],
+    [["install", "skills"], ["ech0 install skills ~/.claude/skills"]],
     [["help"], ["ech0 help", "ech0 help echo", "ech0 help page"]],
   ];
   for (const [path, lines] of examples) {
@@ -276,7 +288,7 @@ function localExamples(program: Command): void {
 export async function createRootCommand(): Promise<Command> {
   const program = new Command("ech0")
     .description(pkg.description)
-    .version(pkg.version, "-v, --version", "显示 CLI 版本")
+    .version(CLI_VERSION, "-v, --version", "显示 CLI 版本")
     .option("--profile <name>", "使用指定 profile")
     .option("--server <url>", "覆盖实例地址")
     .option("--token <token>", "覆盖 access token")
@@ -304,6 +316,7 @@ export async function createRootCommand(): Promise<Command> {
   program.addCommand(configCommand());
   program.addCommand(catalogCommand(refresh));
   program.addCommand(versionCommand());
+  program.addCommand(installCommand());
   program.addCommand(createHelpCommand());
 
   const boot = await bootstrapCatalog();
@@ -326,8 +339,8 @@ export async function createRootCommand(): Promise<Command> {
           compose: extra.compose,
           payload: extra.payload,
           tags: extra.tags,
-          attach: extra.attach,
-          attachStorage: extra.attachStorage,
+          fileIds: extra.fileIds,
+          uploadFileName: extra.uploadFileName,
         });
       },
     });
@@ -356,6 +369,7 @@ export async function createRootCommand(): Promise<Command> {
     "ech0 help",
     ...(serverGroup === undefined ? [] : [`ech0 help ${serverGroup.name()}`]),
     "ech0 catalog refresh",
+    "ech0 install skills ~/.claude/skills",
   ]);
 
   program.argument("[words...]", "命令或关键词（与 `ech0 help` 等价）");

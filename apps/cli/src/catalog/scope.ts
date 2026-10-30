@@ -8,6 +8,8 @@
  * capability — the command generation needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
+  "file.upload",
+  "file.external",
   "echo.create",
   "echo.page.get",
   "echo.get",
@@ -21,5 +23,5 @@ export function inScope(id: string): boolean {
   return allowed.has(id);
 }
 
-/** Echo operations that accept composed payloads (`--from`, `--tag`, `--attach`). */
+/** Echo operations that accept composed payloads (`--from`, `--tag`, `--file-id`). */
 export const ECHO_COMPOSE_OPERATIONS: ReadonlySet<string> = new Set(["echo.create", "echo.update"]);

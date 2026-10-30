@@ -34,10 +34,30 @@ const CATALOG = {
               "Echo 的正文内容，支持 Markdown；服务端会按配置的可见性规则裁剪，私密 Echo 只对 owner 可见",
           },
           private: { type: "boolean", description: "是否私密" },
+          tags: {
+            type: ["array", "null"],
+            description: "标签列表，元素为 {name}",
+            items: { type: "object", additionalProperties: true, properties: { name: { type: "string" } } },
+          },
+          echo_files: {
+            type: ["array", "null"],
+            description: "附件引用列表：{file_id, sort_order}",
+            items: {
+              type: "object",
+              additionalProperties: true,
+              properties: { file_id: { type: "string" }, sort_order: { type: "integer" } },
+            },
+          },
+          extension: {
+            type: "object",
+            description: "扩展卡片 {type, payload}",
+            additionalProperties: true,
+            properties: { type: { type: "string" } },
+          },
         },
         required: ["content"],
       },
-      bind: { content: "body", private: "body" },
+      bind: { content: "body", private: "body", tags: "body", echo_files: "body", extension: "body" },
       deprecated: false,
     },
     "echo.page.get": {
@@ -182,8 +202,8 @@ describe("help", () => {
     expect(result.stdout).toContain("本地命令");
     expect(result.stdout).toContain("auth");
     expect(result.stdout).toContain("服务端命令");
-    expect(result.stdout).toContain("2 个操作");
-    expect(result.stdout).toContain("catalog 共 5 个操作，CLI 当前开放 2 个");
+    expect(result.stdout).toContain("3 个操作");
+    expect(result.stdout).toContain("catalog 共 5 个操作，CLI 当前开放 3 个");
     expect(result.stdout).toContain("示例");
   });
 
@@ -206,10 +226,39 @@ describe("help", () => {
     expect(result.stdout).toContain("接口: POST /api/echo · 写入 · scope: echo:write");
     expect(result.stdout).toContain("--content <content>");
     expect(result.stdout).toContain("必填");
-    expect(result.stdout).toContain("ech0 echo create --content <content>");
+    expect(result.stdout).toContain("ech0 echo create --content \"今天的想法\" --tag daily");
     expect(result.stdout).toContain("全局选项");
     expect(result.stdout).toContain("提示");
     expect(result.stdout).toContain("需要 scope：echo:write");
+  });
+
+  test("compose flags explain themselves and object arrays demand JSON", async () => {
+    const server = withCatalog();
+    const help = await run(["help", "echo", "create"], { ECH0_SERVER: server.baseUrl });
+    expect(help.stdout).toContain("--echo-files <json>");
+    expect(help.stdout).toContain("--tags <json>");
+    expect(help.stdout).toContain("--tag 追加标签（可重复）");
+    expect(help.stdout).toContain("--file-id 引用已上传文件");
+    expect(help.stdout).toContain("--from/--edit 提交完整 payload");
+
+    const rejected = await run(["echo", "create", "--tags", "a,b"], { ECH0_SERVER: server.baseUrl });
+    expect(rejected.exitCode).toBe(2);
+    expect(rejected.stderr).toContain("--tags 的元素是对象，需要 JSON 数组");
+
+    const accepted = await run(
+      ["echo", "create", "--tags", '[{"name":"daily"}]', "--content", "hi"],
+      { ECH0_SERVER: server.baseUrl },
+    );
+    expect(accepted.stderr).not.toContain("需要 JSON 数组");
+  });
+
+  test("the login descriptor teaches every login mode", async () => {
+    const result = await run(["help", "auth", "login"]);
+
+    expect(result.stdout).toContain("设备码与确认链接");
+    expect(result.stdout).toContain("--token -");
+    expect(result.stdout).toContain("audience=cli");
+    expect(result.stdout).toContain("默认 echo:read,echo:write,profile:read");
   });
 
   test("--help and `help <id>` render the same descriptor", async () => {
@@ -250,12 +299,12 @@ describe("help", () => {
 
   test("operations outside the curated scope stay out of the command tree", async () => {
     const server = withCatalog();
-    const upload = await run(["file", "upload"], { ECH0_SERVER: server.baseUrl });
-    expect(upload.exitCode).toBe(2);
-    expect(upload.stderr).toContain("未知命令");
+    const chat = await run(["chat", "ask"], { ECH0_SERVER: server.baseUrl });
+    expect(chat.exitCode).toBe(2);
+    expect(chat.stderr).toContain("未知命令");
 
-    const search = await run(["help", "upload"], { ECH0_SERVER: server.baseUrl });
-    expect(search.stdout).not.toContain("help file upload");
+    const search = await run(["help", "ask"], { ECH0_SERVER: server.baseUrl });
+    expect(search.stdout).not.toContain("chat ask");
   });
 
   test("long descriptions wrap inside the terminal width", () => {

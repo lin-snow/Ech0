@@ -70,6 +70,7 @@ export interface HelpEntry extends CommandRow {
 
 const OP = new WeakMap<Command, CatalogOp>();
 const EXAMPLES = new WeakMap<Command, string[]>();
+const HINTS = new WeakMap<Command, string[]>();
 const CONTEXT = new WeakMap<Command, HelpContext>();
 
 /** Remembers the catalog operation a dynamic command wraps. */
@@ -84,6 +85,11 @@ export function commandOp(command: Command): CatalogOp | undefined {
 /** Examples are hand-written for local commands and generated for catalog ones. */
 export function setCommandExamples(command: Command, examples: string[]): void {
   EXAMPLES.set(command, examples);
+}
+
+/** CLI-only advice a catalog operation cannot express (compose flags, login modes). */
+export function setCommandHints(command: Command, hints: string[]): void {
+  HINTS.set(command, hints);
 }
 
 export function setHelpContext(root: Command, context: HelpContext): void {
@@ -295,7 +301,7 @@ export function exampleFor(command: Command): string | undefined {
 
 /** What to do next: scope, transport and auth advice the catalog implies. */
 function hintsOf(command: Command, op: CatalogOp | undefined): string[] {
-  const hints: string[] = [];
+  const hints: string[] = [...(HINTS.get(command) ?? [])];
   const context = CONTEXT.get(rootOf(command));
 
   if (op === undefined) {

@@ -60,7 +60,7 @@ var rawOps = map[string]Op{
 		Effect:  EffectWrite,
 		Kind:    KindJSON,
 		Input: objectSchema(
-			[]string{"file", "category", "storage_type"},
+			[]string{"file"},
 			map[string]any{
 				"file":         binarySchema(),
 				"category":     stringSchema(),

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Ech0 command line — talks to a running Ech0 instance over its REST API",
+  "description": "Ech0 command line client for accessing and managing your Ech0 instance.",
   "bin": {
     "ech0": "./src/index.ts"
   },
@@ -12,7 +12,8 @@
     "gen:api": "openapi-ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "build": "bun build src/index.ts --target=bun --outdir=dist"
+    "build": "bun build src/index.ts --target=bun --outdir=dist",
+    "dist": "bun run scripts/dist.ts"
   },
   "engines": {
     "bun": ">=1.3"

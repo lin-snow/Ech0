@@ -38,11 +38,11 @@ type File struct {
 }
 
 type EchoFile struct {
-	ID        string `gorm:"type:char(36);primaryKey"                        json:"id"`
-	EchoID    string `gorm:"type:char(36);uniqueIndex:idx_echo_file;not null" json:"echo_id"`
-	FileID    string `gorm:"type:char(36);uniqueIndex:idx_echo_file;not null" json:"file_id"`
-	File      File   `gorm:"foreignKey:FileID;constraint:OnDelete:CASCADE" json:"file,omitempty"`
-	SortOrder int    `gorm:"default:0"                                   json:"sort_order"`
+	ID        string `gorm:"type:char(36);primaryKey"                        json:"id" doc:"关联记录 ID，提交时忽略"`
+	EchoID    string `gorm:"type:char(36);uniqueIndex:idx_echo_file;not null" json:"echo_id" doc:"所属 Echo ID，提交时忽略"`
+	FileID    string `gorm:"type:char(36);uniqueIndex:idx_echo_file;not null" json:"file_id" doc:"已上传文件的 ID（上传接口返回）"`
+	File      File   `gorm:"foreignKey:FileID;constraint:OnDelete:CASCADE" json:"file,omitempty" doc:"文件元数据，提交时忽略（服务端按 file_id 填充）"`
+	SortOrder int    `gorm:"default:0"                                   json:"sort_order" doc:"同一 Echo 内的排序，从 0 开始"`
 }
 
 type TempFile struct {

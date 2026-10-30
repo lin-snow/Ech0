@@ -202,6 +202,9 @@ export type CreateIntegrationCommentDto = {
 };
 
 export type CreateTagDto = {
+    /**
+     * 标签名
+     */
     name?: string;
     [key: string]: unknown;
 };
@@ -241,18 +244,39 @@ export type EchoExtension = {
 };
 
 export type EchoExtensionDto = {
+    /**
+     * 扩展渲染所需的任意字段
+     */
     payload?: {
         [key: string]: unknown;
     };
+    /**
+     * 扩展卡片类型，如 weather / music
+     */
     type?: string;
     [key: string]: unknown;
 };
 
 export type EchoFile = {
+    /**
+     * 所属 Echo ID，提交时忽略
+     */
     echo_id?: string;
+    /**
+     * 文件元数据，提交时忽略（服务端按 file_id 填充）
+     */
     file?: File;
+    /**
+     * 已上传文件的 ID（上传接口返回）
+     */
     file_id?: string;
+    /**
+     * 关联记录 ID，提交时忽略
+     */
     id?: string;
+    /**
+     * 同一 Echo 内的排序，从 0 开始
+     */
     sort_order?: number;
     [key: string]: unknown;
 };
@@ -271,13 +295,37 @@ export type EchoQueryDto = {
 };
 
 export type EchoUpsertDto = {
+    /**
+     * 正文（Markdown）；与附件、扩展至少有一项
+     */
     content?: string;
+    /**
+     * 发布时间（Unix 秒），缺省为当前时间
+     */
     created_at?: number;
+    /**
+     * 附件引用列表：{file_id, sort_order}；文件先通过上传接口获取 file_id
+     */
     echo_files?: Array<EchoFile> | null;
+    /**
+     * 扩展卡片 {type, payload}
+     */
     extension?: EchoExtensionDto;
+    /**
+     * 更新时的 Echo ID；创建时忽略
+     */
     id?: string;
+    /**
+     * 布局：waterfall / grid / horizontal / carousel / stack / none
+     */
     layout?: string;
+    /**
+     * 仅自己可见
+     */
     private?: boolean;
+    /**
+     * 标签列表，元素为 {name}；同名标签复用
+     */
     tags?: Array<Tag> | null;
     [key: string]: unknown;
 };
@@ -1378,9 +1426,21 @@ export type SystemSettingDto = {
 };
 
 export type Tag = {
+    /**
+     * 创建时间，提交时忽略
+     */
     created_at?: number;
+    /**
+     * 标签 ID，提交时忽略
+     */
     id?: string;
+    /**
+     * 标签名；同名标签复用
+     */
     name?: string;
+    /**
+     * 引用次数，提交时忽略
+     */
     usage_count?: number;
     [key: string]: unknown;
 };

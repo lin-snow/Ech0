@@ -142,11 +142,43 @@ After the workflow completes:
 
 2. **Promote the draft release to published.** GitHub release notes default to auto-generated PR titles since the last release; replace them with the relevant `[X.Y.Z]` section from `CHANGELOG.md`.
 
+   Publishing the release fires [`.github/workflows/release-cli.yml`](../../.github/workflows/release-cli.yml), which builds the CLI
+   (see [CLI release](#cli-release-automatic) below).
+
 3. **Pull the Docker image** to confirm:
    ```bash
    docker pull ghcr.io/lin-snow/ech0:vX.Y.Z
    docker run --rm ghcr.io/lin-snow/ech0:vX.Y.Z version
    ```
+
+## CLI release (automatic)
+
+The `ech0` CLI (`apps/cli`) is versioned with Ech0 and shipped by a separate workflow that runs
+**after** the GitHub release is published — it is not part of `release.yml`:
+
+- Trigger: `release: published` (pre-releases included) or `workflow_dispatch` with the `tag` input
+  to rebuild a past release. Version = release tag without the leading `v`; pre-release versions
+  publish to npm's `next` dist-tag, stable ones to `latest`.
+- It compiles `darwin/{arm64,x64}` and `linux/{arm64,x64}` with `bun build --compile`, then uploads
+  `ech0-cli-<os>-<arch>.tar.gz` and `SHA256SUMS` to that same release (asset names use the
+  `ech0-cli-*` prefix, so they never collide with the server's `ech0-linux-*` glob).
+- It publishes `@ech0/cli` plus one `@ech0/cli-<os>-<arch>` package per platform to npm. The
+  launcher picks the matching binary from its `optionalDependencies`; there is no postinstall
+  download.
+- Required repository secret: `NPM_TOKEN` — an npm automation token allowed to publish the `@ech0`
+  scope. Publishing uses OIDC provenance, so the workflow needs `id-token: write` (already set).
+- Already-published versions are skipped, so re-running the workflow for the same tag is safe.
+
+Verify after it finishes:
+
+```bash
+gh release view vX.Y.Z                     # ech0-cli-*.tar.gz + SHA256SUMS present
+npm view @ech0/cli@X.Y.Z version           # package on npm
+npx -y @ech0/cli --version                 # matches X.Y.Z
+```
+
+To reproduce locally, run `just cli dist X.Y.Z` (outputs binaries, tarballs and publishable npm
+directories under `apps/cli/dist/release/`).
 
 ## Hot-fix releases
 

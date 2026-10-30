@@ -4,17 +4,33 @@
 import { Command } from "commander";
 
 import { ECHO_COMPOSE_OPERATIONS, inScope } from "../catalog/scope.ts";
+import { assertUploadStorage, categoryForFile, UPLOAD_OPERATION } from "./files.ts";
 import { editPayload, readPayload } from "./payload.ts";
 import type { Catalog, CatalogOp } from "../catalog/types.ts";
-import { setCommandOp } from "../help/model.ts";
+import { setCommandExamples, setCommandHints, setCommandOp } from "../help/model.ts";
 import { UsageError } from "../output/console.ts";
 import { printResult } from "../output/result.ts";
 import { readGlobalFlags } from "../session.ts";
-import { fieldOptions, kebab, schemaType, type FieldOption, type JSONSchema } from "./fields.ts";
+import {
+  arrayItemType,
+  fieldOptions,
+  kebab,
+  schemaType,
+  type FieldOption,
+  type JSONSchema,
+} from "./fields.ts";
 import type { FieldValues } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
 
-function optionParser(schema: JSONSchema): ((value: string) => unknown) | undefined {
+function parseJSON(flag: string, value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch (error) {
+    throw new UsageError(`--${flag} 不是合法 JSON：${(error as Error).message}`);
+  }
+}
+
+function optionParser(schema: JSONSchema, flag: string): ((value: string) => unknown) | undefined {
   switch (schemaType(schema)) {
     case "boolean":
       return undefined;
@@ -25,11 +41,14 @@ function optionParser(schema: JSONSchema): ((value: string) => unknown) | undefi
     case "array":
       return (value) => {
         const trimmed = value.trim();
-        // Objects need JSON; plain values keep the comma shorthand.
+        // Object elements need JSON; plain values keep the comma shorthand.
         if (trimmed.startsWith("[")) {
-          const parsed: unknown = JSON.parse(trimmed);
-          if (!Array.isArray(parsed)) throw new UsageError(`不是 JSON 数组：${value}`);
+          const parsed = parseJSON(flag, trimmed);
+          if (!Array.isArray(parsed)) throw new UsageError(`--${flag} 不是 JSON 数组：${value}`);
           return parsed;
+        }
+        if (arrayItemType(schema) !== "string") {
+          throw new UsageError(`--${flag} 的元素是对象，需要 JSON 数组：${value}`);
         }
         return trimmed
           .split(",")
@@ -37,7 +56,7 @@ function optionParser(schema: JSONSchema): ((value: string) => unknown) | undefi
           .filter((item) => item !== "");
       };
     case "object":
-      return (value) => JSON.parse(value) as unknown;
+      return (value) => parseJSON(flag, value);
     default:
       return undefined;
   }
@@ -52,7 +71,7 @@ function defineField(command: Command, field: FieldOption): void {
   const kind = schemaType(field.schema);
   const flags = kind === "boolean" ? `--${field.flag}` : `--${field.flag} <value>`;
   const description = typeof field.schema["description"] === "string" ? field.schema["description"] : field.field;
-  const parser = optionParser(field.schema);
+  const parser = optionParser(field.schema, field.flag);
 
   // Required fields are checked in the action, not with requiredOption: an
   // operation can be both a leaf and a namespace (`file.stream`), and
@@ -70,6 +89,45 @@ function collect(value: string, previous: string[] = []): string[] {
   return [...previous, value];
 }
 
+function composeExamples(id: string): string[] {
+  const update = id === "echo.update";
+  if (update) {
+    return [
+      "ech0 echo update --id <echo_id> --content \"改过的正文\"",
+      "ech0 echo update --id <echo_id> --content \"改过的正文\" --tag daily --tag work",
+      "ech0 echo update --id <echo_id> --from echo.json",
+    ];
+  }
+  return [
+    "ech0 echo create --content \"今天的想法\" --tag daily",
+    "ech0 file upload --file photo.png",
+    "ech0 echo create --content \"配图\" --file-id <file_id>",
+    "ech0 echo create --from echo.json",
+  ];
+}
+
+/** Compose flags are CLI-only, so their semantics cannot come from the catalog. */
+function composeHints(id: string, op: CatalogOp): string[] {
+  const fields = new Set(Object.keys((op.input as { properties?: object }).properties ?? {}));
+  const hints: string[] = [];
+
+  if (id === "echo.update") {
+    hints.push("更新是整体覆盖：--content / --echo-files / --extension / --tags 没传的部分会被清空；先用 ech0 echo get --id <id> 取回再改");
+    hints.push("--id 必填，且需要管理员账号");
+  }
+  if (fields.has("tags")) {
+    hints.push('--tag 追加标签（可重复）；--tags 接收 JSON 数组：[{"name":"daily"}]');
+  }
+  if (fields.has("echo_files")) {
+    hints.push('--file-id 引用已上传文件（先运行 ech0 file upload）；--echo-files 接收 JSON：[{"file_id":"<id>","sort_order":0}]');
+  }
+  if (fields.has("extension")) {
+    hints.push('--extension 接收 JSON 对象：{"type":"weather","payload":{...}}，用于渲染扩展卡片');
+  }
+  hints.push("--from/--edit 提交完整 payload：同名逐项参数被 payload 覆盖，tags 与 echo_files 累加");
+  return hints;
+}
+
 export interface DynamicOptions {
   run: (
     command: Command,
@@ -80,8 +138,8 @@ export interface DynamicOptions {
     compose?: boolean;
     payload?: Record<string, unknown>;
     tags?: string[];
-    attach?: string[];
-    attachStorage?: string;
+    fileIds?: string[];
+    uploadFileName?: string;
   },
   ) => Promise<CommandOutput>;
   /** Overrides the curated operation allowlist (tests, future widening). */
@@ -155,13 +213,17 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
     if ((op.transport?.response?.kind ?? op.kind) === "binary") {
       command.option("--output <path>", "写入文件；- 表示 stdout（非终端默认 stdout）");
     }
+    if (id === UPLOAD_OPERATION) {
+      command.option("--file-name <name>", "上传时使用的文件名（stdin 上传务必带扩展名）");
+    }
     const compose = ECHO_COMPOSE_OPERATIONS.has(id);
     if (compose) {
       command.option("--from <file>", "从 JSON 文件读取 payload（- 表示 stdin）");
       command.option("--edit", "在 $EDITOR 中编辑 payload 后提交");
-      command.option("--tag <name>", "标签，可重复", collect, []);
-      command.option("--attach <path>", "附件，可重复：先上传并挂到 Echo", collect, []);
-      command.option("--attach-storage <type>", "附件存储类型：local / s3（默认 local；external 走 URL 注册）");
+      command.option("--tag <name>", "标签，可重复；与 --tags 合并", collect, []);
+      command.option("--file-id <id>", "已上传的文件 id，可重复；与 --echo-files 合并", collect, []);
+      setCommandExamples(command, composeExamples(id));
+      setCommandHints(command, composeHints(id, op));
     }
     setCommandOp(command, op);
 
@@ -171,6 +233,16 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       for (const field of fields) {
         const value = parsed[field.optionKey];
         if (value !== undefined) values[field.field] = value;
+      }
+      // The upload API infers a category from the filename when none is given;
+      // do the same here so `ech0 file upload --file a.png` just works.
+      if (id === UPLOAD_OPERATION) {
+        if (values.category === undefined && typeof values.file === "string") {
+          values.category = categoryForFile(values.file);
+        }
+        if (typeof values.storage_type === "string") {
+          assertUploadStorage(values.storage_type);
+        }
       }
       for (const field of fields) {
         if (field.required && values[field.field] === undefined) {
@@ -190,8 +262,8 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
         compose,
         payload,
         tags: Array.isArray(parsed.tag) ? (parsed.tag as string[]) : undefined,
-        attach: Array.isArray(parsed.attach) ? (parsed.attach as string[]) : undefined,
-        attachStorage: typeof parsed.attachStorage === "string" ? parsed.attachStorage : undefined,
+        fileIds: Array.isArray(parsed.fileId) ? (parsed.fileId as string[]) : undefined,
+        uploadFileName: typeof parsed.fileName === "string" ? parsed.fileName : undefined,
       });
       // Streaming and binary commands have already written their output.
       if (result.human !== "" || result.json !== "") emit(result, flags);

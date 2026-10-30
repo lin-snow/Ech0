@@ -165,8 +165,11 @@ describe("dynamic commands", () => {
       return { human: "", json: "" };
     });
 
-    await program.parseAsync(["echo", "create", "--content", "hi", "--private", "--tags", "dev,go"], { from: "user" });
-    expect(captured).toEqual({ content: "hi", private: true, tags: ["dev", "go"] });
+    await program.parseAsync(
+      ["echo", "create", "--content", "hi", "--private", "--tags", '[{"name":"dev"}]'],
+      { from: "user" },
+    );
+    expect(captured).toEqual({ content: "hi", private: true, tags: [{ name: "dev" }] });
   });
 
   test("converts integer flags", async () => {
@@ -213,7 +216,10 @@ describe("dynamic commands", () => {
     const names = (echo?.commands ?? []).map((command) => command.name());
     expect(names.sort()).toEqual(["create", "get"]);
     expect(names).not.toContain("like");
-    expect(program.commands.map((command) => command.name())).not.toContain("file");
+
+    // file upload is part of the surface; other file operations are not.
+    const file = program.commands.find((command) => command.name() === "file");
+    expect(file?.commands.map((command) => command.name())).toEqual(["upload"]);
   });
 
   test("a callable op also gets children without flag stealing", async () => {

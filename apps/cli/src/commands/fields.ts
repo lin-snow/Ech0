@@ -50,6 +50,12 @@ export function camel(name: string): string {
   return name.replace(/-([a-z0-9])/g, (_, char: string) => char.toUpperCase());
 }
 
+/** The element type of an array schema; `string` when it declares none. */
+export function arrayItemType(schema: JSONSchema): string {
+  const items = schema["items"];
+  return typeof items === "object" && items !== null ? schemaType(items as JSONSchema) : "string";
+}
+
 export function enumValues(schema: JSONSchema): string[] {
   const values = schema["enum"];
   if (!Array.isArray(values)) return [];
@@ -91,7 +97,10 @@ export function flagTerm(field: FieldOption): string {
 function valuePlaceholder(field: FieldOption): string {
   if (isFileField(field.schema)) return "path";
   const type = schemaType(field.schema);
-  if (type === "array") return "a,b";
+  if (type === "array") {
+    const item = arrayItemType(field.schema);
+    return item === "object" || item === "array" ? "json" : "a,b";
+  }
   if (type === "object") return "json";
   if (type === "integer" || type === "number") return "number";
   return field.field.replace(/_/g, "-");

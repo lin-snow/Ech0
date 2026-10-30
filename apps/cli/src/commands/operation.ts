@@ -73,21 +73,25 @@ function isBinaryField(schema: unknown): boolean {
 }
 
 /** Reads a `--file` value into a multipart part; `-` streams stdin. */
-async function filePart(name: string, raw: unknown): Promise<FormPart> {
+async function filePart(name: string, raw: unknown, fileName?: string): Promise<FormPart> {
   const path = String(raw);
   if (path === "-") {
     const bytes = await Bun.stdin.bytes();
-    return { name, value: new Blob([bytes]), filename: "stdin" };
+    return { name, value: new Blob([bytes]), filename: fileName ?? "stdin" };
   }
   const file = Bun.file(path);
   if (!(await file.exists())) {
     throw new UsageError(`文件不存在：${path}`);
   }
-  return { name, value: file, filename: basename(path) };
+  return { name, value: file, filename: fileName ?? basename(path) };
 }
 
 /** Builds a multipart request: form fields travel as parts, files as blobs. */
-export async function buildFormRequest(op: CatalogOp, values: FieldValues): Promise<RequestSpec> {
+export async function buildFormRequest(
+  op: CatalogOp,
+  values: FieldValues,
+  options: { fileName?: string } = {},
+): Promise<RequestSpec> {
   const properties = (op.input as { properties?: Record<string, unknown> }).properties ?? {};
   let path = op.path;
   const query: Record<string, QueryValue> = {};
@@ -108,7 +112,7 @@ export async function buildFormRequest(op: CatalogOp, values: FieldValues): Prom
 
     if (isBinaryField(properties[field])) {
       for (const item of Array.isArray(value) ? value : [value]) {
-        form.push(await filePart(field, item));
+        form.push(await filePart(field, item, options.fileName));
       }
       continue;
     }
@@ -143,10 +147,10 @@ export interface InvokeOptions {
   payload?: Record<string, unknown>;
   /** `--tag`, repeated. */
   tags?: string[];
-  /** `--attach`, repeated: uploaded before the Echo is sent. */
-  attach?: string[];
-  /** `--attach-storage`: defaults to the server's local storage. */
-  attachStorage?: string;
+  /** `--file-id`, repeated: attachments uploaded by `ech0 file upload`. */
+  fileIds?: string[];
+  /** `--file-name`: multipart filename, so stdin uploads keep an extension. */
+  uploadFileName?: string;
   /** True for echo.create / echo.update: enable payload composition. */
   compose?: boolean;
 }
@@ -213,42 +217,6 @@ async function callWithRetry(
   }
 }
 
-/** Multipart upload used by `--attach`; the operation comes from the catalog. */
-const UPLOAD_OPERATION = "file.upload";
-
-const CATEGORY_BY_EXTENSION: Record<string, string> = {
-  png: "image",
-  jpg: "image",
-  jpeg: "image",
-  gif: "image",
-  webp: "image",
-  avif: "image",
-  bmp: "image",
-  svg: "image",
-  mp4: "video",
-  mov: "video",
-  webm: "video",
-  mkv: "video",
-  avi: "video",
-  mp3: "audio",
-  wav: "audio",
-  flac: "audio",
-  aac: "audio",
-  ogg: "audio",
-  m4a: "audio",
-  pdf: "pdf",
-  md: "markdown",
-  markdown: "markdown",
-};
-
-/** Upload targets the server understands; `external` is URL registration, not an upload. */
-const ATTACH_STORAGE_TYPES = new Set(["local", "s3", "object"]);
-
-function categoryFor(path: string): string {
-  const extension = path.split(".").pop()?.toLowerCase() ?? "";
-  return CATEGORY_BY_EXTENSION[extension] ?? "file";
-}
-
 /** Accepts both `[{"name":"x"}]` and `["x"]`; strings become tag objects. */
 function normalizeTags(raw: unknown): Record<string, unknown>[] {
   if (raw === undefined || raw === null) return [];
@@ -279,48 +247,13 @@ function nextSortOrder(files: Record<string, unknown>[]): number {
   return orders.length === 0 ? 0 : Math.max(...orders) + 1;
 }
 
-async function uploadAttachments(options: InvokeOptions, paths: string[]): Promise<string[]> {
-  const upload = options.catalog.doc.ops[UPLOAD_OPERATION];
-  if (upload === undefined) {
-    throw new Ech0Error(`服务端的 catalog 里没有 ${UPLOAD_OPERATION}，无法上传附件`);
-  }
-
-  const categories = paths.map(categoryFor);
-  const distinct = [...new Set(categories)];
-  if (distinct.length > 1) {
-    throw new UsageError(`同一条 Echo 的附件必须属于同一类别，收到 ${distinct.sort().join(" / ")}`);
-  }
-
-  const storage = options.attachStorage ?? "local";
-  if (!ATTACH_STORAGE_TYPES.has(storage)) {
-    throw new UsageError(
-      `--attach-storage 只支持 ${[...ATTACH_STORAGE_TYPES].join(" / ")}；external 文件要通过 URL 注册，不走上传`,
-    );
-  }
-  const ids: string[] = [];
-  for (const [index, path] of paths.entries()) {
-    const spec = await buildFormRequest(upload, {
-      file: path,
-      category: categories[index],
-      storage_type: storage,
-    });
-    const result = await callWithRetry(options, spec);
-    const data = result.data as { id?: unknown } | null;
-    if (typeof data?.id !== "string" || data.id === "") {
-      throw new Ech0Error(`上传 ${path} 成功但响应里没有文件 id`);
-    }
-    ids.push(data.id);
-  }
-  return ids;
-}
-
-/** Payload file first, flags override, `--tag`/`--attach` append. */
+/** Payload file first, flags override, `--tag` / `--file-id` append. */
 async function composeEchoValues(options: InvokeOptions): Promise<FieldValues> {
   const payload = options.payload ?? {};
   const values: FieldValues = { ...payload };
   for (const [field, value] of Object.entries(options.values)) {
     // tags and echo_files accumulate: the payload keeps what the file says,
-    // then flags append, then --tag / --attach append.
+    // then flags append, then --tag / --file-id append.
     if (value === undefined || field === "tags" || field === "echo_files") continue;
     values[field] = value;
   }
@@ -330,13 +263,10 @@ async function composeEchoValues(options: InvokeOptions): Promise<FieldValues> {
   if (tags.length > 0) values.tags = tags;
 
   const files = [...existingEchoFiles(payload.echo_files), ...existingEchoFiles(options.values.echo_files)];
-  if (options.attach !== undefined && options.attach.length > 0) {
-    let order = nextSortOrder(files);
-    const ids = await uploadAttachments(options, options.attach);
-    for (const fileID of ids) {
-      files.push({ file_id: fileID, sort_order: order });
-      order += 1;
-    }
+  let order = nextSortOrder(files);
+  for (const fileID of options.fileIds ?? []) {
+    files.push({ file_id: fileID, sort_order: order });
+    order += 1;
   }
   if (files.length > 0) values.echo_files = files;
 
@@ -347,7 +277,7 @@ async function callOperation(options: InvokeOptions): Promise<CommandOutput> {
   const values = options.compose === true ? await composeEchoValues(options) : options.values;
   const spec = withQueryAuth(
     hasFormFields(options.op)
-      ? await buildFormRequest(options.op, values)
+      ? await buildFormRequest(options.op, values, { fileName: options.uploadFileName })
       : buildRequest(options.op, values),
     options.op,
     options.session,

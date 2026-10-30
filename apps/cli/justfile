@@ -19,6 +19,12 @@ gen-check: gen
 build:
     bun run build
 
+# Release artifacts: standalone binaries, release tarballs, SHA256SUMS, and
+# publishable npm packages under dist/release. Version is the release tag
+# without the leading `v` (e.g. `just cli dist 4.7.0`).
+dist VERSION:
+    bun run scripts/dist.ts --version {{VERSION}} --out dist/release
+
 typecheck:
     bun run typecheck
 

@@ -35,10 +35,10 @@ type EchoExtension struct {
 }
 
 type Tag struct {
-	ID         string `gorm:"type:char(36);primaryKey"              json:"id"`
-	Name       string `gorm:"type:varchar(50);uniqueIndex;not null" json:"name"`
-	UsageCount int    `gorm:"default:0"                             json:"usage_count"`
-	CreatedAt  int64  `gorm:"autoCreateTime"                        json:"created_at"`
+	ID         string `gorm:"type:char(36);primaryKey"              json:"id" doc:"标签 ID，提交时忽略"`
+	Name       string `gorm:"type:varchar(50);uniqueIndex;not null" json:"name" doc:"标签名；同名标签复用"`
+	UsageCount int    `gorm:"default:0"                             json:"usage_count" doc:"引用次数，提交时忽略"`
+	CreatedAt  int64  `gorm:"autoCreateTime"                        json:"created_at" doc:"创建时间，提交时忽略"`
 }
 
 type EchoTag struct {

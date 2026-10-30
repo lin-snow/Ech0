@@ -19,7 +19,7 @@ import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
 /** Least privilege for CLI commands; widen with `--scopes`. */
-const DEFAULT_CLI_SCOPES = ["echo:read", "echo:write", "profile:read"];
+export const DEFAULT_CLI_SCOPES = ["echo:read", "echo:write", "profile:read"];
 const DEVICE_CLIENT_NAME = "ech0-cli";
 
 interface TokenPair {
