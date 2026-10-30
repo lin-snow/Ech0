@@ -190,7 +190,7 @@ func TestRenewRefreshClaims_KeepsSessionIdentity(t *testing.T) {
 	assert.Equal(t, authModel.TokenTypeRefresh, renewed.Type)
 	assert.Equal(t, user.ID, renewed.Userid)
 	require.NotNil(t, renewed.ExpiresAt)
-	assert.False(t, renewed.ExpiresAt.Time.Before(original.ExpiresAt.Time), "renewal must not shorten expiry")
+	assert.False(t, renewed.ExpiresAt.Before(original.ExpiresAt.Time), "renewal must not shorten expiry")
 
 	blank := RenewRefreshClaims(user, "").(authModel.MyClaims)
 	assert.NotEmpty(t, blank.ID, "missing JTI must be regenerated")

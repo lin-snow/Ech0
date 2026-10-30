@@ -361,7 +361,7 @@ func TestRefresh_Success(t *testing.T) {
 	if newClaims.ID != oldClaims.ID {
 		t.Fatalf("expected renewed session to keep JTI %q, got %q", oldClaims.ID, newClaims.ID)
 	}
-	if newClaims.ExpiresAt == nil || newClaims.ExpiresAt.Time.Before(time.Now().Add(time.Duration(config.Config().Auth.Jwt.RefreshExpires-5)*time.Second)) {
+	if newClaims.ExpiresAt == nil || newClaims.ExpiresAt.Before(time.Now().Add(time.Duration(config.Config().Auth.Jwt.RefreshExpires-5)*time.Second)) {
 		t.Fatalf("expected renewed expiry to slide to ~now+%ds, got %v", config.Config().Auth.Jwt.RefreshExpires, newClaims.ExpiresAt)
 	}
 }
