@@ -2126,7 +2126,7 @@ export type EchoUpdateResponses = {
     /**
      * OK
      */
-    200: ResultInterface;
+    200: ResultEcho;
 };
 
 export type EchoUpdateResponse = EchoUpdateResponses[keyof EchoUpdateResponses];

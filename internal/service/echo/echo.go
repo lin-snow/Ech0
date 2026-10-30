@@ -245,14 +245,15 @@ func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone 
 	return echoService.echoRepository.GetOnThisDayEchos(showPrivate, timezone), nil
 }
 
-func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo) error {
+// UpdateEcho persists the edit and returns the stored record, mirroring PostEcho.
+func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo) (*model.Echo, error) {
 	userid := viewer.MustFromContext(ctx).UserID()
 	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	layout := strings.TrimSpace(echo.Layout)
@@ -267,7 +268,7 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 
 	normalizedExt, err := normalizeEchoExtension(echo.Extension)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	echo.Extension = normalizedExt
 
@@ -276,11 +277,11 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 	}
 
 	if isEchoEmpty(echo) {
-		return errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		return nil, errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
 	}
 
 	if err := echoService.validateSingleFileCategory(ctx, echo); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
@@ -289,17 +290,24 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		}
 		return echoService.echoRepository.UpdateEcho(txCtx, echo)
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	echoService.echoRepository.InvalidateEchoCaches(echo.ID)
 
-	eventbus.Notify(context.Background(), echoService.bus, event.EchoUpdated{Echo: *echo, User: user})
+	saved, fetchErr := echoService.echoRepository.GetEchosById(ctx, echo.ID)
+	if fetchErr != nil {
+		return nil, fetchErr
+	}
+	if saved == nil {
+		saved = echo
+	}
+	eventbus.Notify(context.Background(), echoService.bus, event.EchoUpdated{Echo: *saved, User: user})
 	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(echo)); err != nil {
 		logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
 	}
 
-	return nil
+	return saved, nil
 }
 
 func (echoService *EchoService) LikeEcho(ctx context.Context, id string) error {

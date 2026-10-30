@@ -297,9 +297,9 @@ func (f *recordingEchoSvc) PostEcho(_ context.Context, echo *echoModel.Echo) (*e
 	return echo, nil
 }
 
-func (f *recordingEchoSvc) UpdateEcho(_ context.Context, echo *echoModel.Echo) error {
+func (f *recordingEchoSvc) UpdateEcho(_ context.Context, echo *echoModel.Echo) (*echoModel.Echo, error) {
 	f.updated = append(f.updated, *echo)
-	return nil
+	return echo, nil
 }
 
 // testEchoID is a real UUID because the write tools require one: an id that is

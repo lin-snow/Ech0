@@ -140,7 +140,7 @@ func TestUpdateEcho_MixedFileCategoriesRejected(t *testing.T) {
 		Once()
 
 	svc := echoService.NewEchoService(nil, common, file, repo, nilBus)
-	err := svc.UpdateEcho(helpers.CtxAsUser(adminID), echoWithFileIDs("f1", "f2"))
+	_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), echoWithFileIDs("f1", "f2"))
 
 	require.EqualError(t, err, commonModel.ECHO_MIXED_FILE_CATEGORIES)
 }

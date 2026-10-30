@@ -307,8 +307,9 @@ ech0 help [words...] [--full] [--json]
 服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（当前为 Echo CRUD 五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
 
 ```
-ech0 echo create --content "hi" --private --tag dev
+ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Echo（含 id）
 ech0 echo list --page 1 --page-size 20
+ech0 echo update --id <id> --content "edited"        # 同样返回更新后的 Echo
 ech0 echo get --id <uuid>
 ```
 

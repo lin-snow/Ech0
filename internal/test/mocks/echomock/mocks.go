@@ -952,20 +952,31 @@ func (_c *MockService_QueryEchos_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // UpdateEcho provides a mock function for the type MockService
-func (_mock *MockService) UpdateEcho(ctx context.Context, echo *model.Echo) error {
+func (_mock *MockService) UpdateEcho(ctx context.Context, echo *model.Echo) (*model.Echo, error) {
 	ret := _mock.Called(ctx, echo)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateEcho")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.Echo) error); ok {
+	var r0 *model.Echo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.Echo) (*model.Echo, error)); ok {
+		return returnFunc(ctx, echo)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.Echo) *model.Echo); ok {
 		r0 = returnFunc(ctx, echo)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Echo)
+		}
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.Echo) error); ok {
+		r1 = returnFunc(ctx, echo)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockService_UpdateEcho_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateEcho'
@@ -998,12 +1009,12 @@ func (_c *MockService_UpdateEcho_Call) Run(run func(ctx context.Context, echo *m
 	return _c
 }
 
-func (_c *MockService_UpdateEcho_Call) Return(err error) *MockService_UpdateEcho_Call {
-	_c.Call.Return(err)
+func (_c *MockService_UpdateEcho_Call) Return(echo1 *model.Echo, err error) *MockService_UpdateEcho_Call {
+	_c.Call.Return(echo1, err)
 	return _c
 }
 
-func (_c *MockService_UpdateEcho_Call) RunAndReturn(run func(ctx context.Context, echo *model.Echo) error) *MockService_UpdateEcho_Call {
+func (_c *MockService_UpdateEcho_Call) RunAndReturn(run func(ctx context.Context, echo *model.Echo) (*model.Echo, error)) *MockService_UpdateEcho_Call {
 	_c.Call.Return(run)
 	return _c
 }

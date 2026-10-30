@@ -346,7 +346,7 @@ func (a *Adapter) updatePost(ctx context.Context, args map[string]any) (*ToolCal
 	echo.EchoFiles = buildEchoFiles(args)
 	echo.Extension = buildExtension(args)
 
-	if err := a.echoSvc.UpdateEcho(ctx, echo); err != nil {
+	if _, err := a.echoSvc.UpdateEcho(ctx, echo); err != nil {
 		return nil, err
 	}
 	return jsonResult(map[string]string{"id": id, "message": "post updated successfully"})

@@ -159,7 +159,7 @@ func (s *CopilotService) updateEchoTool(a *asker, locale string, loc *time.Locat
 		}
 
 		return question, func(ctx context.Context) (agent.ToolOutput, error) {
-			if err := s.echoService.UpdateEcho(ctx, &next); err != nil {
+			if _, err := s.echoService.UpdateEcho(ctx, &next); err != nil {
 				return agent.ToolOutput{}, err
 			}
 			return agent.ToolOutput{Content: fmt.Sprintf(ws.Updated, next.ID)}, nil

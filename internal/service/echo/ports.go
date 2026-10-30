@@ -17,7 +17,7 @@ type Service interface {
 	GetEchosByPage(ctx context.Context, pageQueryDto commonModel.PageQueryDto) (commonModel.PageQueryResult[[]model.Echo], error)
 	DeleteEchoById(ctx context.Context, id string) error
 	GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error)
-	UpdateEcho(ctx context.Context, echo *model.Echo) error
+	UpdateEcho(ctx context.Context, echo *model.Echo) (*model.Echo, error)
 	LikeEcho(ctx context.Context, id string) error
 	GetEchoById(ctx context.Context, id string) (*model.Echo, error)
 	GetAllTags() ([]model.Tag, error)

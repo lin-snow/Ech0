@@ -3046,7 +3046,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultInterface {}"
+                $ref: "#/components/schemas/ResultEcho"
           description: OK
         default:
           content:
