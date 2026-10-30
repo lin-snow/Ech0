@@ -95,6 +95,22 @@ func (f *fakeAuthService) UpdatePasskeyDeviceName(context.Context, string, strin
 
 func (f *fakeAuthService) PasskeyBoundary(context.Context) (string, []string) { return "", nil }
 
+func (f *fakeAuthService) StartDeviceAuthorization(string, []string) (authModel.DeviceCodeResponse, error) {
+	panic("not called in auth handler tests")
+}
+
+func (f *fakeAuthService) DeviceAuthorizationInfo(string) (authModel.DevicePendingInfo, error) {
+	panic("not called in auth handler tests")
+}
+
+func (f *fakeAuthService) ApproveDeviceAuthorization(context.Context, string) error {
+	panic("not called in auth handler tests")
+}
+
+func (f *fakeAuthService) PollDeviceAuthorization(string) (authModel.DeviceTokenResponse, error) {
+	panic("not called in auth handler tests")
+}
+
 type fakeUserService struct {
 	getUserByIDFn func(id string) (userModel.User, error)
 }
