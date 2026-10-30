@@ -9,6 +9,7 @@
 "use strict";
 
 const { spawnSync } = require("node:child_process");
+const { chmodSync } = require("node:fs");
 const path = require("node:path");
 
 const SUPPORTED = {
@@ -40,6 +41,14 @@ try {
       "Reinstall without --omit=optional: npm install -g @useech0/cli",
   );
   process.exit(1);
+}
+
+// npm stores the platform package without its executable bit (the package has
+// no `bin` entry, only a `files` allowance), so restore it before spawning.
+try {
+  chmodSync(binary, 0o755);
+} catch {
+  // Read-only install (e.g. a shared prefix): fall back to the stored mode.
 }
 
 const result = spawnSync(binary, process.argv.slice(2), { stdio: "inherit" });
