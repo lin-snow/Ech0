@@ -234,7 +234,7 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
     const fields = fieldOptions(op);
     for (const field of fields) defineField(command, field);
     if ((op.transport?.response?.kind ?? op.kind) === "binary") {
-      command.option("--output <path>", "写入文件；- 表示 stdout（非终端默认 stdout）");
+      command.option("--output <path>", "写入文件；省略时按响应文件名落到当前目录；- 表示 stdout（非终端默认 stdout）");
     }
     if (id === UPLOAD_OPERATION) {
       command.option("--file-name <name>", "上传时使用的文件名（stdin 上传务必带扩展名）");

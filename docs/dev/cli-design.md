@@ -239,13 +239,15 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 | `ech0 file list [--page --page-size --search --storage-type]` | `file.list` | 分页列出文件 |
 | `ech0 file get --id <file_id>` | `file.get` | 文件元信息（name / url / storage_type / category…） |
 | `ech0 file tree --storage-type <local\|s3\|object>` | `file.tree` | 按存储前缀浏览目录树 |
-| `ech0 file download --id <file_id> [--output <path>]` | `file.stream.by_id` | 下载内容；非 TTY 默认写 stdout，`--output` 原子落盘 |
+| `ech0 file download --id <file_id> [--output <path>]` | `file.stream.by_id` | 下载内容；非 TTY 默认写 stdout，`--output` 原子落盘，省略时按响应文件名落盘 |
+
+文件名的来源是服务端 `Content-Disposition`：`StreamFileByID` / `StreamFileByPath` 在流式响应上带 `inline; filename=…`（非 ASCII 名走 RFC 5987 的 `filename*=utf-8''…`），CLI 优先取 `filename*`、其次 `filename`，再做 `basename` 收口防止 `../` 逃出当前目录；两者都没有时落到 `download`（API 路径末段是动词 `stream`，不能当文件名）。
 
 `file download` 的 catalog id 仍是 `file.stream.by_id`（`COMMAND_NAMES` 只改命令路径），所以 help、scope 检查和请求指纹不变。
 
 **两者在数据库里是同一张表**：上传和外链都会写一行 `File`（`files` 表）。external 行只是 `storage_type` / `provider` 为 `external`、`bucket` 为空、`key` 为 `external/<category>/<sha256(normalized_url)>`、`size=0`、`url` 保存原始链接；上传行记录 local/s3/object 的路由与真实 key。因此 `file list`（不传 storage_type 时）、`file get`、`--file-id` 对两者一视同仁：
 
-- `file download` 对 external 返回 307 重定向到原 URL，对 local/s3/object 才真的读字节。
+- `file download` 对 external 返回 307 重定向到原 URL，对 local/s3/object 才真的读字节；跟随重定向后由远端决定文件名，远端不给 `Content-Disposition` 时 CLI 落到 `download`。
 - `file tree` 只列 local/object 的物理存储，external 没有物理 key。
 - 两者都会建 `TempFile` 记录（未挂到 Echo 前有 TTL）；temp 清理对 external 只删记录，不删远端文件。
 - external 的 `key` 由 URL + category 哈希得到，同 URL 同 category 重复登记会返回已有记录（unique route 索引）。

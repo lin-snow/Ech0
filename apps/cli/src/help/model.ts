@@ -316,7 +316,7 @@ function hintsOf(command: Command, op: CatalogOp | undefined): string[] {
   }
   const kind = op.transport?.response?.kind ?? op.kind;
   if (kind === "stream") hints.push("流式输出：Ctrl-C 中断；--json 时每个事件输出一行 JSON");
-  if (kind === "binary") hints.push("二进制响应：--output <path> 写入文件，- 表示 stdout（非终端默认 stdout）");
+  if (kind === "binary") hints.push("二进制响应：--output <path> 写入文件；省略时 TTY 按响应文件名落盘、非 TTY 写 stdout；- 表示 stdout");
   if (kind === "websocket") hints.push("WebSocket 订阅：Ctrl-C 断开");
   if (Object.values(op.bind).includes("form")) {
     hints.push("上传字段：文件用 --<字段> <path>，- 表示从 stdin 读取");
