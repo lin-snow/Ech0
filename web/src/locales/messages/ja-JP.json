@@ -1210,7 +1210,6 @@
     "subtitle": "ターミナルの CLI からのサインイン要求を承認します。",
     "codeLabel": "デバイスコード",
     "codePlaceholder": "ターミナルに表示された8桁のコードを入力",
-    "lookup": "確認",
     "approve": "承認する",
     "client": "クライアント:",
     "scopes": "要求されたスコープ",

@@ -1210,7 +1210,6 @@
     "subtitle": "Bestätige eine Anmeldeanfrage einer Terminal-CLI.",
     "codeLabel": "Gerätecode",
     "codePlaceholder": "Gib den 8-stelligen Code aus deinem Terminal ein",
-    "lookup": "Prüfen",
     "approve": "Bestätigen",
     "client": "Client:",
     "scopes": "Angeforderte Berechtigungen",
