@@ -38,10 +38,10 @@ func registerEcho(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 	}, h.EchoHandler.GetAllTags)
 
 	route(api, optional(revoker), huma.Operation{
-		OperationID: "echo-query",
+		OperationID: "echo-list",
 		Method:      http.MethodPost,
 		Path:        "/echo/query",
-		Summary:     "统一查询 Echo 列表",
+		Summary:     "分页/筛选 Echo 列表",
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.QueryEchos)
 

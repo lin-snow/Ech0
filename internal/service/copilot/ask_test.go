@@ -291,10 +291,10 @@ func (f *recordingEchoSvc) DeleteEchoById(_ context.Context, id string) error {
 	return nil
 }
 
-func (f *recordingEchoSvc) PostEcho(_ context.Context, echo *echoModel.Echo) error {
+func (f *recordingEchoSvc) PostEcho(_ context.Context, echo *echoModel.Echo) (*echoModel.Echo, error) {
 	echo.ID = "new-echo"
 	f.posted = append(f.posted, *echo)
-	return nil
+	return echo, nil
 }
 
 func (f *recordingEchoSvc) UpdateEcho(_ context.Context, echo *echoModel.Echo) error {

@@ -60,18 +60,21 @@ const CATALOG = {
       bind: { content: "body", private: "body", tags: "body", echo_files: "body", extension: "body" },
       deprecated: false,
     },
-    "echo.page.get": {
-      summary: "分页获取 Echo 列表",
-      method: "GET",
-      path: "/echo/page",
+    "echo.list": {
+      summary: "分页/筛选 Echo 列表",
+      method: "POST",
+      path: "/echo/query",
       scopes: ["echo:read"],
       effect: "read",
       kind: "json",
       input: {
         type: "object",
-        properties: { page: { type: "integer", description: "页码", default: 1 } },
+        properties: {
+          page: { type: "integer", description: "页码", default: 1 },
+          search: { type: "string", description: "关键词" },
+        },
       },
-      bind: { page: "query" },
+      bind: { page: "body", search: "body" },
       deprecated: false,
     },
     "file.upload": {
@@ -213,8 +216,8 @@ describe("help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("子命令");
-    expect(result.stdout).toContain("page get");
-    expect(result.stdout).toContain("分页获取 Echo 列表");
+    expect(result.stdout).toContain("list");
+    expect(result.stdout).toContain("分页/筛选 Echo 列表");
   });
 
   test("a descriptor carries usage, fields, the server card and an example", async () => {
@@ -271,10 +274,10 @@ describe("help", () => {
 
   test("keywords search ids, summaries and field names", async () => {
     const server = withCatalog();
-    const result = await run(["help", "page"], { ECH0_SERVER: server.baseUrl });
+    const result = await run(["help", "list"], { ECH0_SERVER: server.baseUrl });
 
-    expect(result.stdout).toContain("echo page get");
-    expect(result.stdout).toContain("匹配「page」");
+    expect(result.stdout).toContain("echo list");
+    expect(result.stdout).toContain("匹配「list」");
   });
 
   test("a miss suggests the nearest command instead of failing", async () => {

@@ -2101,7 +2101,7 @@ export type EchoCreateResponses = {
     /**
      * OK
      */
-    200: ResultInterface;
+    200: ResultEcho;
 };
 
 export type EchoCreateResponse = EchoCreateResponses[keyof EchoCreateResponses];
@@ -2276,30 +2276,30 @@ export type EchoPagePostResponses = {
 
 export type EchoPagePostResponse = EchoPagePostResponses[keyof EchoPagePostResponses];
 
-export type EchoQueryData = {
+export type EchoListData = {
     body: EchoQueryDto;
     path?: never;
     query?: never;
     url: '/echo/query';
 };
 
-export type EchoQueryErrors = {
+export type EchoListErrors = {
     /**
      * Error
      */
     default: ErrorBody;
 };
 
-export type EchoQueryError = EchoQueryErrors[keyof EchoQueryErrors];
+export type EchoListError = EchoListErrors[keyof EchoListErrors];
 
-export type EchoQueryResponses = {
+export type EchoListResponses = {
     /**
      * OK
      */
     200: ResultPageQueryResultListEcho;
 };
 
-export type EchoQueryResponse = EchoQueryResponses[keyof EchoQueryResponses];
+export type EchoListResponse = EchoListResponses[keyof EchoListResponses];
 
 export type EchoRandomData = {
     body?: never;

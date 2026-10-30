@@ -33,7 +33,7 @@ func TestPostEcho_Guards(t *testing.T) {
 			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		err := svc.PostEcho(helpers.CtxAsUser(userID), &echoModel.Echo{Content: "hi"})
+		_, err := svc.PostEcho(helpers.CtxAsUser(userID), &echoModel.Echo{Content: "hi"})
 
 		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 	})
@@ -48,7 +48,7 @@ func TestPostEcho_Guards(t *testing.T) {
 			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hi"})
+		_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hi"})
 
 		require.ErrorIs(t, err, boom)
 	})
@@ -62,7 +62,7 @@ func TestPostEcho_Guards(t *testing.T) {
 			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
+		_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
 			Content:   "hi",
 			Extension: &echoModel.EchoExtension{Type: echoModel.Extension_MUSIC},
 		})
@@ -80,7 +80,7 @@ func TestPostEcho_Guards(t *testing.T) {
 			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "   "})
+		_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "   "})
 
 		require.EqualError(t, err, commonModel.ECHO_CAN_NOT_BE_EMPTY)
 	})
@@ -128,7 +128,8 @@ func TestPostEcho_Success(t *testing.T) {
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
 	in := &echoModel.Echo{Content: "hello", Layout: "weird-layout"}
-	require.NoError(t, svc.PostEcho(helpers.CtxAsUser(adminID), in))
+	_, err = svc.PostEcho(helpers.CtxAsUser(adminID), in)
+	require.NoError(t, err)
 
 	assert.Equal(t, echoModel.LayoutWaterfall, created.Layout)
 	assert.Equal(t, "adminuser", created.Username)
@@ -165,10 +166,11 @@ func TestPostEcho_ValidLayoutPreserved(t *testing.T) {
 	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
-	require.NoError(t, svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
+	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
 		Content: "hello",
 		Layout:  echoModel.LayoutGrid,
-	}))
+	})
+	require.NoError(t, err)
 
 	assert.Equal(t, echoModel.LayoutGrid, created.Layout)
 }
@@ -188,7 +190,7 @@ func TestPostEcho_TransactionError(t *testing.T) {
 	repo.EXPECT().CreateEcho(mock.Anything, mock.Anything).Return(boom).Once()
 
 	svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-	err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"})
+	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"})
 
 	require.ErrorIs(t, err, boom)
 }
@@ -220,7 +222,8 @@ func TestPostEcho_SavedEchoNilSkipsEvent(t *testing.T) {
 	defer unsub()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
-	require.NoError(t, svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"}))
+	_, err = svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"})
+	require.NoError(t, err)
 
 	assert.Equal(t, 0, fired)
 }
@@ -243,7 +246,7 @@ func TestPostEcho_RefetchError(t *testing.T) {
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(nil, boom).Once()
 
 	svc := echoService.NewEchoService(tx, common, nil, repo, func() *busen.Bus { return bus })
-	err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"})
+	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"})
 
 	require.ErrorIs(t, err, boom)
 }
@@ -274,10 +277,11 @@ func TestPostEcho_LayoutNonePreserved(t *testing.T) {
 	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
-	require.NoError(t, svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
+	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
 		Content: "audio post",
 		Layout:  echoModel.LayoutNone,
-	}))
+	})
+	require.NoError(t, err)
 
 	assert.Equal(t, echoModel.LayoutNone, created.Layout)
 }

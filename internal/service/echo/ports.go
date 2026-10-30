@@ -13,7 +13,7 @@ import (
 )
 
 type Service interface {
-	PostEcho(ctx context.Context, newEcho *model.Echo) error
+	PostEcho(ctx context.Context, newEcho *model.Echo) (*model.Echo, error)
 	GetEchosByPage(ctx context.Context, pageQueryDto commonModel.PageQueryDto) (commonModel.PageQueryResult[[]model.Echo], error)
 	DeleteEchoById(ctx context.Context, id string) error
 	GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error)

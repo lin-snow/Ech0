@@ -1307,7 +1307,7 @@ export const zEchoCreateBody = zEchoUpsertDto;
 /**
  * OK
  */
-export const zEchoCreateResponse = zResultInterface;
+export const zEchoCreateResponse = zResultEcho;
 
 export const zEchoUpdateBody = zEchoUpsertDto;
 
@@ -1361,12 +1361,12 @@ export const zEchoPagePostBody = zPageQueryDto;
  */
 export const zEchoPagePostResponse = zResultPageQueryResultListEcho;
 
-export const zEchoQueryBody = zEchoQueryDto;
+export const zEchoListBody = zEchoQueryDto;
 
 /**
  * OK
  */
-export const zEchoQueryResponse = zResultPageQueryResultListEcho;
+export const zEchoListResponse = zResultPageQueryResultListEcho;
 
 /**
  * OK

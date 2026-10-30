@@ -78,7 +78,7 @@ func (s *CopilotService) createEchoTool(a *asker, locale string, loc *time.Locat
 				Private: in.Private,
 				Tags:    tagModels(tags),
 			}
-			if err := s.echoService.PostEcho(ctx, echo); err != nil {
+			if _, err := s.echoService.PostEcho(ctx, echo); err != nil {
 				return agent.ToolOutput{}, err
 			}
 			return agent.ToolOutput{Content: fmt.Sprintf(ws.Created, echo.ID)}, nil

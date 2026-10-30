@@ -8,7 +8,7 @@
 
 一句话：**登录到一台指定的 Ech0 实例，在终端完成 Echo 的增删改查**。
 
-范围的取舍：登录之后只暴露 Echo CRUD（`echo.create` / `echo.page.get` / `echo.get` / `echo.update` / `echo.delete`）、文件上传（`file.upload`）与外链文件登记（`file.external`），其余接口（评论、文件下载、迁移、系统日志、Copilot 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动。
+范围的取舍：登录之后只暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件上传（`file.upload`）与外链文件登记（`file.external`），其余接口（评论、文件下载、迁移、系统日志、Copilot 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动。
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
@@ -103,7 +103,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 }
 ```
 
-- 清单由 Huma 文档派生（`internal/openapi/catalog`），再合并 `raw.go` 里手写的裸 gin 操作：`operationId` 的 `-` 换成 `.`（`echo-page-get` → `echo.page.get`）；`input` 把 path/query/body/form 四类参数拍平成一个对象，`$ref` 递归内联；`bind` 标记每个字段落在 `path`/`query`/`body`/`form`；`effect` 由方法推导（GET/HEAD=read、DELETE=destructive、其余=write）；`kind` 由成功响应内容类型推导（json/stream/binary/websocket）。
+- 清单由 Huma 文档派生（`internal/openapi/catalog`），再合并 `raw.go` 里手写的裸 gin 操作：`operationId` 的 `-` 换成 `.`（`echo-list` → `echo.list`）；`input` 把 path/query/body/form 四类参数拍平成一个对象，`$ref` 递归内联；`bind` 标记每个字段落在 `path`/`query`/`body`/`form`；`effect` 由方法推导（GET/HEAD=read、DELETE=destructive、其余=write）；`kind` 由成功响应内容类型推导（json/stream/binary/websocket）。
 - 非 JSON 传输额外带 `transport`（见 4.5）；没有该字段即「JSON 进、JSON 信封出」。
 - 指纹 = sha256(canonical bytes)。**每个 `/api` 响应**都带 `X-Ech0-Catalog: <指纹>`。
 - 请求可带同一个头；带了但和当前指纹不同 → **412**，body `{"code":0,"msg":"catalog stale","error_code":"catalog_stale"}`，在 handler 之前短路。不带头的旧客户端（web、MCP、脚本）完全不受影响。
@@ -308,7 +308,7 @@ ech0 help [words...] [--full] [--json]
 
 ```
 ech0 echo create --content "hi" --private --tag dev
-ech0 echo page get --page 1 --page-size 20
+ech0 echo list --page 1 --page-size 20
 ech0 echo get --id <uuid>
 ```
 
@@ -408,7 +408,7 @@ go test ./internal/openapi/... ./internal/router/...
 
 - Go：catalog 派生单测（bind/effect/kind/scopes/$ref 内联/指纹稳定性）+ 路由测试（`/api/_catalog` 指纹与 body 哈希一致、过期指纹 412 且 `error_code=catalog_stale`）。
 - CLI：`bun test` 覆盖 envelope 映射、catalog 缓存、动态命令 flag 解析、412 重试、CLI 退出码。
-- 端到端实测（真实 Go 服务端 + CLI）：init owner → login → 铸造 `audience=cli` token → `auth login` → `catalog refresh`（104 ops）→ `echo create` → `echo page get`；把缓存文件改脏后 `echo create` 收到 412，CLI 自动刷新并重试成功。
+- 端到端实测（真实 Go 服务端 + CLI）：init owner → login → 铸造 `audience=cli` token → `auth login` → `catalog refresh`（104 ops）→ `echo create` → `echo list`；把缓存文件改脏后 `echo create` 收到 412，CLI 自动刷新并重试成功。
 - 密码登录：`printf 'pw' | ech0 auth login -u owner --password-stdin` → 自动铸造 CLI 令牌 → `echo create` 成功；device 登录：CLI 打印设备码 → 浏览器/curl 批准 → CLI 拿到令牌 → `echo create` 成功；轮询的 pending / slow_down / unknown 三个 `error_code` 在真实服务端复核。
 
 ## 11. 里程碑

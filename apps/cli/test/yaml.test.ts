@@ -17,10 +17,10 @@ const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 
 const CATALOG = {
   ops: {
-    "echo.page.get": {
-      summary: "分页获取 Echo 列表",
-      method: "GET",
-      path: "/echo/page",
+    "echo.list": {
+      summary: "分页/筛选 Echo 列表",
+      method: "POST",
+      path: "/echo/query",
       scopes: ["echo:read"],
       effect: "read",
       kind: "json",
@@ -28,7 +28,7 @@ const CATALOG = {
         type: "object",
         properties: { page: { type: "integer", description: "页码" } },
       },
-      bind: { page: "query" },
+      bind: { page: "body" },
       deprecated: false,
     },
   },
@@ -108,7 +108,7 @@ describe("yaml output", () => {
   test("--yaml renders the same document --json serves", async () => {
     api = startFakeApi({
       "GET /api/_catalog": () => ({ body: CATALOG }),
-      "GET /api/echo/page": () => ({
+      "POST /api/echo/query": () => ({
         body: { code: 1, msg: "ok", data: { items: [{ id: "e1" }], total: 1 } },
       }),
     });
@@ -117,18 +117,18 @@ describe("yaml output", () => {
       ECH0_TOKEN: "tok",
       ECH0_PROFILE: "test",
     };
-    const json = await run(["echo", "page", "get", "--json"], env);
-    const yaml = await run(["echo", "page", "get", "--yaml"], env);
+    const json = await run(["echo", "list", "--json"], env);
+    const yaml = await run(["echo", "list", "--yaml"], env);
 
     expect(Bun.YAML.parse(yaml.stdout)).toEqual(JSON.parse(json.stdout) as unknown);
   });
 
   test("help --yaml emits the descriptor document", async () => {
     api = startFakeApi({ "GET /api/_catalog": () => ({ body: CATALOG }) });
-    const result = await run(["help", "echo", "page", "get", "--yaml"], { ECH0_SERVER: api.baseUrl });
+    const result = await run(["help", "echo", "list", "--yaml"], { ECH0_SERVER: api.baseUrl });
     const parsed = Bun.YAML.parse(result.stdout) as { path: string[]; hints: string[] };
 
-    expect(parsed.path).toEqual(["echo", "page", "get"]);
+    expect(parsed.path).toEqual(["echo", "list"]);
     expect(parsed.hints[0]).toContain("echo:read");
   });
 

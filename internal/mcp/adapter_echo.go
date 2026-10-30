@@ -318,7 +318,7 @@ func (a *Adapter) createPost(ctx context.Context, args map[string]any) (*ToolCal
 		EchoFiles: echoFiles,
 		Extension: extension,
 	}
-	if err := a.echoSvc.PostEcho(ctx, echo); err != nil {
+	if _, err := a.echoSvc.PostEcho(ctx, echo); err != nil {
 		return nil, err
 	}
 	return jsonResult(map[string]string{"id": echo.ID, "message": "post created successfully"})

@@ -3019,7 +3019,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultInterface {}"
+                $ref: "#/components/schemas/ResultEcho"
           description: OK
         default:
           content:
@@ -3206,7 +3206,7 @@ paths:
         - Echo
   /echo/query:
     post:
-      operationId: echo-query
+      operationId: echo-list
       requestBody:
         content:
           application/json:
@@ -3226,7 +3226,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
-      summary: 统一查询 Echo 列表
+      summary: 分页/筛选 Echo 列表
       tags:
         - Echo
   /echo/random:

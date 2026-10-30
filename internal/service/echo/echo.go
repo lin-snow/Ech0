@@ -48,17 +48,19 @@ func NewEchoService(
 	}
 }
 
-func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Echo) error {
+// PostEcho creates an Echo and returns the stored record, so callers (HTTP, MCP,
+// Copilot) can hand the new id back instead of making another round trip.
+func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Echo) (*model.Echo, error) {
 	userid := viewer.MustFromContext(ctx).UserID()
 	newEcho.UserID = userid
 
 	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	layout := strings.TrimSpace(newEcho.Layout)
@@ -73,18 +75,18 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 
 	normalizedExt, err := normalizeEchoExtension(newEcho.Extension)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	newEcho.Extension = normalizedExt
 
 	newEcho.Username = user.Username
 
 	if isEchoEmpty(newEcho) {
-		return errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		return nil, errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
 	}
 
 	if err := echoService.validateSingleFileCategory(ctx, newEcho); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
@@ -93,23 +95,27 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		}
 		return echoService.echoRepository.CreateEcho(txCtx, newEcho)
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	echoService.echoRepository.InvalidateEchoCaches()
 
 	savedEcho, fetchErr := echoService.echoRepository.GetEchosById(ctx, newEcho.ID)
 	if fetchErr != nil {
-		return fetchErr
+		return nil, fetchErr
 	}
 	if savedEcho != nil {
 		eventbus.Notify(context.Background(), echoService.bus, event.EchoCreated{Echo: *savedEcho, User: user})
+	} else {
+		// The row exists (the insert succeeded); only the read-back failed to
+		// find it. Return what we wrote so the caller still gets the id.
+		savedEcho = newEcho
 	}
 	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(newEcho)); err != nil {
 		logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
 	}
 
-	return nil
+	return savedEcho, nil
 }
 
 func (echoService *EchoService) GetEchosByPage(

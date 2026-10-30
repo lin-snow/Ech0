@@ -11,7 +11,7 @@ export const CLI_OPERATIONS: readonly string[] = [
   "file.upload",
   "file.external",
   "echo.create",
-  "echo.page.get",
+  "echo.list",
   "echo.get",
   "echo.update",
   "echo.delete",
