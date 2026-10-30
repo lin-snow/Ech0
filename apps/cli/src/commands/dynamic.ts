@@ -3,76 +3,16 @@
 
 import { Command } from "commander";
 
+import { ECHO_COMPOSE_OPERATIONS, inScope } from "../catalog/scope.ts";
+import { editPayload, readPayload } from "./payload.ts";
 import type { Catalog, CatalogOp } from "../catalog/types.ts";
-import { colors, print } from "../output/console.ts";
+import { setCommandOp } from "../help/model.ts";
+import { UsageError } from "../output/console.ts";
+import { printResult } from "../output/result.ts";
 import { readGlobalFlags } from "../session.ts";
+import { fieldOptions, kebab, schemaType, type FieldOption, type JSONSchema } from "./fields.ts";
 import type { FieldValues } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
-
-type JSONSchema = Record<string, unknown>;
-
-/** Flags the CLI owns; an operation field with the same name becomes `--input-<name>`. */
-const RESERVED_FLAGS: Record<string, true> = {
-  json: true,
-  profile: true,
-  server: true,
-  token: true,
-  lang: true,
-  color: true,
-  help: true,
-  version: true,
-};
-
-interface FieldOption {
-  field: string;
-  /** camelCase key commander stores the parsed value under. */
-  optionKey: string;
-  flag: string;
-  schema: JSONSchema;
-  required: boolean;
-}
-
-function schemaType(schema: JSONSchema): string {
-  const type = schema["type"];
-  if (typeof type === "string") return type;
-  if (Array.isArray(type)) {
-    for (const candidate of type) {
-      if (typeof candidate === "string" && candidate !== "null") return candidate;
-    }
-  }
-  return "string";
-}
-
-function kebab(name: string): string {
-  return name
-    .replace(/_/g, "-")
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .toLowerCase();
-}
-
-function camel(name: string): string {
-  return name.replace(/-([a-z0-9])/g, (_, char: string) => char.toUpperCase());
-}
-
-function fieldOptions(op: CatalogOp): FieldOption[] {
-  const input = op.input as { properties?: Record<string, JSONSchema>; required?: unknown };
-  const properties = input.properties ?? {};
-  const required = Array.isArray(input.required)
-    ? new Set(input.required.filter((name): name is string => typeof name === "string"))
-    : new Set<string>();
-
-  return Object.entries(properties).map(([field, rawSchema]) => {
-    const base = kebab(field);
-    const flag = RESERVED_FLAGS[base] ? `input-${base}` : base;
-    return {
-      field,
-      flag,
-      optionKey: camel(flag),
-      schema: rawSchema ?? {},
-      required: required.has(field),
-    };
-  });
-}
 
 function optionParser(schema: JSONSchema): ((value: string) => unknown) | undefined {
   switch (schemaType(schema)) {
@@ -83,11 +23,19 @@ function optionParser(schema: JSONSchema): ((value: string) => unknown) | undefi
     case "number":
       return (value) => Number(value);
     case "array":
-      return (value) =>
-        value
+      return (value) => {
+        const trimmed = value.trim();
+        // Objects need JSON; plain values keep the comma shorthand.
+        if (trimmed.startsWith("[")) {
+          const parsed: unknown = JSON.parse(trimmed);
+          if (!Array.isArray(parsed)) throw new UsageError(`不是 JSON 数组：${value}`);
+          return parsed;
+        }
+        return trimmed
           .split(",")
           .map((item) => item.trim())
           .filter((item) => item !== "");
+      };
     case "object":
       return (value) => JSON.parse(value) as unknown;
     default:
@@ -96,34 +44,48 @@ function optionParser(schema: JSONSchema): ((value: string) => unknown) | undefi
 }
 
 function defineField(command: Command, field: FieldOption): void {
+  if (field.binary) {
+    command.option(`--${field.flag} <path>`, `上传文件：路径，或 - 表示 stdin（字段 ${field.field}）`);
+    return;
+  }
+
   const kind = schemaType(field.schema);
   const flags = kind === "boolean" ? `--${field.flag}` : `--${field.flag} <value>`;
   const description = typeof field.schema["description"] === "string" ? field.schema["description"] : field.field;
   const parser = optionParser(field.schema);
 
-  if (field.required) {
-    if (parser) command.requiredOption(flags, description, parser);
-    else command.requiredOption(flags, description);
-    return;
-  }
+  // Required fields are checked in the action, not with requiredOption: an
+  // operation can be both a leaf and a namespace (`file.stream`), and
+  // commander enforces a parent's required options even when a child runs.
   if (parser) command.option(flags, description, parser);
   else command.option(flags, description);
 }
 
-function metaLine(op: CatalogOp): string {
-  const { dim } = colors();
-  const parts = [`${op.method} ${op.path}`];
-  if (op.scopes.length > 0) parts.push(`scopes: ${op.scopes.join(", ")}`);
-  if (op.deprecated) parts.push("deprecated");
-  return dim(parts.join(" · "));
+function emit(result: CommandOutput, flags: { json: boolean; yaml: boolean }): void {
+  printResult(result, flags);
 }
 
-function emit(result: CommandOutput, json: boolean): void {
-  print(json ? result.json : result.human);
+/** Repeatable option collector: `--tag a --tag b` becomes `["a", "b"]`. */
+function collect(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
 }
 
 export interface DynamicOptions {
-  run: (command: Command, op: CatalogOp, values: FieldValues) => Promise<CommandOutput>;
+  run: (
+    command: Command,
+    op: CatalogOp,
+    values: FieldValues,
+    extra: {
+    output?: string;
+    compose?: boolean;
+    payload?: Record<string, unknown>;
+    tags?: string[];
+    attach?: string[];
+    attachStorage?: string;
+  },
+  ) => Promise<CommandOutput>;
+  /** Overrides the curated operation allowlist (tests, future widening). */
+  scope?: (id: string) => boolean;
 }
 
 /**
@@ -132,9 +94,8 @@ export interface DynamicOptions {
  */
 export function registerCatalogCommands(program: Command, catalog: Catalog, options: DynamicOptions): void {
   const groups = new Map<string, Command>();
+  const ids = Object.keys(catalog.ops);
 
-  // A leaf and a namespace may share a name (`comment.create` and
-  // `comment.create.integration`), so an existing command is reused as a group.
   const groupFor = (segments: string[]): Command => {
     let current = program;
     let key = "";
@@ -143,7 +104,9 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       const existing = current.commands.find((child) => child.name() === segment) ?? groups.get(key);
       let next = existing;
       if (!next) {
-        next = current.command(segment).description(`${segment} 相关操作`);
+        // A group is a pure container: the help renderer counts its operations,
+        // and the built-in `help` child would shadow `ech0 help <group>`.
+        next = current.command(segment).addHelpCommand(false);
         groups.set(key, next);
       }
       current = next;
@@ -151,23 +114,56 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
     return current;
   };
 
-  // Shallow ids first: a leaf must exist before a deeper id nests under it.
-  const entries = Object.entries(catalog.ops).sort(
+  /** A callable prefix of `segments`, longest first (`comment.create` for `comment.create.integration`). */
+  const callablePrefix = (segments: string[]): number => {
+    for (let length = segments.length - 1; length > 0; length -= 1) {
+      if (ids.includes(segments.slice(0, length).join("."))) return length;
+    }
+    return 0;
+  };
+
+  // Shallow ids first, so a group exists before anything nests under it.
+  const visible = options.scope ?? inScope;
+  const entries = Object.entries(catalog.ops)
+    .filter(([id]) => visible(id))
+    .sort(
     ([left], [right]) => left.split(".").length - right.split(".").length,
   );
 
   for (const [id, op] of entries) {
-    const segments = id.split(".").filter((segment) => segment !== "");
-    const name = segments.pop();
-    if (name === undefined) continue;
+    const segments = id
+      .split(".")
+      .filter((segment) => segment !== "")
+      .map(kebab);
+    if (segments.length === 0) continue;
 
-    const parent = groupFor(segments);
+    // A callable command cannot also be a namespace: commander would parse the
+    // parent's flags out of the child's argv. Such a child moves up a level and
+    // joins its remaining segments (`comment.create.integration` becomes
+    // `ech0 comment create-integration`), so a leaf never has subcommands.
+    const conflict = callablePrefix(id.split("."));
+    const parentSegments = conflict > 0 ? segments.slice(0, conflict - 1) : segments.slice(0, -1);
+    const name = segments.slice(parentSegments.length).join("-");
+    if (name === "") continue;
+
+    const parent = parentSegments.length > 0 ? groupFor(parentSegments) : program;
     if (parent.commands.some((existing) => existing.name() === name)) continue;
 
     const command = parent.command(name).description(op.summary || id);
     const fields = fieldOptions(op);
     for (const field of fields) defineField(command, field);
-    command.addHelpText("after", `\n${metaLine(op)}`);
+    if ((op.transport?.response?.kind ?? op.kind) === "binary") {
+      command.option("--output <path>", "写入文件；- 表示 stdout（非终端默认 stdout）");
+    }
+    const compose = ECHO_COMPOSE_OPERATIONS.has(id);
+    if (compose) {
+      command.option("--from <file>", "从 JSON 文件读取 payload（- 表示 stdin）");
+      command.option("--edit", "在 $EDITOR 中编辑 payload 后提交");
+      command.option("--tag <name>", "标签，可重复", collect, []);
+      command.option("--attach <path>", "附件，可重复：先上传并挂到 Echo", collect, []);
+      command.option("--attach-storage <type>", "附件存储类型：local / s3（默认 local；external 走 URL 注册）");
+    }
+    setCommandOp(command, op);
 
     command.action(async () => {
       const parsed = command.opts();
@@ -176,8 +172,29 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
         const value = parsed[field.optionKey];
         if (value !== undefined) values[field.field] = value;
       }
+      for (const field of fields) {
+        if (field.required && values[field.field] === undefined) {
+          throw new UsageError(`缺少必填参数 --${field.flag}`);
+        }
+      }
+      let payload: Record<string, unknown> | undefined;
+      if (parsed.from !== undefined && parsed.edit === true) {
+        throw new UsageError("--from 与 --edit 不能同时使用");
+      }
+      if (parsed.edit === true) payload = await editPayload();
+      else if (typeof parsed.from === "string") payload = await readPayload(parsed.from);
+
       const flags = readGlobalFlags(command);
-      emit(await options.run(command, op, values), flags.json);
+      const result = await options.run(command, op, values, {
+        output: typeof parsed.output === "string" ? parsed.output : undefined,
+        compose,
+        payload,
+        tags: Array.isArray(parsed.tag) ? (parsed.tag as string[]) : undefined,
+        attach: Array.isArray(parsed.attach) ? (parsed.attach as string[]) : undefined,
+        attachStorage: typeof parsed.attachStorage === "string" ? parsed.attachStorage : undefined,
+      });
+      // Streaming and binary commands have already written their output.
+      if (result.human !== "" || result.json !== "") emit(result, flags);
     });
   }
 }

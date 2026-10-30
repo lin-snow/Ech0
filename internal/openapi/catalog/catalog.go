@@ -37,6 +37,8 @@ const (
 	BindPath  = "path"
 	BindQuery = "query"
 	BindBody  = "body"
+	// BindForm carries the field as a multipart/form-data part.
+	BindForm = "form"
 )
 
 // Effect is the operation's blast radius, used by clients for confirmation prompts.
@@ -48,9 +50,25 @@ const (
 
 // Kind is how the client renders the success body.
 const (
-	KindJSON   = "json"
-	KindStream = "stream"
-	KindBinary = "binary"
+	KindJSON      = "json"
+	KindStream    = "stream"
+	KindBinary    = "binary"
+	KindWebSocket = "websocket"
+)
+
+// Mount says which router prefix the path hangs under. Empty means the API
+// base (`/api`); "ws" marks the unauthenticated-by-middleware websocket group.
+const (
+	MountAPI = "api"
+	MountWS  = "ws"
+)
+
+// Content types the catalog can name. Only non-JSON ones need to appear.
+const (
+	ContentTypeJSON   = "application/json"
+	ContentTypeSSE    = "text/event-stream"
+	ContentFormData   = "multipart/form-data"
+	ContentTypeBinary = "application/octet-stream"
 )
 
 // Op is one callable operation.
@@ -58,12 +76,44 @@ type Op struct {
 	Summary    string            `json:"summary"`
 	Method     string            `json:"method"`
 	Path       string            `json:"path"`
+	Mount      string            `json:"mount,omitempty"`
 	Scopes     []string          `json:"scopes"`
 	Effect     string            `json:"effect"`
 	Kind       string            `json:"kind"`
 	Input      map[string]any    `json:"input"`
 	Bind       map[string]string `json:"bind"`
+	Transport  *Transport        `json:"transport,omitempty"`
 	Deprecated bool              `json:"deprecated"`
+}
+
+// Transport describes everything that is not a JSON body in and a JSON envelope
+// out. It is omitted for plain operations, so older clients keep the short form.
+type Transport struct {
+	Request  *RequestTransport  `json:"request,omitempty"`
+	Response *ResponseTransport `json:"response,omitempty"`
+}
+
+// RequestTransport names the request encoding; multipart parts themselves are
+// described by Bind==BindForm plus `format: binary` on file fields. Auth says
+// how the credential travels when the Authorization header cannot carry it.
+type RequestTransport struct {
+	ContentType string `json:"content_type,omitempty"`
+	Auth        string `json:"auth,omitempty"`
+}
+
+// ResponseTransport names the success body encoding. Events is an advisory SSE
+// vocabulary: clients render names they know and fall back to the raw frame.
+type ResponseTransport struct {
+	Kind        string     `json:"kind"`
+	ContentType string     `json:"content_type,omitempty"`
+	Filename    string     `json:"filename,omitempty"`
+	Events      []SSEEvent `json:"events,omitempty"`
+}
+
+// SSEEvent is one named event a stream may emit.
+type SSEEvent struct {
+	Name string            `json:"name"`
+	Data map[string]string `json:"data,omitempty"`
 }
 
 // Doc is the catalog document. Keys of Ops are dotted ids (`echo.create`).
@@ -96,6 +146,10 @@ func Build(document *huma.OpenAPI) (Doc, []byte, string, error) {
 			}
 			doc.Ops[id] = buildOp(op, entry.method, path, components)
 		}
+	}
+
+	if err := mergeRawOps(&doc); err != nil {
+		return Doc{}, nil, "", err
 	}
 
 	body, err := json.Marshal(doc)
@@ -176,15 +230,17 @@ func buildOp(op *huma.Operation, method, path string, components map[string]map[
 		input["required"] = sortedUnique(required)
 	}
 
+	kind := kindOf(op)
 	return Op{
 		Summary:    op.Summary,
 		Method:     method,
 		Path:       path,
 		Scopes:     scopesOf(op),
 		Effect:     effectOf(method),
-		Kind:       kindOf(op),
+		Kind:       kind,
 		Input:      input,
 		Bind:       bind,
+		Transport:  transportOf(op, kind),
 		Deprecated: op.Deprecated,
 	}
 }
@@ -218,6 +274,55 @@ func kindOf(op *huma.Operation) string {
 	default:
 		return KindJSON
 	}
+}
+
+// transportOf fills the transport block for the rare Huma operation that is not
+// plain JSON in / JSON out. Hand-written raw operations carry their own block.
+func transportOf(op *huma.Operation, kind string) *Transport {
+	requestType := ""
+	if op.RequestBody != nil {
+		for contentType := range op.RequestBody.Content {
+			if contentType != ContentTypeJSON {
+				requestType = contentType
+				break
+			}
+		}
+	}
+	if kind == KindJSON && requestType == "" {
+		return nil
+	}
+
+	transport := &Transport{}
+	if requestType != "" {
+		transport.Request = &RequestTransport{ContentType: requestType}
+	}
+	if kind != KindJSON {
+		response := &ResponseTransport{Kind: kind}
+		if media := responseMediaType(op); media != "" {
+			response.ContentType = media
+		}
+		transport.Response = response
+	}
+	return transport
+}
+
+func responseMediaType(op *huma.Operation) string {
+	response := op.Responses[fmt.Sprintf("%d", op.DefaultStatus)]
+	if response == nil {
+		response = op.Responses["200"]
+	}
+	if response == nil {
+		return ""
+	}
+	if response.Content[ContentTypeSSE] != nil {
+		return ContentTypeSSE
+	}
+	for contentType := range response.Content {
+		if contentType != ContentTypeJSON {
+			return contentType
+		}
+	}
+	return ContentTypeJSON
 }
 
 func scopesOf(op *huma.Operation) []string {

@@ -23,7 +23,7 @@ afterEach(() => {
 
 function context(dir: string) {
   const env = { ...process.env, ECH0_CONFIG: join(dir, "config.json"), ECH0_NO_KEYCHAIN: "1" };
-  return loadContext({ json: false }, env);
+  return loadContext({ json: false, yaml: false }, env);
 }
 
 function refreshCookie(value: string): Record<string, string> {
@@ -173,7 +173,7 @@ describe("session refresh", () => {
     await writeRefreshCookie("memo", "refresh-2", ctx.credentialsPath);
     saveConfig(withProfile(ctx.config, "memo", { server: fake.baseUrl }), ctx.configPath);
 
-    const session = await openSession(loadContext({ json: false, profile: "memo" }, ctx.env));
+    const session = await openSession(loadContext({ json: false, yaml: false, profile: "memo" }, ctx.env));
     expect(await session.refresh()).toBe(true);
 
     const result = await session.client.call<{ auth?: string }>({ path: "/user" });

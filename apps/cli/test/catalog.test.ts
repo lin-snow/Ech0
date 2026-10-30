@@ -180,7 +180,43 @@ describe("dynamic commands", () => {
     expect(captured).toEqual({ id: "abc", page: 3 });
   });
 
-  test("a leaf and a deeper op share a name", async () => {
+  test("only the curated Echo operations are exposed", async () => {
+    const program = new Command("ech0");
+    const ops = { ...CATALOG.ops } as Record<string, unknown>;
+    ops["file.upload"] = {
+      summary: "upload",
+      method: "POST",
+      path: "/files/upload",
+      scopes: [],
+      effect: "write",
+      kind: "json",
+      input: { type: "object", properties: {} },
+      bind: {},
+      deprecated: false,
+    };
+    ops["echo.like"] = {
+      summary: "like",
+      method: "PUT",
+      path: "/echo/like/{id}",
+      scopes: [],
+      effect: "write",
+      kind: "json",
+      input: { type: "object", properties: { id: { type: "string" } } },
+      bind: { id: "path" },
+      deprecated: false,
+    };
+    registerCatalogCommands(program, { ops: ops as Catalog["ops"] }, {
+      run: async () => ({ human: "", json: "" }),
+    });
+
+    const echo = program.commands.find((command) => command.name() === "echo");
+    const names = (echo?.commands ?? []).map((command) => command.name());
+    expect(names.sort()).toEqual(["create", "get"]);
+    expect(names).not.toContain("like");
+    expect(program.commands.map((command) => command.name())).not.toContain("file");
+  });
+
+  test("a callable op also gets children without flag stealing", async () => {
     const program = new Command("ech0");
     const withNested: Catalog = {
       ops: {
@@ -214,16 +250,17 @@ describe("dynamic commands", () => {
         calls += 1;
         return { human: "", json: "" };
       },
+      scope: () => true,
     });
 
     await program.parseAsync(["comment", "create"], { from: "user" });
-    await program.parseAsync(["comment", "create", "integration"], { from: "user" });
+    await program.parseAsync(["comment", "create-integration"], { from: "user" });
     expect(calls).toBe(2);
   });
 
   test("missing required input is a usage error", async () => {
     const program = programWith(async () => ({ human: "", json: "" }));
-    await expect(program.parseAsync(["echo", "create"], { from: "user" })).rejects.toMatchObject({ exitCode: 1 });
+    await expect(program.parseAsync(["echo", "create"], { from: "user" })).rejects.toThrow("缺少必填参数 --content");
   });
 });
 

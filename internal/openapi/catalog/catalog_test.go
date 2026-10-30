@@ -166,7 +166,7 @@ func TestBuild_StableFingerprint(t *testing.T) {
 	if err := json.Unmarshal(first, &decoded); err != nil {
 		t.Fatalf("catalog is not valid JSON: %v", err)
 	}
-	if len(decoded.Ops) != 4 {
+	if len(decoded.Ops) != 4+len(RawOps()) {
 		t.Fatalf("ops = %d", len(decoded.Ops))
 	}
 }
@@ -174,5 +174,79 @@ func TestBuild_StableFingerprint(t *testing.T) {
 func TestBuild_NilDocument(t *testing.T) {
 	if _, _, _, err := Build(nil); err == nil {
 		t.Fatal("expected an error for a nil document")
+	}
+}
+
+func TestBuild_RawOpsCarryTransport(t *testing.T) {
+	doc, _, _, err := Build(testDocument())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	logs := doc.Ops["system.logs.stream"]
+	if logs.Kind != KindStream || logs.Transport == nil || logs.Transport.Response == nil {
+		t.Fatalf("system.logs.stream = %+v", logs)
+	}
+	if logs.Transport.Response.ContentType != ContentTypeSSE {
+		t.Fatalf("logs content type = %q", logs.Transport.Response.ContentType)
+	}
+	if logs.Transport.Request == nil || logs.Transport.Request.Auth != AuthQuery {
+		t.Fatalf("logs must authenticate via query: %+v", logs.Transport.Request)
+	}
+	if _, ok := doc.Ops["chat.ask"]; ok {
+		t.Fatal("chat.ask must stay out of the catalog while the CLI does not support Copilot")
+	}
+
+	upload := doc.Ops["file.upload"]
+	if upload.Bind["file"] != BindForm {
+		t.Fatalf("file.upload bind = %v", upload.Bind)
+	}
+	properties := upload.Input["properties"].(map[string]any)
+	if properties["file"].(map[string]any)["format"] != "binary" {
+		t.Fatalf("file part not marked binary: %v", properties["file"])
+	}
+
+	ws := doc.Ops["ws.system.logs"]
+	if ws.Mount != MountWS || ws.Kind != KindWebSocket {
+		t.Fatalf("ws op = %+v", ws)
+	}
+	if ws.Transport == nil || ws.Transport.Request == nil || ws.Transport.Request.Auth != AuthQuery {
+		t.Fatalf("ws transport = %+v", ws.Transport)
+	}
+}
+
+func TestBuild_NoNullCollections(t *testing.T) {
+	_, body, _, err := Build(testDocument())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	var decoded struct {
+		Ops map[string]struct {
+			Scopes *[]string          `json:"scopes"`
+			Input  *map[string]any    `json:"input"`
+			Bind   *map[string]string `json:"bind"`
+		} `json:"ops"`
+	}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	for id, op := range decoded.Ops {
+		if op.Scopes == nil {
+			t.Errorf("%s: scopes is null", id)
+		}
+		if op.Input == nil {
+			t.Errorf("%s: input is null", id)
+		}
+		if op.Bind == nil {
+			t.Errorf("%s: bind is null", id)
+		}
+	}
+}
+
+func TestRawOpsValidate(t *testing.T) {
+	for id, op := range RawOps() {
+		if err := validateOp(op); err != nil {
+			t.Errorf("%s: %v", id, err)
+		}
 	}
 }

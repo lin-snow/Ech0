@@ -17,13 +17,26 @@ export interface Envelope<T> {
 
 export type QueryValue = string | number | boolean | readonly string[] | undefined;
 
+/** One multipart/form-data part; a `Blob` is a file upload. */
+export interface FormPart {
+  name: string;
+  value: string | Blob;
+  filename?: string;
+}
+
 export interface RequestSpec {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   query?: Record<string, QueryValue>;
   body?: unknown;
+  /** Multipart body; mutually exclusive with `body`. */
+  form?: FormPart[];
   /** Extra headers, merged over the defaults. */
   headers?: Record<string, string>;
+  /** Overrides the default `Accept` header (`text/event-stream`, any type). */
+  accept?: string;
+  /** Cancels the request, e.g. on Ctrl-C while a stream is open. */
+  signal?: AbortSignal;
 }
 
 export interface RawResponse {
@@ -76,7 +89,7 @@ function buildQuery(query: Record<string, QueryValue> | undefined): string {
   return encoded === "" ? "" : `?${encoded}`;
 }
 
-function parseEnvelope(text: string): Envelope<unknown> | undefined {
+export function parseEnvelope(text: string): Envelope<unknown> | undefined {
   if (text.trim() === "") return undefined;
   try {
     return JSON.parse(text) as Envelope<unknown>;
@@ -85,7 +98,7 @@ function parseEnvelope(text: string): Envelope<unknown> | undefined {
   }
 }
 
-function toEch0Error(status: number, envelope: Envelope<unknown> | undefined, text: string): Ech0Error {
+export function toEch0Error(status: number, envelope: Envelope<unknown> | undefined, text: string): Ech0Error {
   const fallback = text.trim() === "" ? `HTTP ${status}` : text.trim();
   const message = envelope?.msg?.trim() || fallback;
   return new Ech0Error(message, {
@@ -112,29 +125,58 @@ export class Client {
     this.opts.token = token;
   }
 
-  /** Sends a request without interpreting the body (catalog fetch, binary). */
-  async raw(spec: RequestSpec): Promise<RawResponse> {
-    const url = `${this.baseUrl}${spec.path}${buildQuery(spec.query)}`;
+  /** Absolute URL for one operation path, honouring the `/api` base. */
+  url(spec: Pick<RequestSpec, "path" | "query">): string {
+    return `${this.baseUrl}${spec.path}${buildQuery(spec.query)}`;
+  }
+
+  /** WebSocket URL for a path mounted under `/ws` (not under `/api`). */
+  websocketUrl(path: string, query: Record<string, QueryValue> = {}): string {
+    const origin = new URL(this.baseUrl).origin.replace(/^http/, "ws");
+    return `${origin}/ws${path}${buildQuery(query)}`;
+  }
+
+  /**
+   * Sends a request and hands back the unread Response, so callers can stream
+   * it (SSE, downloads) instead of buffering everything.
+   */
+  async request(spec: RequestSpec): Promise<Response> {
     const headers: Record<string, string> = {
-      Accept: "application/json",
-      ...(spec.body === undefined ? {} : { "Content-Type": "application/json" }),
+      Accept: spec.accept ?? "application/json",
     };
+    if (spec.body !== undefined) headers["Content-Type"] = "application/json";
     if (this.opts.token) headers.Authorization = `Bearer ${this.opts.token}`;
     if (this.opts.lang) headers["X-Locale"] = this.opts.lang;
     Object.assign(headers, spec.headers);
 
-    let response: Response;
+    let payload: string | FormData | undefined;
+    if (spec.form !== undefined) {
+      const data = new FormData();
+      for (const part of spec.form) {
+        if (typeof part.value === "string") data.append(part.name, part.value);
+        else data.append(part.name, part.value, part.filename);
+      }
+      payload = data;
+    } else if (spec.body !== undefined) {
+      payload = JSON.stringify(spec.body);
+    }
+
     try {
-      response = await this.fetchImpl(url, {
+      return await this.fetchImpl(this.url(spec), {
         method: spec.method ?? "GET",
         headers,
-        body: spec.body === undefined ? undefined : JSON.stringify(spec.body),
+        body: payload,
+        signal: spec.signal,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new Ech0Error(`无法连接 ${this.baseUrl}：${reason}`);
     }
+  }
 
+  /** Sends a request without interpreting the body (catalog fetch). */
+  async raw(spec: RequestSpec): Promise<RawResponse> {
+    const response = await this.request(spec);
     return {
       status: response.status,
       ok: response.ok,
@@ -144,16 +186,17 @@ export class Client {
   }
 
   async call<T>(spec: RequestSpec): Promise<CallResult<T>> {
-    const response = await this.raw(spec);
-    const envelope = parseEnvelope(response.text);
+    const response = await this.request(spec);
+    const text = await response.text();
+    const envelope = parseEnvelope(text);
     if (!response.ok || envelope === undefined || envelope.code !== SUCCESS_CODE) {
-      throw toEch0Error(response.status, envelope, response.text);
+      throw toEch0Error(response.status, envelope, text);
     }
     return {
       data: envelope.data as T,
       headers: response.headers,
       message: envelope.msg ?? "",
-      text: response.text,
+      text,
       status: response.status,
     };
   }

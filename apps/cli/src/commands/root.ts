@@ -5,10 +5,22 @@ import { Command } from "commander";
 
 import pkg from "../../package.json" with { type: "json" };
 import { loadCatalog, type LoadedCatalog } from "../catalog/load.ts";
+import { readToken } from "../config/credentials.ts";
 import { activeProfileName } from "../config/store.ts";
 import {
+  commandIds,
+  commandOp,
+  entriesUnder,
+  helpModel,
+  nodeAt,
+  setCommandExamples,
+  setHelpContext,
+} from "../help/model.ts";
+import { formatCommand, renderHelp } from "../help/render.ts";
+import { printResult } from "../output/result.ts";
+import { suggestions } from "../help/search.ts";
+import {
   colors,
-  print,
   printErr,
   setColorEnabled,
   shouldUseColor,
@@ -20,6 +32,7 @@ import * as auth from "./auth.ts";
 import * as catalogCommands from "./catalog.ts";
 import * as config from "./config.ts";
 import { registerCatalogCommands } from "./dynamic.ts";
+import { createHelpCommand } from "./help.ts";
 import { invokeOperation } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
 import * as version from "./version.ts";
@@ -38,8 +51,8 @@ function profileServer(ctx: ReturnType<typeof loadContext>, profile: string | un
   return name ? ctx.config.profiles[name]?.server : undefined;
 }
 
-function emit(result: CommandOutput, json: boolean): void {
-  print(json ? result.json : result.human);
+function emit(result: CommandOutput, flags: GlobalFlags): void {
+  printResult(result, flags);
 }
 
 function authCommand(): Command {
@@ -61,7 +74,7 @@ function authCommand(): Command {
       const inlineToken = flags.token ?? ctx.env.ECH0_TOKEN;
       if (inlineToken !== undefined && inlineToken !== "") {
         const token = inlineToken === "-" ? (await readStdin()).trim() : inlineToken;
-        emit(await auth.login(ctx, { server: flags.server, token, profile: flags.profile }), flags.json);
+        emit(await auth.login(ctx, { server: flags.server, token, profile: flags.profile }), flags);
         return;
       }
 
@@ -77,7 +90,7 @@ function authCommand(): Command {
             printErr(`${colors().bold("设备码")} ${code.user_code}（${code.expires_in}s 内有效）`);
           },
         });
-        emit(result, flags.json);
+        emit(result, flags);
         return;
       }
 
@@ -95,7 +108,7 @@ function authCommand(): Command {
             password,
             scopes,
           }),
-          flags.json,
+          flags,
         );
         return;
       }
@@ -111,7 +124,7 @@ function authCommand(): Command {
       const flags = readGlobalFlags(command);
       const ctx = loadContext(flags);
       const options = command.opts();
-      emit(await auth.status(ctx, { verify: options.verify === true }), flags.json);
+      emit(await auth.status(ctx, { verify: options.verify === true }), flags);
     });
 
   group
@@ -122,7 +135,7 @@ function authCommand(): Command {
       const flags = readGlobalFlags(command);
       const ctx = loadContext(flags);
       const options = command.opts();
-      emit(await auth.logout(ctx, { purge: options.purge === true }), flags.json);
+      emit(await auth.logout(ctx, { purge: options.purge === true }), flags);
     });
 
   return group;
@@ -136,7 +149,7 @@ function configCommand(): Command {
     .description("列出所有 profile")
     .action((_options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(config.list(loadContext(flags)), flags.json);
+      emit(config.list(loadContext(flags)), flags);
     });
 
   group
@@ -144,7 +157,7 @@ function configCommand(): Command {
     .description("切换默认 profile")
     .action((name: string, _options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(config.use(loadContext(flags), name), flags.json);
+      emit(config.use(loadContext(flags), name), flags);
     });
 
   group
@@ -152,7 +165,7 @@ function configCommand(): Command {
     .description("删除 profile 及其 token")
     .action(async (name: string, _options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(await config.unset(loadContext(flags), name), flags.json);
+      emit(await config.unset(loadContext(flags), name), flags);
     });
 
   group
@@ -160,7 +173,7 @@ function configCommand(): Command {
     .description("打印配置与凭据文件路径")
     .action((_options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(config.path(loadContext(flags)), flags.json);
+      emit(config.path(loadContext(flags)), flags);
     });
 
   return group;
@@ -174,7 +187,7 @@ function catalogCommand(refresh: (flags: GlobalFlags) => Promise<LoadedCatalog>)
     .description("重新拉取 catalog 并写入本地缓存")
     .action(async (_options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(catalogCommands.summarize(await refresh(flags)), flags.json);
+      emit(catalogCommands.summarize(await refresh(flags)), flags);
     });
 
   group
@@ -182,7 +195,7 @@ function catalogCommand(refresh: (flags: GlobalFlags) => Promise<LoadedCatalog>)
     .description("打印当前实例的 catalog 缓存路径")
     .action((_options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(catalogCommands.cachePath(loadContext(flags)), flags.json);
+      emit(catalogCommands.cachePath(loadContext(flags)), flags);
     });
 
   return group;
@@ -193,28 +206,69 @@ function versionCommand(): Command {
     .description("显示 CLI 版本")
     .action((_options, command: Command) => {
       const flags = readGlobalFlags(command);
-      emit(version.version(pkg.version), flags.json);
+      emit(version.version(pkg.version), flags);
     });
 }
 
+interface CatalogBootstrap {
+  catalog?: LoadedCatalog;
+  server?: string;
+  failure?: string;
+  authenticated?: boolean;
+}
+
 /** Cache-first: the command tree must exist before argv is parsed. */
-async function bootstrapCatalog(): Promise<LoadedCatalog | undefined> {
-  const ctx = loadContext({ json: false });
+async function bootstrapCatalog(): Promise<CatalogBootstrap> {
+  const ctx = loadContext({ json: false, yaml: false });
   const profile = activeProfileName(ctx.config, undefined, ctx.env);
   const server = ctx.env.ECH0_SERVER ?? (profile ? ctx.config.profiles[profile]?.server : undefined);
-  if (!server) return undefined;
+  const stored = profile === undefined ? undefined : await readToken(profile, ctx.credentialsPath).catch(() => undefined);
+  const authenticated = Boolean(ctx.env.ECH0_TOKEN) || stored !== undefined;
+  if (!server) return { failure: "未配置实例：没有 profile，也没有 ECH0_SERVER", authenticated };
   try {
-    return await loadCatalog({
+    return {
       server,
-      token: ctx.env.ECH0_TOKEN,
-      lang: ctx.env.ECH0_LANG,
-      configPath: ctx.configPath,
-    });
+      authenticated,
+      catalog: await loadCatalog({
+        server,
+        token: ctx.env.ECH0_TOKEN,
+        lang: ctx.env.ECH0_LANG,
+        configPath: ctx.configPath,
+      }),
+    };
   } catch (error) {
-    printErr(
-      `${colors().yellow("提示")} catalog 不可用：${error instanceof Error ? error.message : String(error)}`,
-    );
-    return undefined;
+    const failure = error instanceof Error ? error.message : String(error);
+    printErr(`${colors().yellow("提示")} catalog 不可用：${failure}`);
+    return { server, failure, authenticated };
+  }
+}
+
+/** Every command in the tree, root included. */
+function allCommands(root: Command): Command[] {
+  const found: Command[] = [root];
+  for (const child of root.commands) found.push(...allCommands(child));
+  return found;
+}
+
+/** Examples local commands cannot derive from a schema. */
+function localExamples(program: Command): void {
+  const examples: Array<[string[], string[]]> = [
+    [
+      ["auth", "login"],
+      [
+        "ech0 auth login --server https://example.com --device",
+        "ech0 auth login --server https://example.com --token -",
+      ],
+    ],
+    [["auth", "status"], ["ech0 auth status --verify"]],
+    [["config", "use"], ["ech0 config use memo"]],
+    [["config", "list"], ["ech0 config list"]],
+    [["catalog", "refresh"], ["ech0 catalog refresh"]],
+    [["help"], ["ech0 help", "ech0 help echo", "ech0 help page"]],
+  ];
+  for (const [path, lines] of examples) {
+    const command = nodeAt(program, path);
+    if (command !== undefined) setCommandExamples(command, lines);
   }
 }
 
@@ -222,12 +276,13 @@ async function bootstrapCatalog(): Promise<LoadedCatalog | undefined> {
 export async function createRootCommand(): Promise<Command> {
   const program = new Command("ech0")
     .description(pkg.description)
-    .version(pkg.version, "-v, --version")
+    .version(pkg.version, "-v, --version", "显示 CLI 版本")
     .option("--profile <name>", "使用指定 profile")
     .option("--server <url>", "覆盖实例地址")
     .option("--token <token>", "覆盖 access token")
     .option("--lang <locale>", "请求语言（X-Locale），如 zh-CN / en-US")
     .option("--json", "输出原始 JSON 响应", false)
+    .option("--yaml", "输出 YAML（与 --json 同一文档）", false)
     .option("--no-color", "关闭 ANSI 颜色")
     .showHelpAfterError()
     .showSuggestionAfterError()
@@ -249,11 +304,13 @@ export async function createRootCommand(): Promise<Command> {
   program.addCommand(configCommand());
   program.addCommand(catalogCommand(refresh));
   program.addCommand(versionCommand());
+  program.addCommand(createHelpCommand());
 
-  current = await bootstrapCatalog();
+  const boot = await bootstrapCatalog();
+  current = boot.catalog;
   if (current !== undefined) {
     registerCatalogCommands(program, current.doc, {
-      run: async (command, op, values) => {
+      run: async (command, op, values, extra) => {
         const flags = readGlobalFlags(command);
         const session = await openSession(loadContext(flags));
         const loaded = current ?? (await refresh(flags));
@@ -264,12 +321,58 @@ export async function createRootCommand(): Promise<Command> {
           catalog: loaded,
           refresh: () => refresh(flags),
           json: flags.json,
+          yaml: flags.yaml,
+          output: extra.output,
+          compose: extra.compose,
+          payload: extra.payload,
+          tags: extra.tags,
+          attach: extra.attach,
+          attachStorage: extra.attachStorage,
         });
       },
     });
   }
 
-  program.action(() => program.outputHelp());
+  // One help renderer for the whole tree: local commands, namespaces and
+  // catalog operations read the same sections in the same order.
+  for (const command of allCommands(program)) {
+    command.configureHelp({ formatHelp: formatCommand });
+    command.addHelpCommand(false);
+  }
+
+  setHelpContext(program, {
+    server: boot.server,
+    loaded: boot.catalog !== undefined,
+    failure: boot.failure,
+    ops: boot.catalog === undefined ? undefined : Object.keys(boot.catalog.doc.ops).length,
+    authenticated: boot.authenticated,
+  });
+  localExamples(program);
+  const serverGroup = program.commands.find((child) =>
+    entriesUnder(child).some((entry) => commandOp(entry) !== undefined),
+  );
+  setCommandExamples(program, [
+    "ech0 auth login --server https://example.com --device",
+    "ech0 help",
+    ...(serverGroup === undefined ? [] : [`ech0 help ${serverGroup.name()}`]),
+    "ech0 catalog refresh",
+  ]);
+
+  program.argument("[words...]", "命令或关键词（与 `ech0 help` 等价）");
+  program.action((words: string[]) => {
+    if (words.length === 0) {
+      process.stdout.write(renderHelp(helpModel(program)));
+      return;
+    }
+    const hints = suggestions(commandIds(program), words);
+    throw new UsageError(
+      [
+        `未知命令：${words.join(" ")}`,
+        ...(hints.length === 0 ? [] : [`  是否想运行：${hints.map((id) => `ech0 ${id}`).join("、")}`]),
+        "  运行 `ech0 help` 查看全部命令，或 `ech0 help <关键词>` 搜索",
+      ].join("\n"),
+    );
+  });
 
   return program;
 }

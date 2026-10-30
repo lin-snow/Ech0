@@ -31,7 +31,7 @@ describe("auth login", () => {
     });
     const dir = mkdtempSync(join(tmpdir(), "ech0-cli-login-"));
     const env = { ...process.env, ECH0_CONFIG: join(dir, "config.json"), ECH0_NO_KEYCHAIN: "1" };
-    const ctx = loadContext({ json: false }, env);
+    const ctx = loadContext({ json: false, yaml: false }, env);
 
     const output = await auth.login(ctx, { server: api.baseUrl, token: "tok-login", profile: "memo" });
 
@@ -56,7 +56,7 @@ describe("session", () => {
       ECH0_TOKEN: "env-token",
       ECH0_NO_KEYCHAIN: "1",
     };
-    const ctx = loadContext({ json: false, profile: "memo" }, env);
+    const ctx = loadContext({ json: false, yaml: false, profile: "memo" }, env);
     const opened = await openSession(ctx);
 
     expect(opened.server).toBe("https://env.test");
@@ -65,7 +65,7 @@ describe("session", () => {
   });
 
   test("missing profile is a usage error", async () => {
-    const ctx = loadContext({ json: false }, { ECH0_CONFIG: join(mkdtempSync(join(tmpdir(), "e-")), "c.json") });
+    const ctx = loadContext({ json: false, yaml: false }, { ECH0_CONFIG: join(mkdtempSync(join(tmpdir(), "e-")), "c.json") });
     await expect(openSession(ctx)).rejects.toBeInstanceOf(UsageError);
   });
 });

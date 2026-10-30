@@ -1,11 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import type { QueryValue, RequestSpec } from "../api/http.ts";
+import { basename, join } from "node:path";
+import { rename, unlink } from "node:fs/promises";
+import { once } from "node:events";
+
+import {
+  toEch0Error,
+  parseEnvelope,
+  type FormPart,
+  type QueryValue,
+  type RequestSpec,
+} from "../api/http.ts";
+import { parseSse } from "../api/sse.ts";
 import type { LoadedCatalog } from "../catalog/load.ts";
 import { CATALOG_HEADER } from "../catalog/store.ts";
 import type { CatalogOp } from "../catalog/types.ts";
-import { Ech0Error } from "../output/console.ts";
+import { Ech0Error, UsageError, colors, print, printErr } from "../output/console.ts";
+import { createStreamRenderer } from "../output/stream.ts";
 import type { Session } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
@@ -27,6 +39,7 @@ function queryValue(value: unknown): QueryValue {
 /**
  * Places each provided field where the catalog says it belongs: `{name}`
  * segments for path, query parameters for query, and a JSON object body.
+ * Multipart operations go through `buildFormRequest` instead.
  */
 export function buildRequest(op: CatalogOp, values: FieldValues): RequestSpec {
   let path = op.path;
@@ -40,7 +53,7 @@ export function buildRequest(op: CatalogOp, values: FieldValues): RequestSpec {
       path = path.replace(`{${field}}`, encodeURIComponent(String(value)));
     } else if (location === "query") {
       query[field] = queryValue(value);
-    } else {
+    } else if (location === "body") {
       body[field] = value;
     }
   }
@@ -48,6 +61,64 @@ export function buildRequest(op: CatalogOp, values: FieldValues): RequestSpec {
   const spec: RequestSpec = { method: requestMethod(op.method), path };
   if (Object.keys(query).length > 0) spec.query = query;
   if (Object.keys(body).length > 0) spec.body = body;
+  return spec;
+}
+
+function isBinaryField(schema: unknown): boolean {
+  return (
+    typeof schema === "object" &&
+    schema !== null &&
+    (schema as Record<string, unknown>).format === "binary"
+  );
+}
+
+/** Reads a `--file` value into a multipart part; `-` streams stdin. */
+async function filePart(name: string, raw: unknown): Promise<FormPart> {
+  const path = String(raw);
+  if (path === "-") {
+    const bytes = await Bun.stdin.bytes();
+    return { name, value: new Blob([bytes]), filename: "stdin" };
+  }
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
+    throw new UsageError(`文件不存在：${path}`);
+  }
+  return { name, value: file, filename: basename(path) };
+}
+
+/** Builds a multipart request: form fields travel as parts, files as blobs. */
+export async function buildFormRequest(op: CatalogOp, values: FieldValues): Promise<RequestSpec> {
+  const properties = (op.input as { properties?: Record<string, unknown> }).properties ?? {};
+  let path = op.path;
+  const query: Record<string, QueryValue> = {};
+  const form: FormPart[] = [];
+
+  for (const [field, location] of Object.entries(op.bind)) {
+    const value = values[field];
+    if (value === undefined) continue;
+    if (location === "path") {
+      path = path.replace(`{${field}}`, encodeURIComponent(String(value)));
+      continue;
+    }
+    if (location === "query") {
+      query[field] = queryValue(value);
+      continue;
+    }
+    if (location !== "form") continue;
+
+    if (isBinaryField(properties[field])) {
+      for (const item of Array.isArray(value) ? value : [value]) {
+        form.push(await filePart(field, item));
+      }
+      continue;
+    }
+    for (const item of Array.isArray(value) ? value : [value]) {
+      form.push({ name: field, value: typeof item === "string" ? item : JSON.stringify(item) });
+    }
+  }
+
+  const spec: RequestSpec = { method: requestMethod(op.method), path, form };
+  if (Object.keys(query).length > 0) spec.query = query;
   return spec;
 }
 
@@ -64,11 +135,55 @@ export interface InvokeOptions {
   /** Refetches the catalog; called once when the server reports 412/404. */
   refresh: () => Promise<LoadedCatalog>;
   json: boolean;
+  /** `--yaml` re-encodes the result document; streams and bytes have none. */
+  yaml?: boolean;
+  /** `--output` for downloads: a path, or `-` for stdout. */
+  output?: string;
+  /** `--from` / `--edit`: a payload that flags override. */
+  payload?: Record<string, unknown>;
+  /** `--tag`, repeated. */
+  tags?: string[];
+  /** `--attach`, repeated: uploaded before the Echo is sent. */
+  attach?: string[];
+  /** `--attach-storage`: defaults to the server's local storage. */
+  attachStorage?: string;
+  /** True for echo.create / echo.update: enable payload composition. */
+  compose?: boolean;
 }
 
-/** Calls one catalog operation, retrying once with a refreshed catalog. */
+/** Calls one operation, dispatching on the catalog's transport description. */
 export async function invokeOperation(options: InvokeOptions): Promise<CommandOutput> {
-  const spec = buildRequest(options.op, options.values);
+  const kind = options.op.transport?.response?.kind ?? options.op.kind;
+  if (options.yaml === true && kind !== "json") {
+    throw new UsageError("--yaml 只适用于 JSON 结果：流式用 --json，二进制用 --output <path>");
+  }
+  switch (kind) {
+    case "stream":
+      return streamOperation(options);
+    case "binary":
+      return downloadOperation(options);
+    case "websocket":
+      return websocketOperation(options);
+    default:
+      return callOperation(options);
+  }
+}
+
+/** Operations that authenticate with `?token=` instead of the header. */
+function withQueryAuth(spec: RequestSpec, op: CatalogOp, session: Session): RequestSpec {
+  if (op.transport?.request?.auth !== "query") return spec;
+  return { ...spec, query: { ...(spec.query ?? {}), token: session.token } };
+}
+
+function hasFormFields(op: CatalogOp): boolean {
+  return Object.values(op.bind).includes("form");
+}
+
+/** Calls one operation, refreshing the catalog or the token at most once each. */
+async function callWithRetry(
+  options: InvokeOptions,
+  spec: RequestSpec,
+): Promise<{ data: unknown; text: string; message: string }> {
   let catalog = options.catalog;
   let catalogRetried = false;
   let authRetried = false;
@@ -79,7 +194,7 @@ export async function invokeOperation(options: InvokeOptions): Promise<CommandOu
         ...spec,
         headers: { [CATALOG_HEADER]: catalog.fingerprint },
       });
-      return { human: render(result.data, result.message), json: result.text };
+      return { data: result.data, text: result.text, message: result.message };
     } catch (error) {
       if (!(error instanceof Ech0Error)) throw error;
 
@@ -96,4 +211,350 @@ export async function invokeOperation(options: InvokeOptions): Promise<CommandOu
       throw error;
     }
   }
+}
+
+/** Multipart upload used by `--attach`; the operation comes from the catalog. */
+const UPLOAD_OPERATION = "file.upload";
+
+const CATEGORY_BY_EXTENSION: Record<string, string> = {
+  png: "image",
+  jpg: "image",
+  jpeg: "image",
+  gif: "image",
+  webp: "image",
+  avif: "image",
+  bmp: "image",
+  svg: "image",
+  mp4: "video",
+  mov: "video",
+  webm: "video",
+  mkv: "video",
+  avi: "video",
+  mp3: "audio",
+  wav: "audio",
+  flac: "audio",
+  aac: "audio",
+  ogg: "audio",
+  m4a: "audio",
+  pdf: "pdf",
+  md: "markdown",
+  markdown: "markdown",
+};
+
+/** Upload targets the server understands; `external` is URL registration, not an upload. */
+const ATTACH_STORAGE_TYPES = new Set(["local", "s3", "object"]);
+
+function categoryFor(path: string): string {
+  const extension = path.split(".").pop()?.toLowerCase() ?? "";
+  return CATEGORY_BY_EXTENSION[extension] ?? "file";
+}
+
+/** Accepts both `[{"name":"x"}]` and `["x"]`; strings become tag objects. */
+function normalizeTags(raw: unknown): Record<string, unknown>[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new UsageError('tags 需要是数组：[{"name":"x"}] 或 ["x"]');
+  }
+  return raw.map((item) => {
+    if (typeof item === "string") return { name: item };
+    if (typeof item === "object" && item !== null) return item as Record<string, unknown>;
+    throw new UsageError("tags 的元素需要是字符串或 {name: ...} 对象");
+  });
+}
+
+function existingEchoFiles(raw: unknown): Record<string, unknown>[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new UsageError('echo_files 需要是数组：[{"file_id":"...","sort_order":0}]');
+  }
+  return raw.filter(
+    (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
+  );
+}
+
+function nextSortOrder(files: Record<string, unknown>[]): number {
+  const orders = files
+    .map((file) => (typeof file.sort_order === "number" ? file.sort_order : -1))
+    .filter((order) => order >= 0);
+  return orders.length === 0 ? 0 : Math.max(...orders) + 1;
+}
+
+async function uploadAttachments(options: InvokeOptions, paths: string[]): Promise<string[]> {
+  const upload = options.catalog.doc.ops[UPLOAD_OPERATION];
+  if (upload === undefined) {
+    throw new Ech0Error(`服务端的 catalog 里没有 ${UPLOAD_OPERATION}，无法上传附件`);
+  }
+
+  const categories = paths.map(categoryFor);
+  const distinct = [...new Set(categories)];
+  if (distinct.length > 1) {
+    throw new UsageError(`同一条 Echo 的附件必须属于同一类别，收到 ${distinct.sort().join(" / ")}`);
+  }
+
+  const storage = options.attachStorage ?? "local";
+  if (!ATTACH_STORAGE_TYPES.has(storage)) {
+    throw new UsageError(
+      `--attach-storage 只支持 ${[...ATTACH_STORAGE_TYPES].join(" / ")}；external 文件要通过 URL 注册，不走上传`,
+    );
+  }
+  const ids: string[] = [];
+  for (const [index, path] of paths.entries()) {
+    const spec = await buildFormRequest(upload, {
+      file: path,
+      category: categories[index],
+      storage_type: storage,
+    });
+    const result = await callWithRetry(options, spec);
+    const data = result.data as { id?: unknown } | null;
+    if (typeof data?.id !== "string" || data.id === "") {
+      throw new Ech0Error(`上传 ${path} 成功但响应里没有文件 id`);
+    }
+    ids.push(data.id);
+  }
+  return ids;
+}
+
+/** Payload file first, flags override, `--tag`/`--attach` append. */
+async function composeEchoValues(options: InvokeOptions): Promise<FieldValues> {
+  const payload = options.payload ?? {};
+  const values: FieldValues = { ...payload };
+  for (const [field, value] of Object.entries(options.values)) {
+    // tags and echo_files accumulate: the payload keeps what the file says,
+    // then flags append, then --tag / --attach append.
+    if (value === undefined || field === "tags" || field === "echo_files") continue;
+    values[field] = value;
+  }
+
+  const tags = [...normalizeTags(payload.tags), ...normalizeTags(options.values.tags)];
+  for (const name of options.tags ?? []) tags.push({ name });
+  if (tags.length > 0) values.tags = tags;
+
+  const files = [...existingEchoFiles(payload.echo_files), ...existingEchoFiles(options.values.echo_files)];
+  if (options.attach !== undefined && options.attach.length > 0) {
+    let order = nextSortOrder(files);
+    const ids = await uploadAttachments(options, options.attach);
+    for (const fileID of ids) {
+      files.push({ file_id: fileID, sort_order: order });
+      order += 1;
+    }
+  }
+  if (files.length > 0) values.echo_files = files;
+
+  return values;
+}
+
+async function callOperation(options: InvokeOptions): Promise<CommandOutput> {
+  const values = options.compose === true ? await composeEchoValues(options) : options.values;
+  const spec = withQueryAuth(
+    hasFormFields(options.op)
+      ? await buildFormRequest(options.op, values)
+      : buildRequest(options.op, values),
+    options.op,
+    options.session,
+  );
+
+  const result = await callWithRetry(options, spec);
+  return { human: render(result.data, result.message), json: result.text };
+}
+
+/** Runs `task` with Ctrl-C turned into an abort, so streams stop cleanly. */
+async function withInterrupt<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const onSignal = (): void => {
+    controller.abort();
+    process.exitCode = 130;
+  };
+  process.once("SIGINT", onSignal);
+  try {
+    return await task(controller.signal);
+  } finally {
+    process.off("SIGINT", onSignal);
+  }
+}
+
+/** Sends a streaming request, retrying once on stale catalog / expired token. */
+async function openStream(
+  options: InvokeOptions,
+  spec: RequestSpec,
+  accept: string,
+): Promise<{ response: Response; catalog: LoadedCatalog }> {
+  let catalog = options.catalog;
+  let catalogRetried = false;
+  let authRetried = false;
+
+  for (;;) {
+    const response = await options.session.client.request({
+      ...spec,
+      accept,
+      headers: { [CATALOG_HEADER]: catalog.fingerprint },
+    });
+    const status = response.status;
+    if (!catalogRetried && (status === 412 || status === 404)) {
+      catalogRetried = true;
+      catalog = await options.refresh();
+      continue;
+    }
+    if (!authRetried && status === 401 && (await options.session.refresh())) {
+      authRetried = true;
+      continue;
+    }
+    return { response, catalog };
+  }
+}
+
+async function streamOperation(options: InvokeOptions): Promise<CommandOutput> {
+  const spec = withQueryAuth(buildRequest(options.op, options.values), options.op, options.session);
+  const renderer = createStreamRenderer({
+    json: options.json,
+    events: (options.op.transport?.response?.events ?? []).map((event) => event.name),
+  });
+
+  let failed = false;
+  await withInterrupt(async (signal) => {
+    const { response } = await openStream(options, spec, "text/event-stream");
+    if (!response.ok) {
+      const text = await response.text();
+      throw toEch0Error(response.status, parseEnvelope(text), text);
+    }
+    if (response.body === null) {
+      throw new Ech0Error("服务端没有返回流式响应");
+    }
+    try {
+      for await (const frame of parseSse(response.body)) {
+        renderer.onFrame(frame);
+      }
+    } catch (error) {
+      if (signal.aborted) return;
+      throw error;
+    }
+  });
+
+  renderer.finish();
+  failed = renderer.failed;
+  if (failed && process.exitCode !== 130) process.exitCode = 1;
+  return { human: "", json: "" };
+}
+
+function filenameOf(response: Response, op: CatalogOp): string {
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  if (match?.[1]) {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return match[1];
+    }
+  }
+  return basename(op.path) || "download";
+}
+
+function formatBytes(bytes: number): string {
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function renderProgress(written: number, total: number): void {
+  const percent = total > 0 ? Math.floor((written / total) * 100) : 0;
+  process.stderr.write(`\r${formatBytes(written)} / ${formatBytes(total)} (${percent}%)`);
+}
+
+async function pipeToStdout(body: ReadableStream<Uint8Array>): Promise<number> {
+  let written = 0;
+  for await (const chunk of body) {
+    written += chunk.byteLength;
+    if (!process.stdout.write(chunk)) await once(process.stdout, "drain");
+  }
+  return written;
+}
+
+async function pipeToFile(body: ReadableStream<Uint8Array>, target: string): Promise<number> {
+  const total = Number(process.env.ECH0_TRANSFER_TOTAL ?? "");
+  const progress = process.stderr.isTTY === true && Number.isFinite(total) && total > 0;
+  const temp = `${target}.part`;
+  const sink = Bun.file(temp).writer();
+  let written = 0;
+  try {
+    for await (const chunk of body) {
+      sink.write(chunk);
+      written += chunk.byteLength;
+      if (progress) renderProgress(written, total);
+    }
+    await sink.end();
+    await rename(temp, target);
+  } catch (error) {
+    try {
+      await sink.end();
+    } catch {
+      // The sink is already unusable.
+    }
+    await unlink(temp).catch(() => undefined);
+    throw error;
+  }
+  if (progress) process.stderr.write("\r\u001b[K");
+  return written;
+}
+
+async function downloadOperation(options: InvokeOptions): Promise<CommandOutput> {
+  const spec = withQueryAuth(buildRequest(options.op, options.values), options.op, options.session);
+  return withInterrupt(async (signal) => {
+    const { response } = await openStream(options, spec, "*/*");
+    if (!response.ok) {
+      const text = await response.text();
+      throw toEch0Error(response.status, parseEnvelope(text), text);
+    }
+    if (response.body === null) {
+      throw new Ech0Error("服务端没有返回响应体");
+    }
+
+    const output = options.output;
+    const toStdout = output === "-" || (output === undefined && process.stdout.isTTY !== true);
+    if (toStdout && options.json) {
+      throw new UsageError("--json 需要 --output <文件>：二进制内容不能与 JSON 输出混在一起");
+    }
+
+    if (response.body === null) throw new Ech0Error("服务端没有返回响应体");
+
+    if (toStdout) {
+      await pipeToStdout(response.body);
+      return { human: "", json: "" };
+    }
+
+    const target = output ?? join(process.cwd(), filenameOf(response, options.op));
+    const total = Number(response.headers.get("content-length") ?? "");
+    if (Number.isFinite(total) && total > 0) process.env.ECH0_TRANSFER_TOTAL = String(total);
+    const written = await pipeToFile(response.body, target);
+    delete process.env.ECH0_TRANSFER_TOTAL;
+
+    const summary = { file: target, bytes: written, content_type: response.headers.get("content-type") ?? "" };
+    return {
+      human: `${colors().green("✓")} 已保存 ${target}（${formatBytes(written)}）`,
+      json: JSON.stringify(summary, null, 2),
+    };
+  });
+}
+
+function websocketOperation(options: InvokeOptions): Promise<CommandOutput> {
+  const spec = withQueryAuth(buildRequest(options.op, options.values), options.op, options.session);
+  const url = options.session.client.websocketUrl(options.op.path, spec.query ?? {});
+
+  return new Promise<CommandOutput>((resolve, reject) => {
+    const socket = new WebSocket(url);
+    socket.onmessage = (event: MessageEvent) => {
+      const raw = typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data as ArrayBuffer);
+      if (options.json) {
+        print(raw);
+        return;
+      }
+      const payload = parseEnvelope(raw);
+      print(JSON.stringify(payload?.data ?? raw));
+    };
+    socket.onerror = () => reject(new Ech0Error(`WebSocket 连接失败：${url}`));
+    socket.onclose = () => resolve({ human: "", json: "" });
+  });
 }

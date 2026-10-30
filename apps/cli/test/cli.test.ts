@@ -30,7 +30,7 @@ describe("cli wiring", () => {
   test("bare invocation prints help and exits 0", () => {
     const result = runCli([]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Usage: ech0");
+    expect(result.stdout).toMatch(/Usage: ech0|用法: ech0/);
   });
 
   test("unknown option exits with the usage code", () => {

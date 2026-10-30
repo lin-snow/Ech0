@@ -22,6 +22,7 @@ export interface GlobalFlags {
   token?: string;
   lang?: string;
   json: boolean;
+  yaml: boolean;
 }
 
 export interface CliContext {
@@ -49,12 +50,16 @@ export interface Session extends ResolvedTarget {
 /** Reads the global flags declared on the root command, from any subcommand. */
 export function readGlobalFlags(command: Command): GlobalFlags {
   const options = command.optsWithGlobals();
+  const json = options.json === true;
+  const yaml = options.yaml === true;
+  if (json && yaml) throw new UsageError("--json 与 --yaml 只能选一个");
   return {
     profile: typeof options.profile === "string" ? options.profile : undefined,
     server: typeof options.server === "string" ? options.server : undefined,
     token: typeof options.token === "string" ? options.token : undefined,
     lang: typeof options.lang === "string" ? options.lang : undefined,
-    json: options.json === true,
+    json,
+    yaml,
   };
 }
 
