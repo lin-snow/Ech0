@@ -20,8 +20,8 @@ build:
     bun run build
 
 # Release artifacts: standalone binaries, release tarballs, SHA256SUMS, and
-# publishable npm packages under dist/release. Version is the release tag
-# without the leading `v` (e.g. `just cli dist 4.7.0`).
+# publishable npm packages under dist/release. Version is the CLI release tag
+# without the `cli-v` prefix (e.g. `just cli dist 0.1.0`).
 dist VERSION:
     bun run scripts/dist.ts --version {{VERSION}} --out dist/release
 

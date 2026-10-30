@@ -63,7 +63,7 @@ describe("password login", () => {
 
     const mint = fake.calls.find((call) => call.path === "/api/access-tokens");
     expect(mint?.headers.get("Authorization")).toBe("Bearer session-token");
-    expect(mint?.body).toMatchObject({ expiry: "1_month", audience: "cli", scopes: ["echo:read", "echo:write", "profile:read"] });
+    expect(mint?.body).toMatchObject({ expiry: "1_month", audience: "cli", scopes: ["echo:read", "echo:write", "profile:read", "file:read", "file:write"] });
   });
 
   test("non-admin keeps the session token and the refresh cookie", async () => {
@@ -147,7 +147,7 @@ describe("device login", () => {
     expect((await readToken("memo", ctx.credentialsPath))?.value).toBe("device-token");
 
     const start = fake.calls.find((call) => call.path === "/api/auth/device/code");
-    expect(start?.body).toMatchObject({ client_name: "ech0-cli", scopes: ["echo:read", "echo:write", "profile:read"] });
+    expect(start?.body).toMatchObject({ client_name: "ech0-cli", scopes: ["echo:read", "echo:write", "profile:read", "file:read", "file:write"] });
   });
 });
 

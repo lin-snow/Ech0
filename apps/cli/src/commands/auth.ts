@@ -18,8 +18,15 @@ import { setCookieValue } from "../session.ts";
 import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
-/** Least privilege for CLI commands; widen with `--scopes`. */
-export const DEFAULT_CLI_SCOPES = ["echo:read", "echo:write", "profile:read"];
+// Every scope the exposed command surface needs: Echo CRUD plus the file
+// surface from catalog/scope.ts. Anything narrower makes `ech0 file ...` 403.
+export const DEFAULT_CLI_SCOPES = [
+  "echo:read",
+  "echo:write",
+  "profile:read",
+  "file:read",
+  "file:write",
+];
 const DEVICE_CLIENT_NAME = "ech0-cli";
 
 interface TokenPair {

@@ -261,7 +261,10 @@ describe("help", () => {
     expect(result.stdout).toContain("设备码与确认链接");
     expect(result.stdout).toContain("--token -");
     expect(result.stdout).toContain("audience=cli");
-    expect(result.stdout).toContain("默认 echo:read,echo:write,profile:read");
+    // The hint wraps at the terminal width, so compare with whitespace collapsed.
+    expect(result.stdout.replace(/\s+/g, " ")).toContain(
+      "默认 echo:read,echo:write,profile:read,file:read,file:write",
+    );
   });
 
   test("--help and `help <id>` render the same descriptor", async () => {

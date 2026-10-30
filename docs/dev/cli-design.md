@@ -315,6 +315,8 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`profile:read`、`file:read`、`file:write`。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+
 ## 6. 命令树与 help
 
 本地命令（CLI 自身能力）：
@@ -415,15 +417,15 @@ ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内�
 
 ## 9. 分发
 
-发布由 `.github/workflows/release-cli.yml` 驱动：监听 `release: published`（也支持 `workflow_dispatch` 指定历史 tag 重跑），版本号取 release tag 去掉 `v`，与 Ech0 发版一一对应；预发布版本（如 `4.7.0-rc.1`）发布到 npm 的 `next` dist-tag，稳定版发 `latest`。
+发布由 `.github/workflows/release-cli.yml` 驱动：CLI 使用独立版本线，源头是 `apps/cli/package.json`（首个版本 `0.1.0`），推送 `cli-vX.Y.Z` tag 触发（也支持 `workflow_dispatch` 指定历史 CLI tag 重跑），与 Ech0 服务端的 `vX.Y.Z` 发版互不影响。workflow 会校验 tag 与 `package.json` 版本一致；预发布版本（如 `0.2.0-rc.1`）发布到 npm 的 `next` dist-tag，稳定版发 `latest`。
 
-- **GitHub Release**：`ech0-cli-<os>-<arch>.tar.gz`（darwin/linux × arm64/x64，包内是 `ech0` + `LICENSE`）与 `SHA256SUMS`，由 `bun build --compile --target=bun-<os>-<arch>` 在 Linux runner 上交叉编译，资产上传到同一次 release；命名用 `ech0-cli-*`，不并入 `ech0-linux-*` glob。
+- **GitHub Release**：`ech0-cli-<os>-<arch>.tar.gz`（darwin/linux × arm64/x64，包内是 `ech0` + `LICENSE`）与 `SHA256SUMS`，由 `bun build --compile --target=bun-<os>-<arch>` 在 Linux runner 上交叉编译，资产上传到 `cli-vX.Y.Z` 这次 CLI release（不存在时创建）；命名用 `ech0-cli-*`，不与服务端的 `ech0-linux-*` 混用。
 - **npm**：
   - `@ech0/cli`：启动器（`bin/ech0.cjs`，Node ≥18），按 `process.platform` / `process.arch` 找到平台包并 exec 二进制；
   - `@ech0/cli-<os>-<arch>`：只含编译产物，用 `os` / `cpu` 字段限制安装平台；四个平台包作为 `optionalDependencies`，npm 只安装匹配的那一个；
   - 没有 postinstall 下载，安装后离线可用。
-- **版本**：编译时用 `--define process.env.ECH0_CLI_VERSION="<tag>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本仍用 `ech0 common hello`（catalog 命令）。
-- **本地复现**：`just cli dist 4.7.0` → `apps/cli/dist/release/`（四个二进制、tar.gz、`SHA256SUMS` 与可直接 `npm publish` 的目录）。
+- **版本**：`apps/cli/package.json` 是开发版本来源，发布时 workflow 校验 `cli-vX.Y.Z` tag 后，用 `--define process.env.ECH0_CLI_VERSION="<version>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本仍用 `ech0 common hello`（catalog 命令）。
+- **本地复现**：`just cli dist 0.1.0` → `apps/cli/dist/release/`（四个二进制、tar.gz、`SHA256SUMS` 与可直接 `npm publish` 的目录）。
 - macOS 从浏览器下载 release 资产会被打上 quarantine 标记；二进制未签名，首次运行前需 `xattr -d com.apple.quarantine ech0`（走 npm 无此问题）。
 - npm 发布需要仓库 secret `NPM_TOKEN`（能发布 `@ech0` scope）；启用 OIDC provenance（`id-token: write`）。已发布的版本会跳过，重跑 workflow 不报错。
 
@@ -434,7 +436,7 @@ just cli typecheck    # tsc --noEmit（TS 5.9）
 just cli test         # bun test
 just cli gen-check    # 生成物漂移检查
 just cli build        # bun build --target=bun
-just cli dist 4.7.0   # 发布用二进制 + tar.gz + npm 包（apps/cli/dist/release）
+just cli dist 0.1.0   # 发布用二进制 + tar.gz + npm 包（apps/cli/dist/release）
 go test ./internal/openapi/... ./internal/router/...
 ```
 
@@ -451,7 +453,7 @@ go test ./internal/openapi/... ./internal/router/...
 | M2 | 后端 operation catalog（`/api/_catalog` + 指纹 + 412）与 CLI 动态命令；token 登录、profile/凭据存储；`auth/config/catalog/version` 本地命令 | 已完成 |
 | M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 已完成 |
 | M4 | device authorization：后端端点 + Web `/device` 批准页 + CLI 轮询 | 已完成 |
-| M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@ech0/cli` + 平台包），由 `release-cli.yml` 发版后自动执行 | 已完成 |
+| M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@ech0/cli` + 平台包），由 `release-cli.yml` 在 `cli-v*` tag 上独立发版 | 已完成 |
 | M6 | shell completion、旧服务端 `/api/openapi.json` 兜底、`curl \| sh` 安装脚本 | 待做 |
 
 ## 12. 未决

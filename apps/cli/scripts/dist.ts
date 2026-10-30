@@ -6,7 +6,7 @@
  * Build the distributable CLI: standalone binaries (for GitHub Releases) and
  * the npm packages (`@ech0/cli` + one `@ech0/cli-<os>-<arch>` per platform).
  *
- *   bun run scripts/dist.ts --version 4.7.0 [--out dist/release] [--targets darwin-arm64,linux-x64]
+ *   bun run scripts/dist.ts --version 0.1.0 [--out dist/release] [--targets darwin-arm64,linux-x64]
  *
  * Cross-compilation is handled by `bun build --compile --target=bun-<os>-<arch>`;
  * the version is inlined via `--define process.env.ECH0_CLI_VERSION`, so the
