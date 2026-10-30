@@ -25,4 +25,4 @@ typecheck:
 test:
     bun test
 
-check: typecheck gen-check
+check: typecheck test gen-check

@@ -63,7 +63,7 @@ just cli gen-check  # gen + git diff --exit-code -- src/api（与 just openapi-c
 
 所有 JSON 端点返回 `commonModel.Result[T]`：`{code, data, msg, message_key, message_params, error_code}`。CLI 约定：
 
-- 解包：`code !== 0` → 抛 `Ech0Error{status, code, errorCode, messageKey, params}`；`data` 交给命令层。
+- 解包：`code !== 1`（`commonModel.DEFAULT_SUCCESS_CODE = 1`）→ 抛 `Ech0Error{status, code, errorCode, messageKey, params}`；`data` 交给命令层。
 - 错误文案：优先 `message_key` + `message_params` 走本地 i18n 映射，其次 `msg`（见 `docs/dev/i18n-contract.md`）。
 - 请求带 `Accept-Language`，由 `--lang` / `ECH0_LANG` 控制。
 
@@ -124,7 +124,7 @@ raw gin（见 `docs/dev/huma-raw-gin-endpoints.md`）不在 spec 中，必须手
 优先级：`ECH0_TOKEN` / `--token` > 系统钥匙串 > 回退文件。
 
 - 钥匙串：`Bun.secrets.set({service: "ech0-cli", name: "token:<profile>"})`。
-- 回退：`~/.config/ech0/credentials.json`，权限 `0600`，首次回退时在 stderr 打一条警告。
+- 回退：`~/.config/ech0/credentials.json`，权限 `0600`；`ECH0_NO_KEYCHAIN=1` 强制走文件（headless CI / 测试）。
 - `ech0 auth logout` 同时清钥匙串、回退文件与内存缓存。
 
 ### 5.5 命令 → scope 映射（v1）
@@ -140,17 +140,19 @@ raw gin（见 `docs/dev/huma-raw-gin-endpoints.md`）不在 spec 中，必须手
 ## 6. 命令树（v1）
 
 ```
-ech0 auth login [--server URL] [--token TOKEN|-] [--device|-u/--username]
-ech0 auth status
-ech0 auth logout
-ech0 config list | use <profile> | unset <profile>
-ech0 echo add <content|-|--file PATH> [--private] [--tags a,b]
-ech0 echo ls [--limit N] [--tag TAG]
+ech0 auth login        # 用 access token 登录（--token / ECH0_TOKEN，传 `-` 读 stdin）
+ech0 auth status [--verify]
+ech0 auth logout [--purge]
+ech0 config list | use <name> | unset <name> | path
+ech0 echo add [content|-] [--file PATH] [--private] [--tags a,b]
+ech0 echo ls [--limit N] [--page N] [--search TEXT] [--all]
 ech0 echo show <id>
-ech0 echo rm <id>
+ech0 echo rm <id> [--yes]
 ech0 me
-ech0 version
+ech0 version [--remote]
 ```
+
+全局选项（放在任意位置）：`--profile`、`--server`、`--token`、`--lang`、`--json`、`--no-color`。注意：commander 会把与父命令同名的选项归到父命令，所以 `--token/--server/--profile` 只在根命令声明一次，子命令不再重复声明。
 
 后续（v2+）：`comment`、`file`、`tag`、`connect`、`chat`（SSE）、`completion`。
 
@@ -158,6 +160,7 @@ ech0 version
 
 - 默认：人类可读（表格 / 纯文本）；`--json`：原始响应体，一行一个对象（列表）。
 - stdout 只放数据；日志、进度、错误全部走 stderr。
+- `echo ls --all --json` 输出 NDJSON（每行一个 Echo），其余命令的 `--json` 都是单次响应的原始体。
 - 颜色：`NO_COLOR` / `--no-color` 关闭；TTY 外自动关闭。
 - 退出码：`0` 成功；`1` 业务或网络错误；`2` 用法错误（commander `.exitOverride()` 映射）。
 - 分页：`echo ls` 默认 `limit=20`，`--all` 自动翻页（`/api/echo/page`）。
@@ -192,7 +195,7 @@ just cli gen-check    # 生成物漂移检查
 just cli build        # bun build --target=bun
 ```
 
-- 单测用 `Bun.serve` 起假服务端覆盖：envelope 解包、错误映射、token 刷新、device 轮询状态机。
+- 单测用 `Bun.serve` 起假服务端覆盖：envelope 解包、错误映射、命令请求体、profile/token 优先级、CLI 退出码（`test/*.test.ts`，`bun test`）。
 - 根 `just check` 后续接入 `just cli typecheck gen-check`；CI 需在对应 job 增加 `oven-sh/setup-bun`。
 
 ## 11. 里程碑
@@ -200,7 +203,7 @@ just cli build        # bun build --target=bun
 | 里程碑 | 内容 | 状态 |
 | --- | --- | --- |
 | M1 | 目录骨架、commander 根命令、Huma→TS/zod 生成链、SPDX、gen-check | 已完成 |
-| M2 | token 登录 + profile/凭据存储 + `echo add/ls/show/rm` | 待做 |
+| M2 | token 登录 + profile/凭据存储 + `echo add/ls/show/rm` + `me`/`version` | 已完成 |
 | M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 待做 |
 | M4 | device authorization：后端 3 端点 + Web `/device` 批准页 + CLI 轮询 | 待做 |
 | M5 | Release 产物（compile 矩阵）、npm 包、curl 脚本 | 待做 |
