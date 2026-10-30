@@ -610,6 +610,7 @@ func TestFileService_StreamFileByID(t *testing.T) {
 		fix.svc.StreamFileByID(c, dto.ID)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Header().Get("Content-Type"), "image/png")
+		assert.Equal(t, "inline; filename=photo.png", rec.Header().Get("Content-Disposition"))
 		assert.Equal(t, content, rec.Body.Bytes())
 	})
 
@@ -664,6 +665,55 @@ func TestFileService_StreamFileByPath(t *testing.T) {
 		})
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, content, rec.Body.Bytes())
+	})
+
+	t.Run("non-ASCII name uses RFC 5987 encoding", func(t *testing.T) {
+		fix := newFileFix(t)
+		content := pngBytes(t, 8, 8)
+		fix.expectAdmin()
+		dto, err := fix.svc.UploadFile(
+			fix.adminCtx(),
+			makeFileHeader(t, "photo.png", content),
+			storage.CategoryImage,
+			storage.StorageTypeLocal,
+		)
+		require.NoError(t, err)
+
+		fix.expectAdmin()
+		c, rec := newGinCtx(t, fix.adminCtx())
+		fix.svc.StreamFileByPath(c, commonModel.FilePathStreamQueryDto{
+			StorageType: "local",
+			Path:        "images/" + dto.Key,
+			Name:        "报告.png",
+			ContentType: "image/png",
+		})
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "inline; filename*=utf-8''%E6%8A%A5%E5%91%8A.png", rec.Header().Get("Content-Disposition"))
+	})
+
+	t.Run("blank name falls back to the storage key", func(t *testing.T) {
+		fix := newFileFix(t)
+		content := pngBytes(t, 7, 7)
+		fix.expectAdmin()
+		dto, err := fix.svc.UploadFile(
+			fix.adminCtx(),
+			makeFileHeader(t, "photo.png", content),
+			storage.CategoryImage,
+			storage.StorageTypeLocal,
+		)
+		require.NoError(t, err)
+
+		fix.expectAdmin()
+		c, rec := newGinCtx(t, fix.adminCtx())
+		fix.svc.StreamFileByPath(c, commonModel.FilePathStreamQueryDto{
+			StorageType: "local",
+			Path:        "images/" + dto.Key,
+			Name:        "  ",
+			ContentType: "image/png",
+		})
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Header().Get("Content-Disposition"), "inline; filename=")
+		assert.Contains(t, rec.Header().Get("Content-Disposition"), ".png")
 	})
 
 	t.Run("non-admin forbidden", func(t *testing.T) {

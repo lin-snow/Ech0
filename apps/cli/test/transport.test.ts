@@ -351,6 +351,114 @@ describe("binary download", () => {
     }
   });
 
+  test("names the saved file from Content-Disposition when --output is omitted", async () => {
+    const payload = new TextEncoder().encode("zip-bytes");
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        return new Response(payload, {
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": "inline; filename*=utf-8''%E6%8A%A5%E5%91%8A.zip",
+          },
+        });
+      },
+    });
+    const dir = mkdtempSync(join(tmpdir(), "ech0-cli-name-"));
+    const previousCwd = process.cwd();
+    const previousTty = process.stdout.isTTY;
+    const op = baseOp({
+      method: "GET",
+      path: "/file/{id}/stream",
+      kind: "binary",
+      transport: { response: { kind: "binary" } },
+    });
+    try {
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      process.chdir(dir);
+      const result = await invokeOperation({
+        session: sessionFor(`http://127.0.0.1:${server.port}`),
+        op,
+        values: { id: "f1" },
+        catalog: catalogStub(),
+        refresh: async () => catalogStub(),
+        json: false,
+      });
+
+      expect(readFileSync(join(dir, "报告.zip")).toString()).toBe("zip-bytes");
+      expect(result.human).toContain(join(dir, "报告.zip"));
+    } finally {
+      process.chdir(previousCwd);
+      Object.defineProperty(process.stdout, "isTTY", { value: previousTty, configurable: true });
+      server.stop(true);
+    }
+  });
+
+  test("strips directories from a server-supplied filename", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => new Response("bytes", { headers: { "Content-Disposition": 'attachment; filename="../../evil.zip"' } }),
+    });
+    const dir = mkdtempSync(join(tmpdir(), "ech0-cli-name-"));
+    const previousCwd = process.cwd();
+    const previousTty = process.stdout.isTTY;
+    const op = baseOp({
+      method: "GET",
+      path: "/file/{id}/stream",
+      kind: "binary",
+      transport: { response: { kind: "binary" } },
+    });
+    try {
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      process.chdir(dir);
+      await invokeOperation({
+        session: sessionFor(`http://127.0.0.1:${server.port}`),
+        op,
+        values: { id: "f1" },
+        catalog: catalogStub(),
+        refresh: async () => catalogStub(),
+        json: false,
+      });
+
+      expect(readFileSync(join(dir, "evil.zip")).toString()).toBe("bytes");
+    } finally {
+      process.chdir(previousCwd);
+      Object.defineProperty(process.stdout, "isTTY", { value: previousTty, configurable: true });
+      server.stop(true);
+    }
+  });
+
+  test("falls back to download when the response carries no filename", async () => {
+    const server = Bun.serve({ port: 0, fetch: () => new Response("bytes") });
+    const dir = mkdtempSync(join(tmpdir(), "ech0-cli-name-"));
+    const previousCwd = process.cwd();
+    const previousTty = process.stdout.isTTY;
+    const op = baseOp({
+      method: "GET",
+      path: "/file/{id}/stream",
+      kind: "binary",
+      transport: { response: { kind: "binary" } },
+    });
+    try {
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      process.chdir(dir);
+      await invokeOperation({
+        session: sessionFor(`http://127.0.0.1:${server.port}`),
+        op,
+        values: { id: "f1" },
+        catalog: catalogStub(),
+        refresh: async () => catalogStub(),
+        json: false,
+      });
+
+      expect(readFileSync(join(dir, "download")).toString()).toBe("bytes");
+    } finally {
+      process.chdir(previousCwd);
+      Object.defineProperty(process.stdout, "isTTY", { value: previousTty, configurable: true });
+      server.stop(true);
+    }
+  });
+
   test("rejects --json when the bytes would go to stdout", async () => {
     const server = Bun.serve({ port: 0, fetch: () => new Response("x") });
     const op = baseOp({

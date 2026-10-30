@@ -368,17 +368,32 @@ async function streamOperation(options: InvokeOptions): Promise<CommandOutput> {
   return { human: "", json: "" };
 }
 
-function filenameOf(response: Response, op: CatalogOp): string {
+/**
+ * Names the saved file from `Content-Disposition`: RFC 6266 says `filename*`
+ * (RFC 5987 percent-encoding) wins over plain `filename`. There is no useful
+ * fallback in the catalog path — its last segment is the verb `stream` — so
+ * callers that get no name end up with `download`.
+ */
+function filenameOf(response: Response): string {
   const disposition = response.headers.get("content-disposition") ?? "";
-  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  if (match?.[1]) {
+  const extended = /filename\*\s*=\s*(?:"([^"]*)"|([^;]*))/i.exec(disposition);
+  const encoded = (extended?.[1] ?? extended?.[2] ?? "").trim().replace(/^[^']*'[^']*'/, "");
+  if (encoded) {
     try {
-      return decodeURIComponent(match[1]);
+      return safeFileName(decodeURIComponent(encoded));
     } catch {
-      return match[1];
+      return safeFileName(encoded);
     }
   }
-  return basename(op.path) || "download";
+  const plain = /filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]*))/i.exec(disposition);
+  const name = (plain?.[1] ?? plain?.[2])?.replace(/\\(.)/g, "$1");
+  return safeFileName(name);
+}
+
+/** Header values are remote input: keep the write inside the chosen directory. */
+function safeFileName(raw: string | undefined): string {
+  const name = basename((raw ?? "").replace(/\\/g, "/").replace(/[\u0000-\u001f\u007f]/g, "").trim());
+  return name === "" || name === "." || name === ".." ? "download" : name;
 }
 
 function formatBytes(bytes: number): string {
@@ -451,14 +466,12 @@ async function downloadOperation(options: InvokeOptions): Promise<CommandOutput>
       throw new UsageError("--json 需要 --output <文件>：二进制内容不能与 JSON 输出混在一起");
     }
 
-    if (response.body === null) throw new Ech0Error("服务端没有返回响应体");
-
     if (toStdout) {
       await pipeToStdout(response.body);
       return { human: "", json: "" };
     }
 
-    const target = output ?? join(process.cwd(), filenameOf(response, options.op));
+    const target = output ?? join(process.cwd(), filenameOf(response));
     const total = Number(response.headers.get("content-length") ?? "");
     if (Number.isFinite(total) && total > 0) process.env.ECH0_TRANSFER_TOTAL = String(total);
     const written = await pipeToFile(response.body, target);
