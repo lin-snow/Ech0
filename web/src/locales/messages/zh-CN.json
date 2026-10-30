@@ -1210,7 +1210,6 @@
     "subtitle": "确认终端 CLI 的登录请求。",
     "codeLabel": "设备码",
     "codePlaceholder": "输入终端显示的 8 位设备码",
-    "lookup": "查询",
     "approve": "确认授权",
     "client": "客户端：",
     "scopes": "申请的权限",

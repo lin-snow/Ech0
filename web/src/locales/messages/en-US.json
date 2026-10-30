@@ -1210,7 +1210,6 @@
     "subtitle": "Approve a sign-in request from a terminal CLI.",
     "codeLabel": "Device code",
     "codePlaceholder": "Enter the 8-character code shown in your terminal",
-    "lookup": "Look up",
     "approve": "Approve",
     "client": "Client:",
     "scopes": "Requested scopes",
