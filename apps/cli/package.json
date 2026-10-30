@@ -1,6 +1,6 @@
 {
   "name": "@ech0/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Ech0 command line client for accessing and managing your Ech0 instance.",
