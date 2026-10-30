@@ -26,7 +26,7 @@ Login modes, profiles and CI: [references/auth.md](references/auth.md).
 
 ```bash
 # Read the timeline, or one Echo
-ech0 echo page get --page 1 --page-size 20 --json
+ech0 echo list --page 1 --page-size 20 --json
 ech0 echo get --id <echo_id> --json
 
 # Publish text

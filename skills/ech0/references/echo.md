@@ -1,6 +1,6 @@
 # Publishing and editing Echoes
 
-The Echo commands are `echo.create`, `echo.page.get`, `echo.get`, `echo.update`
+The Echo commands are `echo.create`, `echo.list`, `echo.get`, `echo.update`
 and `echo.delete`, plus `file.upload` for attachments. **Create, update and
 delete require an admin account.** Reads work for any logged-in account.
 
@@ -109,8 +109,8 @@ the id first. Deleting an Echo also deletes its attachments.
 
 ```bash
 ech0 echo get --id <echo_id>
-ech0 echo page get --page 1 --page-size 20 --search daily
+ech0 echo list --page 1 --page-size 20 --search daily
 ```
 
-Responses look like `{code, msg, data}`. `echo.page.get` returns `data.items`
+Responses look like `{code, msg, data}`. `ech0 echo list` returns `data.items`
 plus `total`.

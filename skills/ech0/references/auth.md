@@ -63,7 +63,7 @@ Which profile, server and token a command uses:
 ```bash
 export ECH0_SERVER=https://ech0.example.com
 export ECH0_TOKEN=<token>
-ech0 echo page get --page 1 --json
+ech0 echo list --page 1 --json
 ```
 
 Set `ECH0_NO_KEYCHAIN=1` to keep credentials in a file instead of the system
