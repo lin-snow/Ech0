@@ -1,0 +1,29 @@
+{
+  "name": "ech0-design",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ech0 design system: tokens, components, patterns and UX specs.",
+  "scripts": {
+    "dev": "vite --port 5180",
+    "dev:prototype": "vite prototype",
+    "build": "tsc --noEmit && vite build",
+    "build:prototype": "vite build prototype",
+    "typecheck": "tsc --noEmit && tsc -p prototype/tsconfig.json --noEmit",
+    "preview": "vite preview --port 5180"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "markdown-it": "^15.0.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

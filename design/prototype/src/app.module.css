@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+.app {
+  height: 100dvh;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px 10px 48px;
+}
+
+.stageBody {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 0;
+}
+
+.frame {
+  position: relative;
+  height: 100%;
+  max-width: 100%;
+  background: var(--canvas);
+  overflow: hidden;
+  container-type: inline-size;
+  container-name: frame;
+}
+
+@media (width <= 900px) {
+  .stage {
+    padding: 8px 6px 48px;
+  }
+}

@@ -1,0 +1,16 @@
+# Ech0 design asset library (not part of the Go binary)
+
+dev:
+    pnpm dev
+
+dev-prototype:
+    pnpm dev:prototype
+
+build:
+    pnpm build
+
+build-prototype:
+    pnpm build:prototype
+
+typecheck:
+    pnpm typecheck

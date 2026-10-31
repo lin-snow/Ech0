@@ -1,0 +1,482 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+/* --- left rail ------------------------------------------------------------ */
+.siteRail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 400px;
+  padding: 18px 16px 14px;
+  overflow-y: auto;
+}
+
+.railSpacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+.accountRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 24px;
+  padding: 0 4px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  text-align: left;
+}
+
+.accountRow:hover {
+  color: var(--ink);
+  background: var(--muted);
+}
+
+/* --- mobile --------------------------------------------------------------- */
+.mobileHeader {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mobileBrand {
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+  padding-left: 2px;
+}
+
+@container frame (width <= 880px) {
+  .mobileHeader {
+    display: flex;
+  }
+}
+
+/* --- menus ---------------------------------------------------------------- */
+.menuPopup {
+  z-index: 80;
+  min-width: 160px;
+  padding: 3px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+}
+
+.menuLabel {
+  padding: 4px 6px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: var(--fs-12);
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.menuItem[data-highlighted] {
+  background: var(--muted);
+}
+
+.menuItem[data-current] {
+  font-weight: 600;
+}
+
+/* --- focus top ------------------------------------------------------------ */
+.focusTop {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.focusTopActions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.accountTextButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+.accountTextButton:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* --- dialogs -------------------------------------------------------------- */
+/* --- chat ---------------------------------------------------------------- */
+/* --- design bar ---------------------------------------------------------- */
+.designBar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line-strong);
+  background: var(--surface);
+  overflow-x: auto;
+}
+
+.labName {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.labTabs {
+  display: flex;
+  gap: 14px;
+}
+
+.labTab {
+  display: flex;
+  align-items: center;
+  height: 39px;
+  color: var(--ink-3);
+  font-size: var(--fs-11);
+  white-space: nowrap;
+}
+
+.labTab:hover {
+  color: var(--ink-2);
+}
+
+.labTab[data-selected] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.labDivider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+
+.labControl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selectTrigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-10);
+  white-space: nowrap;
+}
+
+.selectTrigger:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.selectPopup {
+  z-index: 90;
+  min-width: 96px;
+  padding: 3px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+}
+
+.selectItem {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  color: var(--ink);
+  font-size: var(--fs-11);
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.selectItem[data-highlighted] {
+  background: var(--muted);
+}
+
+.selectItem[data-selected] {
+  font-weight: 600;
+}
+
+.widthControl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.widthValue {
+  min-width: 40px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 90px;
+  height: 14px;
+}
+
+.sliderControl {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 14px;
+}
+
+.sliderTrack {
+  width: 100%;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+.sliderIndicator {
+  background: var(--ink);
+}
+
+.sliderThumb {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--ink);
+  background: var(--surface);
+  cursor: grab;
+}
+
+.sliderThumb:active {
+  cursor: grabbing;
+}
+
+@media (width <= 900px) {
+  .widthControl {
+    display: none;
+  }
+
+  .designBar {
+    gap: 9px;
+    padding: 0 8px;
+  }
+}
+
+/* --- connect widget ------------------------------------------------------ */
+.connect {
+  display: grid;
+}
+
+.connectGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.connectTile {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+}
+
+.connectTile img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  object-fit: cover;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.connectTile:hover img {
+  border-color: var(--ink);
+}
+
+.connectDot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border: 2px solid var(--canvas);
+  box-sizing: content-box;
+}
+
+/* --- tags in the left rail ------------------------------------------------ */
+.tags {
+  display: grid;
+  gap: 7px;
+}
+
+.tagsLabel {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.tagsCloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 9px;
+}
+
+.tagItem {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: var(--fs-11);
+  text-align: left;
+}
+
+.tagItem:hover,
+.tagItem[data-active] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* --- page switcher ------------------------------------------------------- */
+.pageMenuTrigger {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--fs-11);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pageMenuTrigger:hover,
+.pageMenuTrigger[data-popup-open] {
+  color: var(--ink);
+}
+
+.pageMenuTrigger:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pageMenuIcon {
+  color: var(--ink-3);
+}
+
+/* --- activity / connect tabs --------------------------------------------- */
+.activityTabs {
+  display: grid;
+  gap: 12px;
+}
+
+.activityTabList {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding-bottom: 5px;
+}
+
+.activityTab {
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.activityTab:hover,
+.activityTab[data-active] {
+  color: var(--ink);
+}
+
+.activityTabIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--active-tab-width);
+  height: 1px;
+  background: var(--ink);
+  translate: var(--active-tab-left) 0;
+  transition:
+    translate var(--dur-fast) var(--ease-out),
+    width var(--dur-fast) var(--ease-out);
+}
+
+.activityPanel {
+  outline: none;
+}
+
+.activityPanel:focus-visible {
+  outline: 1px solid var(--line-ink);
+  outline-offset: 2px;
+}
+
+/* --- activity heatmap (48 days, 12 × 4, 236px) -------------------------- */
+.heatmap {
+  display: grid;
+  grid-template-rows: repeat(4, auto);
+  gap: 4px;
+  width: 236px;
+  max-width: 100%;
+}
+
+.heatCell {
+  aspect-ratio: 1;
+  border-radius: 0;
+  background: var(--heatmap-bg-color-0);
+}

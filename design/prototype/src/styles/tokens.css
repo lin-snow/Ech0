@@ -1,0 +1,107 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+/* Ech0 6.x — sketch tokens.
+ * Surfaces/ink/lines follow web/src/themes (warm paper + #333 dark).
+ * 1px rules, square controls; only media/avatar/menu keep radii. */
+
+:root {
+  --font-ui:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  --fs-10: 0.625rem;
+  --fs-11: 0.6875rem;
+  --fs-12: 0.75rem;
+  --fs-13: 0.8125rem;
+  --fs-14: 0.875rem;
+  --fs-15: 0.9375rem;
+  --fs-17: 1.0625rem;
+  --fs-20: 1.25rem;
+  --fs-26: 1.625rem;
+  --fs-34: 2.125rem;
+
+  --lh-tight: 1.25;
+  --lh-snug: 1.45;
+  --lh-body: 1.7;
+
+  --r-1: 0;
+  --r-2: 0;
+  --r-3: 0;
+  --r-4: 0;
+
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+
+  --control-h: 32px;
+  --control-h-sm: 26px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 100ms;
+  --dur: 160ms;
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --canvas: #f4f1ec;
+  --surface: #fff;
+  --surface-2: #fdf9f4;
+  --muted: #f0e9e0;
+  --muted-2: #e6ddd2;
+
+  --ink: #33251d;
+  --ink-2: #5b4f46;
+  --ink-3: #8e847d;
+  --ink-inverse: #fffdfa;
+
+  --line: #e4dfdb;
+  --line-strong: #c2b9b2;
+  --line-ink: #33251d;
+
+  --accent: #b84200;
+  --accent-strong: #93350a;
+  --ring: rgb(17 17 17 / 32%);
+  --selection: #e8e8e8;
+  --shadow-pop: 4px 4px 0 rgb(0 0 0 / 10%);
+
+  /* Activity scale follows the warm paper palette (surface → ink) so the
+   * heatmap and Connect dots blend with the canvas in both themes. */
+  --heatmap-bg-color-0: var(--surface);
+  --heatmap-bg-color-1: var(--muted-2);
+  --heatmap-bg-color-2: var(--line-strong);
+  --heatmap-bg-color-3: var(--ink-3);
+  --heatmap-bg-color-4: var(--ink-2);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #333;
+  --surface: #201d1b;
+  --surface-2: #292623;
+  --muted: #2b2724;
+  --muted-2: #36312d;
+
+  --ink: #f0e9e0;
+  --ink-2: #cfcac4;
+  --ink-3: #a29e99;
+  --ink-inverse: #201d1b;
+
+  --line: #3e3c3a;
+  --line-strong: #5e5a57;
+  --line-ink: #f0e9e0;
+
+  --accent: #e7b063;
+  --accent-strong: #f2c88f;
+  --ring: rgb(245 245 245 / 34%);
+  --selection: #333;
+  --shadow-pop: none;
+}

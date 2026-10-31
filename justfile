@@ -4,6 +4,7 @@ set shell := ["bash", "-cu"]
 mod web
 mod site
 mod hub
+mod design
 mod cli "apps/cli/justfile"
 mod docker
 

@@ -1,0 +1,266 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+.editor {
+  margin: 12px 0 2px;
+  border: 2px solid var(--line-strong);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+
+.body {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 9px 0;
+}
+
+.inputCol {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.who {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--ink);
+  font-size: var(--fs-12);
+  font-weight: 600;
+}
+
+.handle {
+  color: var(--ink-3);
+  font-size: 9.5px;
+  font-weight: 400;
+}
+
+.area {
+  display: block;
+  width: 100%;
+  min-height: 88px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-13);
+  font-weight: 500;
+  line-height: 1.65;
+  resize: none;
+}
+
+.area::placeholder {
+  color: var(--ink-3);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--line);
+}
+
+.menubar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.menubarTrigger {
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: var(--fs-11);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menubarTrigger:hover,
+.menubarTrigger[data-popup-open] {
+  color: var(--ink);
+}
+
+.menubarPopup {
+  z-index: 80;
+  min-width: 112px;
+  padding: 3px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+}
+
+.menubarItem {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: var(--fs-12);
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.menubarItem[data-highlighted] {
+  background: var(--muted);
+}
+
+.tagGroup {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.tagChips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tagRemove {
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+}
+
+.tagRemove:hover {
+  color: var(--ink);
+}
+
+.tagInput {
+  flex: 1 1 48px;
+  min-width: 48px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.tagInput::placeholder {
+  color: var(--ink-3);
+}
+
+.area:focus-visible,
+.tagInput:focus-visible {
+  outline: none;
+}
+
+.tagPopup {
+  z-index: 80;
+  min-width: 160px;
+  padding: 3px;
+  border: 1px solid var(--line-ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+}
+
+.tagOption {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.tagOption[data-highlighted] {
+  background: var(--muted);
+}
+
+.tagEmpty {
+  padding: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-11);
+}
+
+.lock {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  color: var(--ink-3);
+}
+
+.lock:hover {
+  color: var(--ink);
+  background: var(--muted);
+}
+
+.lock[data-pressed] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--ink-inverse);
+}
+
+/* --- left-rail placement -------------------------------------------------- */
+.editorCompact {
+  margin: 0;
+}
+
+.editorCompact .body {
+  padding: 8px 8px 0;
+}
+
+.editorCompact .area {
+  min-height: 132px;
+  padding: 0;
+  font-size: var(--fs-12);
+  line-height: 1.65;
+}
+
+.editorCompact .foot {
+  gap: 4px;
+  padding: 3px 5px;
+}
+
+.editorCompact .tagInput {
+  font-size: 9.5px;
+}
+
+.editorCompact .menubarTrigger {
+  font-size: var(--fs-10);
+}
+
+.editorCompact .lock {
+  width: 20px;
+  height: 20px;
+}

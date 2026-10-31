@@ -1,0 +1,249 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Copyright (C) 2025-2026 lin-snow */
+
+/* --------------------------------------------------------------------------
+   Shared
+   -------------------------------------------------------------------------- */
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.rail-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: var(--sp-2);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+}
+
+.heatmap-legend .heat-cell {
+  width: 8px;
+  height: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar pattern — 1024 frame, 400 rail + 480 feed
+   -------------------------------------------------------------------------- */
+
+.app-frame {
+  display: flex;
+  width: 1024px;
+  min-width: 880px;
+  max-width: 100%;
+  min-height: 640px;
+  margin: 0 auto;
+  border: var(--hairline) solid var(--line);
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+.app-rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 18px;
+  width: var(--rail-w);
+  padding: 18px 16px 14px;
+  border-right: var(--hairline) solid var(--line);
+}
+
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.rail-brand .square {
+  margin-top: 3px;
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rail-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 28px;
+  padding: 0 6px;
+  color: var(--ink-2);
+  font-size: var(--fs-13);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.rail-nav__item:hover {
+  background: var(--muted);
+  color: var(--ink);
+}
+
+.rail-nav__item[data-active='true'] {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.rail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rail-spacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+.app-feed {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--feed-w);
+  padding: 18px 16px 32px;
+  background: var(--canvas);
+}
+
+.feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-bottom: 14px;
+}
+
+.feed-title {
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+
+.feed-head .search {
+  width: 180px;
+}
+
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+.feed-list .entry:last-child {
+  border-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Focus pattern — 1024 frame, 448 content
+   -------------------------------------------------------------------------- */
+
+.focus-frame {
+  width: 1024px;
+  min-width: 448px;
+  max-width: 100%;
+  min-height: 620px;
+  margin: 0 auto;
+  border: var(--hairline) solid var(--line);
+  background: var(--canvas);
+}
+
+.focus-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: var(--focus-w);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 14px 0;
+}
+
+.focus-title {
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+
+.focus-search {
+  width: 180px;
+  margin-left: auto;
+}
+
+.focus-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: var(--focus-w);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 8px 0 40px;
+}
+
+.focus-content .entry {
+  padding-bottom: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile pattern — 390 frame
+   -------------------------------------------------------------------------- */
+
+.mobile-frame {
+  width: var(--mobile-w);
+  max-width: 100%;
+  min-height: 760px;
+  margin: 0 auto;
+  border: var(--hairline) solid var(--line);
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+.mobile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 16px;
+}
+
+.mobile-head .account {
+  width: auto;
+  padding: 0;
+}
+
+.mobile-head .account__handle {
+  display: none;
+}
+
+.mobile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px 32px;
+}
+
+.mobile-body .search {
+  height: 30px;
+}
+
+
