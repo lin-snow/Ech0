@@ -38,7 +38,9 @@ automatically.
 ## Scopes
 
 `--scopes a,b,c` applies when a login mints a token. The default is
-`echo:read,echo:write,profile:read,file:read,file:write,comment:write,connect:write`.
+`echo:read,echo:write,profile:read,file:read,file:write,comment:write,connect:write,admin:settings`.
+`admin:settings` is included for webhook management (the API has no finer
+webhook scope); it also allows the other admin settings endpoints.
 Tokens minted elsewhere keep their own scopes.
 
 ## Profiles

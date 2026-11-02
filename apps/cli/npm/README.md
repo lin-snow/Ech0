@@ -1,7 +1,7 @@
 # @useech0/cli
 
-Ech0 的命令行客户端：登录到一台 Ech0 实例，在终端完成 Echo 的增删改查。命令树由实例下发的
-operation catalog 生成，服务端新增接口不需要升级 CLI。
+Ech0 的命令行客户端：登录到一台 Ech0 实例，在终端完成 Echo 的增删改查、标签管理、评论、互联与
+Webhook 配置。命令树由实例下发的 operation catalog 生成，服务端新增接口不需要升级 CLI。
 
 ## 安装
 
@@ -20,6 +20,8 @@ bun add -g @useech0/cli
 ech0 auth login --server https://your-instance.example.com --device
 ech0 echo create --content "hello"
 ech0 echo delete --id <id> --yes   # 删除前默认要求确认；脚本里显式 --yes
+ech0 tag list
+ech0 webhook list
 ech0 help
 ```
 

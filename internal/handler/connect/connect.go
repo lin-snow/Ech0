@@ -30,7 +30,7 @@ type (
 		Body connectModel.AddConnectDto
 	}
 	DeleteConnectInput struct {
-		ID string `path:"id" format:"uuid" doc:"连接 ID（UUID）"`
+		ID string `path:"id" format:"uuid" doc:"Connection ID (UUID)"`
 	}
 )
 

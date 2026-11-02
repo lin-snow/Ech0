@@ -240,7 +240,17 @@ function fieldRows(op: CatalogOp): HelpRow[] {
 }
 
 function optionRows(command: Command, fields: readonly HelpRow[] = []): HelpRow[] {
-  const fieldFlags = new Set(fields.map((field) => field.term.split(" ")[0]));
+  const fieldFlags = new Set<string>();
+  for (const row of fields) {
+    const term = row.term.split(" ")[0] ?? "";
+    if (term.startsWith("--[no-]")) {
+      const name = term.slice("--[no-]".length);
+      fieldFlags.add(`--${name}`);
+      fieldFlags.add(`--no-${name}`);
+    } else {
+      fieldFlags.add(term);
+    }
+  }
   const rows = command.options
     .filter((option) => !fieldFlags.has(option.long ?? option.short ?? ""))
     .map((option) => {
@@ -381,14 +391,16 @@ export function helpModel(command: Command): HelpModel {
   const isGroup = command.commands.length > 0;
   const entries = isGroup ? collectEntries(command, command) : [];
 
+  const fields = op === undefined ? [] : fieldRows(op);
+
   const model: HelpModel = {
     root: isRoot,
     group: !isRoot && isGroup && op === undefined,
     path: pathOf(command),
     usage: usageOf(command),
     summary: op?.summary ?? command.description() ?? "",
-    fields: op === undefined ? [] : fieldRows(op),
-    options: isGroup && op === undefined && !isRoot ? [] : optionRows(command, op === undefined ? [] : fieldRows(op)),
+    fields,
+    options: isGroup && op === undefined && !isRoot ? [] : optionRows(command, fields),
     commands: isRoot ? [] : entries.map(({ id, summary, tags }) => ({ id, summary, tags })),
     locals: isRoot ? localRows(root) : [],
     groups: isRoot ? serverGroups(root) : [],

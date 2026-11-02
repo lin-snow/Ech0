@@ -32,8 +32,11 @@ type (
 	OAuth2SettingInput  struct{ Body model.OAuth2SettingDto }
 	PasskeySettingInput struct{ Body model.PasskeySettingDto }
 	WebhookInput        struct{ Body model.WebhookDto }
-	WebhookIDBodyInput  struct {
-		ID   string `path:"id" format:"uuid" doc:"Webhook ID（UUID）"`
+	WebhookIDInput      struct {
+		ID string `path:"id" format:"uuid" doc:"Webhook ID (UUID)"`
+	}
+	WebhookIDBodyInput struct {
+		ID   string `path:"id" format:"uuid" doc:"Webhook ID (UUID)"`
 		Body model.WebhookDto
 	}
 	AccessTokenInput      struct{ Body model.AccessTokenSettingDto }
@@ -174,14 +177,14 @@ func (h *SettingHandler) UpdateWebhook(ctx context.Context, in *WebhookIDBodyInp
 	return commonModel.OK[any](nil, commonModel.UPDATE_WEBHOOK_SUCCESS), nil
 }
 
-func (h *SettingHandler) DeleteWebhook(ctx context.Context, in *IDInput) (EmptyOutput, error) {
+func (h *SettingHandler) DeleteWebhook(ctx context.Context, in *WebhookIDInput) (EmptyOutput, error) {
 	if err := h.settingService.DeleteWebhook(ctx, in.ID); err != nil {
 		return EmptyOutput{}, err
 	}
 	return commonModel.OK[any](nil, commonModel.DELETE_WEBHOOK_SUCCESS), nil
 }
 
-func (h *SettingHandler) TestWebhook(ctx context.Context, in *IDInput) (EmptyOutput, error) {
+func (h *SettingHandler) TestWebhook(ctx context.Context, in *WebhookIDInput) (EmptyOutput, error) {
 	if err := h.settingService.TestWebhook(ctx, in.ID); err != nil {
 		return EmptyOutput{}, err
 	}

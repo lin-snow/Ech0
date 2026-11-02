@@ -23,23 +23,23 @@ func NewFileHandler(fileService service.Service) *FileHandler {
 
 type (
 	ListFilesInput struct {
-		Page        int    `query:"page" doc:"页码"`
-		PageSize    int    `query:"pageSize" doc:"每页数量"`
-		Search      string `query:"search" doc:"搜索关键词"`
-		StorageType string `query:"storage_type" doc:"存储类型"`
+		Page        int    `query:"page" doc:"Page number, 1-based (default 1)"`
+		PageSize    int    `query:"pageSize" doc:"Items per page, 1-100 (default 20)"`
+		Search      string `query:"search" doc:"Substring match on file name"`
+		StorageType string `query:"storage_type" doc:"Storage type: local or object (s3 maps to object)"`
 	}
 	ListFileTreeInput struct {
-		StorageType string `query:"storage_type" required:"true" doc:"存储类型"`
-		Prefix      string `query:"prefix" doc:"路径前缀"`
+		StorageType string `query:"storage_type" required:"true" doc:"Storage type: local or object (s3 maps to object)"`
+		Prefix      string `query:"prefix" doc:"Path prefix to list under"`
 	}
 	GetFileByIDInput struct {
-		ID string `path:"id" doc:"文件 ID"`
+		ID string `path:"id" doc:"File ID"`
 	}
 	DeleteFileInput struct {
-		ID string `path:"id" doc:"文件 ID"`
+		ID string `path:"id" doc:"File ID"`
 	}
 	UpdateFileMetaInput struct {
-		ID   string `path:"id" doc:"文件 ID"`
+		ID   string `path:"id" doc:"File ID"`
 		Body commonModel.UpdateFileMetaDto
 	}
 	CreateExternalFileInput struct {

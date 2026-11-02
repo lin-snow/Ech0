@@ -405,7 +405,7 @@ func TestSettingHandler_Webhooks(t *testing.T) {
 		svc.EXPECT().DeleteWebhook(mock.Anything, "w-3").Return(nil).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
-		out, err := h.DeleteWebhook(context.Background(), &settingHandler.IDInput{ID: "w-3"})
+		out, err := h.DeleteWebhook(context.Background(), &settingHandler.WebhookIDInput{ID: "w-3"})
 
 		require.NoError(t, err)
 		assert.Equal(t, commonModel.DELETE_WEBHOOK_SUCCESS, out.Message)
@@ -416,7 +416,7 @@ func TestSettingHandler_Webhooks(t *testing.T) {
 		svc.EXPECT().DeleteWebhook(mock.Anything, mock.Anything).Return(errors.New("nope")).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
-		_, err := h.DeleteWebhook(context.Background(), &settingHandler.IDInput{ID: "x"})
+		_, err := h.DeleteWebhook(context.Background(), &settingHandler.WebhookIDInput{ID: "x"})
 
 		require.Error(t, err)
 	})
@@ -426,7 +426,7 @@ func TestSettingHandler_Webhooks(t *testing.T) {
 		svc.EXPECT().TestWebhook(mock.Anything, "w-7").Return(nil).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
-		out, err := h.TestWebhook(context.Background(), &settingHandler.IDInput{ID: "w-7"})
+		out, err := h.TestWebhook(context.Background(), &settingHandler.WebhookIDInput{ID: "w-7"})
 
 		require.NoError(t, err)
 		assert.Equal(t, commonModel.TEST_WEBHOOK_SUCCESS, out.Message)
@@ -437,7 +437,7 @@ func TestSettingHandler_Webhooks(t *testing.T) {
 		svc.EXPECT().TestWebhook(mock.Anything, mock.Anything).Return(bizErr()).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
-		_, err := h.TestWebhook(context.Background(), &settingHandler.IDInput{ID: "x"})
+		_, err := h.TestWebhook(context.Background(), &settingHandler.WebhookIDInput{ID: "x"})
 
 		assertBizErr(t, err, commonModel.ErrCodeInternal)
 	})

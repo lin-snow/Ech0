@@ -3,12 +3,16 @@
 
 /**
  * Operations the CLI exposes. The catalog describes every callable operation
- * the server offers; the CLI deliberately surfaces only the core Echo CRUD,
- * file, comment and Connect commands. The comment and Connect sets mirror the
- * MCP tool surface: post/read comments and list/info/add/delete peers. There is
- * no comment moderation and no Connect health probe, so the default login token
- * never needs `comment:moderate` or `connect:read`. Widen this list to add a
- * capability — the command generation needs no other change.
+ * the server offers; the CLI deliberately surfaces only the core Echo CRUD and
+ * read views, file, tag, comment, Connect and webhook commands. The comment and
+ * Connect sets mirror the MCP tool surface: post/read comments and
+ * list/info/add/delete peers. There is no comment moderation, Connect health
+ * probe or self card, so the default login token never needs
+ * `comment:moderate` or `connect:read`. Tag management is list/delete only —
+ * Echo create/update already auto-creates tags by name. Webhook management
+ * mirrors the MCP tools and needs `admin:settings`, the only admin scope in the
+ * default set. Widen this list to add a capability — the command generation
+ * needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
   "file.upload",
@@ -22,12 +26,23 @@ export const CLI_OPERATIONS: readonly string[] = [
   "echo.get",
   "echo.update",
   "echo.delete",
+  "echo.hot",
+  "echo.today",
+  "echo.random",
+  "echo.onthisday",
+  "tag.list",
+  "tag.delete",
   "comment.create.integration",
   "comment.list.by.echo",
   "connect.list",
   "connect.info",
   "connect.add",
   "connect.delete",
+  "webhook.list",
+  "webhook.create",
+  "webhook.update",
+  "webhook.delete",
+  "webhook.test",
 ];
 
 const allowed = new Set(CLI_OPERATIONS);

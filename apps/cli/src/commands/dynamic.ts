@@ -14,6 +14,7 @@ import { printResult } from "../output/result.ts";
 import { readGlobalFlags } from "../session.ts";
 import {
   arrayItemType,
+  enumValues,
   fieldOptions,
   kebab,
   schemaType,
@@ -32,13 +33,27 @@ function parseJSON(flag: string, value: string): unknown {
 }
 
 function optionParser(schema: JSONSchema, flag: string): ((value: string) => unknown) | undefined {
+  const choices = enumValues(schema);
+
   switch (schemaType(schema)) {
     case "boolean":
       return undefined;
     case "integer":
-      return (value) => Number.parseInt(value, 10);
+      return (value) => {
+        const parsed = Number(value);
+        if (value.trim() === "" || !Number.isInteger(parsed)) {
+          throw new UsageError(`--${flag} 需要整数：${value}`);
+        }
+        return parsed;
+      };
     case "number":
-      return (value) => Number(value);
+      return (value) => {
+        const parsed = Number(value);
+        if (value.trim() === "" || !Number.isFinite(parsed)) {
+          throw new UsageError(`--${flag} 需要数字：${value}`);
+        }
+        return parsed;
+      };
     case "array":
       return (value) => {
         const trimmed = value.trim();
@@ -58,6 +73,14 @@ function optionParser(schema: JSONSchema, flag: string): ((value: string) => unk
       };
     case "object":
       return (value) => parseJSON(flag, value);
+    case "string":
+      if (choices.length === 0) return undefined;
+      return (value) => {
+        if (!choices.includes(value)) {
+          throw new UsageError(`--${flag} 只支持 ${choices.join(" / ")}：${value}`);
+        }
+        return value;
+      };
     default:
       return undefined;
   }
@@ -70,15 +93,38 @@ function defineField(command: Command, field: FieldOption): void {
   }
 
   const kind = schemaType(field.schema);
-  const flags = kind === "boolean" ? `--${field.flag}` : `--${field.flag} <value>`;
   const description = typeof field.schema["description"] === "string" ? field.schema["description"] : field.field;
+
+  if (kind === "boolean") {
+    // Tri-state: omitting the flag leaves the field unset, so filters can tell
+    // "no preference" from false (`--no-private` = public only).
+    command.option(`--${field.flag}`, description);
+    command.option(`--no-${field.flag}`, "发送 false");
+    return;
+  }
+
+  const flags = `--${field.flag} <value>`;
   const parser = optionParser(field.schema, field.flag);
 
   // Required fields are checked in the action, not with requiredOption: an
   // operation can be both a leaf and a namespace (`file.stream`), and
   // commander enforces a parent's required options even when a child runs.
-  if (parser) command.option(flags, description, parser);
-  else command.option(flags, description);
+  if (parser === undefined) {
+    command.option(flags, description);
+  } else if (kind === "array") {
+    // Each occurrence parses on its own and concatenates, so repeated
+    // `--tag-ids` behaves like the documented repeatable `--tag`.
+    command.option(
+      flags,
+      description,
+      (value: string, previous: unknown[] = []): unknown[] => {
+        const parsed = parser(value);
+        return [...previous, ...(Array.isArray(parsed) ? parsed : [parsed])];
+      },
+    );
+  } else {
+    command.option(flags, description, parser);
+  }
 }
 
 function emit(result: CommandOutput, flags: { json: boolean; yaml: boolean }): void {
@@ -127,6 +173,43 @@ function composeHints(id: string, op: CatalogOp): string[] {
   }
   hints.push("--from/--edit 提交完整 payload：同名逐项参数被 payload 覆盖，tags 与 echo_files 累加");
   return hints;
+}
+
+/** Read-only Echo views; field semantics come from the server catalog. */
+function echoQueryExamples(id: string): string[] | undefined {
+  switch (id) {
+    case "echo.list":
+      return [
+        "ech0 echo list --page 1 --page-size 20",
+        "ech0 echo list --search daily --tag-ids <tag_id>",
+        "ech0 echo list --sort-by fav_count --json",
+      ];
+    case "echo.get":
+      return ["ech0 echo get --id <echo_id>", "ech0 echo get --id <echo_id> --json"];
+    case "echo.hot":
+      return ["ech0 echo hot --limit 10"];
+    case "echo.today":
+      return ["ech0 echo today"];
+    case "echo.random":
+      return ["ech0 echo random"];
+    case "echo.onthisday":
+      return ["ech0 echo onthisday"];
+    default:
+      return undefined;
+  }
+}
+
+function echoQueryHints(id: string): string[] {
+  if (id === "echo.list") {
+    return [
+      "标签 ID 来自 ech0 tag list；多个 ID 命中任意一个即可",
+      "私密可见性由账号决定：管理员可用 --private / --no-private 过滤，其他账号只看公开",
+    ];
+  }
+  if (id === "echo.hot" || id === "echo.today" || id === "echo.random" || id === "echo.onthisday") {
+    return ["只返回公开 Echo；管理员 token 会包含私密"];
+  }
+  return [];
 }
 
 /** Server schemas stay generic; these distinctions are command-level UX. */
@@ -193,13 +276,64 @@ function connectHints(id: string): string[] {
   return [];
 }
 
+/** Tags are auto-created by `echo create/update --tag`; the CLI only needs lookup and cleanup. */
+function tagExamples(id: string): string[] | undefined {
+  if (id === "tag.list") return ["ech0 tag list", "ech0 tag list --json"];
+  if (id === "tag.delete") return ["ech0 tag delete --id <tag_id> --yes"];
+  return undefined;
+}
+
+function tagHints(id: string): string[] {
+  if (id === "tag.list") return ["返回 id / name / usage_count；id 用于 ech0 echo list --tag-ids"];
+  if (id === "tag.delete") return ["需要管理员账号；会同时移除所有 Echo 上的该标签"];
+  return [];
+}
+
+/** Webhooks mirror the MCP tools: list, create, update, delete and test. */
+function webhookExamples(id: string): string[] | undefined {
+  if (id === "webhook.list") return ["ech0 webhook list", "ech0 webhook list --json"];
+  if (id === "webhook.create") {
+    return [
+      "ech0 webhook create --name ci --url https://example.com/hook --is-active",
+      "ech0 webhook create --name ci --url https://example.com/hook --secret <secret> --is-active",
+    ];
+  }
+  if (id === "webhook.update") {
+    return ["ech0 webhook update --id <webhook_id> --name ci --url https://example.com/hook --is-active"];
+  }
+  if (id === "webhook.delete") return ["ech0 webhook delete --id <webhook_id> --yes"];
+  if (id === "webhook.test") return ["ech0 webhook test --id <webhook_id>"];
+  return undefined;
+}
+
+function webhookHints(id: string): string[] {
+  if (id === "webhook.list") {
+    return ["返回 name / url / is_active / last_status / last_trigger；secret 不会返回"];
+  }
+  if (id === "webhook.create") {
+    return [
+      "需要管理员账号；--url 必须是可访问的 HTTP(S) 地址",
+      "省略 --is-active 时服务端默认启用；--secret 用于 X-Ech0-Signature 签名",
+    ];
+  }
+  if (id === "webhook.update") {
+    return ["需要管理员账号；整体覆盖，省略 --is-active 会停用、省略 --secret 会清空签名密钥"];
+  }
+  if (id === "webhook.delete") return ["需要管理员账号；只删除本地 Webhook 配置"];
+  if (id === "webhook.test") return ["需要管理员账号；向该 Webhook 的 URL 发送一条测试事件"];
+  return [];
+}
+
 /** Server rejected the input: point at the descriptor that lists its fields. */
 function withCommandHint(error: unknown, command: Command): unknown {
-  if (
-    error instanceof Ech0Error &&
-    error.details.hint === undefined &&
-    (error.details.status === 400 || error.details.status === 422)
-  ) {
+  if (!(error instanceof Ech0Error) || error.details.hint !== undefined) return error;
+  if (pathOf(command).join(" ") === "webhook test" && error.details.status === 400) {
+    return new Ech0Error(error.message, {
+      ...error.details,
+      hint: "Webhook 投递失败：检查目标 URL 是否可达、是否被实例的 egress 策略允许",
+    });
+  }
+  if (error.details.status === 400 || error.details.status === 422) {
     return new Ech0Error(error.message, {
       ...error.details,
       hint: `请求参数未被服务端接受：运行 \`ech0 ${pathOf(command).join(" ")} --help\` 核对字段与取值`,
@@ -306,14 +440,22 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       command.option("--file-id <id>", "已上传的文件 id，可重复；与 --echo-files 合并", collect, []);
       setCommandExamples(command, composeExamples(id));
     } else {
-      const examples = commentExamples(id) ?? connectExamples(id);
+      const examples =
+        echoQueryExamples(id) ??
+        commentExamples(id) ??
+        connectExamples(id) ??
+        tagExamples(id) ??
+        webhookExamples(id);
       if (examples !== undefined) setCommandExamples(command, examples);
     }
     const hints = [
       ...(compose ? composeHints(id, op) : []),
+      ...echoQueryHints(id),
       ...fileHints(id),
       ...commentHints(id),
       ...connectHints(id),
+      ...tagHints(id),
+      ...webhookHints(id),
     ];
     if (hints.length > 0) setCommandHints(command, hints);
     setCommandOp(command, op);

@@ -28,6 +28,14 @@ export type AccessTokenSettingDto = {
     [key: string]: unknown;
 };
 
+export type AddConnectDto = {
+    /**
+     * Peer instance root URL; the server calls <url>/api/connect
+     */
+    connect_url: string;
+    [key: string]: unknown;
+};
+
 export type AgentSetting = {
     api_key?: string;
     base_url?: string;
@@ -184,19 +192,49 @@ export type CreateCommentResult = {
 };
 
 export type CreateExternalFileDto = {
+    /**
+     * File category: image, video, audio, pdf, markdown, or file
+     */
     category?: string;
+    /**
+     * MIME type; inferred from the URL when omitted
+     */
     content_type?: string;
+    /**
+     * Pixel height, for images
+     */
     height?: number;
+    /**
+     * Display name; defaults to the URL's last segment
+     */
     name?: string;
+    /**
+     * Public HTTP(S) URL to register; no bytes are uploaded
+     */
     url?: string;
+    /**
+     * Pixel width, for images
+     */
     width?: number;
     [key: string]: unknown;
 };
 
 export type CreateIntegrationCommentDto = {
-    content?: string;
-    echo_id?: string;
+    /**
+     * Comment body, at most 200 characters
+     */
+    content: string;
+    /**
+     * Echo ID the comment belongs to
+     */
+    echo_id: string;
+    /**
+     * Caller-defined audit string; recorded in server logs only
+     */
     metadata?: string;
+    /**
+     * Display name; defaults to Integration
+     */
     nickname?: string;
     [key: string]: unknown;
 };
@@ -245,13 +283,13 @@ export type EchoExtension = {
 
 export type EchoExtensionDto = {
     /**
-     * 扩展渲染所需的任意字段
+     * Arbitrary fields the card needs to render
      */
     payload?: {
         [key: string]: unknown;
     };
     /**
-     * 扩展卡片类型，如 weather / music
+     * Card type, e.g. weather or music
      */
     type?: string;
     [key: string]: unknown;
@@ -282,49 +320,76 @@ export type EchoFile = {
 };
 
 export type EchoQueryDto = {
+    /**
+     * Only Echoes created at or after this Unix time (seconds)
+     */
     dateFrom?: number;
+    /**
+     * Only Echoes created at or before this Unix time (seconds)
+     */
     dateTo?: number;
+    /**
+     * Page number, 1-based (default 1)
+     */
     page?: number;
+    /**
+     * Items per page, 1-100 (default 10)
+     */
     pageSize?: number;
+    /**
+     * Visibility filter: true for private only, false for public only; omit for both
+     */
     private?: boolean;
+    /**
+     * Substring match on Echo content
+     */
     search?: string;
-    sortBy?: string;
-    sortOrder?: string;
+    /**
+     * Sort field (default created_at)
+     */
+    sortBy?: 'created_at' | 'fav_count';
+    /**
+     * Sort direction (default desc)
+     */
+    sortOrder?: 'asc' | 'desc';
+    /**
+     * Tag IDs to match; an Echo qualifies if it carries any listed tag
+     */
     tagIds?: Array<string> | null;
     [key: string]: unknown;
 };
 
 export type EchoUpsertDto = {
     /**
-     * 正文（Markdown）；与附件、扩展至少有一项
+     * Markdown body; supply at least one of content, files, or extension
      */
     content?: string;
     /**
-     * 发布时间（Unix 秒），缺省为当前时间
+     * Publish time in Unix seconds; defaults to now
      */
     created_at?: number;
     /**
-     * 附件引用列表：{file_id, sort_order}；文件先通过上传接口获取 file_id
+     * Attachments as {file_id, sort_order}; upload files first to get file_id
      */
     echo_files?: Array<EchoFile> | null;
     /**
-     * 扩展卡片 {type, payload}
+     * Card payload: {type, payload}
      */
     extension?: EchoExtensionDto;
     /**
-     * 更新时的 Echo ID；创建时忽略
+     * Echo ID to update; ignored on create
      */
     id?: string;
     /**
-     * 布局：waterfall / grid / horizontal / carousel / stack / none
+     * Layout: waterfall / grid / horizontal / carousel / stack / none
      */
     layout?: string;
     /**
-     * 仅自己可见
+     * Visible only to the owner
      */
     private?: boolean;
     /**
-     * 标签列表，元素为 {name}；同名标签复用
+     * Tags as {name}; an existing tag with the same name is reused
      */
     tags?: Array<Tag> | null;
     [key: string]: unknown;
@@ -1504,10 +1569,22 @@ export type Webhook = {
 };
 
 export type WebhookDto = {
+    /**
+     * Enabled; defaults to true on create, while omitting it on update disables the webhook
+     */
     is_active?: boolean;
-    name?: string;
+    /**
+     * Display name
+     */
+    name: string;
+    /**
+     * Optional signing secret; the server signs payloads with X-Ech0-Signature
+     */
     secret?: string;
-    url?: string;
+    /**
+     * HTTP(S) endpoint that receives events
+     */
+    url: string;
     [key: string]: unknown;
 };
 
@@ -1977,7 +2054,7 @@ export type ConnectListResponses = {
 export type ConnectListResponse = ConnectListResponses[keyof ConnectListResponses];
 
 export type ConnectAddData = {
-    body: Connected;
+    body: AddConnectDto;
     path?: never;
     query?: never;
     url: '/connects';
@@ -2055,7 +2132,7 @@ export type ConnectDeleteData = {
     body?: never;
     path: {
         /**
-         * 连接 ID（UUID）
+         * Connection ID (UUID)
          */
         id: string;
     };
@@ -2136,7 +2213,7 @@ export type EchoHotData = {
     path?: never;
     query?: {
         /**
-         * 返回条数，默认 5，最大 20
+         * Number of Echoes to return; default 5, maximum 20
          */
         limit?: number;
     };
@@ -2330,7 +2407,7 @@ export type EchoByTagData = {
     body?: never;
     path: {
         /**
-         * 标签 ID
+         * Tag ID
          */
         tagid: string;
     };
@@ -2581,11 +2658,11 @@ export type FileTreeData = {
     path?: never;
     query: {
         /**
-         * 存储类型
+         * Storage type: local or object (s3 maps to object)
          */
         storage_type: string;
         /**
-         * 路径前缀
+         * Path prefix to list under
          */
         prefix?: string;
     };
@@ -2614,7 +2691,7 @@ export type FileDeleteData = {
     body?: never;
     path: {
         /**
-         * 文件 ID
+         * File ID
          */
         id: string;
     };
@@ -2644,7 +2721,7 @@ export type FileGetData = {
     body?: never;
     path: {
         /**
-         * 文件 ID
+         * File ID
          */
         id: string;
     };
@@ -2674,7 +2751,7 @@ export type FileUpdateMetaData = {
     body: UpdateFileMetaDto;
     path: {
         /**
-         * 文件 ID
+         * File ID
          */
         id: string;
     };
@@ -2705,19 +2782,19 @@ export type FileListData = {
     path?: never;
     query?: {
         /**
-         * 页码
+         * Page number, 1-based (default 1)
          */
         page?: number;
         /**
-         * 每页数量
+         * Items per page, 1-100 (default 20)
          */
         pageSize?: number;
         /**
-         * 搜索关键词
+         * Substring match on file name
          */
         search?: string;
         /**
-         * 存储类型
+         * Storage type: local or object (s3 maps to object)
          */
         storage_type?: string;
     };
@@ -3965,7 +4042,7 @@ export type TagDeleteData = {
     body?: never;
     path: {
         /**
-         * 标签 ID
+         * Tag ID
          */
         id: string;
     };
@@ -4205,7 +4282,7 @@ export type WebhookDeleteData = {
     body?: never;
     path: {
         /**
-         * 资源 ID（UUID）
+         * Webhook ID (UUID)
          */
         id: string;
     };
@@ -4235,7 +4312,7 @@ export type WebhookUpdateData = {
     body: WebhookDto;
     path: {
         /**
-         * Webhook ID（UUID）
+         * Webhook ID (UUID)
          */
         id: string;
     };
@@ -4265,7 +4342,7 @@ export type WebhookTestData = {
     body?: never;
     path: {
         /**
-         * 资源 ID（UUID）
+         * Webhook ID (UUID)
          */
         id: string;
     };

@@ -3,14 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { Command } from "commander";
-
-import { parseCatalog, type CatalogOp } from "../src/catalog/types.ts";
-import { registerCatalogCommands } from "../src/commands/dynamic.ts";
-import type { FieldValues } from "../src/commands/operation.ts";
-import type { CommandOutput } from "../src/commands/types.ts";
-import { helpModel, nodeAt } from "../src/help/model.ts";
-import { renderHelp } from "../src/help/render.ts";
+import { nodeAt } from "../src/help/model.ts";
+import { buildProgram, helpText } from "./dynamic-harness.ts";
 
 /** The core comment subset, plus ids that must stay out of scope. */
 const CATALOG: { ops: Record<string, unknown> } = {
@@ -79,40 +73,9 @@ const CATALOG: { ops: Record<string, unknown> } = {
   },
 };
 
-interface Invocation {
-  request: string;
-  values: FieldValues;
-}
-
-function buildProgram(): { program: Command; invocations: Invocation[] } {
-  const invocations: Invocation[] = [];
-  const program = new Command("ech0")
-    .option("--json", "输出 JSON", false)
-    .option("--yaml", "输出 YAML", false);
-  const catalog = parseCatalog(new TextEncoder().encode(JSON.stringify(CATALOG)));
-  registerCatalogCommands(program, catalog, {
-    run: async (_command: Command, op: CatalogOp, values: FieldValues): Promise<CommandOutput> => {
-      invocations.push({ request: `${op.method} ${op.path}`, values });
-      return { human: "", json: "" };
-    },
-  });
-  const override = (command: Command): void => {
-    command.exitOverride();
-    for (const child of command.commands) override(child);
-  };
-  override(program);
-  return { program, invocations };
-}
-
-function helpText(program: Command, path: string[]): string {
-  const node = nodeAt(program, path);
-  if (node === undefined) throw new Error(`no command ${path.join(" ")}`);
-  return renderHelp(helpModel(node));
-}
-
 describe("comment commands", () => {
   test("exposes only create and list", () => {
-    const { program } = buildProgram();
+    const { program } = buildProgram(CATALOG);
     const group = nodeAt(program, ["comment"]);
 
     expect((group?.commands ?? []).map((command) => command.name()).sort()).toEqual(["create", "list"]);
@@ -121,7 +84,7 @@ describe("comment commands", () => {
   });
 
   test("comment create posts the integration body and takes no form token", async () => {
-    const { program, invocations } = buildProgram();
+    const { program, invocations } = buildProgram(CATALOG);
 
     await program.parseAsync(
       [
@@ -157,7 +120,7 @@ describe("comment commands", () => {
   });
 
   test("required fields are checked before the request", async () => {
-    const { program, invocations } = buildProgram();
+    const { program, invocations } = buildProgram(CATALOG);
 
     await expect(
       program.parseAsync(["comment", "create", "--echo-id", "e1"], { from: "user" }),
@@ -169,7 +132,7 @@ describe("comment commands", () => {
   });
 
   test("comment list binds echo_id to the query", async () => {
-    const { program, invocations } = buildProgram();
+    const { program, invocations } = buildProgram(CATALOG);
 
     await program.parseAsync(["comment", "list", "--echo-id", "e1"], { from: "user" });
     expect(invocations).toEqual([{ request: "GET /comments", values: { echo_id: "e1" } }]);

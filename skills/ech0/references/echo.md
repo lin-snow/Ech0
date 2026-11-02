@@ -1,8 +1,10 @@
 # Publishing and editing Echoes
 
-The Echo commands are `echo.create`, `echo.list`, `echo.get`, `echo.update`
-and `echo.delete`, plus `file.upload` for attachments. **Create, update and
-delete require an admin account.** Reads work for any logged-in account.
+The Echo commands are `echo.create`, `echo.list`, `echo.get`, `echo.update`,
+`echo.delete`, plus the read-only views `echo.hot`, `echo.today`,
+`echo.random` and `echo.onthisday`. Attachments use `file.upload`. **Create,
+update and delete require an admin account.** Reads work for any logged-in
+account.
 
 An Echo carries:
 
@@ -110,7 +112,25 @@ the id first. Deleting an Echo also deletes its attachments.
 ```bash
 ech0 echo get --id <echo_id>
 ech0 echo list --page 1 --page-size 20 --search daily
+ech0 echo list --sort-by fav_count --tag-ids <tag_id>
+ech0 echo hot --limit 10
+ech0 echo today
+ech0 echo random
+ech0 echo onthisday
 ```
 
-Responses look like `{code, msg, data}`. `ech0 echo list` returns `data.items`
-plus `total`.
+`echo list` filters (`--help` shows the same text the server publishes):
+
+| Flag | Meaning |
+| --- | --- |
+| `--page`, `--page-size` | 1-based page; size 1–100, default 10 |
+| `--search` | Substring match on Echo content |
+| `--tag-ids` | Tag IDs; matches an Echo carrying **any** listed tag. Repeat the flag or use commas |
+| `--sort-by`, `--sort-order` | `created_at` (default) or `fav_count`; `asc` or `desc` (default) |
+| `--date-from`, `--date-to` | Unix seconds, inclusive |
+| `--private`, `--no-private` | Private-only or public-only; omit both for no filter. Only admins are honoured; other accounts always see public Echoes |
+
+Boolean flags are tri-state: passing neither sends no filter. Tag IDs come from
+`ech0 tag list`. Responses look like `{code, msg, data}`; `ech0 echo list`
+returns `data.items` plus `total`, and the curated views return arrays (or one
+Echo for `random`).

@@ -69,10 +69,10 @@ type PasskeyStatus struct {
 }
 
 type WebhookDto struct {
-	Name     string `json:"name"`
-	URL      string `json:"url"`
-	Secret   string `json:"secret,omitempty"`
-	IsActive bool   `json:"is_active"        gorm:"default:true"`
+	Name     string `json:"name" required:"true" doc:"Display name"`
+	URL      string `json:"url" required:"true" doc:"HTTP(S) endpoint that receives events"`
+	Secret   string `json:"secret,omitempty" doc:"Optional signing secret; the server signs payloads with X-Ech0-Signature"`
+	IsActive bool   `json:"is_active" gorm:"default:true" doc:"Enabled; defaults to true on create, while omitting it on update disables the webhook"`
 }
 
 type AccessTokenSettingDto struct {

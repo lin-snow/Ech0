@@ -236,7 +236,7 @@ func buildOp(op *huma.Operation, method, path string, components map[string]map[
 		Method:     method,
 		Path:       path,
 		Scopes:     scopesOf(op),
-		Effect:     effectOf(method),
+		Effect:     effectOf(op, method),
 		Kind:       kind,
 		Input:      input,
 		Bind:       bind,
@@ -245,7 +245,18 @@ func buildOp(op *huma.Operation, method, path string, components map[string]map[
 	}
 }
 
-func effectOf(method string) string {
+// postQueries are read operations Huma models as POST because their filters
+// travel in a JSON body. Deriving only from the method would mislabel them as
+// writes in client help and confirmation policy.
+var postQueries = map[string]bool{
+	"echo-list":      true,
+	"echo-page-post": true,
+}
+
+func effectOf(op *huma.Operation, method string) string {
+	if postQueries[op.OperationID] {
+		return EffectRead
+	}
 	switch method {
 	case "GET", "HEAD":
 		return EffectRead

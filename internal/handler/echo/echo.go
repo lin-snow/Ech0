@@ -41,7 +41,7 @@ type (
 		Body commonModel.PageQueryDto
 	}
 	GetEchosByTagIDInput struct {
-		TagID    string `path:"tagid" format:"uuid" doc:"标签 ID"`
+		TagID    string `path:"tagid" format:"uuid" doc:"Tag ID"`
 		Page     int    `query:"page"`
 		PageSize int    `query:"pageSize"`
 		Search   string `query:"search"`
@@ -50,7 +50,7 @@ type (
 		Timezone string `header:"X-Timezone" doc:"客户端时区（IANA 名）"`
 	}
 	GetHotEchosInput struct {
-		Limit int `query:"limit" default:"5" doc:"返回条数，默认 5，最大 20"`
+		Limit int `query:"limit" default:"5" doc:"Number of Echoes to return; default 5, maximum 20"`
 	}
 	GetRandomEchoInput struct{}
 	GetAllTagsInput    struct{}
@@ -58,7 +58,7 @@ type (
 		Body model.CreateTagDto
 	}
 	TagIDInput struct {
-		ID string `path:"id" format:"uuid" doc:"标签 ID"`
+		ID string `path:"id" format:"uuid" doc:"Tag ID"`
 	}
 	LikeEchoInput struct {
 		ID string `path:"id" format:"uuid" doc:"Echo ID"`

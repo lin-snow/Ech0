@@ -13,6 +13,14 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 * **The `ech0` CLI covers comments and Connect.** `ech0 comment create|list` and `ech0 connect list|info|add|delete` build from the operation catalog like the Echo and file commands. The comment/Connect surface mirrors the MCP tools — no comment moderation and no health probe — so default logins request `comment:write` and `connect:write` without `comment:moderate` or `connect:read`. `ech0 comment create` posts to the trusted integration endpoint (`POST /api/comments/integration`) instead of the guest endpoint, so it needs no anti-bot form token or captcha and works from scripts; access tokens with `audience=cli` are now accepted by that route alongside `integration` and `mcp-remote`. `ech0 connect delete` keeps the `--yes` or interactive `[y/N]` guard.
 
+* **The `ech0` CLI gains tag and webhook modules.** `ech0 tag list|delete` closes the loop on `echo list --tag-ids` (tag ids were previously only reachable through the raw API) and cleans a tag up across posts; tags are still auto-created by `echo create/update --tag`, so there is no separate `tag create`. `ech0 webhook list|create|update|delete|test` mirrors the MCP webhook tools. Webhooks currently require `admin:settings` (there is no finer webhook scope), so the default CLI login includes it; the CLI v1 target is the instance owner/admin. `WebhookDto.name`/`url` are now marked required with field docs, so the operation catalog drives the CLI's required checks and help.
+
+* **`ech0 echo` reads answer questions instead of showing bare flags.** `echo hot|today|random|onthisday` join `echo list|get`, and every CLI-visible request field now carries a concise English `doc` tag, so `ech0 echo list --help` spells out paging defaults and limits, sort fields, Unix-second bounds, tag any-of matching and the visibility filter. The catalog also labels body-filtered `POST` queries as `read`, and boolean flags are tri-state (`--private` / `--no-private`; omitting both sends no filter).
+
+### Fixed
+
+* **CLI flags no longer corrupt typed input silently.** Numeric flags (`--page`, `--page-size`, `--date-from`, …) reject non-numeric values with exit code 2 instead of sending `null`, enum-constrained values such as `--sort-by fav_count` are checked before the request, and repeated array flags (`--tag-ids a --tag-ids b`) accumulate instead of keeping only the last value.
+
 ## [5.9.0] - 2026-10-30
 
 ### Added

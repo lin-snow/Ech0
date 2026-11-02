@@ -24,6 +24,10 @@ export const zAccessTokenSettingDto = z.object({
     scopes: z.array(z.string()).nullish()
 });
 
+export const zAddConnectDto = z.object({
+    connect_url: z.string()
+});
+
 export const zAgentSetting = z.object({
     api_key: z.string().optional(),
     base_url: z.string().optional(),
@@ -155,8 +159,8 @@ export const zCreateExternalFileDto = z.object({
 });
 
 export const zCreateIntegrationCommentDto = z.object({
-    content: z.string().optional(),
-    echo_id: z.string().optional(),
+    content: z.string(),
+    echo_id: z.string(),
     metadata: z.string().optional(),
     nickname: z.string().optional()
 });
@@ -192,8 +196,8 @@ export const zEchoQueryDto = z.object({
     pageSize: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     private: z.boolean().optional(),
     search: z.string().optional(),
-    sortBy: z.string().optional(),
-    sortOrder: z.string().optional(),
+    sortBy: z.enum(['created_at', 'fav_count']).optional(),
+    sortOrder: z.enum(['asc', 'desc']).optional(),
     tagIds: z.array(z.string()).nullish()
 });
 
@@ -1157,9 +1161,9 @@ export const zResultListWebhook = z.object({
 
 export const zWebhookDto = z.object({
     is_active: z.boolean().optional(),
-    name: z.string().optional(),
+    name: z.string(),
     secret: z.string().optional(),
-    url: z.string().optional()
+    url: z.string()
 });
 
 /**
@@ -1276,7 +1280,7 @@ export const zConnectSelfResponse = zResultConnect;
  */
 export const zConnectListResponse = zResultListConnected;
 
-export const zConnectAddBody = zConnected;
+export const zConnectAddBody = zAddConnectDto;
 
 /**
  * OK

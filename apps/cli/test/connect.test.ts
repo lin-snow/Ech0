@@ -3,14 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 
-import { Command } from "commander";
-
-import { parseCatalog, type CatalogOp } from "../src/catalog/types.ts";
-import { registerCatalogCommands } from "../src/commands/dynamic.ts";
-import type { FieldValues } from "../src/commands/operation.ts";
-import type { CommandOutput } from "../src/commands/types.ts";
-import { helpModel, nodeAt } from "../src/help/model.ts";
-import { renderHelp } from "../src/help/render.ts";
+import { nodeAt } from "../src/help/model.ts";
+import { buildProgram, helpText } from "./dynamic-harness.ts";
 
 /** The core Connect subset, plus ids that must stay out of scope. */
 const CATALOG: { ops: Record<string, unknown> } = {
@@ -92,40 +86,9 @@ const CATALOG: { ops: Record<string, unknown> } = {
   },
 };
 
-interface Invocation {
-  request: string;
-  values: FieldValues;
-}
-
-function buildProgram(): { program: Command; invocations: Invocation[] } {
-  const invocations: Invocation[] = [];
-  const program = new Command("ech0")
-    .option("--json", "输出 JSON", false)
-    .option("--yaml", "输出 YAML", false);
-  const catalog = parseCatalog(new TextEncoder().encode(JSON.stringify(CATALOG)));
-  registerCatalogCommands(program, catalog, {
-    run: async (_command: Command, op: CatalogOp, values: FieldValues): Promise<CommandOutput> => {
-      invocations.push({ request: `${op.method} ${op.path}`, values });
-      return { human: "", json: "" };
-    },
-  });
-  const override = (command: Command): void => {
-    command.exitOverride();
-    for (const child of command.commands) override(child);
-  };
-  override(program);
-  return { program, invocations };
-}
-
-function helpText(program: Command, path: string[]): string {
-  const node = nodeAt(program, path);
-  if (node === undefined) throw new Error(`no command ${path.join(" ")}`);
-  return renderHelp(helpModel(node));
-}
-
 describe("connect commands", () => {
   test("exposes only add, delete, info and list", () => {
-    const { program } = buildProgram();
+    const { program } = buildProgram(CATALOG);
     const group = nodeAt(program, ["connect"]);
 
     expect((group?.commands ?? []).map((command) => command.name()).sort()).toEqual([
@@ -139,7 +102,7 @@ describe("connect commands", () => {
   });
 
   test("connect list, info, add and delete map to their operations", async () => {
-    const { program, invocations } = buildProgram();
+    const { program, invocations } = buildProgram(CATALOG);
 
     await program.parseAsync(["connect", "list"], { from: "user" });
     await program.parseAsync(["connect", "info"], { from: "user" });
@@ -160,7 +123,7 @@ describe("connect commands", () => {
   });
 
   test("connect add requires --connect-url before the request", async () => {
-    const { program, invocations } = buildProgram();
+    const { program, invocations } = buildProgram(CATALOG);
 
     await expect(program.parseAsync(["connect", "add"], { from: "user" })).rejects.toThrow(
       "缺少必填参数 --connect-url",
@@ -169,7 +132,7 @@ describe("connect commands", () => {
   });
 
   test("connect delete needs --yes when non-interactive", async () => {
-    const { program, invocations } = buildProgram();
+    const { program, invocations } = buildProgram(CATALOG);
 
     await expect(
       program.parseAsync(["connect", "delete", "--id", "c-1", "--json"], { from: "user" }),

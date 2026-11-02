@@ -62,9 +62,9 @@ var rawOps = map[string]Op{
 		Input: objectSchema(
 			[]string{"file"},
 			map[string]any{
-				"file":         binarySchema(),
-				"category":     stringSchema(),
-				"storage_type": stringSchema(),
+				"file":         described(binarySchema(), "File contents to upload"),
+				"category":     described(stringSchema(), "Category: image, video, audio, pdf, markdown, or file; inferred from the file name when omitted"),
+				"storage_type": described(stringSchema(), "Target storage: local or object (s3 maps to object); defaults to local"),
 			},
 		),
 		Bind: map[string]string{"file": BindForm, "category": BindForm, "storage_type": BindForm},
@@ -117,7 +117,7 @@ var rawOps = map[string]Op{
 		Scopes:    []string{"file:read"},
 		Effect:    EffectRead,
 		Kind:      KindBinary,
-		Input:     objectSchema([]string{"id"}, map[string]any{"id": stringSchema()}),
+		Input:     objectSchema([]string{"id"}, map[string]any{"id": described(stringSchema(), "File ID")}),
 		Bind:      map[string]string{"id": BindPath},
 		Transport: &Transport{Response: &ResponseTransport{Kind: KindBinary}},
 	},
@@ -253,6 +253,12 @@ func objectSchema(required []string, properties map[string]any) map[string]any {
 
 func stringSchema() map[string]any {
 	return map[string]any{"type": "string"}
+}
+
+// described attaches the field doc the CLI renders beside the flag.
+func described(schema map[string]any, description string) map[string]any {
+	schema["description"] = description
+	return schema
 }
 
 // binarySchema marks a multipart file part: the CLI turns a filesystem path

@@ -8,7 +8,7 @@
 
 一句话：**登录到一台指定的 Ech0 实例，在终端完成 Echo 的增删改查，以及评论与互联管理**。
 
-范围的取舍：登录之后暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`）、评论面（经集成端点创建评论 `comment.create.integration`、按 Echo 列出评论 `comment.list.by.echo`）与互联面（已添加连接 `connect.list`、对端信息 `connect.info`、添加连接 `connect.add`、删除连接 `connect.delete`）。评论与互联的命令面**对齐 MCP 的 tool 面**：只做发布/读取评论和列出/查看/添加/删除连接，不做评论审核，也不做实例自述卡与健康探测；因此默认登录不需要 `comment:moderate` 或 `connect:read`。其余接口（迁移、系统日志、Copilot、访客评论入口 / 评论表单元信息 / 面板操作 / `connect.health` 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`，`comment.create.integration` → `ech0 comment create`，`comment.list.by.echo` → `ech0 comment list`）。
+范围的取舍：登录之后暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`）、标签面（列出 `tag.list`、删除 `tag.delete`）、评论面（经集成端点创建评论 `comment.create.integration`、按 Echo 列出评论 `comment.list.by.echo`）与互联面（已添加连接 `connect.list`、对端信息 `connect.info`、添加连接 `connect.add`、删除连接 `connect.delete`）、Webhook 面（`webhook.list` / `webhook.create` / `webhook.update` / `webhook.delete` / `webhook.test`）。评论、互联与 Webhook 的命令面**对齐 MCP 的 tool 面**：只做发布/读取评论、列出/查看/添加/删除连接，以及 Webhook 的增删改查与测试；不做评论审核，也不做实例自述卡与健康探测；因此默认登录不需要 `comment:moderate` 或 `connect:read`；Webhook 目前只有 `admin:settings` scope，默认登录会带上它（CLI v1 的目标用户是实例 owner/admin）。其余接口（迁移、系统日志、Copilot、访客评论入口 / 评论表单元信息 / 面板操作 / `connect.health` / 标签 create（Echo 写入时按名自动创建）等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`，`comment.create.integration` → `ech0 comment create`，`comment.list.by.echo` → `ech0 comment list`）。
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
@@ -103,7 +103,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 }
 ```
 
-- 清单由 Huma 文档派生（`internal/openapi/catalog`），再合并 `raw.go` 里手写的裸 gin 操作：`operationId` 的 `-` 换成 `.`（`echo-list` → `echo.list`）；`input` 把 path/query/body/form 四类参数拍平成一个对象，`$ref` 递归内联；`bind` 标记每个字段落在 `path`/`query`/`body`/`form`；`effect` 由方法推导（GET/HEAD=read、DELETE=destructive、其余=write）；`kind` 由成功响应内容类型推导（json/stream/binary/websocket）。
+- 清单由 Huma 文档派生（`internal/openapi/catalog`），再合并 `raw.go` 里手写的裸 gin 操作：`operationId` 的 `-` 换成 `.`（`echo-list` → `echo.list`）；`input` 把 path/query/body/form 四类参数拍平成一个对象，`$ref` 递归内联；`bind` 标记每个字段落在 `path`/`query`/`body`/`form`；`effect` 默认由方法推导（GET/HEAD=read、DELETE=destructive、其余=write），但以 POST 承载 body 过滤条件的查询（`echo-list`、`echo-page-post`）显式标记为 `read`，否则 help 会把它们误写成「写入」；`kind` 由成功响应内容类型推导（json/stream/binary/websocket）。
 - 非 JSON 传输额外带 `transport`（见 4.5）；没有该字段即「JSON 进、JSON 信封出」。
 - 指纹 = sha256(canonical bytes)。**每个 `/api` 响应**都带 `X-Ech0-Catalog: <指纹>`。
 - 请求可带同一个头；带了但和当前指纹不同 → **412**，body `{"code":0,"msg":"catalog stale","error_code":"catalog_stale"}`，在 handler 之前短路。不带头的旧客户端（web、MCP、脚本）完全不受影响。
@@ -121,11 +121,11 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 
 - 操作 id 按 `.` 分段：`echo.create` → `ech0 echo create`，`system.logs.stream` → `ech0 system logs stream`。`COMMAND_NAMES` 可覆盖命令路径而不改 catalog id。
 - **可调用的 id 不能再当命名空间**：commander 会先解析父命令的 flag，子命令的同名 flag 会被父命令吞掉（实测 `file.stream` + `file.stream.by_id` 都对 `--output` 生效时，子命令的值为空）。因此当某个 id 的某个前缀本身就是操作时，子命令上移一层并合并剩余段：`migration.export.download` → `ech0 migration export-download`。纯分组的命名空间（`system.logs`）照常嵌套。`file.stream.by_id` 本来会变成 `ech0 file stream-by-id`，现在被 `COMMAND_NAMES` 改名为 `ech0 file download`；`comment.create.integration` 同理被 `COMMAND_NAMES` 映射为 `ech0 comment create`，因此 CLI 直接走可信的集成写入口，不需要访客侧的 form token。
-- 输入字段 → flags：snake_case/camelCase 统一转 kebab（`pageSize` → `--page-size`）；boolean 无值；整数/数字/逗号数组/JSON 对象分别解析；`format: binary` 的字段是 `--file <path>`（`-` 读 stdin）。
-- 数组字段两种写法：`--tags a,b`（逗号）或 `--tags '[{"name":"a"}]'`（以 `[` 开头按 JSON 解析）。
+- 输入字段 → flags：snake_case/camelCase 统一转 kebab（`pageSize` → `--page-size`）；boolean 是三态（`--x` / `--no-x`，都不传则不发送该字段，因此过滤条件能区分「不筛选」与 false）；整数/数字解析失败直接报错（退出码 2），不再把 `NaN` 变成 `null` 发给服务端；schema 带 `enum` 的字符串字段在客户端先校验，help 同时列出可选值；`format: binary` 的字段是 `--file <path>`（`-` 读 stdin）。
+- 数组字段两种写法：`--tags a,b`（逗号）或 `--tags '[{"name":"a"}]'`（以 `[` 开头按 JSON 解析）；重复给出时逐次累加（`--tag-ids a --tag-ids b`）。
 - 与 CLI 保留 flag 重名（`json/profile/server/token/lang/color/help/version`）的字段改名为 `--input-<name>`。
 - 必填字段在 action 里校验（缺失 → 退出码 2 + `缺少必填参数 --x`），不用 `requiredOption`：可调用 id 一旦有子命令，父命令的必填项会连子命令一起拦下。
-- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 文件面六条 + 评论两条 + 互联四条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
+- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 只读视图四条（hot / today / random / onthisday）+ 文件面六条 + 标签两条 + 评论两条 + 互联四条 + Webhook 五条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
 - help 末尾附 `METHOD /path · scopes: ...`，便于确认权限与效果。
 
 ### 4.5 传输层：流式、上传与下载（后端 + CLI 已实现）
@@ -254,6 +254,16 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 **为什么 `upload` 和 `external` 不合并成一个 `create`**：它们是两个 HTTP 操作，传输与字段都不同——`file.upload` 是 `multipart/form-data`（`file` 二进制 + category + storage_type），`file.external` 是 JSON（`url` + name/content_type/width/height）。合并只能在 CLI 里手写一个分派命令（有 `--file` 调上传、有 `--url` 调外链），这会打破「命令树完全由 catalog 生成」的约束：字段变化不再自动跟进，help/示例/必填校验都要另写一份，而且两条操作的 scope 与错误语义会被藏进同一个命令。保留两个动词更直观，也保留 help 里的传输卡片。
 
+### 4.8 标签与 Webhook
+
+标签面只暴露 `tag.list` 与 `tag.delete`：
+
+- 标签由 `echo create` / `echo update` 的 `--tag` 自动创建并复用（`ProcessEchoTags`），单独的 `tag.create` 是冗余命令。
+- `tag.list` 提供 `id / name / usage_count`，`echo list --tag-ids <id,...>` 才有可用的输入；`echo.by.tag` 已弃用，不再暴露。
+- `tag.delete` 会同时删除 `echo_tags` 关联；服务层还要求 admin，危险操作走 `--yes`。
+
+Webhook 面镜像 MCP 的 `list/create/update/delete/test`。所有 webhook 操作目前只有 `admin:settings` scope（没有更细的 `webhook:*`），所以默认 CLI token 会带上 `admin:settings`；CLI v1 的目标用户是实例 owner/admin。`WebhookDto` 的 `name` / `url` 标了 Huma `required` 与 `doc`，CLI 的必填校验和 help 直接来自 schema。`webhook.update` 是整体覆盖，省略 `--is-active` 会把 webhook 停用、省略 `--secret` 会清空签名密钥，help 里要显式提示。
+
 ## 5. 认证与凭据
 
 ### 5.1 三种登录方式
@@ -317,7 +327,7 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
-登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`、`admin:settings`。Webhook 目前没有更细的 scope，`admin:settings` 是唯一的授权方式；它在默认集合里只为了让 `ech0 webhook` 开箱可用，代价是 token 也能调用其他设置接口。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
 
 ## 6. 命令树与 help
 
@@ -332,7 +342,7 @@ ech0 version
 ech0 help [words...] [--full] [--json]
 ```
 
-服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 文件面六条 + 评论两条 + 互联四条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
+服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 只读视图四条 + 文件面六条 + 标签两条 + 评论两条 + 互联四条 + Webhook 五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
 
 ```
 ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Echo（含 id）
@@ -340,6 +350,11 @@ ech0 echo list --page 1 --page-size 20
 ech0 echo update --id <id> --content "edited"        # 同样返回更新后的 Echo
 ech0 echo get --id <uuid>
 ech0 echo delete --id <uuid>                         # 交互确认；脚本加 --yes
+
+ech0 echo hot --limit 10                             # 热门（公开；管理员含私密）
+ech0 echo today                                      # 今天
+ech0 echo random                                     # 随机一篇
+ech0 echo onthisday                                  # 那年今日
 
 ech0 file upload --file photo.png                    # 上传字节，返回 file id
 ech0 file external --url https://example.com/a.png   # 只登记外链
@@ -355,6 +370,15 @@ ech0 connect list                                    # GET /connect/list，{id, 
 ech0 connect info                                    # GET /connects/info，对端公开卡片
 ech0 connect add --connect-url https://peer.example  # POST /connects，需 connect:write
 ech0 connect delete --id <uuid> --yes                # DELETE /connects/{id}，需 connect:write
+
+ech0 tag list                                        # GET /tags，返回 id / name / usage_count
+ech0 tag delete --id <uuid> --yes                    # DELETE /tag/{id}；同时移除所有 Echo 上的该标签
+
+ech0 webhook list                                    # GET /webhook
+ech0 webhook create --name ci --url https://example.com/hook --is-active
+ech0 webhook update --id <uuid> --name ci --url https://example.com/hook --is-active
+ech0 webhook delete --id <uuid> --yes
+ech0 webhook test --id <uuid>                        # 向配置的 URL 发送一条测试事件
 ```
 
 全局选项（任意位置）：`--profile`、`--server`、`--token`、`--lang`、`--json`、`--yaml`、`--no-color`。注意：commander 会把与父命令同名的选项归到父命令，所以这些只在根命令声明一次。

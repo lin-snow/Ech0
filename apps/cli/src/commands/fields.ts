@@ -91,7 +91,7 @@ export function fieldOptions(op: CatalogOp): FieldOption[] {
 
 /** The value a flag takes on the command line: `--page <integer>`, `--private` alone. */
 export function flagTerm(field: FieldOption): string {
-  if (schemaType(field.schema) === "boolean") return `--${field.flag}`;
+  if (schemaType(field.schema) === "boolean") return `--[no-]${field.flag}`;
   return `--${field.flag} <${valuePlaceholder(field)}>`;
 }
 

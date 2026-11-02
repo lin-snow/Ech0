@@ -129,7 +129,7 @@ describe("yaml output", () => {
     const parsed = Bun.YAML.parse(result.stdout) as { path: string[]; hints: string[] };
 
     expect(parsed.path).toEqual(["echo", "list"]);
-    expect(parsed.hints[0]).toContain("echo:read");
+    expect(parsed.hints.join("\n")).toContain("echo:read");
   });
 
   test("--json and --yaml are mutually exclusive", async () => {

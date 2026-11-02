@@ -51,7 +51,7 @@ components:
       additionalProperties: true
       properties:
         connect_url:
-          description: 对端实例根地址；服务端会请求 <url>/api/connect
+          description: Peer instance root URL; the server calls <url>/api/connect
           type: string
       required:
         - connect_url
@@ -339,17 +339,23 @@ components:
       additionalProperties: true
       properties:
         category:
+          description: "File category: image, video, audio, pdf, markdown, or file"
           type: string
         content_type:
+          description: MIME type; inferred from the URL when omitted
           type: string
         height:
+          description: Pixel height, for images
           format: int64
           type: integer
         name:
+          description: Display name; defaults to the URL's last segment
           type: string
         url:
+          description: Public HTTP(S) URL to register; no bytes are uploaded
           type: string
         width:
+          description: Pixel width, for images
           format: int64
           type: integer
       type: object
@@ -357,16 +363,16 @@ components:
       additionalProperties: true
       properties:
         content:
-          description: 评论正文，最多 200 字
+          description: Comment body, at most 200 characters
           type: string
         echo_id:
-          description: 评论所属的 Echo ID
+          description: Echo ID the comment belongs to
           type: string
         metadata:
-          description: 调用方自定义的审计字符串；仅记录服务端日志
+          description: Caller-defined audit string; recorded in server logs only
           type: string
         nickname:
-          description: 显示昵称；缺省为 Integration
+          description: Display name; defaults to Integration
           type: string
       required:
         - echo_id
@@ -451,10 +457,10 @@ components:
       properties:
         payload:
           additionalProperties: {}
-          description: 扩展渲染所需的任意字段
+          description: Arbitrary fields the card needs to render
           type: object
         type:
-          description: 扩展卡片类型，如 weather / music
+          description: Card type, e.g. weather or music
           type: string
       type: object
     EchoFile:
@@ -481,26 +487,41 @@ components:
       additionalProperties: true
       properties:
         dateFrom:
+          description: Only Echoes created at or after this Unix time (seconds)
           format: int64
           type: integer
         dateTo:
+          description: Only Echoes created at or before this Unix time (seconds)
           format: int64
           type: integer
         page:
+          description: Page number, 1-based (default 1)
           format: int64
           type: integer
         pageSize:
+          description: Items per page, 1-100 (default 10)
           format: int64
           type: integer
         private:
+          description: "Visibility filter: true for private only, false for public only; omit for both"
           type: boolean
         search:
+          description: Substring match on Echo content
           type: string
         sortBy:
+          description: Sort field (default created_at)
+          enum:
+            - created_at
+            - fav_count
           type: string
         sortOrder:
+          description: Sort direction (default desc)
+          enum:
+            - asc
+            - desc
           type: string
         tagIds:
+          description: Tag IDs to match; an Echo qualifies if it carries any listed tag
           items:
             type: string
           type:
@@ -511,14 +532,14 @@ components:
       additionalProperties: true
       properties:
         content:
-          description: 正文（Markdown）；与附件、扩展至少有一项
+          description: Markdown body; supply at least one of content, files, or extension
           type: string
         created_at:
-          description: 发布时间（Unix 秒），缺省为当前时间
+          description: Publish time in Unix seconds; defaults to now
           format: int64
           type: integer
         echo_files:
-          description: 附件引用列表：{file_id, sort_order}；文件先通过上传接口获取 file_id
+          description: Attachments as {file_id, sort_order}; upload files first to get file_id
           items:
             $ref: "#/components/schemas/EchoFile"
           type:
@@ -526,18 +547,18 @@ components:
             - "null"
         extension:
           $ref: "#/components/schemas/EchoExtensionDto"
-          description: 扩展卡片 {type, payload}
+          description: "Card payload: {type, payload}"
         id:
-          description: 更新时的 Echo ID；创建时忽略
+          description: Echo ID to update; ignored on create
           type: string
         layout:
-          description: 布局：waterfall / grid / horizontal / carousel / stack / none
+          description: "Layout: waterfall / grid / horizontal / carousel / stack / none"
           type: string
         private:
-          description: 仅自己可见
+          description: Visible only to the owner
           type: boolean
         tags:
-          description: 标签列表，元素为 {name}；同名标签复用
+          description: Tags as {name}; an existing tag with the same name is reused
           items:
             $ref: "#/components/schemas/Tag"
           type:
@@ -2471,13 +2492,20 @@ components:
       additionalProperties: true
       properties:
         is_active:
+          description: Enabled; defaults to true on create, while omitting it on update disables the webhook
           type: boolean
         name:
+          description: Display name
           type: string
         secret:
+          description: Optional signing secret; the server signs payloads with X-Ech0-Signature
           type: string
         url:
+          description: HTTP(S) endpoint that receives events
           type: string
+      required:
+        - name
+        - url
       type: object
   securitySchemes:
     bearerAuth:
@@ -2994,12 +3022,12 @@ paths:
     delete:
       operationId: connect-delete
       parameters:
-        - description: 连接 ID（UUID）
+        - description: Connection ID (UUID)
           in: path
           name: id
           required: true
           schema:
-            description: 连接 ID（UUID）
+            description: Connection ID (UUID)
             format: uuid
             type: string
       responses:
@@ -3080,13 +3108,13 @@ paths:
     get:
       operationId: echo-hot
       parameters:
-        - description: 返回条数，默认 5，最大 20
+        - description: Number of Echoes to return; default 5, maximum 20
           explode: false
           in: query
           name: limit
           schema:
             default: 5
-            description: 返回条数，默认 5，最大 20
+            description: Number of Echoes to return; default 5, maximum 20
             format: int64
             type: integer
       responses:
@@ -3268,12 +3296,12 @@ paths:
     get:
       operationId: echo-by-tag
       parameters:
-        - description: 标签 ID
+        - description: Tag ID
           in: path
           name: tagid
           required: true
           schema:
-            description: 标签 ID
+            description: Tag ID
             format: uuid
             type: string
         - explode: false
@@ -3515,20 +3543,20 @@ paths:
     get:
       operationId: file-tree
       parameters:
-        - description: 存储类型
+        - description: "Storage type: local or object (s3 maps to object)"
           explode: false
           in: query
           name: storage_type
           required: true
           schema:
-            description: 存储类型
+            description: "Storage type: local or object (s3 maps to object)"
             type: string
-        - description: 路径前缀
+        - description: Path prefix to list under
           explode: false
           in: query
           name: prefix
           schema:
-            description: 路径前缀
+            description: Path prefix to list under
             type: string
       responses:
         "200":
@@ -3553,12 +3581,12 @@ paths:
     delete:
       operationId: file-delete
       parameters:
-        - description: 文件 ID
+        - description: File ID
           in: path
           name: id
           required: true
           schema:
-            description: 文件 ID
+            description: File ID
             type: string
       responses:
         "200":
@@ -3582,12 +3610,12 @@ paths:
     get:
       operationId: file-get
       parameters:
-        - description: 文件 ID
+        - description: File ID
           in: path
           name: id
           required: true
           schema:
-            description: 文件 ID
+            description: File ID
             type: string
       responses:
         "200":
@@ -3612,12 +3640,12 @@ paths:
     put:
       operationId: file-update-meta
       parameters:
-        - description: 文件 ID
+        - description: File ID
           in: path
           name: id
           required: true
           schema:
-            description: 文件 ID
+            description: File ID
             type: string
       requestBody:
         content:
@@ -3648,35 +3676,35 @@ paths:
     get:
       operationId: file-list
       parameters:
-        - description: 页码
+        - description: Page number, 1-based (default 1)
           explode: false
           in: query
           name: page
           schema:
-            description: 页码
+            description: Page number, 1-based (default 1)
             format: int64
             type: integer
-        - description: 每页数量
+        - description: Items per page, 1-100 (default 20)
           explode: false
           in: query
           name: pageSize
           schema:
-            description: 每页数量
+            description: Items per page, 1-100 (default 20)
             format: int64
             type: integer
-        - description: 搜索关键词
+        - description: Substring match on file name
           explode: false
           in: query
           name: search
           schema:
-            description: 搜索关键词
+            description: Substring match on file name
             type: string
-        - description: 存储类型
+        - description: "Storage type: local or object (s3 maps to object)"
           explode: false
           in: query
           name: storage_type
           schema:
-            description: 存储类型
+            description: "Storage type: local or object (s3 maps to object)"
             type: string
       responses:
         "200":
@@ -4935,12 +4963,12 @@ paths:
     delete:
       operationId: tag-delete
       parameters:
-        - description: 标签 ID
+        - description: Tag ID
           in: path
           name: id
           required: true
           schema:
-            description: 标签 ID
+            description: Tag ID
             format: uuid
             type: string
       responses:
@@ -5167,12 +5195,12 @@ paths:
     delete:
       operationId: webhook-delete
       parameters:
-        - description: 资源 ID（UUID）
+        - description: Webhook ID (UUID)
           in: path
           name: id
           required: true
           schema:
-            description: 资源 ID（UUID）
+            description: Webhook ID (UUID)
             format: uuid
             type: string
       responses:
@@ -5197,12 +5225,12 @@ paths:
     put:
       operationId: webhook-update
       parameters:
-        - description: Webhook ID（UUID）
+        - description: Webhook ID (UUID)
           in: path
           name: id
           required: true
           schema:
-            description: Webhook ID（UUID）
+            description: Webhook ID (UUID)
             format: uuid
             type: string
       requestBody:
@@ -5234,12 +5262,12 @@ paths:
     post:
       operationId: webhook-test
       parameters:
-        - description: 资源 ID（UUID）
+        - description: Webhook ID (UUID)
           in: path
           name: id
           required: true
           schema:
-            description: 资源 ID（UUID）
+            description: Webhook ID (UUID)
             format: uuid
             type: string
       responses:

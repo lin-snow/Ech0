@@ -61,6 +61,23 @@ func testDocument() *huma.OpenAPI {
 					},
 				},
 			},
+			"/echo/query": {
+				Post: &huma.Operation{
+					OperationID:   "echo-list",
+					Summary:       "分页/筛选 Echo 列表",
+					DefaultStatus: 200,
+					RequestBody: &huma.RequestBody{
+						Content: map[string]*huma.MediaType{
+							"application/json": {Schema: &huma.Schema{Type: "object", Properties: map[string]*huma.Schema{
+								"page": {Type: "integer"},
+							}}},
+						},
+					},
+					Responses: map[string]*huma.Response{
+						"200": {Content: map[string]*huma.MediaType{"application/json": {}}},
+					},
+				},
+			},
 			"/echo/{id}": {
 				Get: &huma.Operation{
 					OperationID:   "echo-get",
@@ -140,6 +157,10 @@ func TestBuild_Operations(t *testing.T) {
 		t.Fatalf("get op = %+v", get)
 	}
 
+	if list := doc.Ops["echo.list"]; list.Method != "POST" || list.Effect != EffectRead {
+		t.Fatalf("body-filtered query must read: %+v", list)
+	}
+
 	sum := sha256.Sum256(body)
 	if fingerprint != hex.EncodeToString(sum[:]) {
 		t.Fatalf("fingerprint mismatch")
@@ -166,7 +187,7 @@ func TestBuild_StableFingerprint(t *testing.T) {
 	if err := json.Unmarshal(first, &decoded); err != nil {
 		t.Fatalf("catalog is not valid JSON: %v", err)
 	}
-	if len(decoded.Ops) != 4+len(RawOps()) {
+	if len(decoded.Ops) != 5+len(RawOps()) {
 		t.Fatalf("ops = %d", len(decoded.Ops))
 	}
 }
