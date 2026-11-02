@@ -75,6 +75,8 @@ describe("skill source", () => {
     expect(references.length).toBeGreaterThanOrEqual(3);
     expect(references).toContain("references/comments.md");
     expect(references).toContain("references/connect.md");
+    expect(references).toContain("references/tags.md");
+    expect(references).toContain("references/webhooks.md");
     expect(new TextDecoder().decode(source.read(SKILL_FILE).bytes)).toContain("name: ech0");
   });
 });
@@ -88,6 +90,8 @@ describe("install skills", () => {
     expect(result.exitCode).toBe(0);
     expect(parsed.target).toBe(join(root, SKILL_NAME));
     expect(parsed.files).toContain(SKILL_FILE);
+    expect(parsed.files).toContain("references/tags.md");
+    expect(parsed.files).toContain("references/webhooks.md");
     expect(readFileSync(join(root, SKILL_NAME, SKILL_FILE), "utf8")).toContain("name: ech0");
   });
 

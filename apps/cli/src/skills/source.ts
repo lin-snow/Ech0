@@ -15,6 +15,8 @@ import commentsReference from "../../../../skills/ech0/references/comments.md" w
 import connectReference from "../../../../skills/ech0/references/connect.md" with { type: "text" };
 import echoReference from "../../../../skills/ech0/references/echo.md" with { type: "text" };
 import operationsReference from "../../../../skills/ech0/references/operations.md" with { type: "text" };
+import tagsReference from "../../../../skills/ech0/references/tags.md" with { type: "text" };
+import webhooksReference from "../../../../skills/ech0/references/webhooks.md" with { type: "text" };
 import skillEntry from "../../../../skills/ech0/SKILL.md" with { type: "text" };
 
 import { UsageError } from "../output/console.ts";
@@ -29,6 +31,8 @@ const EMBEDDED: Record<string, string> = {
   "references/connect.md": connectReference,
   "references/echo.md": echoReference,
   "references/operations.md": operationsReference,
+  "references/tags.md": tagsReference,
+  "references/webhooks.md": webhooksReference,
 };
 
 const FILE_MODE = 0o644;
