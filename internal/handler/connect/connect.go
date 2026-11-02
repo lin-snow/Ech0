@@ -27,7 +27,7 @@ type (
 	GetConnectsInfoInput struct{}
 	GetConnectsHealthIn  struct{}
 	AddConnectInput      struct {
-		Body connectModel.Connected
+		Body connectModel.AddConnectDto
 	}
 	DeleteConnectInput struct {
 		ID string `path:"id" format:"uuid" doc:"连接 ID（UUID）"`
@@ -75,7 +75,8 @@ func (connectHandler *ConnectHandler) GetConnectsHealth(ctx context.Context, _ *
 }
 
 func (connectHandler *ConnectHandler) AddConnect(ctx context.Context, in *AddConnectInput) (EmptyOutput, error) {
-	if err := connectHandler.connectService.AddConnect(ctx, in.Body); err != nil {
+	connected := connectModel.Connected{ConnectURL: in.Body.ConnectURL}
+	if err := connectHandler.connectService.AddConnect(ctx, connected); err != nil {
 		return EmptyOutput{}, err
 	}
 	return commonModel.OK[any](nil, commonModel.ADD_CONNECT_SUCCESS), nil

@@ -12,7 +12,7 @@ import type { CommandOutput } from "../src/commands/types.ts";
 import { helpModel, nodeAt } from "../src/help/model.ts";
 import { renderHelp } from "../src/help/render.ts";
 
-/** The comment/connect subset of the real catalog, plus ids outside the scope. */
+/** The core comment/connect subset, plus ids that must stay out of scope. */
 const CATALOG: { ops: Record<string, unknown> } = {
   ops: {
     "comment.list.by.echo": {
@@ -30,6 +30,26 @@ const CATALOG: { ops: Record<string, unknown> } = {
       bind: { echo_id: "query" },
       deprecated: false,
     },
+    "comment.create.integration": {
+      summary: "经访问令牌创建评论（集成）",
+      method: "POST",
+      path: "/comments/integration",
+      scopes: ["comment:write"],
+      effect: "write",
+      kind: "json",
+      input: {
+        type: "object",
+        properties: {
+          echo_id: { type: "string" },
+          content: { type: "string" },
+          nickname: { type: "string" },
+          metadata: { type: "string" },
+        },
+        required: ["echo_id", "content"],
+      },
+      bind: { echo_id: "body", content: "body", nickname: "body", metadata: "body" },
+      deprecated: false,
+    },
     "comment.list.public": {
       summary: "列出最新公开评论",
       method: "GET",
@@ -37,10 +57,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       scopes: [],
       effect: "read",
       kind: "json",
-      input: {
-        type: "object",
-        properties: { limit: { type: "integer", format: "int64", default: 30, description: "返回数量上限" } },
-      },
+      input: { type: "object", properties: { limit: { type: "integer" } } },
       bind: { limit: "query" },
       deprecated: false,
     },
@@ -53,69 +70,27 @@ const CATALOG: { ops: Record<string, unknown> } = {
       kind: "json",
       input: {
         type: "object",
-        properties: { id: { type: "string", description: "评论 ID" } },
+        properties: { id: { type: "string" } },
         required: ["id"],
       },
       bind: { id: "path" },
-      deprecated: false,
-    },
-    "comment.form.meta": {
-      summary: "获取评论表单元信息",
-      method: "GET",
-      path: "/comments/form",
-      scopes: [],
-      effect: "read",
-      kind: "json",
-      input: { type: "object", properties: {} },
-      bind: {},
-      deprecated: false,
-    },
-    "comment.create.integration": {
-      summary: "经访问令牌创建评论（集成）",
-      method: "POST",
-      path: "/comments/integration",
-      scopes: ["comment:write"],
-      effect: "write",
-      kind: "json",
-      input: {
-        type: "object",
-        additionalProperties: true,
-        properties: {
-          content: { type: "string" },
-          echo_id: { type: "string" },
-          metadata: { type: "string" },
-          nickname: { type: "string" },
-        },
-      },
-      bind: { content: "body", echo_id: "body", metadata: "body", nickname: "body" },
-      deprecated: false,
-    },
-    "comment.panel.list": {
-      summary: "管理面板列出评论",
-      method: "GET",
-      path: "/panel/comments",
-      scopes: ["comment:moderate"],
-      effect: "read",
-      kind: "json",
-      input: { type: "object", properties: {} },
-      bind: {},
-      deprecated: false,
-    },
-    "connect.self": {
-      summary: "获取当前实例的连接信息",
-      method: "GET",
-      path: "/connect",
-      scopes: [],
-      effect: "read",
-      kind: "json",
-      input: { type: "object", properties: {} },
-      bind: {},
       deprecated: false,
     },
     "connect.list": {
       summary: "获取当前实例添加的所有连接",
       method: "GET",
       path: "/connect/list",
+      scopes: [],
+      effect: "read",
+      kind: "json",
+      input: { type: "object", properties: {} },
+      bind: {},
+      deprecated: false,
+    },
+    "connect.info": {
+      summary: "获取所有已添加连接的详细信息",
+      method: "GET",
+      path: "/connects/info",
       scopes: [],
       effect: "read",
       kind: "json",
@@ -132,10 +107,10 @@ const CATALOG: { ops: Record<string, unknown> } = {
       kind: "json",
       input: {
         type: "object",
-        additionalProperties: true,
-        properties: { id: { type: "string" }, connect_url: { type: "string" } },
+        properties: { connect_url: { type: "string" } },
+        required: ["connect_url"],
       },
-      bind: { id: "body", connect_url: "body" },
+      bind: { connect_url: "body" },
       deprecated: false,
     },
     "connect.delete": {
@@ -153,22 +128,22 @@ const CATALOG: { ops: Record<string, unknown> } = {
       bind: { id: "path" },
       deprecated: false,
     },
-    "connect.health": {
-      summary: "获取互联健康状态",
+    "connect.self": {
+      summary: "获取当前实例的连接信息",
       method: "GET",
-      path: "/connects/health",
-      scopes: ["connect:read"],
+      path: "/connect",
+      scopes: [],
       effect: "read",
       kind: "json",
       input: { type: "object", properties: {} },
       bind: {},
       deprecated: false,
     },
-    "connect.info": {
-      summary: "获取所有已添加连接的详细信息",
+    "connect.health": {
+      summary: "获取互联健康状态",
       method: "GET",
-      path: "/connects/info",
-      scopes: [],
+      path: "/connects/health",
+      scopes: ["connect:read"],
       effect: "read",
       kind: "json",
       input: { type: "object", properties: {} },
@@ -214,17 +189,17 @@ function helpText(program: Command, path: string[]): string {
   return renderHelp(helpModel(node));
 }
 
-describe("comment and connect commands", () => {
-  test("exposes both groups and keeps every other catalog op out", () => {
+describe("core comment and connect commands", () => {
+  test("exposes only the MCP-shaped groups", () => {
     const { program } = buildProgram();
 
-    expect(groupNames(program, "comment")).toEqual(["create", "delete", "list", "public"]);
-    expect(groupNames(program, "connect")).toEqual(["add", "health", "list", "remove", "status"]);
+    expect(groupNames(program, "comment")).toEqual(["create", "list"]);
+    expect(groupNames(program, "connect")).toEqual(["add", "delete", "info", "list"]);
 
-    expect(nodeAt(program, ["comment", "form"])).toBeUndefined();
+    expect(nodeAt(program, ["comment", "public"])).toBeUndefined();
     expect(nodeAt(program, ["comment", "panel"])).toBeUndefined();
-    expect(nodeAt(program, ["comment", "create-integration"])).toBeUndefined();
-    expect(nodeAt(program, ["connect", "info"])).toBeUndefined();
+    expect(nodeAt(program, ["connect", "status"])).toBeUndefined();
+    expect(nodeAt(program, ["connect", "health"])).toBeUndefined();
   });
 
   test("comment create posts the integration body and takes no form token", async () => {
@@ -256,106 +231,66 @@ describe("comment and connect commands", () => {
     const text = helpText(program, ["comment", "create"]);
     expect(text).toContain("--echo-id");
     expect(text).toContain("--content");
-    expect(text).toContain("--nickname");
-    expect(text).toContain("--metadata");
+    expect(text).toContain("source=integration");
+    expect(text).toContain("pending");
     for (const dropped of ["--form-token", "--captcha-token", "--email", "--website", "--parent-id", "--hp-field"]) {
       expect(text).not.toContain(dropped);
     }
   });
 
-  test("comment reads bind echo_id and limit to the query", async () => {
+  test("required fields are checked before the request", async () => {
     const { program, invocations } = buildProgram();
 
-    await program.parseAsync(["comment", "list", "--echo-id", "e1"], { from: "user" });
-    await program.parseAsync(["comment", "public", "--limit", "5"], { from: "user" });
-
-    expect(invocations).toEqual([
-      { request: "GET /comments", values: { echo_id: "e1" } },
-      { request: "GET /comments/public", values: { limit: 5 } },
-    ]);
-  });
-
-  test("missing required comment input is a usage error", async () => {
-    const { program } = buildProgram();
-
+    await expect(
+      program.parseAsync(["comment", "create", "--echo-id", "e1"], { from: "user" }),
+    ).rejects.toThrow("缺少必填参数 --content");
     await expect(program.parseAsync(["comment", "list"], { from: "user" })).rejects.toThrow(
       "缺少必填参数 --echo-id",
     );
+    await expect(program.parseAsync(["connect", "add"], { from: "user" })).rejects.toThrow(
+      "缺少必填参数 --connect-url",
+    );
+    expect(invocations).toHaveLength(0);
   });
 
-  test("connect add maps the url field and connect remove maps the id", async () => {
+  test("comment list binds echo_id to the query", async () => {
     const { program, invocations } = buildProgram();
 
+    await program.parseAsync(["comment", "list", "--echo-id", "e1"], { from: "user" });
+    expect(invocations).toEqual([{ request: "GET /comments", values: { echo_id: "e1" } }]);
+  });
+
+  test("connect list, info, add and delete map to their operations", async () => {
+    const { program, invocations } = buildProgram();
+
+    await program.parseAsync(["connect", "list"], { from: "user" });
+    await program.parseAsync(["connect", "info"], { from: "user" });
     await program.parseAsync(["connect", "add", "--connect-url", "https://peer.example"], { from: "user" });
-    await program.parseAsync(["connect", "remove", "--id", "c-1", "--yes"], { from: "user" });
+    await program.parseAsync(["connect", "delete", "--id", "c-1", "--yes", "--json"], { from: "user" });
 
     expect(invocations).toEqual([
+      { request: "GET /connect/list", values: {} },
+      { request: "GET /connects/info", values: {} },
       { request: "POST /connects", values: { connect_url: "https://peer.example" } },
       { request: "DELETE /connects/{id}", values: { id: "c-1" } },
     ]);
+
+    const addHelp = helpText(program, ["connect", "add"]);
+    expect(addHelp).toContain("--connect-url");
+    expect(addHelp).not.toContain("--id");
+    expect(addHelp).toContain("/api/connect");
   });
 
-  test("connect status, list and health need no fields", async () => {
-    const { program, invocations } = buildProgram();
-
-    await program.parseAsync(["connect", "status"], { from: "user" });
-    await program.parseAsync(["connect", "list"], { from: "user" });
-    await program.parseAsync(["connect", "health"], { from: "user" });
-
-    expect(invocations.map((invocation) => invocation.request)).toEqual([
-      "GET /connect",
-      "GET /connect/list",
-      "GET /connects/health",
-    ]);
-  });
-});
-
-describe("destructive comment and connect commands", () => {
-  test("help lists --yes and the confirmation hint", () => {
-    const { program } = buildProgram();
-
-    for (const path of [["comment", "delete"], ["connect", "remove"]]) {
-      const text = helpText(program, path);
-      expect(text).toContain("-y, --yes");
-      expect(text).toContain("交互确认");
-    }
-  });
-
-  test("the guard follows the catalog effect, not the command name", () => {
-    const { program } = buildProgram();
-
-    expect(helpText(program, ["comment", "create"])).not.toContain("--yes");
-  });
-
-  test("comment delete without --yes never invokes the operation", async () => {
+  test("connect delete needs --yes when non-interactive", async () => {
     const { program, invocations } = buildProgram();
 
     await expect(
-      program.parseAsync(["comment", "delete", "--id", "c1", "--json"], { from: "user" }),
+      program.parseAsync(["connect", "delete", "--id", "c-1", "--json"], { from: "user" }),
     ).rejects.toThrow("--yes");
     expect(invocations).toHaveLength(0);
-  });
 
-  test("comment delete with --yes invokes the operation", async () => {
-    const { program, invocations } = buildProgram();
-
-    await program.parseAsync(["comment", "delete", "--id", "c1", "--yes", "--json"], { from: "user" });
-    expect(invocations).toEqual([{ request: "DELETE /panel/comments/{id}", values: { id: "c1" } }]);
-  });
-
-  test("connect remove without --yes never invokes the operation", async () => {
-    const { program, invocations } = buildProgram();
-
-    await expect(
-      program.parseAsync(["connect", "remove", "--id", "c-1", "--json"], { from: "user" }),
-    ).rejects.toThrow("--yes");
-    expect(invocations).toHaveLength(0);
-  });
-
-  test("connect remove with --yes invokes the operation", async () => {
-    const { program, invocations } = buildProgram();
-
-    await program.parseAsync(["connect", "remove", "--id", "c-1", "--yes", "--json"], { from: "user" });
-    expect(invocations).toEqual([{ request: "DELETE /connects/{id}", values: { id: "c-1" } }]);
+    const text = helpText(program, ["connect", "delete"]);
+    expect(text).toContain("-y, --yes");
+    expect(text).toContain("--yes");
   });
 });

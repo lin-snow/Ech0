@@ -1,35 +1,34 @@
 # Connect (instance federation)
 
-The Connect commands are `connect.status` (catalog id `connect.self`),
-`connect.list`, `connect.add`, `connect.health` and `connect.remove`
-(`connect.delete`). Status and list are public; health needs `connect:read`;
-add and remove need `connect:write`.
+The Connect commands are `connect.list`, `connect.info`, `connect.add` and
+`connect.delete`. List and info are public; add and delete need `connect:write`
+and an admin account. The CLI has no self-card or health-probe command.
 
 ## Inspect
 
 ```bash
-ech0 connect status --json    # this instance's public card
-ech0 connect list --json      # connections added to this instance
-ech0 connect health --json    # reachability and version per connection
+ech0 connect list --json      # saved peers: {id, connect_url}
+ech0 connect info --json      # peer cards: name / logo / post stats / version
 ```
 
-`status` returns `{server_name, server_url, logo, total_echos, today_echos,
-sys_username, version}`. `list` returns `{id, connect_url}` records. `health`
-returns `{id, connect_url, status, version}` per record, where `status` reports
-whether the peer answered.
+`list` returns `{id, connect_url}` records. Use the `id` with `connect delete`.
+`info` returns one public card per peer (`server_name`, `server_url`, `logo`,
+`total_echos`, `today_echos`, `sys_username`, `version`). The server caches these
+cards for 30 minutes; the first call after expiry fans out to every peer and may
+be slow.
 
-## Add and remove
+## Add and delete
 
 ```bash
 ech0 connect add --connect-url https://peer.example --json
-ech0 connect remove --id <uuid> --yes
+ech0 connect delete --id <uuid> --yes
 ```
 
-`add` takes the peer instance URL; the server allocates the record id (omit
-`--id`). `remove` takes the connection UUID from `connect list` or
-`connect health`.
+`add` takes the peer instance root URL; the server appends `/api/connect` and
+allocates the record id. Duplicate URLs are rejected. `delete` takes the
+connection UUID from `connect list`.
 
-Remove is destructive: interactive terminals print the exact `DELETE` target
+Delete is destructive: interactive terminals print the exact `DELETE` target
 and ask `[y/N]`; pipes and `--json`/`--yaml` never prompt and require `--yes`.
-Verify the id first — removing a connection only drops the local record, the
+Verify the id first — deleting a connection only drops the local record, the
 peer instance is unaffected.

@@ -19,8 +19,9 @@ import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
 // Every scope the exposed command surface needs: Echo CRUD, the file surface
-// and the comment/connect operations from catalog/scope.ts. Anything narrower
-// makes part of the exposed tree 403.
+// and the comment/connect writes from catalog/scope.ts. Comment moderation and
+// Connect health are deliberately not exposed, so `comment:moderate` and
+// `connect:read` stay out of the default token.
 export const DEFAULT_CLI_SCOPES = [
   "echo:read",
   "echo:write",
@@ -28,8 +29,6 @@ export const DEFAULT_CLI_SCOPES = [
   "file:read",
   "file:write",
   "comment:write",
-  "comment:moderate",
-  "connect:read",
   "connect:write",
 ];
 const DEVICE_CLIENT_NAME = "ech0-cli";

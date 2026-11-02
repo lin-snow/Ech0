@@ -8,7 +8,7 @@
 
 一句话：**登录到一台指定的 Ech0 实例，在终端完成 Echo 的增删改查，以及评论与互联管理**。
 
-范围的取舍：登录之后暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`）、评论面（经集成端点创建评论 `comment.create.integration`、按 Echo 列出评论 `comment.list.by.echo`、最新公开评论 `comment.list.public`、面板删除评论 `comment.panel.delete`）与互联面（本机信息 `connect.self`、已添加连接 `connect.list`、添加连接 `connect.add`、删除连接 `connect.delete`、健康状态 `connect.health`），其余接口（迁移、系统日志、Copilot、访客评论入口 / 评论表单元信息 / 面板其余操作、`connect.info` 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`，`comment.create.integration` → `ech0 comment create`，`comment.list.by.echo` → `ech0 comment list`，`comment.list.public` → `ech0 comment public`，`comment.panel.delete` → `ech0 comment delete`，`connect.self` → `ech0 connect status`，`connect.delete` → `ech0 connect remove`）。
+范围的取舍：登录之后暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`）、评论面（经集成端点创建评论 `comment.create.integration`、按 Echo 列出评论 `comment.list.by.echo`）与互联面（已添加连接 `connect.list`、对端信息 `connect.info`、添加连接 `connect.add`、删除连接 `connect.delete`）。评论与互联的命令面**对齐 MCP 的 tool 面**：只做发布/读取评论和列出/查看/添加/删除连接，不做评论审核，也不做实例自述卡与健康探测；因此默认登录不需要 `comment:moderate` 或 `connect:read`。其余接口（迁移、系统日志、Copilot、访客评论入口 / 评论表单元信息 / 面板操作 / `connect.health` 等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`，`comment.create.integration` → `ech0 comment create`，`comment.list.by.echo` → `ech0 comment list`）。
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
@@ -125,7 +125,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 - 数组字段两种写法：`--tags a,b`（逗号）或 `--tags '[{"name":"a"}]'`（以 `[` 开头按 JSON 解析）。
 - 与 CLI 保留 flag 重名（`json/profile/server/token/lang/color/help/version`）的字段改名为 `--input-<name>`。
 - 必填字段在 action 里校验（缺失 → 退出码 2 + `缺少必填参数 --x`），不用 `requiredOption`：可调用 id 一旦有子命令，父命令的必填项会连子命令一起拦下。
-- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 文件面六条 + 评论四条 + 互联五条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
+- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 文件面六条 + 评论两条 + 互联四条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
 - help 末尾附 `METHOD /path · scopes: ...`，便于确认权限与效果。
 
 ### 4.5 传输层：流式、上传与下载（后端 + CLI 已实现）
@@ -317,7 +317,7 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
-登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`profile:read`、`file:read`、`file:write`、`comment:write`、`comment:moderate`、`connect:read`、`connect:write`。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
 
 ## 6. 命令树与 help
 
@@ -332,7 +332,7 @@ ech0 version
 ech0 help [words...] [--full] [--json]
 ```
 
-服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 文件面六条 + 评论四条 + 互联五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
+服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 文件面六条 + 评论两条 + 互联四条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
 
 ```
 ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Echo（含 id）
@@ -349,15 +349,12 @@ ech0 file tree --storage-type local
 ech0 file download --id <file_id> --output ./a.png   # binary；非 TTY 默认 stdout
 
 ech0 comment create --echo-id <id> --content "写得好"   # POST /comments/integration，需 comment:write
-ech0 comment list --echo-id <id>                     # GET /comments
-ech0 comment public --limit 20                       # GET /comments/public
-ech0 comment delete --id <comment_id> --yes          # DELETE /panel/comments/{id}
+ech0 comment list --echo-id <id>                     # GET /comments，只返回 approved
 
-ech0 connect status                                  # GET /connect，本机连接信息
-ech0 connect list                                    # GET /connect/list
-ech0 connect add --connect-url https://peer.example  # POST /connects
-ech0 connect health                                  # GET /connects/health
-ech0 connect remove --id <uuid> --yes                # DELETE /connects/{id}
+ech0 connect list                                    # GET /connect/list，{id, connect_url}
+ech0 connect info                                    # GET /connects/info，对端公开卡片
+ech0 connect add --connect-url https://peer.example  # POST /connects，需 connect:write
+ech0 connect delete --id <uuid> --yes                # DELETE /connects/{id}，需 connect:write
 ```
 
 全局选项（任意位置）：`--profile`、`--server`、`--token`、`--lang`、`--json`、`--yaml`、`--no-color`。注意：commander 会把与父命令同名的选项归到父命令，所以这些只在根命令声明一次。

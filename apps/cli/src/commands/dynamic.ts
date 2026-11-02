@@ -138,6 +138,61 @@ function fileHints(id: string): string[] {
   return [];
 }
 
+/**
+ * Comment commands mirror the MCP comment tools: create through the trusted
+ * integration route and read approved comments. There is no moderation command.
+ */
+function commentExamples(id: string): string[] | undefined {
+  if (id === "comment.create.integration") {
+    return [
+      'ech0 comment create --echo-id <echo_id> --content "写得好"',
+      'ech0 comment create --echo-id <echo_id> --content "来自流水线" --nickname "CI Bot"',
+    ];
+  }
+  if (id === "comment.list.by.echo") return ["ech0 comment list --echo-id <echo_id>"];
+  return undefined;
+}
+
+function commentHints(id: string): string[] {
+  if (id === "comment.create.integration") {
+    return [
+      "走可信集成入口 /comments/integration：不需要 form token 或验证码，评论标记为 source=integration",
+      "默认昵称是 Integration；人类评论建议显式传 --nickname",
+      "实例开启审核时返回 pending；CLI 不提供审核命令，请到 web 面板处理",
+    ];
+  }
+  if (id === "comment.list.by.echo") {
+    return ["只返回 approved 评论；pending / rejected 请在 web 面板查看"];
+  }
+  return [];
+}
+
+/** Connect commands mirror the MCP connect tools; no self card or health probe. */
+function connectExamples(id: string): string[] | undefined {
+  if (id === "connect.list") return ["ech0 connect list", "ech0 connect list --json"];
+  if (id === "connect.info") return ["ech0 connect info --json"];
+  if (id === "connect.add") return ["ech0 connect add --connect-url https://peer.example"];
+  if (id === "connect.delete") return ["ech0 connect delete --id <uuid> --yes"];
+  return undefined;
+}
+
+function connectHints(id: string): string[] {
+  if (id === "connect.list") {
+    return ["只返回本地保存的 {id, connect_url}；id 用于 ech0 connect delete"];
+  }
+  if (id === "connect.info") {
+    return ["对端公开卡片（名称 / logo / 帖子统计 / 版本）；服务端缓存 30 分钟，首次可能较慢"];
+  }
+  if (id === "connect.add") {
+    return [
+      "--connect-url 传对端实例根地址，服务端会请求 <url>/api/connect",
+      "需要管理员账号；重复 URL 会被拒绝",
+    ];
+  }
+  if (id === "connect.delete") return ["需要管理员账号；只删除本地连接记录，对端实例不受影响"];
+  return [];
+}
+
 /** Server rejected the input: point at the descriptor that lists its fields. */
 function withCommandHint(error: unknown, command: Command): unknown {
   if (
@@ -250,8 +305,16 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       command.option("--tag <name>", "标签，可重复；与 --tags 合并", collect, []);
       command.option("--file-id <id>", "已上传的文件 id，可重复；与 --echo-files 合并", collect, []);
       setCommandExamples(command, composeExamples(id));
+    } else {
+      const examples = commentExamples(id) ?? connectExamples(id);
+      if (examples !== undefined) setCommandExamples(command, examples);
     }
-    const hints = [...(compose ? composeHints(id, op) : []), ...fileHints(id)];
+    const hints = [
+      ...(compose ? composeHints(id, op) : []),
+      ...fileHints(id),
+      ...commentHints(id),
+      ...connectHints(id),
+    ];
     if (hints.length > 0) setCommandHints(command, hints);
     setCommandOp(command, op);
 

@@ -38,7 +38,7 @@ automatically.
 ## Scopes
 
 `--scopes a,b,c` applies when a login mints a token. The default is
-`echo:read,echo:write,profile:read,file:read,file:write,comment:write,comment:moderate,connect:read,connect:write`.
+`echo:read,echo:write,profile:read,file:read,file:write,comment:write,connect:write`.
 Tokens minted elsewhere keep their own scopes.
 
 ## Profiles

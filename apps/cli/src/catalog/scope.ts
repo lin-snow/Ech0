@@ -3,11 +3,11 @@
 
 /**
  * Operations the CLI exposes. The catalog describes every callable operation
- * the server offers; the CLI deliberately surfaces the core Echo CRUD set, the
- * file surface (upload, external registration, browsing and download), the
- * comment surface (trusted integration create, public reads, moderation
- * delete), and the Connect surface so
- * the command tree stays small and focused. Widen this list to add a
+ * the server offers; the CLI deliberately surfaces only the core Echo CRUD,
+ * file, comment and Connect commands. The comment and Connect sets mirror the
+ * MCP tool surface: post/read comments and list/info/add/delete peers. There is
+ * no comment moderation and no Connect health probe, so the default login token
+ * never needs `comment:moderate` or `connect:read`. Widen this list to add a
  * capability — the command generation needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
@@ -24,13 +24,10 @@ export const CLI_OPERATIONS: readonly string[] = [
   "echo.delete",
   "comment.create.integration",
   "comment.list.by.echo",
-  "comment.list.public",
-  "comment.panel.delete",
-  "connect.self",
   "connect.list",
+  "connect.info",
   "connect.add",
   "connect.delete",
-  "connect.health",
 ];
 
 const allowed = new Set(CLI_OPERATIONS);
@@ -48,10 +45,6 @@ export const COMMAND_NAMES: Readonly<Record<string, string>> = {
   "file.stream.by_id": "file.download",
   "comment.create.integration": "comment.create",
   "comment.list.by.echo": "comment.list",
-  "comment.list.public": "comment.public",
-  "comment.panel.delete": "comment.delete",
-  "connect.self": "connect.status",
-  "connect.delete": "connect.remove",
 };
 
 /** Echo operations that accept composed payloads (`--from`, `--tag`, `--file-id`). */

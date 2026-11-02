@@ -110,7 +110,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 | Tool | `create_comment` | 以集成/AI 身份发表评论（与 `create_integration_comment` 相同，推荐在 Agent 中使用此名称） | `comment:write` |
 | Tool | `create_integration_comment` | 同上；与 `POST /api/comments/integration` 共用同一套校验与落库逻辑（无验证码、无 form_token） | `comment:write` |
 | Resource | `ech0://comments/recent` | 全站最近 20 条公开评论 | `comment:read` |
-| Resource | `ech0://guide/integration-comment` | 集成评论说明：REST 端点、Audience（`mcp-remote` / `integration`）、请求体、curl 示例、与本 MCP 会话 Token 的对应关系 | `comment:read` |
+| Resource | `ech0://guide/integration-comment` | 集成评论说明：REST 端点、Audience（`mcp-remote` / `integration` / `cli`）、请求体、curl 示例、与本 MCP 会话 Token 的对应关系 | `comment:read` |
 
 ### Files
 
