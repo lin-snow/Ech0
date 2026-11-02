@@ -158,7 +158,7 @@ Authorization: Bearer <access-token>
 ### Token requirements
 
 - **Scope**: `+"`comment:write`"+`
-- **Audience**: `+"`mcp-remote`"+` (MCP / AI Agent tokens) **or** `+"`integration`"+` (dedicated integration tokens). Both are accepted by this route.
+- **Audience**: `+"`mcp-remote`"+` (MCP / AI Agent tokens), `+"`integration`"+` (dedicated integration tokens) or `+"`cli`"+` (the ech0 CLI's own tokens). All three are accepted by this route.
 
 ### Request body (JSON)
 

@@ -15,41 +15,6 @@ import { renderHelp } from "../src/help/render.ts";
 /** The comment/connect subset of the real catalog, plus ids outside the scope. */
 const CATALOG: { ops: Record<string, unknown> } = {
   ops: {
-    "comment.create": {
-      summary: "创建公开评论",
-      method: "POST",
-      path: "/comments",
-      scopes: [],
-      effect: "write",
-      kind: "json",
-      input: {
-        type: "object",
-        additionalProperties: true,
-        properties: {
-          captcha_token: { type: "string" },
-          content: { type: "string" },
-          echo_id: { type: "string" },
-          email: { type: "string" },
-          form_token: { type: "string" },
-          hp_field: { type: "string" },
-          nickname: { type: "string" },
-          parent_id: { type: "string" },
-          website: { type: "string" },
-        },
-      },
-      bind: {
-        captcha_token: "body",
-        content: "body",
-        echo_id: "body",
-        email: "body",
-        form_token: "body",
-        hp_field: "body",
-        nickname: "body",
-        parent_id: "body",
-        website: "body",
-      },
-      deprecated: false,
-    },
     "comment.list.by.echo": {
       summary: "按 echo 列出公开评论",
       method: "GET",
@@ -112,8 +77,17 @@ const CATALOG: { ops: Record<string, unknown> } = {
       scopes: ["comment:write"],
       effect: "write",
       kind: "json",
-      input: { type: "object", properties: { content: { type: "string" } } },
-      bind: { content: "body" },
+      input: {
+        type: "object",
+        additionalProperties: true,
+        properties: {
+          content: { type: "string" },
+          echo_id: { type: "string" },
+          metadata: { type: "string" },
+          nickname: { type: "string" },
+        },
+      },
+      bind: { content: "body", echo_id: "body", metadata: "body", nickname: "body" },
       deprecated: false,
     },
     "comment.panel.list": {
@@ -253,20 +227,40 @@ describe("comment and connect commands", () => {
     expect(nodeAt(program, ["connect", "info"])).toBeUndefined();
   });
 
-  test("comment create takes the body fields from the catalog schema", async () => {
+  test("comment create posts the integration body and takes no form token", async () => {
     const { program, invocations } = buildProgram();
 
     await program.parseAsync(
-      ["comment", "create", "--echo-id", "e1", "--content", "你好", "--nickname", "小明", "--form-token", "tok"],
+      [
+        "comment",
+        "create",
+        "--echo-id",
+        "e1",
+        "--content",
+        "你好",
+        "--nickname",
+        "小明",
+        "--metadata",
+        "from-test",
+      ],
       { from: "user" },
     );
 
     expect(invocations).toEqual([
       {
-        request: "POST /comments",
-        values: { echo_id: "e1", content: "你好", nickname: "小明", form_token: "tok" },
+        request: "POST /comments/integration",
+        values: { echo_id: "e1", content: "你好", nickname: "小明", metadata: "from-test" },
       },
     ]);
+
+    const text = helpText(program, ["comment", "create"]);
+    expect(text).toContain("--echo-id");
+    expect(text).toContain("--content");
+    expect(text).toContain("--nickname");
+    expect(text).toContain("--metadata");
+    for (const dropped of ["--form-token", "--captcha-token", "--email", "--website", "--parent-id", "--hp-field"]) {
+      expect(text).not.toContain(dropped);
+    }
   });
 
   test("comment reads bind echo_id and limit to the query", async () => {

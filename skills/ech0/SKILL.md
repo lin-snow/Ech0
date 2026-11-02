@@ -55,7 +55,7 @@ ech0 echo delete --id <echo_id> --yes
 # Read and write comments
 ech0 comment list --echo-id <echo_id> --json
 ech0 comment public --limit 20 --json
-ech0 comment create --echo-id <echo_id> --content "写得好" --form-token <token>
+ech0 comment create --echo-id <echo_id> --content "写得好" --nickname "CI Bot"
 ech0 comment delete --id <comment_id> --yes
 
 # Inspect and manage Connect federation links
@@ -68,8 +68,8 @@ ech0 connect remove --id <uuid> --yes
 
 Create, update and delete require an admin account. Field meanings, attachment
 rules and merge behaviour: [references/echo.md](references/echo.md). Comment
-creation needs the anti-bot form token from the instance:
-[references/comments.md](references/comments.md). Peer links and health:
+creation uses the trusted integration route and needs `comment:write` (no form
+token): [references/comments.md](references/comments.md). Peer links and health:
 [references/connect.md](references/connect.md).
 
 ## Finding the right command

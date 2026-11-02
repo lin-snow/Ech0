@@ -189,7 +189,7 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 | `MCPRouterGroup` | `/mcp` | `RequireAuth`，承载 MCP 协议（§8） |
 
 两条需要长期保护的特例：
-- **`POST /api/comments/integration`**：刻意绕过 captcha/form-token，靠 `comment:write` scope + `integration` audience 的 access token 鉴权。
+- **`POST /api/comments/integration`**：刻意绕过 captcha/form-token，靠 `comment:write` scope + `integration` / `mcp-remote` / `cli` audience 的 access token 鉴权。
 - **`/api/files`** 静态路由服务本地内容；`stream` 路由是鉴权的。
 
 ---

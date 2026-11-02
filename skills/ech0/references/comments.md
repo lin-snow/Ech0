@@ -1,9 +1,10 @@
 # Comments
 
-The comment commands are `comment.create`, `comment.list` (catalog id
-`comment.list.by.echo`), `comment.public` (`comment.list.public`) and
-`comment.delete` (`comment.panel.delete`). Creating and reading are public
-operations; deleting is moderation and needs `comment:moderate`.
+The comment commands are `comment.create` (catalog id
+`comment.create.integration`), `comment.list` (`comment.list.by.echo`),
+`comment.public` (`comment.list.public`) and `comment.delete`
+(`comment.panel.delete`). Reading is public; creating needs `comment:write`
+and deleting is moderation and needs `comment:moderate`.
 
 ## Read
 
@@ -19,32 +20,32 @@ ech0 comment public --limit 20 --json            # latest public comments
 ## Create
 
 ```bash
-ech0 comment create --echo-id <echo_id> --content "写得真好" --form-token <token>
-ech0 comment create --echo-id <echo_id> --content "回复" --parent-id <comment_id> --form-token <token>
+ech0 comment create --echo-id <echo_id> --content "写得真好"
+ech0 comment create --echo-id <echo_id> --content "来自流水线" --nickname "CI Bot" --metadata "run 42"
 ```
 
 | Flag | Meaning |
 | --- | --- |
-| `--echo-id` | Echo the comment belongs to (required by the server) |
+| `--echo-id` | Echo the comment belongs to |
 | `--content` | comment body, at most 200 characters |
-| `--nickname` / `--email` / `--website` | author fields; nickname and email are required when the token is not an admin/owner |
-| `--parent-id` | reply to an existing comment under the same Echo |
-| `--form-token` | anti-bot token issued by `GET /api/comments/form` |
-| `--captcha-token` | captcha answer when the instance enables captcha |
-| `--hp-field` | honeypot; leave empty |
+| `--nickname` | display name; defaults to `Integration` |
+| `--metadata` | optional operator/debug string, logged server-side |
 
-The server rejects a missing or stale `--form-token`, and requires a short
-delay between issuing it and submitting. Ask the instance for one, then pass it:
+`comment create` calls the trusted integration endpoint
+`POST /api/comments/integration`, not the guest endpoint. It needs an access
+token with `comment:write` (CLI logins request it by default) and is therefore
+usable from scripts: there is no anti-bot form token, no captcha and no honeypot
+field to fill in.
 
-```bash
-curl -s https://ech0.example.com/api/comments/form | jq -r .data.form_token
-```
+The stored comment is tagged `source: integration`, so it is distinguishable in
+the admin panel. Its status follows the instance's comment approval setting: it
+is approved immediately when approval is not required, otherwise it starts as
+`pending`. The endpoint also suppresses a byte-identical repeat of the same
+comment on the same Echo from the same author/IP within 90 seconds, and applies
+its own rate limits (roughly 5 per minute and 30 per hour per IP). Hitting either
+returns a business error, not a retryable 5xx.
 
-The token is bound to the client IP, so request it from the machine running
-`ech0`. When captcha is enabled, also pass `--captcha-token`. The response is
-`{id, status}`; an admin/owner token posts as the account and is approved
-immediately, other authors start as `pending` when the instance requires
-approval.
+The response is `{id, status}`.
 
 ## Delete
 

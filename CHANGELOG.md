@@ -11,7 +11,7 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ### Added
 
-* **The `ech0` CLI covers comments and Connect.** `ech0 comment create|list|public|delete` and `ech0 connect status|list|add|health|remove` build from the operation catalog like the Echo and file commands; both delete commands keep the `--yes` or interactive `[y/N]` guard, and default logins now request `comment:moderate` and `connect:read,connect:write`.
+* **The `ech0` CLI covers comments and Connect.** `ech0 comment create|list|public|delete` and `ech0 connect status|list|add|health|remove` build from the operation catalog like the Echo and file commands; both delete commands keep the `--yes` or interactive `[y/N]` guard, and default logins now request `comment:write`, `comment:moderate` and `connect:read,connect:write`. `ech0 comment create` posts to the trusted integration endpoint (`POST /api/comments/integration`) instead of the guest endpoint, so it needs no anti-bot form token or captcha and works from scripts; access tokens with `audience=cli` are now accepted by that route alongside `integration` and `mcp-remote`.
 
 ## [5.9.0] - 2026-10-30
 

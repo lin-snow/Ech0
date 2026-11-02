@@ -66,7 +66,7 @@ func registerComment(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Middlewares: huma.Middlewares{stash, optViewer},
 	}, h.CommentHandler.CreateComment)
 
-	route(api, secured(revoker, authModel.ScopeCommentWrite).audience(authModel.AudienceIntegration, authModel.AudienceMCPRemote), huma.Operation{
+	route(api, secured(revoker, authModel.ScopeCommentWrite).audience(authModel.AudienceIntegration, authModel.AudienceMCPRemote, authModel.AudienceCLI), huma.Operation{
 		OperationID: "comment-create-integration",
 		Method:      http.MethodPost,
 		Path:        "/comments/integration",

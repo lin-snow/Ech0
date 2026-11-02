@@ -27,6 +27,7 @@ export const DEFAULT_CLI_SCOPES = [
   "profile:read",
   "file:read",
   "file:write",
+  "comment:write",
   "comment:moderate",
   "connect:read",
   "connect:write",
