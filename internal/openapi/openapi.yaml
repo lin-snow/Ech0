@@ -47,6 +47,15 @@ components:
             - array
             - "null"
       type: object
+    AddConnectDto:
+      additionalProperties: true
+      properties:
+        connect_url:
+          description: 对端实例根地址；服务端会请求 <url>/api/connect
+          type: string
+      required:
+        - connect_url
+      type: object
     AgentSetting:
       additionalProperties: true
       properties:
@@ -348,13 +357,20 @@ components:
       additionalProperties: true
       properties:
         content:
+          description: 评论正文，最多 200 字
           type: string
         echo_id:
+          description: 评论所属的 Echo ID
           type: string
         metadata:
+          description: 调用方自定义的审计字符串；仅记录服务端日志
           type: string
         nickname:
+          description: 显示昵称；缺省为 Integration
           type: string
+      required:
+        - echo_id
+        - content
       type: object
     CreateTagDto:
       additionalProperties: true
@@ -2912,7 +2928,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Connected"
+              $ref: "#/components/schemas/AddConnectDto"
         required: true
       responses:
         "200":

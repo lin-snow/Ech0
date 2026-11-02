@@ -296,6 +296,7 @@ export function exampleFor(command: Command): string | undefined {
     (field) => field.required || isFileField(field.schema),
   );
   const parts = ["ech0", ...pathOf(command), ...fields.map(flagTerm)];
+  if (op.effect === "destructive") parts.push("--yes");
   return parts.join(" ");
 }
 

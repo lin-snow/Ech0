@@ -11,6 +11,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import authReference from "../../../../skills/ech0/references/auth.md" with { type: "text" };
+import commentsReference from "../../../../skills/ech0/references/comments.md" with { type: "text" };
+import connectReference from "../../../../skills/ech0/references/connect.md" with { type: "text" };
 import echoReference from "../../../../skills/ech0/references/echo.md" with { type: "text" };
 import operationsReference from "../../../../skills/ech0/references/operations.md" with { type: "text" };
 import skillEntry from "../../../../skills/ech0/SKILL.md" with { type: "text" };
@@ -23,6 +25,8 @@ export const SKILL_FILE = "SKILL.md";
 const EMBEDDED: Record<string, string> = {
   [SKILL_FILE]: skillEntry,
   "references/auth.md": authReference,
+  "references/comments.md": commentsReference,
+  "references/connect.md": connectReference,
   "references/echo.md": echoReference,
   "references/operations.md": operationsReference,
 };

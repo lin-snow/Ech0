@@ -1,6 +1,6 @@
 ---
 name: ech0
-description: 'Use the ech0 CLI to read and publish on an Ech0 timeline: browse Echoes and files, upload media, create and edit posts with tags, files and extensions, and log in with profiles or device authorization. Use when the task involves ech0, an Ech0 instance, or its timeline.'
+description: 'Use the ech0 CLI to read and publish on an Ech0 timeline: browse Echoes and files, upload media, create and edit posts with tags, files and extensions, read and post comments, manage Connect federation links, and log in with profiles or device authorization. Use when the task involves ech0, an Ech0 instance, or its timeline.'
 ---
 
 # ech0
@@ -10,8 +10,9 @@ Run `ech0 help --json` to see what this instance supports, and look commands up
 instead of assuming flags.
 
 Add `--json` whenever you parse output. Exit codes: `0` success, `2` usage error,
-`1` server or network error. Destructive commands never prompt, so confirm with
-the human first.
+`1` server or network error. Destructive commands (`echo delete`, `connect
+delete`) never prompt in pipes or with `--json`; they require
+`--yes`, so confirm with the human first.
 
 ## Before you start
 
@@ -50,10 +51,24 @@ ech0 echo update --id <echo_id> --content "改过的正文" --tag daily
 
 # Delete (ask the human first; non-interactive runs must add --yes)
 ech0 echo delete --id <echo_id> --yes
+
+# Read and write comments (no moderation commands)
+ech0 comment list --echo-id <echo_id> --json
+ech0 comment create --echo-id <echo_id> --content "写得好" --nickname "CI Bot"
+
+# Inspect and manage Connect federation links
+ech0 connect list --json
+ech0 connect info --json
+ech0 connect add --connect-url https://peer.example
+ech0 connect delete --id <uuid> --yes
 ```
 
-Create, update and delete require an admin account. Field meanings, attachment
-rules and merge behaviour: [references/echo.md](references/echo.md).
+Echo create/update/delete and Connect add/delete require an admin account. Field
+meanings, attachment rules and merge behaviour:
+[references/echo.md](references/echo.md). Comment creation uses the trusted
+integration route and needs `comment:write` (no form token, no moderation
+scope): [references/comments.md](references/comments.md). Peer links:
+[references/connect.md](references/connect.md).
 
 ## Finding the right command
 

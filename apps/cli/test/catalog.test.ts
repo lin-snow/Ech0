@@ -247,10 +247,10 @@ describe("dynamic commands", () => {
     const program = new Command("ech0");
     const withNested: Catalog = {
       ops: {
-        "comment.create": {
-          summary: "create",
+        "migration.export": {
+          summary: "export",
           method: "POST",
-          path: "/comments",
+          path: "/migration/export",
           scopes: [],
           effect: "write",
           kind: "json",
@@ -258,12 +258,12 @@ describe("dynamic commands", () => {
           bind: {},
           deprecated: false,
         },
-        "comment.create.integration": {
-          summary: "integration",
-          method: "POST",
-          path: "/comments/integration",
+        "migration.export.download": {
+          summary: "download",
+          method: "GET",
+          path: "/migration/export/download",
           scopes: [],
-          effect: "write",
+          effect: "read",
           kind: "json",
           input: { type: "object", properties: {} },
           bind: {},
@@ -280,8 +280,8 @@ describe("dynamic commands", () => {
       scope: () => true,
     });
 
-    await program.parseAsync(["comment", "create"], { from: "user" });
-    await program.parseAsync(["comment", "create-integration"], { from: "user" });
+    await program.parseAsync(["migration", "export"], { from: "user" });
+    await program.parseAsync(["migration", "export-download"], { from: "user" });
     expect(calls).toBe(2);
   });
 

@@ -3,9 +3,11 @@
 
 /**
  * Operations the CLI exposes. The catalog describes every callable operation
- * the server offers; the CLI deliberately surfaces only the core Echo CRUD set
- * plus the file surface (upload, external registration, browsing and download)
- * so the command tree stays small and focused. Widen this list to add a
+ * the server offers; the CLI deliberately surfaces only the core Echo CRUD,
+ * file, comment and Connect commands. The comment and Connect sets mirror the
+ * MCP tool surface: post/read comments and list/info/add/delete peers. There is
+ * no comment moderation and no Connect health probe, so the default login token
+ * never needs `comment:moderate` or `connect:read`. Widen this list to add a
  * capability — the command generation needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
@@ -20,6 +22,12 @@ export const CLI_OPERATIONS: readonly string[] = [
   "echo.get",
   "echo.update",
   "echo.delete",
+  "comment.create.integration",
+  "comment.list.by.echo",
+  "connect.list",
+  "connect.info",
+  "connect.add",
+  "connect.delete",
 ];
 
 const allowed = new Set(CLI_OPERATIONS);
@@ -35,6 +43,8 @@ export function inScope(id: string): boolean {
  */
 export const COMMAND_NAMES: Readonly<Record<string, string>> = {
   "file.stream.by_id": "file.download",
+  "comment.create.integration": "comment.create",
+  "comment.list.by.echo": "comment.list",
 };
 
 /** Echo operations that accept composed payloads (`--from`, `--tag`, `--file-id`). */

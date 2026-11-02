@@ -18,14 +18,18 @@ import { setCookieValue } from "../session.ts";
 import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
-// Every scope the exposed command surface needs: Echo CRUD plus the file
-// surface from catalog/scope.ts. Anything narrower makes `ech0 file ...` 403.
+// Every scope the exposed command surface needs: Echo CRUD, the file surface
+// and the comment/connect writes from catalog/scope.ts. Comment moderation and
+// Connect health are deliberately not exposed, so `comment:moderate` and
+// `connect:read` stay out of the default token.
 export const DEFAULT_CLI_SCOPES = [
   "echo:read",
   "echo:write",
   "profile:read",
   "file:read",
   "file:write",
+  "comment:write",
+  "connect:write",
 ];
 const DEVICE_CLIENT_NAME = "ech0-cli";
 

@@ -73,6 +73,8 @@ describe("skill source", () => {
 
     expect(source.paths).toContain(SKILL_FILE);
     expect(references.length).toBeGreaterThanOrEqual(3);
+    expect(references).toContain("references/comments.md");
+    expect(references).toContain("references/connect.md");
     expect(new TextDecoder().decode(source.read(SKILL_FILE).bytes)).toContain("name: ech0");
   });
 });

@@ -138,11 +138,14 @@ func TestConnectHandler_GetConnectsHealth(t *testing.T) {
 func TestConnectHandler_AddConnect(t *testing.T) {
 	t.Run("success passes body through", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
-		body := connectModel.Connected{ConnectURL: "https://new.example"}
-		svc.EXPECT().AddConnect(mock.Anything, body).Return(nil).Once()
+		body := connectHandler.AddConnectInput{Body: connectModel.AddConnectDto{ConnectURL: "https://new.example"}}
+		svc.EXPECT().
+			AddConnect(mock.Anything, connectModel.Connected{ConnectURL: "https://new.example"}).
+			Return(nil).
+			Once()
 
 		h := connectHandler.NewConnectHandler(svc)
-		out, err := h.AddConnect(context.Background(), &connectHandler.AddConnectInput{Body: body})
+		out, err := h.AddConnect(context.Background(), &body)
 
 		require.NoError(t, err)
 		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)

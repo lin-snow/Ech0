@@ -109,10 +109,10 @@ type CreateCommentResult struct {
 }
 
 type CreateIntegrationCommentDto struct {
-	EchoID   string `json:"echo_id" binding:"required"`
-	Content  string `json:"content" binding:"required"`
-	Nickname string `json:"nickname"`
-	Metadata string `json:"metadata"`
+	EchoID   string `json:"echo_id" binding:"required" required:"true" doc:"评论所属的 Echo ID"`
+	Content  string `json:"content" binding:"required" required:"true" doc:"评论正文，最多 200 字"`
+	Nickname string `json:"nickname" doc:"显示昵称；缺省为 Integration"`
+	Metadata string `json:"metadata" doc:"调用方自定义的审计字符串；仅记录服务端日志"`
 }
 
 type UpdateCommentStatusDto struct {

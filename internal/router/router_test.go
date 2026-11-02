@@ -317,6 +317,37 @@ func TestSetupRouter_IntegrationCommentRejectsWrongAudience(t *testing.T) {
 	}
 }
 
+func TestSetupRouter_IntegrationCommentAcceptsCLIAudience(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+
+	user := userModel.User{ID: "u-integ-3", Username: "integ-user-3"}
+	token, err := jwtUtil.GenerateToken(
+		jwtUtil.CreateAccessClaimsWithExpiry(
+			user,
+			int64(time.Hour),
+			[]string{authModel.ScopeCommentWrite},
+			authModel.AudienceCLI,
+			"jti-cli-aud",
+		),
+	)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/comments/integration", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	// The audience + scope gate passes; the empty body fails later in validation.
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("expected CLI audience to pass the gate, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func containsRoute(routes []gin.RouteInfo, method, path string) bool {
 	for _, route := range routes {
 		if route.Method == method && route.Path == path {
