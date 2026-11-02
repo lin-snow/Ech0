@@ -9,6 +9,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Added
+
+* **The `ech0` CLI covers comments and Connect.** `ech0 comment create|list|public|delete` and `ech0 connect status|list|add|health|remove` build from the operation catalog like the Echo and file commands; both delete commands keep the `--yes` or interactive `[y/N]` guard, and default logins now request `comment:moderate` and `connect:read,connect:write`.
+
 ## [5.9.0] - 2026-10-30
 
 ### Added

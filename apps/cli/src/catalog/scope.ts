@@ -3,9 +3,10 @@
 
 /**
  * Operations the CLI exposes. The catalog describes every callable operation
- * the server offers; the CLI deliberately surfaces only the core Echo CRUD set
- * plus the file surface (upload, external registration, browsing and download)
- * so the command tree stays small and focused. Widen this list to add a
+ * the server offers; the CLI deliberately surfaces the core Echo CRUD set, the
+ * file surface (upload, external registration, browsing and download), the
+ * public comment surface plus comment moderation, and the Connect surface so
+ * the command tree stays small and focused. Widen this list to add a
  * capability — the command generation needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
@@ -20,6 +21,15 @@ export const CLI_OPERATIONS: readonly string[] = [
   "echo.get",
   "echo.update",
   "echo.delete",
+  "comment.create",
+  "comment.list.by.echo",
+  "comment.list.public",
+  "comment.panel.delete",
+  "connect.self",
+  "connect.list",
+  "connect.add",
+  "connect.delete",
+  "connect.health",
 ];
 
 const allowed = new Set(CLI_OPERATIONS);
@@ -35,6 +45,11 @@ export function inScope(id: string): boolean {
  */
 export const COMMAND_NAMES: Readonly<Record<string, string>> = {
   "file.stream.by_id": "file.download",
+  "comment.list.by.echo": "comment.list",
+  "comment.list.public": "comment.public",
+  "comment.panel.delete": "comment.delete",
+  "connect.self": "connect.status",
+  "connect.delete": "connect.remove",
 };
 
 /** Echo operations that accept composed payloads (`--from`, `--tag`, `--file-id`). */
