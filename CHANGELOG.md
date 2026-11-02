@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.1] - 2026-11-02
+
 ### Added
 
 * **The `ech0` CLI covers comments and Connect.** `ech0 comment create|list` and `ech0 connect list|info|add|delete` build from the operation catalog like the Echo and file commands. The comment/Connect surface mirrors the MCP tools — no comment moderation and no health probe — so default logins request `comment:write` and `connect:write` without `comment:moderate` or `connect:read`. `ech0 comment create` posts to the trusted integration endpoint (`POST /api/comments/integration`) instead of the guest endpoint, so it needs no anti-bot form token or captcha and works from scripts; access tokens with `audience=cli` are now accepted by that route alongside `integration` and `mcp-remote`. `ech0 connect delete` keeps the `--yes` or interactive `[y/N]` guard.
@@ -20,6 +22,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 ### Fixed
 
 * **CLI flags no longer corrupt typed input silently.** Numeric flags (`--page`, `--page-size`, `--date-from`, …) reject non-numeric values with exit code 2 instead of sending `null`, enum-constrained values such as `--sort-by fav_count` are checked before the request, and repeated array flags (`--tag-ids a --tag-ids b`) accumulate instead of keeping only the last value.
+
+### Internal
+
+* **`just cli release` cuts a CLI release.** The recipe typechecks, tests, checks for generated-type drift, bumps `apps/cli/package.json`, commits `chore(cli-release): vX.Y.Z`, creates the `cli-vX.Y.Z` tag and pushes the branch and tag, so the tag cannot drift from the package version. `ECH0_CLI_DRY=1` stops after the checks; `just cli bump X.Y.Z` keeps the manual bump-only workflow.
 
 ## [5.9.0] - 2026-10-30
 

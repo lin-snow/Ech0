@@ -455,6 +455,8 @@ ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内�
 
 发布由 `.github/workflows/release-cli.yml` 驱动：CLI 使用独立版本线，源头是 `apps/cli/package.json`（首个版本 `0.1.0`），推送 `cli-vX.Y.Z` tag 触发（也支持 `workflow_dispatch` 指定历史 CLI tag 重跑），与 Ech0 服务端的 `vX.Y.Z` 发版互不影响。workflow 会校验 tag 与 `package.json` 版本一致；预发布版本（如 `0.2.0-rc.1`）发布到 npm 的 `next` dist-tag，稳定版发 `latest`。
 
+本地发版用 `just cli release X.Y.Z`：干净工作区上依次跑 typecheck / test / 生成物漂移检查，bump `package.json`，提交 `chore(cli-release): vX.Y.Z`，创建 `cli-vX.Y.Z` 并推送分支与 tag；`ECH0_CLI_DRY=1 just cli release X.Y.Z` 只做检查并打印计划。需要手动控制提交内容时用 `just cli bump X.Y.Z`，按输出提示自行提交与打 tag。
+
 - **GitHub Release**：`ech0-cli-<os>-<arch>.tar.gz`（darwin/linux × arm64/x64，包内是 `ech0` + `LICENSE`）与 `SHA256SUMS`，由 `bun build --compile --target=bun-<os>-<arch>` 在 Linux runner 上交叉编译，资产上传到 `cli-vX.Y.Z` 这次 CLI release（不存在时创建）；命名用 `ech0-cli-*`，不与服务端的 `ech0-linux-*` 混用。
 - **npm**：
   - `@useech0/cli`：启动器（`bin/ech0.cjs`，Node ≥18），按 `process.platform` / `process.arch` 找到平台包并 exec 二进制；
@@ -473,6 +475,8 @@ just cli test         # bun test
 just cli gen-check    # 生成物漂移检查
 just cli build        # bun build --target=bun
 just cli dist 0.1.0   # 发布用二进制 + tar.gz + npm 包（apps/cli/dist/release）
+just cli bump 0.1.4   # 只 bump package.json，按提示手动提交/tag
+just cli release 0.1.4        # 检查 + bump + commit + tag + push（dry：ECH0_CLI_DRY=1）
 go test ./internal/openapi/... ./internal/router/...
 ```
 

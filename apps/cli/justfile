@@ -25,6 +25,22 @@ build:
 dist VERSION:
     bun run scripts/dist.ts --version {{VERSION}} --out dist/release
 
+# Bump apps/cli/package.json to NEW_VERSION after a clean-tree check and
+# typecheck; prints the commit/tag/push steps for a manual release.
+bump NEW_VERSION:
+    bun run scripts/release.ts bump {{NEW_VERSION}}
+
+# Cut a CLI release end to end: check, bump, commit, tag cli-vX.Y.Z and push.
+# The tag starts release-cli.yml; set ECH0_CLI_DRY=1 to stop after the checks.
+release NEW_VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=(release "{{NEW_VERSION}}")
+    if [[ "${ECH0_CLI_DRY:-}" == "1" ]]; then
+        args+=(--dry-run)
+    fi
+    bun run scripts/release.ts "${args[@]}"
+
 typecheck:
     bun run typecheck
 

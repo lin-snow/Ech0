@@ -159,14 +159,21 @@ not build or publish the CLI.
 
 To cut a CLI release:
 
-1. Bump `version` in `apps/cli/package.json`.
-2. Commit it as `chore(cli-release): vX.Y.Z`.
-3. Tag that commit with the `cli-v` prefix and push the tag:
+1. Update `CHANGELOG.md` (rename `[Unreleased]` to `[X.Y.Z]`) and commit it.
+2. From a clean working tree on the release branch, run:
 
    ```bash
-   git tag -a cli-vX.Y.Z -m 'Release ech0 CLI vX.Y.Z'
-   git push origin cli-vX.Y.Z
+   just cli release X.Y.Z
    ```
+
+   The recipe typechecks, tests, checks for generated-type drift, bumps
+   `apps/cli/package.json`, commits `chore(cli-release): vX.Y.Z`, creates the
+   annotated `cli-vX.Y.Z` tag, and pushes the branch and tag. Set
+   `ECH0_CLI_DRY=1` to run the checks and print the planned steps without
+   changing anything.
+
+   To bump only and commit/tag by hand, use `just cli bump X.Y.Z` and follow the
+   steps it prints.
 
 The tag pushes [`release-cli.yml`](../../.github/workflows/release-cli.yml), which:
 
