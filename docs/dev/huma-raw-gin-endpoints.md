@@ -97,6 +97,17 @@
 
 JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audience/scope）与普通 API 不同。同一端点双时代服务 `2026-07-28` 与 `initialize` 握手时代客户端。
 
+### H. 非 JSON 资源 / SPA / 静态文件（6）
+
+| 方法 | 路径 | Handler | 分组 / 鉴权 | 内容类型 |
+|---|---|---|---|---|
+| GET | `/robots.txt` | `CommonHandler.GetRobotsTxt` | Resource（公开） | `text/plain` |
+| GET | `/sitemap.xml` | `CommonHandler.GetSitemap` | Resource（公开） | `application/xml` |
+| GET | `/rss` | `CommonHandler.GetRss` | Resource（公开） | `application/atom+xml` / `application/xml`（按 UA 协商） |
+| GET | `/healthz` | `CommonHandler.Healthz` | Resource（公开） | 探活（惯例裸 gin 探针） |
+| —（NoRoute） | 任意未命中 | `WebHandler.Templates` | Engine 级 | SPA `index.html` fallback |
+| GET | `/api/files/*` | `StaticFS` | 专用组 · `StaticFileSecurity`（目录穿越防护） | 本地上传文件静态服务 |
+
 ### I. MCP 授权服务器（7）
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 | 具体原因 |
@@ -110,17 +121,6 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | POST | `/api/authz/authorize` | `AuthzHandler.Approve` | Auth（须 session） | 批准后签发 code 并返回客户端跳转 URL |
 
 协议端点必须保持 OAuth 的线格式（`application/x-www-form-urlencoded` 请求、`error` / `error_description` 响应、`Cache-Control: no-store`），因此不进入 Huma 信封。
-
-### H. 非 JSON 资源 / SPA / 静态文件（6）
-
-| 方法 | 路径 | Handler | 分组 / 鉴权 | 内容类型 |
-|---|---|---|---|---|
-| GET | `/robots.txt` | `CommonHandler.GetRobotsTxt` | Resource（公开） | `text/plain` |
-| GET | `/sitemap.xml` | `CommonHandler.GetSitemap` | Resource（公开） | `application/xml` |
-| GET | `/rss` | `CommonHandler.GetRss` | Resource（公开） | `application/atom+xml` / `application/xml`（按 UA 协商） |
-| GET | `/healthz` | `CommonHandler.Healthz` | Resource（公开） | 探活（惯例裸 gin 探针） |
-| —（NoRoute） | 任意未命中 | `WebHandler.Templates` | Engine 级 | SPA `index.html` fallback |
-| GET | `/api/files/*` | `StaticFS` | 专用组 · `StaticFileSecurity`（目录穿越防护） | 本地上传文件静态服务 |
 
 ## 3. 汇总
 
