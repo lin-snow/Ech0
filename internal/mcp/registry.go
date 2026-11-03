@@ -25,8 +25,15 @@ type ResourceBinding struct {
 }
 
 type registeredTool struct {
-	definition ToolDefinition
-	binding    ToolBinding
+	definition           ToolDefinition
+	binding              ToolBinding
+	requiresConfirmation bool
+}
+
+func requiresConfirmation(def ToolDefinition) bool {
+	return def.Annotations != nil &&
+		def.Annotations.DestructiveHint != nil &&
+		*def.Annotations.DestructiveHint
 }
 
 type registeredResource struct {
@@ -56,8 +63,9 @@ func NewRegistry() *Registry {
 func (r *Registry) RegisterTool(def ToolDefinition, handler ToolHandler, scopes ...string) {
 	r.toolIndex[def.Name] = len(r.tools)
 	r.tools = append(r.tools, registeredTool{
-		definition: def,
-		binding:    ToolBinding{Handler: handler, Scopes: scopes},
+		definition:           def,
+		binding:              ToolBinding{Handler: handler, Scopes: scopes},
+		requiresConfirmation: requiresConfirmation(def),
 	})
 }
 
@@ -92,10 +100,34 @@ func (r *Registry) ToolDefinitions() []ToolDefinition {
 	return defs
 }
 
+// ToolDefinitionsFor returns the tools the caller can actually invoke. Filtering
+// keeps the advertised surface aligned with the token's scopes, so models never
+// pick a tool that would be rejected with insufficient_scope. Registration
+// order is preserved to keep tools/list deterministic.
+func (r *Registry) ToolDefinitionsFor(held []string) []ToolDefinition {
+	defs := make([]ToolDefinition, 0, len(r.tools))
+	for _, t := range r.tools {
+		if checkScopes(held, t.binding.Scopes) {
+			defs = append(defs, t.definition)
+		}
+	}
+	return defs
+}
+
 func (r *Registry) ResourceDefinitions() []ResourceDefinition {
 	defs := make([]ResourceDefinition, len(r.resources))
 	for i, res := range r.resources {
 		defs[i] = res.definition
+	}
+	return defs
+}
+
+func (r *Registry) ResourceDefinitionsFor(held []string) []ResourceDefinition {
+	defs := make([]ResourceDefinition, 0, len(r.resources))
+	for _, res := range r.resources {
+		if checkScopes(held, res.binding.Scopes) {
+			defs = append(defs, res.definition)
+		}
 	}
 	return defs
 }
@@ -106,6 +138,26 @@ func (r *Registry) ResourceTemplateDefinitions() []ResourceTemplateDefinition {
 		defs[i] = tpl.definition
 	}
 	return defs
+}
+
+func (r *Registry) ResourceTemplateDefinitionsFor(held []string) []ResourceTemplateDefinition {
+	defs := make([]ResourceTemplateDefinition, 0, len(r.templates))
+	for _, tpl := range r.templates {
+		if checkScopes(held, tpl.binding.Scopes) {
+			defs = append(defs, tpl.definition)
+		}
+	}
+	return defs
+}
+
+// ToolRequiresConfirmation reports whether a tool is annotated destructive and
+// therefore needs an explicit user confirmation on modern clients.
+func (r *Registry) ToolRequiresConfirmation(name string) bool {
+	idx, ok := r.toolIndex[name]
+	if !ok {
+		return false
+	}
+	return r.tools[idx].requiresConfirmation
 }
 
 func (r *Registry) LookupTool(name string) (ToolBinding, bool) {

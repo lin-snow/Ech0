@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	versionPkg "github.com/lin-snow/ech0/internal/version"
@@ -43,10 +44,13 @@ func BaseURLFromContext(ctx context.Context) string {
 
 type Server struct {
 	registry *Registry
+
+	confirmMu sync.Mutex
+	confirmed map[string]time.Time
 }
 
 func NewServer(registry *Registry) *Server {
-	return &Server{registry: registry}
+	return &Server{registry: registry, confirmed: make(map[string]time.Time)}
 }
 
 func serverInfo() ServerInfo {
@@ -103,13 +107,22 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 
 	v := viewer.MustFromContext(ctx)
 
-	result, requestEra, rpcErr := s.dispatch(r, &req, v)
+	var params requestParams
+	if len(req.Params) > 0 {
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			writeRPCError(w, req.ID, &RPCError{Code: ErrCodeInvalidRequest, Message: "params must be an object"})
+			return
+		}
+	}
+
+	result, requestEra, rpcErr := s.dispatch(r, &req, &params, v)
 
 	logUtil.GetLogger().Info("mcp_request",
 		slog.String("method", req.Method),
 		slog.String("user_id", v.UserID()),
 		slog.String("token_id", v.TokenID()),
 		slog.String("era", eraName(requestEra)),
+		slog.String("client", clientInfoName(&params)),
 		slog.Duration("latency", time.Since(start)),
 		slog.Bool("error", rpcErr != nil),
 	)
@@ -127,25 +140,37 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 }
 
 type requestParams struct {
-	Meta map[string]any `json:"_meta"`
-	Name string         `json:"name"`
-	URI  string         `json:"uri"`
+	Meta           map[string]any             `json:"_meta"`
+	Name           string                     `json:"name"`
+	URI            string                     `json:"uri"`
+	InputResponses map[string]json.RawMessage `json:"inputResponses"`
+	RequestState   string                     `json:"requestState"`
 }
 
-func (s *Server) dispatch(r *http.Request, req *Request, v viewer.Context) (any, era, *RPCError) {
-	var params requestParams
-	if len(req.Params) > 0 {
-		if err := json.Unmarshal(req.Params, &params); err != nil {
-			return nil, eraLegacy, &RPCError{Code: ErrCodeInvalidRequest, Message: "params must be an object"}
-		}
+func clientInfoName(params *requestParams) string {
+	if params == nil {
+		return ""
 	}
+	info, ok := params.Meta[metaKeyClientInfo].(map[string]any)
+	if !ok {
+		return ""
+	}
+	name, _ := info["name"].(string)
+	return name
+}
 
-	requestEra, rpcErr := resolveEra(r, &params)
+func (s *Server) dispatch(
+	r *http.Request,
+	req *Request,
+	params *requestParams,
+	v viewer.Context,
+) (any, era, *RPCError) {
+	requestEra, rpcErr := resolveEra(r, params)
 	if rpcErr != nil {
 		return nil, requestEra, rpcErr
 	}
 	if requestEra == eraModern {
-		if rpcErr := validateModernTransport(r, req.Method, &params); rpcErr != nil {
+		if rpcErr := validateModernTransport(r, req.Method, params); rpcErr != nil {
 			return nil, requestEra, rpcErr
 		}
 	}
@@ -164,14 +189,14 @@ func (s *Server) dispatch(r *http.Request, req *Request, v viewer.Context) (any,
 	case "server/discover":
 		return s.handleDiscover(requestEra), requestEra, nil
 	case "tools/list":
-		return s.handleToolsList(requestEra), requestEra, nil
+		return s.handleToolsList(requestEra, v.Scopes()), requestEra, nil
 	case "tools/call":
-		result, rpcErr := s.handleToolsCall(r, req, v)
+		result, rpcErr := s.handleToolsCall(r, req, params, v, requestEra)
 		return result, requestEra, rpcErr
 	case "resources/list":
-		return s.handleResourcesList(requestEra), requestEra, nil
+		return s.handleResourcesList(requestEra, v.Scopes()), requestEra, nil
 	case "resources/templates/list":
-		return s.handleResourceTemplatesList(requestEra), requestEra, nil
+		return s.handleResourceTemplatesList(requestEra, v.Scopes()), requestEra, nil
 	case "resources/read":
 		result, rpcErr := s.handleResourcesRead(r, req, v, requestEra)
 		return result, requestEra, rpcErr
@@ -339,38 +364,99 @@ func (s *Server) handleDiscover(requestEra era) *DiscoverResult {
 	return result
 }
 
-func (s *Server) handleToolsList(requestEra era) *ToolsListResult {
-	result := &ToolsListResult{Tools: s.registry.ToolDefinitions()}
+func (s *Server) handleToolsList(requestEra era, scopes []string) *ToolsListResult {
+	result := &ToolsListResult{Tools: s.registry.ToolDefinitionsFor(scopes)}
 	if requestEra == eraModern {
-		cache := publicCache(listTTLMs)
+		// The list depends on the caller's scopes, so it must never be shared
+		// across authorization contexts.
+		cache := privateCache(listTTLMs)
 		result.CacheInfo = &cache
 	}
 	return result
 }
 
-func (s *Server) handleToolsCall(r *http.Request, req *Request, v viewer.Context) (*ToolCallResult, *RPCError) {
-	var params ToolCallParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+func (s *Server) handleToolsCall(
+	r *http.Request,
+	req *Request,
+	params *requestParams,
+	v viewer.Context,
+	requestEra era,
+) (any, *RPCError) {
+	var call ToolCallParams
+	if err := json.Unmarshal(req.Params, &call); err != nil {
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "invalid tool call params"}
 	}
 
-	binding, ok := s.registry.LookupTool(params.Name)
+	binding, ok := s.registry.LookupTool(call.Name)
 	if !ok {
-		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("tool %q not found", params.Name)}
+		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("tool %q not found", call.Name)}
 	}
 
 	if !checkScopes(v.Scopes(), binding.Scopes) {
 		return nil, insufficientScope(binding.Scopes)
 	}
 
+	if requestEra == eraModern &&
+		s.registry.ToolRequiresConfirmation(call.Name) &&
+		clientSupportsElicitation(params) {
+		outcome, rpcErr := s.confirmDestructive(params, call.Name, call.Arguments, v.UserID())
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+		if outcome != nil {
+			return outcome, nil
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), toolTimeout)
 	defer cancel()
 
-	result, err := handlerResult(ctx, binding.Handler, params.Arguments)
+	result, err := handlerResult(ctx, binding.Handler, call.Arguments)
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+// confirmDestructive applies the MRTR confirmation gate. It returns nil when
+// the tool may execute, otherwise the interim input_required result or the
+// cancellation result to send back to the client.
+func (s *Server) confirmDestructive(
+	params *requestParams,
+	tool string,
+	args map[string]any,
+	userID string,
+) (any, *RPCError) {
+	if params.RequestState == "" {
+		return s.inputRequiredResult(tool, args, userID)
+	}
+
+	if err := verifyConfirmationState(params.RequestState, userID, tool, args); err != nil {
+		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: err.Error()}
+	}
+	if !s.consumeConfirmation(params.RequestState) {
+		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "confirmation state has already been used"}
+	}
+
+	responded, approved, err := readConfirmation(params)
+	if err != nil {
+		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "invalid confirm response"}
+	}
+	if !responded {
+		return s.inputRequiredResult(tool, args, userID)
+	}
+	if !approved {
+		return cancelledResult(), nil
+	}
+	return nil, nil
+}
+
+func (s *Server) inputRequiredResult(tool string, args map[string]any, userID string) (any, *RPCError) {
+	required, err := newInputRequired(tool, args, userID)
+	if err != nil {
+		return nil, &RPCError{Code: ErrCodeInternal, Message: "failed to build confirmation request"}
+	}
+	return required, nil
 }
 
 func handlerResult(ctx context.Context, handler ToolHandler, args map[string]any) (*ToolCallResult, *RPCError) {
@@ -384,19 +470,24 @@ func handlerResult(ctx context.Context, handler ToolHandler, args map[string]any
 	return textError(err.Error()), nil
 }
 
-func (s *Server) handleResourcesList(requestEra era) *ResourcesListResult {
-	result := &ResourcesListResult{Resources: s.registry.ResourceDefinitions()}
+func (s *Server) handleResourcesList(requestEra era, scopes []string) *ResourcesListResult {
+	result := &ResourcesListResult{Resources: s.registry.ResourceDefinitionsFor(scopes)}
 	if requestEra == eraModern {
-		cache := publicCache(listTTLMs)
+		cache := privateCache(listTTLMs)
 		result.CacheInfo = &cache
 	}
 	return result
 }
 
-func (s *Server) handleResourceTemplatesList(requestEra era) *ResourceTemplatesListResult {
-	result := &ResourceTemplatesListResult{ResourceTemplates: s.registry.ResourceTemplateDefinitions()}
+func (s *Server) handleResourceTemplatesList(
+	requestEra era,
+	scopes []string,
+) *ResourceTemplatesListResult {
+	result := &ResourceTemplatesListResult{
+		ResourceTemplates: s.registry.ResourceTemplateDefinitionsFor(scopes),
+	}
 	if requestEra == eraModern {
-		cache := publicCache(listTTLMs)
+		cache := privateCache(listTTLMs)
 		result.CacheInfo = &cache
 	}
 	return result

@@ -17,6 +17,7 @@ import (
 	"github.com/lin-snow/ech0/internal/config"
 	dbMigration "github.com/lin-snow/ech0/internal/database/migration"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	authzModel "github.com/lin-snow/ech0/internal/model/authz"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	connectModel "github.com/lin-snow/ech0/internal/model/connect"
@@ -175,6 +176,7 @@ func MigrateDB() error {
 		&jobModel.Job{},
 		&settingModel.AccessTokenSetting{},
 		&authModel.Passkey{},
+		&authzModel.Client{},
 		&visitorModel.DailyStat{},
 	}
 

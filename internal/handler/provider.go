@@ -6,6 +6,7 @@ package handler
 import (
 	"github.com/google/wire"
 	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
+	authzHandler "github.com/lin-snow/ech0/internal/handler/authz"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
@@ -38,4 +39,5 @@ var (
 	EmbeddingSet = wire.NewSet(embeddingHandler.NewEmbeddingHandler)
 	MigrationSet = wire.NewSet(migratorHandler.NewMigrationHandler)
 	MCPSet       = wire.NewSet(mcp.NewHandler)
+	AuthzSet     = authzHandler.ProviderSet
 )

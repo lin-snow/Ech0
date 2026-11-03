@@ -5,6 +5,7 @@ package handler
 
 import (
 	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
+	authzHandler "github.com/lin-snow/ech0/internal/handler/authz"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
@@ -37,6 +38,7 @@ type Bundle struct {
 	CopilotHandler   *copilotHandler.CopilotHandler
 	EmbeddingHandler *embeddingHandler.EmbeddingHandler
 	MCPHandler       *mcp.Handler
+	AuthzHandler     *authzHandler.Handler
 }
 
 func NewBundle(
@@ -55,6 +57,7 @@ func NewBundle(
 	copilotHandler *copilotHandler.CopilotHandler,
 	embeddingHandler *embeddingHandler.EmbeddingHandler,
 	mcpHandler *mcp.Handler,
+	authzHandler *authzHandler.Handler,
 ) *Bundle {
 	return &Bundle{
 		WebHandler:       webHandler,
@@ -72,5 +75,6 @@ func NewBundle(
 		CopilotHandler:   copilotHandler,
 		EmbeddingHandler: embeddingHandler,
 		MCPHandler:       mcpHandler,
+		AuthzHandler:     authzHandler,
 	}
 }

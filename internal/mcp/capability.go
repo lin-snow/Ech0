@@ -45,10 +45,14 @@ const (
 const (
 	metaKeyProtocolVersion    = "io.modelcontextprotocol/protocolVersion"
 	metaKeyClientCapabilities = "io.modelcontextprotocol/clientCapabilities"
+	metaKeyClientInfo         = "io.modelcontextprotocol/clientInfo"
 	metaKeyServerInfo         = "io.modelcontextprotocol/serverInfo"
 )
 
-const resultTypeComplete = "complete"
+const (
+	resultTypeComplete      = "complete"
+	resultTypeInputRequired = "input_required"
+)
 
 const (
 	cacheScopePublic  = "public"

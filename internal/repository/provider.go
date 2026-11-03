@@ -8,6 +8,7 @@ import (
 	"github.com/lin-snow/ech0/internal/job"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
+	authzRepository "github.com/lin-snow/ech0/internal/repository/authz"
 	commentRepository "github.com/lin-snow/ech0/internal/repository/comment"
 	commonRepository "github.com/lin-snow/ech0/internal/repository/common"
 	connectRepository "github.com/lin-snow/ech0/internal/repository/connect"
@@ -22,6 +23,7 @@ import (
 	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	webhookRepository "github.com/lin-snow/ech0/internal/repository/webhook"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
+	authzService "github.com/lin-snow/ech0/internal/service/authz"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
@@ -42,9 +44,14 @@ var (
 		wire.Bind(new(authService.Repository), new(*authRepository.AuthRepository)),
 		wire.Bind(new(settingService.TokenRevoker), new(*authRepository.AuthRepository)),
 	)
+	AuthzSet = wire.NewSet(
+		authzRepository.NewClientRepository,
+		wire.Bind(new(authzService.ClientRepository), new(*authzRepository.ClientRepository)),
+	)
 	UserSet = wire.NewSet(
 		userRepository.NewUserRepository,
 		wire.Bind(new(userService.Repository), new(*userRepository.UserRepository)),
+		wire.Bind(new(authzService.UserReader), new(*userRepository.UserRepository)),
 	)
 	EchoSet = wire.NewSet(
 		echoRepository.NewEchoRepository,

@@ -47,6 +47,30 @@ var validScopes = map[string]struct{}{
 	ScopeAdminToken:    {},
 }
 
+// scopeOrder fixes the advertisement order of AllScopes so discovery metadata
+// and consent UIs stay deterministic.
+var scopeOrder = []string{
+	ScopeEchoRead,
+	ScopeEchoWrite,
+	ScopeCommentRead,
+	ScopeCommentWrite,
+	ScopeCommentMod,
+	ScopeFileRead,
+	ScopeFileWrite,
+	ScopeConnectRead,
+	ScopeConnectWrite,
+	ScopeProfileRead,
+	ScopeProfileWrite,
+	ScopeAdminSettings,
+	ScopeAdminUser,
+	ScopeAdminToken,
+}
+
+// AllScopes returns every scope in the fixed vocabulary order.
+func AllScopes() []string {
+	return append([]string(nil), scopeOrder...)
+}
+
 var validAudiences = map[string]struct{}{
 	AudiencePublic:      {},
 	AudienceCLI:         {},

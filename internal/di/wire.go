@@ -192,6 +192,10 @@ var HandlerSet = wire.NewSet(
 
 	handler.MCPSet,
 
+	repository.AuthzSet,
+	service.AuthzSet,
+	handler.AuthzSet,
+
 	handler.NewBundle,
 )
 

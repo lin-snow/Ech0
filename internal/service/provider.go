@@ -6,6 +6,7 @@ package service
 import (
 	"github.com/google/wire"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
+	authzService "github.com/lin-snow/ech0/internal/service/authz"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
@@ -21,8 +22,9 @@ import (
 )
 
 var (
-	AuthSet = authService.ProviderSet
-	UserSet = wire.NewSet(
+	AuthSet  = authService.ProviderSet
+	AuthzSet = authzService.ProviderSet
+	UserSet  = wire.NewSet(
 		userService.NewUserService,
 		wire.Bind(new(userService.Service), new(*userService.UserService)),
 	)
@@ -53,6 +55,7 @@ var (
 		wire.Bind(new(settingService.Service), new(*settingService.SettingService)),
 		// Device approval mints access tokens through the setting service.
 		wire.Bind(new(authService.TokenIssuer), new(*settingService.SettingService)),
+		wire.Bind(new(authzService.TokenIssuer), new(*settingService.SettingService)),
 	)
 	ConnectSet = wire.NewSet(
 		connectService.NewConnectService,

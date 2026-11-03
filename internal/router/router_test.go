@@ -379,6 +379,7 @@ func buildTestHandlers() *handler.Bundle {
 		copilotHandler.NewCopilotHandler(nil, nil),
 		embeddingHandler.NewEmbeddingHandler(nil),
 		mcp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		nil,
 	)
 }
 

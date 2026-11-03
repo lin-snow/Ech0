@@ -57,7 +57,18 @@ func (settingService *SettingService) CreateAccessToken(
 	newToken *model.AccessTokenSettingDto,
 ) (string, error) {
 	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
+	return settingService.IssueAccessTokenForUser(ctx, userid, newToken)
+}
+
+// IssueAccessTokenForUser mints an access token for an explicit principal. The
+// OAuth token endpoint has no viewer in its context, so it shares this entry
+// point with the panel and device flow instead of duplicating minting logic.
+func (settingService *SettingService) IssueAccessTokenForUser(
+	ctx context.Context,
+	userID string,
+	newToken *model.AccessTokenSettingDto,
+) (string, error) {
+	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +78,14 @@ func (settingService *SettingService) CreateAccessToken(
 	if err := validateAccessTokenRequest(user, newToken); err != nil {
 		return "", err
 	}
+	return settingService.issueAccessToken(ctx, user, newToken)
+}
 
+func (settingService *SettingService) issueAccessToken(
+	ctx context.Context,
+	user userModel.User,
+	newToken *model.AccessTokenSettingDto,
+) (string, error) {
 	name := newToken.Name
 	expiry := newToken.Expiry
 	audience := newToken.Audience

@@ -78,8 +78,29 @@ func writeRejection(ctx *gin.Context, rej *rejection) {
 }
 
 func RequireAuth(tokenBlacklist authService.TokenRevoker) gin.HandlerFunc {
+	return requireAuth(tokenBlacklist, nil)
+}
+
+// RequireAuthWithChallenge behaves like RequireAuth but decorates 401
+// responses with an RFC 6750 bearertoken challenge. MCP uses it to advertise
+// the protected resource metadata URL so clients can start OAuth discovery.
+func RequireAuthWithChallenge(
+	tokenBlacklist authService.TokenRevoker,
+	challenge func(*gin.Context) string,
+) gin.HandlerFunc {
+	return requireAuth(tokenBlacklist, challenge)
+}
+
+func requireAuth(
+	tokenBlacklist authService.TokenRevoker,
+	challenge func(*gin.Context) string,
+) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if rej, _ := resolveViewer(ctx, tokenBlacklist); rej != nil {
+		rej, _ := resolveViewer(ctx, tokenBlacklist)
+		if rej != nil {
+			if challenge != nil && rej.status == http.StatusUnauthorized {
+				ctx.Header("WWW-Authenticate", challenge(ctx))
+			}
 			writeRejection(ctx, rej)
 			return
 		}
