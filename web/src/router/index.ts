@@ -119,6 +119,17 @@ const router = createRouter({
       },
     },
     {
+      path: '/oauth/authorize',
+      name: 'oauth-authorize',
+      component: () => import('../views/oauth/AuthorizeView.vue'),
+      meta: {
+        title: 'MCP Authorization',
+        description: 'Approve an MCP client request for this Ech0 instance.',
+        requiresAuth: true,
+        noindex: true,
+      },
+    },
+    {
       path: '/widget',
       name: 'widget',
       component: () => import('../views/widget/WidgetView.vue'),

@@ -1205,6 +1205,22 @@
     "exportPhasePacking": "Pack",
     "exportPhaseCompleted": "Done"
   },
+  "oauthConsent": {
+    "title": "Authorize MCP client",
+    "subtitle": "An MCP client wants to access your Ech0 instance.",
+    "client": "Client",
+    "scopes": "Requested permissions",
+    "resource": "Resource",
+    "approve": "Allow",
+    "deny": "Deny",
+    "approving": "Working…",
+    "loading": "Reading the authorization request…",
+    "adminRequired": "Only administrators can authorize MCP clients.",
+    "invalidRequest": "The authorization request is incomplete or invalid.",
+    "loadFailed": "Could not read the authorization request. Return to your client and retry.",
+    "failed": "Authorization failed. Return to your client and retry.",
+    "securityHint": "Only allow clients you trust. Approving issues an MCP access token that you can revoke anytime under Settings → Access tokens."
+  },
   "devicePage": {
     "codeLabel": "Device code",
     "codePlaceholder": "ABCD-EFGH",

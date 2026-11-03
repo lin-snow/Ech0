@@ -1205,6 +1205,22 @@
     "exportPhasePacking": "圧縮",
     "exportPhaseCompleted": "完了"
   },
+  "oauthConsent": {
+    "title": "MCP クライアントを承認",
+    "subtitle": "MCP クライアントがこの Ech0 インスタンスへのアクセスを要求しています。",
+    "client": "クライアント",
+    "scopes": "要求された権限",
+    "resource": "リソース",
+    "approve": "許可",
+    "deny": "拒否",
+    "approving": "処理中…",
+    "loading": "承認リクエストを読み込み中…",
+    "adminRequired": "MCP クライアントを承認できるのは管理者のみです。",
+    "invalidRequest": "承認リクエストが不完全か、パラメータが無効です。",
+    "loadFailed": "承認リクエストを読み込めませんでした。クライアントに戻って再試行してください。",
+    "failed": "承認処理に失敗しました。クライアントに戻って再試行してください。",
+    "securityHint": "信頼できるクライアントのみ許可してください。承認すると MCP アクセストークンが発行され、「設定 → アクセストークン」からいつでも失効できます。"
+  },
   "devicePage": {
     "codeLabel": "デバイスコード",
     "codePlaceholder": "ABCD-EFGH",

@@ -97,6 +97,20 @@
 
 JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audience/scope）与普通 API 不同。同一端点双时代服务 `2026-07-28` 与 `initialize` 握手时代客户端。
 
+### I. MCP 授权服务器（7）
+
+| 方法 | 路径 | Handler | 分组 / 鉴权 | 具体原因 |
+|---|---|---|---|---|
+| GET | `/.well-known/oauth-protected-resource` | `AuthzHandler.ProtectedResource` | 公开 | RFC 9728 固定路径 |
+| GET | `/.well-known/oauth-protected-resource/mcp` | `AuthzHandler.ProtectedResource` | 公开 | 路径插入式发现 |
+| GET | `/.well-known/oauth-authorization-server` | `AuthzHandler.AuthorizationServerMetadata` | 公开 | RFC 8414 固定路径 |
+| POST | `/oauth/token` | `AuthzHandler.Token` | 公开 · 限流 | 表单请求体，响应必须是裸 RFC 6749 JSON（不能套 Ech0 信封） |
+| POST | `/oauth/register` | `AuthzHandler.Register` | 公开 · 限流 | DCR 兼容端点，裸 RFC 7591 JSON |
+| GET | `/api/authz/consent` | `AuthzHandler.Consent` | Auth（须 session） | 同意页读取校验结果，需拒绝 access token |
+| POST | `/api/authz/authorize` | `AuthzHandler.Approve` | Auth（须 session） | 批准后签发 code 并返回客户端跳转 URL |
+
+协议端点必须保持 OAuth 的线格式（`application/x-www-form-urlencoded` 请求、`error` / `error_description` 响应、`Cache-Control: no-store`），因此不进入 Huma 信封。
+
 ### H. 非 JSON 资源 / SPA / 静态文件（6）
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 | 内容类型 |
@@ -116,11 +130,12 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | B multipart 上传 | 2 |
 | C 二进制下载/流 | 3 |
 | D OAuth 302 跳转 | 2 |
-| E Cookie/token/WebAuthn | 8 |
+| E Cookie/token/WebAuthn | 12 |
 | F captcha | 1 |
 | G MCP JSON-RPC | 2 |
 | H 非 JSON 资源/SPA/静态 | 6 |
-| **合计裸 gin** | **27** |
+| I MCP 授权服务器 | 7 |
+| **合计裸 gin** | **38** |
 
 对照面：13 个业务域（init / auth / common / echo / connect / user / setting / file / dashboard / copilot / comment / migration / embedding）均已在 Huma，约 100 个 JSON 端点，经 `registerOperations` 聚合。
 

@@ -1,6 +1,6 @@
 # Ech0 MCP 接入指南
 
-Ech0 内建 [MCP（Model Context Protocol）](https://modelcontextprotocol.io/) Server：在标准协议下把**帖子、标签、评论、文件、互联、资料与统计**等能力以 **Tools** 与 **Resources** 暴露给 AI 工作流。传输层为 **Streamable HTTP**（JSON-RPC 2.0 over HTTP），与主服务同端口，通过 **Bearer Token** 与 **Scope** 做最小权限控制。
+Ech0 内建 [MCP（Model Context Protocol）](https://modelcontextprotocol.io/) Server：在标准协议下把**帖子、标签、评论、文件、互联、资料与统计**等能力以 **Tools** 与 **Resources** 暴露给 AI 工作流。传输层为 **Streamable HTTP**（JSON-RPC 2.0 over HTTP），与主服务同端口，通过 **OAuth 2.1 授权** 或 **手工 Access Token** 获取 Bearer 凭据，并用 **Scope** 做最小权限控制。
 
 > **Audience 要求**：MCP 端点**仅允许** Audience 为 **`mcp-remote`** 的 Access Token 访问。使用其他 audience（如 `public-client`、`cli`）的 Token 将被拒绝（HTTP 403）。
 
@@ -12,6 +12,38 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 若运行环境只支持本地 stdio 进程而非远程 HTTP，可通过网关或代理转发到本端点。
 
+## 授权方式
+
+两种方式最终签发的都是同一类 Access Token（`audience=mcp-remote` + 细粒度 scope），可以混用：
+
+### 方式 A：OAuth 2.1（推荐，标准 Host 一键连接）
+
+1. 在支持远程 MCP 的 Host 里填入 `https://your-ech0-instance.com/mcp`，不要预填令牌。
+2. Host 收到 `401` 后会读取 `WWW-Authenticate: Bearer resource_metadata="…"`，依次发现：
+   - `GET /.well-known/oauth-protected-resource/mcp`（或根路径）→ 授权服务器地址与 `scopes_supported`；
+   - `GET /.well-known/oauth-authorization-server` → 授权/令牌/注册端点；
+   - 客户端优先用 **Client ID Metadata Document**（`client_id` 是它自己的 HTTPS URL）；老客户端可能回退到 Dynamic Client Registration（规范已 deprecated，仅作兼容）。
+3. 浏览器打开 Ech0 的同意页 `https://your-ech0-instance.com/oauth/authorize`，确认客户端与 scope 后批准。**只有管理员可以批准**（与手工创建令牌的权限一致）。
+4. Host 用授权码 + PKCE（S256）在 `POST /oauth/token` 换取 Access Token，之后所有 MCP 请求带 `Authorization: Bearer <token>`。
+
+协议元数据：
+
+| 端点 | 用途 |
+|---|---|
+| `/.well-known/oauth-protected-resource`、`/.well-known/oauth-protected-resource/mcp` | RFC 9728：`resource`、`authorization_servers`、`scopes_supported` |
+| `/.well-known/oauth-authorization-server` | RFC 8414：`authorization_endpoint`、`token_endpoint`、`registration_endpoint`、`client_id_metadata_document_supported` |
+
+说明：
+
+- 同意页只接受浏览器会话，不接受 Access Token——避免令牌自行扩权。
+- 授权码 60 秒有效、一次性；`resource`（RFC 8707）必须指向本实例的 `/mcp`。
+- OAuth 签发的令牌同样出现在「设置 → 访问令牌」，删除即吊销；有效期 30 天，不提供 refresh token，到期重新授权。
+- 若你的实例在反向代理后，请确保反代透传 `Host` 与 `X-Forwarded-Proto`；issuer 与元数据按实际请求 origin 生成。
+
+### 方式 B：手工 Access Token
+
+适合脚本、CI 或暂不支持 OAuth 的客户端：在后台创建 `mcp-remote` audience 的令牌，直接写进 Host 配置的 `headers`。见下方“快速开始”。
+
 ## 在管理后台查看
 
 管理后台 **功能扩展 → MCP** 展示当前实例的端点地址、传输方式、令牌 audience、支持的协议版本，以及按权限分组的完整 Tool / Resource 名单。破坏性操作标红；点击任意名称弹出详情，显示类型、所需 Scope 与完整描述——Tool 的 `description` 是写给模型看的提示词，平铺在面板上只会挤占版面。
@@ -20,7 +52,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 ## 快速开始
 
-### 1. 创建 MCP 专用 Access Token
+### 方式 B：创建 MCP 专用 Access Token
 
 在 Ech0 管理后台 **设置 → 访问令牌** 中创建一个新 Token：
 
@@ -36,7 +68,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 创建后妥善保存 Token，它只会显示一次。
 
-### 2. 配置 MCP Host
+### 方式 B：配置 MCP Host
 
 在你使用的 MCP 客户端配置中（具体文件名与入口因产品而异）添加远程服务，例如：
 
@@ -158,7 +190,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 ## 安全说明
 
-- MCP 使用与 Ech0 API 相同的 JWT 鉴权体系，每个 Tool/Resource 都有独立的 Scope 校验。
+- MCP 使用与 Ech0 API 相同的 JWT 鉴权体系，每个 Tool/Resource 都有独立的 Scope 校验；OAuth 只是获取令牌的另一条路径，不改变授权判定。
 - 请求限流：默认 20 RPS / 40 Burst（按 IP）。
 - 请求体大小限制：256 KB。
 - Tool 执行超时：10 秒。
@@ -177,6 +209,8 @@ Ech0 的 `/mcp` **同时支持两代协议**，无需任何配置：
 `server/discover` 与版本错误里都会列出全部支持版本：`["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"]`。
 
 - 支持方法（两代通用）：`tools/list`、`tools/call`、`resources/list`、`resources/templates/list`、`resources/read`
+- **按 scope 过滤**：list 只返回当前令牌有权调用的 Tool / Resource，`cacheScope` 为 `private`（不同令牌不共享缓存）
+- **破坏性操作确认**：`destructiveHint=true` 的 Tool 在客户端声明 `elicitation` 能力时，服务端先返回 `resultType: "input_required"`（MRTR），用户批准后客户端带 `requestState` + `inputResponses` 重试才真正执行；未声明能力的客户端由 Host 依据注解确认
 - 仅 2026-07-28：`server/discover`
 - 仅旧版：`initialize`、`notifications/initialized`、`ping`
 - 传输方式：Streamable HTTP。**不发放会话**（无 `Mcp-Session-Id`），`GET` / `DELETE /mcp` 一律返回 405；旧客户端收到 405 后会自动关闭独立 SSE 流，不影响使用。
