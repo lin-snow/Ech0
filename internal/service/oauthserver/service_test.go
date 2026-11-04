@@ -4,13 +4,14 @@
 package oauthserver
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -21,6 +22,10 @@ import (
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 type fakeClients struct {
 	byID map[string]oauthserverModel.Client
@@ -336,9 +341,9 @@ func TestClientIDMetadataDocument(t *testing.T) {
 	_, challenge := pkcePair()
 	verifier, _ := pkcePair()
 
-	var clientID string
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(oauthserverModel.ClientMetadata{
+	const clientID = "https://client.example.com/client.json"
+	service.http = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		body, _ := json.Marshal(oauthserverModel.ClientMetadata{
 			ClientID:                clientID,
 			ClientName:              "CIMD Client",
 			RedirectURIs:            []string{"http://127.0.0.1:3000/callback"},
@@ -346,10 +351,13 @@ func TestClientIDMetadataDocument(t *testing.T) {
 			ResponseTypes:           []string{"code"},
 			TokenEndpointAuthMethod: "none",
 		})
-	}))
-	defer server.Close()
-	service.http = server.Client()
-	clientID = server.URL + "/client.json"
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Request:    req,
+		}, nil
+	})}
 
 	query := authorizeQuery(clientID, "http://127.0.0.1:3000/callback", challenge)
 	consent, oauthErr := service.Consent(context.Background(), "https://ech0.test", query, user.ID)
@@ -383,7 +391,7 @@ func TestClientIDMetadataDocument(t *testing.T) {
 	}
 
 	badQuery := cloneValues(query)
-	badQuery.Set("client_id", server.URL+"/other.json")
+	badQuery.Set("client_id", "https://other.example.com/client.json")
 	if _, oauthErr := service.Consent(context.Background(), "https://ech0.test", badQuery, user.ID); oauthErr == nil {
 		t.Fatal("client_id mismatch was accepted")
 	}

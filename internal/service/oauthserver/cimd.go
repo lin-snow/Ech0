@@ -15,6 +15,7 @@ import (
 	"time"
 
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
+	"github.com/lin-snow/ech0/pkg/egress"
 )
 
 // resolveClient returns validated client metadata for a client_id. HTTPS URLs
@@ -71,6 +72,9 @@ func (s *OAuthServerService) fetchClientMetadata(
 	}
 	s.cimdMu.Unlock()
 
+	// The URL was validated above; the guarded client below also enforces
+	// private/reserved-IP and redirect checks at dial time.
+	// codeql[go/request-forgery]
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, clientID, nil)
 	if err != nil {
 		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient("invalid client metadata URL")
@@ -78,6 +82,11 @@ func (s *OAuthServerService) fetchClientMetadata(
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "ech0-oauth-client")
 
+	// clientID is validated by validateMetadataDocumentURL (scheme, path,
+	// egress.Validate) and s.http is an egress.NewClient(egress.Guard()): its
+	// dialer rejects private/reserved IPs and its redirect hook re-validates
+	// every hop.
+	// codeql[go/request-forgery]
 	resp, err := s.http.Do(req)
 	if err != nil {
 		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient("failed to fetch client metadata")
@@ -118,6 +127,9 @@ func validateMetadataDocumentURL(raw string) *oauthserverModel.Error {
 	}
 	if parsed.Fragment != "" || parsed.User != nil {
 		return oauthserverModel.ErrInvalidClient("client_id URL must not contain a fragment or userinfo")
+	}
+	if err := egress.Validate(raw); err != nil {
+		return oauthserverModel.ErrInvalidClient("client_id URL is not an allowed outbound target")
 	}
 	return nil
 }
