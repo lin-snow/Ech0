@@ -121,6 +121,12 @@ func AllScopes() []string {
 	return append([]string(nil), scopeOrder...)
 }
 
+// ScopeCount is the size of the scope vocabulary without allocating a copy, so
+// request caps can stay tied to the vocabulary instead of a magic number.
+func ScopeCount() int {
+	return len(scopeOrder)
+}
+
 var validAudiences = map[string]struct{}{
 	AudiencePublic:      {},
 	AudienceCLI:         {},

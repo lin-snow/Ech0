@@ -397,7 +397,9 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
   // Shallow ids first, so a group exists before anything nests under it.
   const visible = options.scope ?? inScope;
   const entries = Object.entries(catalog.ops)
-    .filter(([id]) => visible(id))
+    // session_only routes 403 for every access token, so a CLI command for
+    // them could never succeed.
+    .filter(([id, op]) => !op.session_only && visible(id))
     .sort(
     ([left], [right]) => left.split(".").length - right.split(".").length,
   );

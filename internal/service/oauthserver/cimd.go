@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/lin-snow/ech0/pkg/egress"
 )
@@ -175,6 +176,15 @@ func validateClientPresentation(meta oauthserverModel.ClientMetadata) *oauthserv
 	}
 	if len(meta.ClientURI) > 512 || len(meta.LogoURI) > 512 {
 		return oauthserverModel.ErrInvalidClientMetadata("client_uri or logo_uri is too long")
+	}
+	// RFC 7591 `scope` is advisory for this server: the authorization request
+	// decides the grant, and consent shows the requested scopes. Still reject
+	// names outside the vocabulary so a client cannot silently advertise a
+	// capability the server will never grant.
+	for _, name := range strings.Fields(meta.Scope) {
+		if !authz.IsValidScope(name) {
+			return oauthserverModel.ErrInvalidClientMetadata("unknown scope in client metadata: " + name)
+		}
 	}
 	return nil
 }

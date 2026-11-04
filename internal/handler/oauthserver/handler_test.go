@@ -179,3 +179,21 @@ func TestConsentReturnsEnvelopeForSession(t *testing.T) {
 		t.Errorf("body = %s", body)
 	}
 }
+
+func TestDiscoveryVariesOnForwardedHeaders(t *testing.T) {
+	engine := testRouter(fakeService{})
+	request := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil)
+	request.Host = "internal:6277"
+	request.Header.Set("X-Forwarded-Proto", "https")
+	request.Header.Set("X-Forwarded-Host", "ech0.app")
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	want := "Host, X-Forwarded-Proto, X-Forwarded-Host"
+	if got := recorder.Header().Get("Vary"); got != want {
+		t.Fatalf("Vary = %q, want %q", got, want)
+	}
+}

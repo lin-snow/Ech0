@@ -65,7 +65,7 @@ npx -y mcp-remote@0.16.0 http://localhost:6277/mcp 53682 --debug
 - 授权完成后，访问令牌会以 `mcp:<客户端名>` 出现在 **设置 → 访问令牌**，删除即吊销。
 - 本地客户端如果没有公网 HTTPS 的 `client_id` 元数据文档，会回退到 DCR；**不要把 CIMD 的 `client_id` 指向 `localhost`/私网**，CIMD 抓取会按 SSRF 规则拒绝。
 
-### 方式 B：创建 MCP 专用 Access Token
+### 步骤 1：创建专用 Access Token
 
 在 Ech0 管理后台 **设置 → 访问令牌** 中创建一个新 Token：
 
@@ -82,7 +82,7 @@ npx -y mcp-remote@0.16.0 http://localhost:6277/mcp 53682 --debug
 
 创建后妥善保存 Token，它只会显示一次。
 
-### 方式 B：配置 MCP Host
+### 步骤 2：配置 MCP Host
 
 在你使用的 MCP 客户端配置中（具体文件名与入口因产品而异）添加远程服务，例如：
 

@@ -23,7 +23,12 @@ func (s *OAuthServerService) Exchange(
 	origin string,
 	form url.Values,
 ) (oauthserverModel.TokenResponse, *oauthserverModel.Error) {
-	if grant := form.Get("grant_type"); grant != "authorization_code" {
+	grantType := strings.TrimSpace(form.Get("grant_type"))
+	if grantType == "" {
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidRequest(
+			"grant_type is required")
+	}
+	if grantType != "authorization_code" {
 		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrUnsupportedGrantType(
 			"only authorization_code is supported")
 	}
@@ -91,12 +96,21 @@ func validateCodeVerifier(verifier string) *oauthserverModel.Error {
 	if len(verifier) < 43 || len(verifier) > 128 {
 		return oauthserverModel.ErrInvalidGrant("code_verifier must be 43-128 characters")
 	}
+	// RFC 7636 §4.1: code-verifier = 43*128unreserved, where unreserved is
+	// ALPHA / DIGIT / "-" / "." / "_" / "~". Clients commonly emit pure
+	// base64url, but rejecting "." and "~" turns a valid verifier into an
+	// invalid_grant.
 	for _, r := range verifier {
-		if !isBase64URLRune(r) || r == '=' {
-			return oauthserverModel.ErrInvalidGrant("code_verifier must be base64url")
+		if !isPKCEVerifierRune(r) {
+			return oauthserverModel.ErrInvalidGrant("code_verifier must use RFC 7636 unreserved characters")
 		}
 	}
 	return nil
+}
+
+func isPKCEVerifierRune(r rune) bool {
+	return r == '-' || r == '.' || r == '_' || r == '~' ||
+		(r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z')
 }
 
 func verifyPKCE(verifier, challenge string) bool {

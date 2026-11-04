@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/internal/util/reqinfo"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -99,11 +100,7 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
 		ctx = context.WithValue(ctx, ctxKeyRawToken, strings.TrimPrefix(auth, "Bearer "))
 	}
-	scheme := "http"
-	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-		scheme = "https"
-	}
-	ctx = context.WithValue(ctx, ctxKeyBaseURL, scheme+"://"+r.Host)
+	ctx = context.WithValue(ctx, ctxKeyBaseURL, reqinfo.Origin(r))
 	r = r.WithContext(ctx)
 
 	v := viewer.MustFromContext(ctx)
@@ -118,7 +115,7 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 
 	result, requestEra, rpcErr := s.dispatch(r, &req, &params, v)
 
-	logUtil.GetLogger().Info("mcp_request",
+	attrs := []any{
 		slog.String("method", req.Method),
 		slog.String("user_id", v.UserID()),
 		slog.String("token_id", v.TokenID()),
@@ -126,7 +123,16 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 		slog.String("client", clientInfoName(&params)),
 		slog.Duration("latency", time.Since(start)),
 		slog.Bool("error", rpcErr != nil),
-	)
+	}
+	// tools/call and resources/read carry the target in params; without it an
+	// audit entry cannot tell which destructive tool ran.
+	if params.Name != "" {
+		attrs = append(attrs, slog.String("tool", params.Name))
+	}
+	if params.URI != "" {
+		attrs = append(attrs, slog.String("resource", params.URI))
+	}
+	logUtil.GetLogger().Info("mcp_request", attrs...)
 
 	if rpcErr != nil {
 		writeRPCError(w, req.ID, rpcErr)

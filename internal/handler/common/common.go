@@ -16,6 +16,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/common"
 	errorUtil "github.com/lin-snow/ech0/internal/util/err"
+	"github.com/lin-snow/ech0/internal/util/reqinfo"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
 )
@@ -127,21 +128,7 @@ func (commonHandler *CommonHandler) GetWebsiteTitle(ctx context.Context, in *Get
 }
 
 func resolveBaseURL(ctx *gin.Context) string {
-	scheme := "http"
-	if ctx.Request.TLS != nil {
-		scheme = "https"
-	}
-
-	if forwardedProto := strings.TrimSpace(ctx.GetHeader("X-Forwarded-Proto")); forwardedProto != "" {
-		scheme = strings.TrimSpace(strings.Split(forwardedProto, ",")[0])
-	}
-
-	host := strings.TrimSpace(ctx.Request.Host)
-	if forwardedHost := strings.TrimSpace(ctx.GetHeader("X-Forwarded-Host")); forwardedHost != "" {
-		host = strings.TrimSpace(strings.Split(forwardedHost, ",")[0])
-	}
-
-	return fmt.Sprintf("%s://%s", scheme, host)
+	return reqinfo.Origin(ctx.Request)
 }
 
 func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {

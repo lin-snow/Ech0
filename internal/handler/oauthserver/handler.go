@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	oauthserverService "github.com/lin-snow/ech0/internal/service/oauthserver"
+	"github.com/lin-snow/ech0/internal/util/reqinfo"
 )
 
 type Handler struct {
@@ -22,6 +23,9 @@ func NewOAuthServerHandler(service oauthserverService.Service) *Handler {
 }
 
 func writeCacheableJSON(ctx *gin.Context, payload any) {
+	// The document embeds the request origin, so a shared cache must key on
+	// the headers that origin derives from.
+	ctx.Header("Vary", "Host, X-Forwarded-Proto, X-Forwarded-Host")
 	ctx.Header("Cache-Control", "public, max-age=3600")
 	ctx.JSON(http.StatusOK, payload)
 }
@@ -29,9 +33,5 @@ func writeCacheableJSON(ctx *gin.Context, payload any) {
 // requestOrigin derives the externally visible origin. Both well-known
 // documents and OAuth responses use it when no canonical server_url is set.
 func requestOrigin(ctx *gin.Context) string {
-	scheme := "http"
-	if ctx.Request.TLS != nil || ctx.GetHeader("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	return scheme + "://" + ctx.Request.Host
+	return reqinfo.Origin(ctx.Request)
 }

@@ -478,3 +478,62 @@ func TestTokenNameIsRuneSafe(t *testing.T) {
 		t.Fatalf("rune length = %d, want 120", len([]rune(name)))
 	}
 }
+
+func TestExchangeRejectsMissingGrantType(t *testing.T) {
+	service, _, _, _ := testService()
+	_, oauthErr := service.Exchange(context.Background(), "https://ech0.test", url.Values{
+		"code": {"abc"},
+	})
+	if oauthErr == nil || oauthErr.Code != "invalid_request" {
+		t.Fatalf("error = %+v, want invalid_request", oauthErr)
+	}
+}
+
+func TestExchangeKeepsUnsupportedGrantType(t *testing.T) {
+	service, _, _, _ := testService()
+	_, oauthErr := service.Exchange(context.Background(), "https://ech0.test", url.Values{
+		"grant_type": {"password"},
+	})
+	if oauthErr == nil || oauthErr.Code != "unsupported_grant_type" {
+		t.Fatalf("error = %+v, want unsupported_grant_type", oauthErr)
+	}
+}
+
+func TestCodeVerifierAcceptsRFC7636UnreservedCharacters(t *testing.T) {
+	valid := strings.Repeat("a", 39) + ".-_~"
+	if err := validateCodeVerifier(valid); err != nil {
+		t.Fatalf("valid verifier rejected: %v", err)
+	}
+	if err := validateCodeVerifier(strings.Repeat("a", 42) + " "); err == nil {
+		t.Fatal("space in verifier was accepted")
+	}
+	if err := validateCodeVerifier(strings.Repeat("a", 42) + "="); err == nil {
+		t.Fatal("padding in verifier was accepted")
+	}
+}
+
+func TestParseScopesAcceptsWholeVocabularyButNotMore(t *testing.T) {
+	all := authz.AllScopes()
+	scopes, oauthErr := parseScopes(strings.Join(all, " "), nil)
+	if oauthErr != nil {
+		t.Fatalf("whole vocabulary rejected: %v", oauthErr)
+	}
+	if len(scopes) != len(all) {
+		t.Fatalf("scopes = %d, want %d", len(scopes), len(all))
+	}
+	if _, oauthErr := parseScopes(strings.Join(append(all, all[0]), " "), nil); oauthErr == nil {
+		t.Fatal("more fields than the vocabulary was accepted")
+	}
+}
+
+func TestRegisterRejectsUnknownMetadataScope(t *testing.T) {
+	service, _, _, _ := testService()
+	_, oauthErr := service.RegisterClient(context.Background(), oauthserverModel.ClientMetadata{
+		ClientName:   "Test Client",
+		RedirectURIs: []string{"http://127.0.0.1:3000/callback"},
+		Scope:        "echo:read not-a-scope",
+	})
+	if oauthErr == nil || oauthErr.Code != "invalid_client_metadata" {
+		t.Fatalf("error = %+v, want invalid_client_metadata", oauthErr)
+	}
+}

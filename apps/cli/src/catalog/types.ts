@@ -49,6 +49,8 @@ export const CatalogOpSchema = z
     input: z.record(z.string(), z.unknown()).default({}),
     bind: z.record(z.string(), z.string()).default({}),
     transport: TransportSchema.optional(),
+    /** Routes that reject access tokens; only a browser session can call them. */
+    session_only: z.boolean().optional(),
     deprecated: z.boolean().default(false),
   })
   .catchall(z.unknown());

@@ -38,7 +38,9 @@ const params = computed<OAuthAuthorizeParams>(() => ({
 const consent = ref<OAuthConsentContext | null>(null)
 const loading = ref(true)
 const submitting = ref(false)
-const error = ref('')
+/** Load failure replaces the card; action failure keeps it on screen. */
+const loadError = ref('')
+const actionError = ref('')
 
 const canApprove = computed(() => user.value?.is_admin === true)
 const requestIncomplete = computed(
@@ -52,30 +54,43 @@ function scopeLabel(scope: string) {
 
 async function load() {
   if (requestIncomplete.value) {
-    error.value = t('oauthConsent.invalidRequest')
+    loadError.value = t('oauthConsent.invalidRequest')
     loading.value = false
     return
   }
-  const res = await fetchOAuthConsent(params.value)
-  if (res.code === 1 && res.data) {
-    consent.value = res.data
-  } else {
-    error.value = res.msg || t('oauthConsent.loadFailed')
+  try {
+    const res = await fetchOAuthConsent(params.value)
+    if (res.code === 1 && res.data) {
+      consent.value = res.data
+    } else {
+      loadError.value = res.msg || t('oauthConsent.loadFailed')
+    }
+  } catch (error) {
+    loadError.value =
+      error instanceof Error && error.message ? error.message : t('oauthConsent.loadFailed')
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 
 async function decide(decision: 'approve' | 'deny') {
   if (submitting.value || requestIncomplete.value) return
   submitting.value = true
-  error.value = ''
-  const res = await submitOAuthConsent({ ...params.value, decision })
-  if (res.code === 1 && res.data?.redirect_url) {
-    window.location.assign(res.data.redirect_url)
-    return
+  actionError.value = ''
+  try {
+    const res = await submitOAuthConsent({ ...params.value, decision })
+    if (res.code === 1 && res.data?.redirect_url) {
+      window.location.assign(res.data.redirect_url)
+      return
+    }
+    actionError.value = res.msg || t('oauthConsent.failed')
+  } catch (error) {
+    actionError.value =
+      error instanceof Error && error.message ? error.message : t('oauthConsent.failed')
+  } finally {
+    // A failed submit must leave both buttons usable for a retry.
+    submitting.value = false
   }
-  error.value = res.msg || t('oauthConsent.failed')
-  submitting.value = false
 }
 
 onMounted(load)
@@ -91,11 +106,11 @@ onMounted(load)
         <p class="text-xs text-[var(--color-text-muted)]">{{ t('oauthConsent.subtitle') }}</p>
       </header>
 
-      <p v-if="error" class="mt-6 text-xs text-[var(--color-danger)] break-words">
-        {{ error }}
+      <p v-if="loadError" class="mt-6 text-xs text-[var(--color-danger)] break-words">
+        {{ loadError }}
       </p>
 
-      <section v-else-if="loading" class="mt-10 text-center text-sm text-[var(--color-text-muted)]">
+      <section v-if="loading" class="mt-10 text-center text-sm text-[var(--color-text-muted)]">
         {{ t('oauthConsent.loading') }}
       </section>
 
@@ -135,6 +150,10 @@ onMounted(load)
             {{ consent.resource_name || consent.resource }}
           </span>
           <span v-if="consent.resource_name" class="mt-0.5 block">{{ consent.resource }}</span>
+        </p>
+
+        <p v-if="actionError" class="text-xs text-[var(--color-danger)] break-words">
+          {{ actionError }}
         </p>
 
         <div class="flex gap-2">

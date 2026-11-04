@@ -214,6 +214,12 @@ func TestBuild_RawOpsCarryTransport(t *testing.T) {
 	if logs.Transport.Request == nil || logs.Transport.Request.Auth != AuthQuery {
 		t.Fatalf("logs must authenticate via query: %+v", logs.Transport.Request)
 	}
+	if !logs.SessionOnly {
+		t.Fatal("logs must be marked session-only; access tokens are rejected")
+	}
+	if doc.Ops["file.upload"].SessionOnly {
+		t.Fatal("token-callable operations must not be session-only")
+	}
 	if _, ok := doc.Ops["chat.ask"]; ok {
 		t.Fatal("chat.ask must stay out of the catalog while the CLI does not support Copilot")
 	}
@@ -233,6 +239,9 @@ func TestBuild_RawOpsCarryTransport(t *testing.T) {
 	}
 	if ws.Transport == nil || ws.Transport.Request == nil || ws.Transport.Request.Auth != AuthQuery {
 		t.Fatalf("ws transport = %+v", ws.Transport)
+	}
+	if !ws.SessionOnly {
+		t.Fatal("ws logs must be marked session-only")
 	}
 }
 

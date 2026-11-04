@@ -105,6 +105,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 
 - 清单由 Huma 文档派生（`internal/openapi/catalog`），再合并 `raw.go` 里手写的裸 gin 操作：`operationId` 的 `-` 换成 `.`（`echo-list` → `echo.list`）；`input` 把 path/query/body/form 四类参数拍平成一个对象，`$ref` 递归内联；`bind` 标记每个字段落在 `path`/`query`/`body`/`form`；`effect` 默认由方法推导（GET/HEAD=read、DELETE=destructive、其余=write），但以 POST 承载 body 过滤条件的查询（`echo-list`、`echo-page-post`）显式标记为 `read`，否则 help 会把它们误写成「写入」；`kind` 由成功响应内容类型推导（json/stream/binary/websocket）。
 - 非 JSON 传输额外带 `transport`（见 4.5）；没有该字段即「JSON 进、JSON 信封出」。
+- `session_only: true` 标记只接受浏览器会话、拒绝任何 access token 的路由（系统日志 SSE/WS）。CLI 不注册这类命令，即使它们出现在 `--scopes` 允许的集合里；`transport.request.auth = "query"` 仍表示令牌走查询参数（EventSource/WebSocket 无法带 header）。
 - 指纹 = sha256(canonical bytes)。**每个 `/api` 响应**都带 `X-Ech0-Catalog: <指纹>`。
 - 请求可带同一个头；带了但和当前指纹不同 → **412**，body `{"code":0,"msg":"catalog stale","error_code":"catalog_stale"}`，在 handler 之前短路。不带头的旧客户端（web、MCP、脚本）完全不受影响。
 - 目录端点自身也带指纹头与 `ETag`。

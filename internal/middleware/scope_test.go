@@ -290,3 +290,70 @@ func parseErrorCode(body []byte) string {
 	_ = json.Unmarshal(body, &payload)
 	return payload.ErrorCode
 }
+
+func TestRequireAudienceWithChallenge_Returns401AndMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeEchoRead},
+				[]string{authz.AudienceCLI},
+				"jti-audience-mismatch",
+			),
+		)
+		c.Next()
+	})
+	path := "/.well-known/oauth-protected-resource/mcp"
+	r.GET("/mcp", RequireAudienceWithChallenge(InvalidTokenChallenge(path), authz.AudienceMCPRemote), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	req.Host = "ech0.example"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	}
+	want := `Bearer error="invalid_token", resource_metadata="https://ech0.example` + path + `"`
+	if got := rec.Header().Get("WWW-Authenticate"); got != want {
+		t.Fatalf("WWW-Authenticate = %q, want %q", got, want)
+	}
+	if got := parseErrorCode(rec.Body.Bytes()); got != commonModel.ErrCodeTokenInvalid {
+		t.Fatalf("expected error code %s, got %s", commonModel.ErrCodeTokenInvalid, got)
+	}
+}
+
+func TestRequireAudienceWithChallenge_AllowsMatchingAudience(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				nil,
+				[]string{authz.AudienceMCPRemote},
+				"jti-audience-match",
+			),
+		)
+		c.Next()
+	})
+	r.GET("/mcp", RequireAudienceWithChallenge(InvalidTokenChallenge("/.well-known/oauth-protected-resource/mcp"), authz.AudienceMCPRemote), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}

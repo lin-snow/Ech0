@@ -9,9 +9,13 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Added
+
+* **Standard MCP authorization (OAuth 2.1 + CIMD).** `/mcp` now advertises RFC 9728 protected-resource metadata and implements RFC 8414 authorization-server metadata, `/oauth/authorize` consent, `/oauth/token` (PKCE S256 only) and a deprecated-but-compatible Dynamic Client Registration endpoint. Clients that publish a Client ID Metadata Document need no registration; non-loopback redirects must share the `client_id` origin, fetches stay on HTTPS and must return JSON. Ech0-branded consent screens list the requested scopes and only administrators can approve. Destructive MCP tools honour the client's `elicitation` capability through MRTR (`input_required` + nonce-bound, single-use `requestState`). `/.well-known` documents vary on the forwarded host/proto headers they derive the origin from.
+
 ### Changed
 
-* **Access-token scopes now follow trust boundaries instead of resource buckets.** Writes no longer imply deletes: `echo:delete`, `file:delete` and `connect:delete` are separate grants. Comment moderation splits into `comment:review`, `comment:delete` and `comment:settings`. `echo:private` is an additive grant for private posts; `echo:read` alone returns public content only. The former `admin:settings` is split into `admin:site`, `admin:storage`, `admin:auth`, `admin:webhook`, `admin:agent`, `admin:data`, `admin:ops` and `admin:user`, and `admin:token` is gone because token CRUD is now session-only. `mcp:read` replaces the old `admin:token` requirement for `GET /api/mcp/manifest`. This is an intentional breaking change: old tokens keep their stored scopes but lose any capability that moved to a new scope, so reissue tokens with the narrower grants.
+* **Access-token scopes now follow trust boundaries instead of resource buckets.** Writes no longer imply deletes: `echo:delete`, `file:delete` and `connect:delete` are separate grants. Comment moderation splits into `comment:review`, `comment:delete` and `comment:settings`. `echo:private` is an additive grant for private posts; `echo:read` alone returns public content only. The former `admin:settings` is split into `admin:site`, `admin:storage`, `admin:auth`, `admin:webhook`, `admin:agent`, `admin:data` and `admin:ops`; `admin:user` keeps its existing meaning, and `admin:token` is gone because token CRUD is now session-only. `mcp:read` replaces the old `admin:token` requirement for `GET /api/mcp/manifest`. This is an intentional breaking change: old tokens keep their stored scopes but lose any capability that moved to a new scope, so reissue tokens with the narrower grants.
 
 ### Security
 

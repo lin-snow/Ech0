@@ -332,12 +332,18 @@ middleware.RequireAuth ─► 解出 viewer.Context（带 token 的 scopes / aud
 mcp.Server.dispatch(method)：
    ├─ initialize              → ServerCapabilities + ServerInfo（能力握手）
    ├─ notifications/initialized
-   ├─ tools/list              → Registry.ToolDefinitions()（列全部工具声明）
+   ├─ tools/list              → Registry.ToolDefinitionsFor(viewer.Scopes())
+   │                            （按 token scope 过滤，结果标 cacheScope=private）
    ├─ tools/call              → handleToolsCall：
    │        ① Registry.LookupTool(name) 取 handler + 所需 scopes
-   │        ② 校验 viewer 是否具备全部 scope（不足 → insufficient scopes 错误）
-   │        ③ 执行 handler → Adapter → 领域 service
-   ├─ resources/list          → Registry.ResourceDefinitions()
+   │        ② 校验 viewer 是否具备全部 scope（不足 → 403 + insufficient_scope 挑战）
+   │        ③ destructive tool 且客户端声明 elicitation：
+   │            返回 input_required + inputRequests["confirm"] + HMAC requestState
+   │            （含 16 字节 nonce 与 TTL）；重试先读取 inputResponses，
+   │            只有 approved 才消费状态，再校验 principal/工具/参数摘要/TTL
+   │        ④ 执行 handler → Adapter → 领域 service
+   ├─ resources/list          → Registry.ResourceDefinitionsFor(viewer.Scopes())
+   ├─ resources/templates/list → 同样按 scope 过滤
    └─ resources/read          → handleResourcesRead（同样先校验 scope）
    ▼
 internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
@@ -347,6 +353,8 @@ internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
      registerAgentTools（get_recent，复用 copilotSvc.SummaryService）
      registerWebhookTools（list/create/update/delete/test，全部路由到 settingSvc，scope=admin:webhook）
    每个 register* 把 service 方法包装成 ToolHandler / ResourceHandler 注册进 Registry
+   ▼
+mcp_request 审计日志（method/tool/resource、era、client、token jti、latency、error）
 ```
 
 辅助：`RawTokenFromContext` / `BaseURLFromContext` 从 ctx 取原始 token 与外部 base URL（如 file_upload_guide 需要拼出可访问 URL）。

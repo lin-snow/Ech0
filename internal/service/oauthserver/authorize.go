@@ -203,7 +203,9 @@ func parseScopes(raw string, defaults []string) ([]string, *oauthserverModel.Err
 	if len(fields) == 0 {
 		return append([]string(nil), defaults...), nil
 	}
-	if len(fields) > 20 {
+	// fields may repeat a scope, so allow up to the vocabulary size; the
+	// dedupe below makes the resulting grant at most ScopeCount entries.
+	if len(fields) > authz.ScopeCount() {
 		return nil, oauthserverModel.ErrInvalidScope("too many scopes requested")
 	}
 	seen := make(map[string]struct{}, len(fields))

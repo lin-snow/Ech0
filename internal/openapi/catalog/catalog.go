@@ -73,17 +73,20 @@ const (
 
 // Op is one callable operation.
 type Op struct {
-	Summary    string            `json:"summary"`
-	Method     string            `json:"method"`
-	Path       string            `json:"path"`
-	Mount      string            `json:"mount,omitempty"`
-	Scopes     []string          `json:"scopes"`
-	Effect     string            `json:"effect"`
-	Kind       string            `json:"kind"`
-	Input      map[string]any    `json:"input"`
-	Bind       map[string]string `json:"bind"`
-	Transport  *Transport        `json:"transport,omitempty"`
-	Deprecated bool              `json:"deprecated"`
+	Summary   string            `json:"summary"`
+	Method    string            `json:"method"`
+	Path      string            `json:"path"`
+	Mount     string            `json:"mount,omitempty"`
+	Scopes    []string          `json:"scopes"`
+	Effect    string            `json:"effect"`
+	Kind      string            `json:"kind"`
+	Input     map[string]any    `json:"input"`
+	Bind      map[string]string `json:"bind"`
+	Transport *Transport        `json:"transport,omitempty"`
+	// SessionOnly marks routes that reject every access token regardless of
+	// its scopes. Clients must not advertise them as token-callable.
+	SessionOnly bool `json:"session_only,omitempty"`
+	Deprecated  bool `json:"deprecated"`
 }
 
 // Transport describes everything that is not a JSON body in and a JSON envelope

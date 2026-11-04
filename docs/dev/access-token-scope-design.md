@@ -184,6 +184,7 @@ viewer 扩展约定：
 
 - `401 Unauthorized`：token 缺失/格式错误/签名错误/过期。
 - `403 Forbidden`：token 有效但 scope 或 audience 不满足。
+- 例外：`/mcp` 资源端点在 audience 不匹配时返回 `401` + `WWW-Authenticate: Bearer error="invalid_token", resource_metadata="…"`。这不是“登录失效”，而是当前 token 不能用于该资源；MCP Host 只有看到 401 挑战才会重新走授权流程。
 
 审计日志（脱敏）建议记录：
 

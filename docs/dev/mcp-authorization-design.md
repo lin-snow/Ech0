@@ -86,6 +86,8 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 2. **DCR**（`POST /oauth/register`）：生成 `ech0-…` client_id，落库 `oauth_clients`；仅支持 `authorization_code` + `code` + `none`，上限 200 个，接口单独限流。规范已标记 deprecated，文档中明确说明仅为兼容。
 3. **预注册**：暂不提供 UI；需要时可直接在 DCR 表插入一行，或后续补管理页。
 
+客户端元数据里的 `scope`（RFC 7591）会校验词表：出现未知 scope 时拒绝注册/解析。它不构成授权上限——实际授予以 `/oauth/authorize` 请求的 `scope` 为准，并在同意页逐项展示。
+
 ## 6. 发现元数据
 
 `/.well-known/oauth-protected-resource` 与 `/…/mcp` 返回同一份：
@@ -101,6 +103,8 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 ```
 
 `/.well-known/oauth-authorization-server` 返回 RFC 8414 文档，声明 `client_id_metadata_document_supported: true`、`authorization_response_iss_parameter_supported: true`、`code_challenge_methods_supported: ["S256"]`，不使用 OIDC discovery（Ech0 不是 OIDC Provider）。
+
+两份文档的 `issuer` / `resource` / 端点都按请求 origin 推导（`internal/util/reqinfo` 统一读取 `TLS`、`X-Forwarded-Proto` 与 `X-Forwarded-Host`），因此响应带 `Vary: Host, X-Forwarded-Proto, X-Forwarded-Host`，避免共享缓存把某个 Host 的文档发给另一个 Host。
 
 ## 7. 安全决策
 
@@ -119,7 +123,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 - `tools/list` / `resources/list` / `resources/templates/list` **按 token scope 过滤**，`cacheScope` 改为 `private`（列表随授权上下文变化，不能再声明 public）。
 - 删除类 Tool（`delete_post` / `delete_tag` / `delete_file` / `delete_connect`）使用独立的 `*:delete` scope；`echo:write` 等写 scope 不再暴露它们。账号安全与访问令牌管理是 session-only，OAuth 同意页同样拒绝 `typ=access`。
 - destructive 工具（注解 `destructiveHint=true`）在客户端声明 `elicitation` 能力时走 **MRTR 确认**：返回 `resultType: "input_required"` + `inputRequests["confirm"]` + HMAC `requestState`，重试时校验 principal / 工具 / 参数摘要 / TTL，拒绝换目标重放。
-- `/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…"`，让客户端能自动进入发现流程。
+- `/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…"`，让客户端能自动进入发现流程。令牌签名有效但 `aud` 不是 `mcp-remote`（例如误用面板/CLI 令牌）时同样返回 401 + `error="invalid_token"`，而不是裸 403，MCP Host 才会重新授权而不是当作永久禁止。
 
 ## 9. 非目标
 

@@ -288,7 +288,8 @@ Set-Cookie: ech0_refresh_token=<jwt>;
 
 | 文件 | 职责 |
 |---|---|
-| `internal/model/auth/scope.go` | Token 类型常量、Scope/Audience 定义与校验 |
+| `internal/authz/scope.go` | Scope/Audience 定义与校验（纯策略） |
+| `internal/model/auth/token.go` | Token 类型常量（`session` / `access` / `refresh`） |
 | `internal/model/auth/auth.go` | MyClaims、TokenPair、OAuth/Passkey DTO、Passkey GORM 实体 |
 | `internal/model/auth/auth_dto.go` | LoginDto、RegisterDto |
 | `internal/util/jwt/jwt.go` | JWT 签发与解析（CreateClaims / CreateRefreshClaims / ParseToken / ParseRefreshToken / GenerateOAuthState / ParseOAuthState / ParseAndVerifyIDToken） |

@@ -460,3 +460,42 @@ func initTestDatabase(t *testing.T) {
 	}
 	database.SetDB(db)
 }
+
+func TestSetupRouter_MCPAudienceMismatchReturnsChallenge(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+
+	user := userModel.User{ID: "u-mcp", Username: "mcp-user"}
+	token, err := jwtUtil.GenerateToken(
+		jwtUtil.CreateAccessClaimsWithExpiry(
+			user,
+			int64(time.Hour),
+			[]string{authz.ScopeMCPRead},
+			authz.AudienceCLI,
+			"jti-mcp-audience",
+		),
+	)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`))
+	req.Host = "ech0.example"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d (body=%s)", http.StatusUnauthorized, rec.Code, rec.Body.String())
+	}
+	challenge := rec.Header().Get("WWW-Authenticate")
+	if !strings.Contains(challenge, `error="invalid_token"`) {
+		t.Fatalf("challenge missing invalid_token: %q", challenge)
+	}
+	if !strings.Contains(challenge, `resource_metadata="https://ech0.example/.well-known/oauth-protected-resource/mcp"`) {
+		t.Fatalf("challenge missing metadata URL: %q", challenge)
+	}
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
@@ -20,7 +21,10 @@ func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
 	g.Use(
 		middleware.RateLimit(20, 40),
 		middleware.OriginGuard(config.Config().Web.CORS.AllowedOrigins),
-		middleware.RequireAudience(authz.AudienceMCPRemote),
+		middleware.RequireAudienceWithChallenge(
+			middleware.InvalidTokenChallenge(oauthserverModel.ProtectedResourcePathForMCP),
+			authz.AudienceMCPRemote,
+		),
 	)
 	g.POST("", h.MCPHandler.ServeEndpoint())
 	g.GET("", h.MCPHandler.ServeEndpoint())

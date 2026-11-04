@@ -86,6 +86,22 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 }
 
 func RequireAudience(allowed ...string) gin.HandlerFunc {
+	return requireAudience(nil, allowed...)
+}
+
+// RequireAudienceWithChallenge is RequireAudience for resource servers that
+// advertise OAuth discovery. A token signed for another audience is not
+// acceptable here, so the request is rejected as 401 with an RFC 6750
+// challenge instead of a bare 403: MCP clients only start (or restart) the
+// authorization flow when they see a challenge on 401.
+func RequireAudienceWithChallenge(
+	challenge func(*gin.Context) string,
+	allowed ...string,
+) gin.HandlerFunc {
+	return requireAudience(challenge, allowed...)
+}
+
+func requireAudience(challenge func(*gin.Context) string, allowed ...string) gin.HandlerFunc {
 	set := make(map[string]struct{}, len(allowed))
 	for _, a := range allowed {
 		set[a] = struct{}{}
@@ -101,6 +117,11 @@ func RequireAudience(allowed ...string) gin.HandlerFunc {
 				ctx.Next()
 				return
 			}
+		}
+		if challenge != nil {
+			ctx.Header("WWW-Authenticate", challenge(ctx))
+			abortAuth(ctx, http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID)
+			return
 		}
 		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
 	}

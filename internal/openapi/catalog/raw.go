@@ -22,6 +22,9 @@ var rawOps = map[string]Op{
 		Path:    "/system/logs/stream",
 		Effect:  EffectRead,
 		Kind:    KindStream,
+		// RequireSession/RequireAdminSession reject access tokens; only the
+		// browser session (sent as `?token=` for EventSource) works.
+		SessionOnly: true,
 		Input: objectSchema(
 			nil,
 			map[string]any{"level": stringSchema(), "keyword": stringSchema()},
@@ -35,12 +38,13 @@ var rawOps = map[string]Op{
 		},
 	},
 	"ws.system.logs": {
-		Summary: "订阅系统日志（WebSocket，token 走查询参数）",
-		Method:  "GET",
-		Path:    "/system/logs",
-		Mount:   MountWS,
-		Effect:  EffectRead,
-		Kind:    KindWebSocket,
+		Summary:     "订阅系统日志（WebSocket，token 走查询参数）",
+		Method:      "GET",
+		Path:        "/system/logs",
+		Mount:       MountWS,
+		Effect:      EffectRead,
+		Kind:        KindWebSocket,
+		SessionOnly: true,
 		Input: objectSchema(
 			nil,
 			map[string]any{"level": stringSchema(), "keyword": stringSchema()},
