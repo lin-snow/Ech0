@@ -52,6 +52,19 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 ## 快速开始
 
+### 本地联调 OAuth
+
+服务跑在 `http://localhost:6277` 时，可以先用 `mcp-remote` 走完整条 OAuth 链路（探测 → DCR → 浏览器同意 → PKCE 换 token）：
+
+```bash
+npx -y mcp-remote@0.16.0 http://localhost:6277/mcp 53682 --debug
+```
+
+- 回调端口 `53682` 不能被占用；需要换端口时同时改命令和客户端配置。
+- 第一次运行会自动注册客户端并打印授权 URL；浏览器里登录管理员账号，确认客户端和 scope 后点“允许”。
+- 授权完成后，访问令牌会以 `mcp:<客户端名>` 出现在 **设置 → 访问令牌**，删除即吊销。
+- 本地客户端如果没有公网 HTTPS 的 `client_id` 元数据文档，会回退到 DCR；**不要把 CIMD 的 `client_id` 指向 `localhost`/私网**，CIMD 抓取会按 SSRF 规则拒绝。
+
 ### 方式 B：创建 MCP 专用 Access Token
 
 在 Ech0 管理后台 **设置 → 访问令牌** 中创建一个新 Token：
