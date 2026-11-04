@@ -536,7 +536,11 @@
     "passwordPlaceholder": "パスワードを入力してください",
     "avatarUploading": "アバターをアップロード中...",
     "avatarUploadSuccess": "アバターをアップロードしました！",
-    "uploadFailed": "アップロードに失敗しました。しばらくしてから再試行してください"
+    "uploadFailed": "アップロードに失敗しました。しばらくしてから再試行してください",
+    "role": "ロール",
+    "roleOwner": "オーナー",
+    "roleAdmin": "管理者",
+    "roleMember": "メンバー"
   },
   "userManager": {
     "title": "ユーザー管理",

@@ -536,7 +536,11 @@
     "passwordPlaceholder": "Passwort eingeben",
     "avatarUploading": "Avatar wird hochgeladen…",
     "avatarUploadSuccess": "Avatar hochgeladen!",
-    "uploadFailed": "Upload fehlgeschlagen, bitte später erneut versuchen"
+    "uploadFailed": "Upload fehlgeschlagen, bitte später erneut versuchen",
+    "role": "Rolle",
+    "roleOwner": "Inhaber",
+    "roleAdmin": "Admin",
+    "roleMember": "Mitglied"
   },
   "userManager": {
     "title": "Benutzerverwaltung",

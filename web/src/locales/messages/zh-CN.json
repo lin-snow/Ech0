@@ -536,7 +536,11 @@
     "passwordPlaceholder": "请输入密码",
     "avatarUploading": "头像上传中...",
     "avatarUploadSuccess": "头像上传成功！",
-    "uploadFailed": "上传失败，请稍后再试"
+    "uploadFailed": "上传失败，请稍后再试",
+    "role": "身份",
+    "roleOwner": "所有者",
+    "roleAdmin": "管理员",
+    "roleMember": "成员"
   },
   "userManager": {
     "title": "用户管理",

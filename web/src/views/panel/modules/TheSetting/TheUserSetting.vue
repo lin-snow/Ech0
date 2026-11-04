@@ -51,6 +51,21 @@
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 min-h-10 py-1"
       >
         <h2 class="font-semibold min-w-28 md:min-w-36 shrink-0 break-words leading-5">
+          {{ t('userSetting.role') }}:
+        </h2>
+        <span
+          v-if="roleBadge"
+          class="inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset"
+          :class="roleBadge.className"
+        >
+          {{ roleBadge.label }}
+        </span>
+      </div>
+
+      <div
+        class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 min-h-10 py-1"
+      >
+        <h2 class="font-semibold min-w-28 md:min-w-36 shrink-0 break-words leading-5">
           {{ t('userSetting.username') }}:
         </h2>
         <span v-if="!editMode" class="flex-1 min-w-0 truncate" v-tooltip="user?.username">{{
@@ -147,6 +162,27 @@ const userInfo = ref<App.Api.User.UserInfo>({
 const editMode = ref<boolean>(false)
 const saving = ref<boolean>(false)
 const avatarSrc = computed(() => resolveAvatarUrl(user.value?.avatar))
+const roleBadge = computed<{ label: string; className: string } | null>(() => {
+  if (!user.value) return null
+  if (user.value.is_owner) {
+    return {
+      label: String(t('userSetting.roleOwner')),
+      className:
+        'bg-[var(--color-accent-soft)] text-[var(--color-accent)] ring-[var(--color-accent)]/25',
+    }
+  }
+  if (user.value.is_admin) {
+    return {
+      label: String(t('userSetting.roleAdmin')),
+      className:
+        'bg-[var(--color-bg-muted)] text-[var(--color-text-primary)] ring-[var(--color-border-subtle)]',
+    }
+  }
+  return {
+    label: String(t('userSetting.roleMember')),
+    className: 'text-[var(--color-text-muted)] ring-[var(--color-border-subtle)]',
+  }
+})
 const localeOptions = LOCALE_OPTIONS
 const localeLabel = computed(
   () => LOCALE_ENDONYMS[userInfo.value.locale as AppLocale] || LOCALE_ENDONYMS['zh-CN'],

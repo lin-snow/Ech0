@@ -536,7 +536,11 @@
     "passwordPlaceholder": "Enter password",
     "avatarUploading": "Uploading avatar...",
     "avatarUploadSuccess": "Avatar uploaded successfully!",
-    "uploadFailed": "Upload failed, please try again later"
+    "uploadFailed": "Upload failed, please try again later",
+    "role": "Role",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin",
+    "roleMember": "Member"
   },
   "userManager": {
     "title": "User Manager",
