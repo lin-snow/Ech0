@@ -9,7 +9,21 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.3] - 2026-11-04
+
+### Added
+
+- **First-run onboarding.** Claiming an instance now walks the owner through three setup steps — publish the first Echo, give the site its own name, set the site URL — as a paper-styled checklist derived from live data rather than stored progress, so a row ticks off as the underlying Echo count or setting changes and the list disappears only when all three are done (or the owner hides it). The first public Echo adds a one-time share card, and first-run setup now asks for the site title, applying it only while the title is still the shipped default. Both cards use `TheSketchFrame`, a reusable hand-drawn dashed frame that the Explore empty state reuses.
+
 ### Changed
+
+- **Widget headers now share one type system.** The status widgets, the dashboard chart panels and the embeddable `/widget` page use a single-line 18px display title with an 18px colored icon and an optional right-aligned meta label; the serif + handwritten two-line lockup is gone, along with the unused `--font-family-handwritten` token and the duplicated header CSS in seven components. Daily Log loses its date chip and gains a colored calendar icon, and every header is 24px tall instead of 41–64px, leaving the content to carry the hierarchy.
+
+- **The Explore tab has a purposeful empty state.** A hand-drawn frame with dashed ghost list rows replaces the bare sentence, and the copy follows the visitor: guests are no longer told to add a Connect in settings — they see that no Ech0 has been connected yet, so other people's Echoes cannot be discovered — while a connected hub with nothing to show says so instead of repeating the setup hint.
+
+- **Connect lookups refresh in the background.** Cached peers render immediately and revalidate, editing a Connect drops the cached peer info, and the status tab starts the lookup before its widgets mount, so the Connect card no longer waits behind the AI summary.
+
+- **The system log is easier to scan.** The keyword field filters on Enter, the level select gets a proper chevron, and levels are color-coded (debug muted, warn accent, error danger).
 
 - **The `/rss` browser view no longer depends on client-side XSLT.** Microsoft Edge removes XSLT in v159 (Canary/Dev/Beta v157) and the origin-trial/policy escape hatches expire at v176, so the `<?xml-stylesheet?>` route would have degraded to a raw Atom dump. `GET /rss` now content-negotiates on `Accept`: browsers receive a server-rendered `text/html` page (same paper-themed light/dark layout, now with the feed URL injected server-side instead of by script), while feed readers keep receiving `application/atom+xml` with the same entries and no stylesheet processing instruction. `web/public/rss.xsl` is deleted.
 
