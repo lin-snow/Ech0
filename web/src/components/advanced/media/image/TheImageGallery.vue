@@ -43,7 +43,6 @@
       v-if="layoutValue === ImageLayout.HORIZONTAL"
       :images="images"
       :resolved-srcs="resolvedSrcs"
-      :scroll-hint-text="t('imageGallery.scrollHint')"
       :get-alt="getAlt"
       :get-image-key="getImageKey"
       :is-loaded="isImageLoaded"

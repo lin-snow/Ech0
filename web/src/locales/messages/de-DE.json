@@ -1072,7 +1072,8 @@
   "imageGallery": {
     "previewImage": "Bild {index} anzeigen",
     "prevImage": "Vorheriges Bild",
-    "nextImage": "Nächstes Bild"
+    "nextImage": "Nächstes Bild",
+    "goToImage": "Zu Bild {index} springen"
   },
   "audioPlayer": {
     "unsupported": "Ihr Browser unterstützt keine Audiowiedergabe",

@@ -25,7 +25,6 @@ export type GalleryWithAspectRatioProps = GalleryImageHelperProps & {
 }
 
 export type GalleryHorizontalProps = GalleryWithImageKeyProps & {
-  scrollHintText: string
   getHorizontalAspectStyle: (
     image: App.Api.Ech0.FileObject,
     loaded: boolean,

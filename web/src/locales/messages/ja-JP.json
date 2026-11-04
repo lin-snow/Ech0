@@ -1072,7 +1072,8 @@
   "imageGallery": {
     "previewImage": "画像 {index} をプレビュー",
     "prevImage": "前の画像",
-    "nextImage": "次の画像"
+    "nextImage": "次の画像",
+    "goToImage": "{index} 枚目の画像へ移動"
   },
   "audioPlayer": {
     "unsupported": "お使いのブラウザは音声再生に対応していません",

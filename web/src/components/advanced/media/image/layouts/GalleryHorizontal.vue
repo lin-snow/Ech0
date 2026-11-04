@@ -2,47 +2,94 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="w-[88%] mx-auto mb-4">
-    <div ref="scrollRef" class="horizontal-scroll-container" @scroll="onScroll">
-      <div class="horizontal-scroll-wrapper">
-        <GalleryImageItem
-          v-for="(image, idx) in images"
-          :key="getImageKey(image, idx)"
-          :image="image"
-          :src="resolvedSrcs[idx] || ''"
-          :alt="getAlt(idx)"
-          :loaded="isLoaded(image, idx)"
-          :priority="!!priority && idx === 0"
-          button-class="horizontal-item rounded-lg shrink-0"
-          frame-class="h-full"
-          img-class="h-full w-auto object-contain"
-          :frame-style="getHorizontalAspectStyle(image, isLoaded(image, idx))"
-          @click="open(idx, $event)"
-          @load="onItemLoad(image, idx)"
-          @error="onItemLoad(image, idx)"
-        />
+    <div class="horizontal-gallery">
+      <div ref="scrollRef" class="horizontal-scroll-container" @scroll="onScroll">
+        <div class="horizontal-scroll-wrapper">
+          <GalleryImageItem
+            v-for="(image, idx) in images"
+            :key="getImageKey(image, idx)"
+            :image="image"
+            :src="resolvedSrcs[idx] || ''"
+            :alt="getAlt(idx)"
+            :loaded="isLoaded(image, idx)"
+            :priority="!!priority && idx === 0"
+            button-class="horizontal-item rounded-lg shrink-0"
+            frame-class="h-full"
+            img-class="h-full w-auto object-contain"
+            :frame-style="getHorizontalAspectStyle(image, isLoaded(image, idx))"
+            @click="open(idx, $event)"
+            @load="onItemLoad(image, idx)"
+            @error="onItemLoad(image, idx)"
+          />
+        </div>
       </div>
-    </div>
-    <div
-      class="horizontal-scroll-bar"
-      :class="{ 'horizontal-scroll-bar--idle': !overflows }"
-      role="scrollbar"
-      aria-orientation="horizontal"
-      :aria-valuenow="Math.round(scrollProgress * 100)"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      @pointerdown="onTrackPointerDown"
-    >
-      <div class="horizontal-scroll-bar__thumb" :style="thumbStyle" />
+
+      <button
+        v-if="overflows"
+        class="gallery-arrow gallery-arrow--prev"
+        type="button"
+        :disabled="!canScrollPrev"
+        :aria-label="t('imageGallery.prevImage')"
+        @click.stop="scrollByPage(-1)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="m14.5 6-6 6 6 6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+
+      <button
+        v-if="overflows"
+        class="gallery-arrow gallery-arrow--next"
+        type="button"
+        :disabled="!canScrollNext"
+        :aria-label="t('imageGallery.nextImage')"
+        @click.stop="scrollByPage(1)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="m9.5 6 6 6-6 6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+
+      <div v-if="overflows && images.length > 1" class="gallery-segments">
+        <div class="gallery-segments__track" role="group" @pointerdown="onSegmentsPointerDown">
+          <button
+            v-for="(image, idx) in images"
+            :key="`segment-${getImageKey(image, idx)}`"
+            class="gallery-segment"
+            :class="{ 'gallery-segment--active': idx === activeIndex }"
+            type="button"
+            :aria-label="t('imageGallery.goToImage', { index: idx + 1 })"
+            :aria-current="idx === activeIndex ? 'step' : undefined"
+            @click="scrollToIndex(idx)"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import GalleryImageItem from '../parts/GalleryImageItem.vue'
 import type { GalleryHorizontalProps } from './types'
 
 const props = defineProps<GalleryHorizontalProps>()
+const { t } = useI18n()
 
 const scrollRef = ref<HTMLDivElement | null>(null)
 const scrollWidth = ref(0)
@@ -50,20 +97,15 @@ const clientWidth = ref(0)
 const scrollLeft = ref(0)
 
 const overflows = computed(() => scrollWidth.value - clientWidth.value > 1)
-const scrollProgress = computed(() => {
-  const max = scrollWidth.value - clientWidth.value
-  if (max <= 0) return 0
-  return Math.min(1, Math.max(0, scrollLeft.value / max))
-})
+const canScrollPrev = computed(() => scrollLeft.value > 1)
+const canScrollNext = computed(() => scrollWidth.value - clientWidth.value - scrollLeft.value > 1)
 
-const thumbStyle = computed(() => {
-  if (!overflows.value) {
-    return { width: '100%', left: '0%' }
-  }
-  const ratio = clientWidth.value / scrollWidth.value
-  const widthPct = Math.max(12, ratio * 100)
-  const leftPct = (100 - widthPct) * scrollProgress.value
-  return { width: `${widthPct}%`, left: `${leftPct}%` }
+const activeIndex = computed(() => {
+  const max = scrollWidth.value - clientWidth.value
+  const count = props.images.length
+  if (max <= 0 || count <= 1) return 0
+  const progress = Math.min(1, Math.max(0, scrollLeft.value / max))
+  return Math.round(progress * (count - 1))
 })
 
 const updateMetrics = () => {
@@ -78,6 +120,50 @@ const onScroll = () => {
   const el = scrollRef.value
   if (!el) return
   scrollLeft.value = el.scrollLeft
+}
+
+const scrollByPage = (direction: 1 | -1) => {
+  const el = scrollRef.value
+  if (!el) return
+  const step = Math.max(120, el.clientWidth * 0.85)
+  el.scrollBy({ left: direction * step, behavior: 'smooth' })
+}
+
+const scrollToIndex = (index: number, behavior: ScrollBehavior = 'smooth') => {
+  const el = scrollRef.value
+  const count = props.images.length
+  if (!el || count <= 1) return
+  const max = el.scrollWidth - el.clientWidth
+  if (max <= 0) return
+  const clamped = Math.min(count - 1, Math.max(0, index))
+  el.scrollTo({ left: (max * clamped) / (count - 1), behavior })
+}
+
+const onSegmentsPointerDown = (event: PointerEvent) => {
+  const track = event.currentTarget as HTMLElement | null
+  const count = props.images.length
+  if (!track || count <= 1 || !overflows.value) return
+  const rect = track.getBoundingClientRect()
+  if (rect.width <= 0) return
+
+  const seek = (clientX: number) => {
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    scrollToIndex(Math.round(ratio * (count - 1)), 'auto')
+  }
+
+  track.setPointerCapture?.(event.pointerId)
+  seek(event.clientX)
+
+  const onMove = (e: PointerEvent) => seek(e.clientX)
+  const onUp = () => {
+    track.releasePointerCapture?.(event.pointerId)
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onUp)
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onUp)
 }
 
 const onItemLoad = (image: App.Api.Ech0.FileObject, idx: number) => {
@@ -107,66 +193,19 @@ watch(
   () => nextTick(updateMetrics),
   { deep: true },
 )
-
-const onTrackPointerDown = (event: PointerEvent) => {
-  if (!overflows.value) return
-  const el = scrollRef.value
-  const target = event.currentTarget as HTMLElement | null
-  if (!el || !target) return
-  const rect = target.getBoundingClientRect()
-  const max = scrollWidth.value - clientWidth.value
-  if (max <= 0) return
-  const ratio = clientWidth.value / scrollWidth.value
-  const thumbWidthPx = Math.max(rect.width * ratio, rect.width * 0.12)
-  const travel = Math.max(1, rect.width - thumbWidthPx)
-
-  const thumbLeftPx = max <= 0 ? 0 : (scrollLeft.value / max) * travel
-  const localX = event.clientX - rect.left
-  const insideThumb = localX >= thumbLeftPx && localX <= thumbLeftPx + thumbWidthPx
-  const grabOffset = insideThumb ? localX - thumbLeftPx : thumbWidthPx / 2
-
-  let pendingX: number | null = null
-  let rafId = 0
-  const flush = () => {
-    rafId = 0
-    if (pendingX === null) return
-    const x = pendingX - rect.left - grabOffset
-    pendingX = null
-    const pct = Math.min(1, Math.max(0, x / travel))
-    el.scrollTo({ left: pct * max, behavior: 'instant' as ScrollBehavior })
-  }
-  const seek = (clientX: number) => {
-    pendingX = clientX
-    if (!rafId) rafId = requestAnimationFrame(flush)
-  }
-
-  target.setPointerCapture?.(event.pointerId)
-  seek(event.clientX)
-
-  const onMove = (e: PointerEvent) => seek(e.clientX)
-  const onUp = () => {
-    if (rafId) {
-      cancelAnimationFrame(rafId)
-      rafId = 0
-      flush()
-    }
-    target.releasePointerCapture?.(event.pointerId)
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onUp)
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onUp)
-}
 </script>
 
 <style scoped>
-.horizontal-scroll-container {
+.horizontal-gallery {
   position: relative;
+  width: 100%;
+}
+
+.horizontal-scroll-container {
   width: 100%;
   overflow: auto hidden;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .horizontal-scroll-container::-webkit-scrollbar {
@@ -186,34 +225,126 @@ const onTrackPointerDown = (event: PointerEvent) => {
   overflow: hidden;
 }
 
-.horizontal-scroll-bar {
-  position: relative;
-  width: 100%;
-  height: 6px;
-  margin-top: 10px;
-  border-radius: 9999px;
-  background: color-mix(in oklab, var(--color-text-muted) 18%, transparent);
-  cursor: pointer;
+.gallery-segments {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.gallery-segments__track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
   touch-action: none;
+  user-select: none;
 }
 
-.horizontal-scroll-bar--idle {
-  cursor: default;
-  opacity: 0.55;
+.gallery-segment {
+  position: relative;
+  width: 18px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-.horizontal-scroll-bar__thumb {
+.gallery-segment::after {
+  content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
-  height: 100%;
+  inset: 5px 0;
   border-radius: 9999px;
-  background: color-mix(in oklab, var(--color-text-muted) 70%, transparent);
-  transition: background 0.15s ease;
-  will-change: left, width;
+  background: var(--color-gallery-scrollbar);
+  transition: background 0.18s ease;
 }
 
-.horizontal-scroll-bar:not(.horizontal-scroll-bar--idle):hover .horizontal-scroll-bar__thumb {
-  background: var(--color-text-secondary);
+.gallery-segment:hover::after {
+  background: color-mix(in oklab, var(--color-text-muted) 55%, transparent);
+}
+
+.gallery-segment--active::after,
+.gallery-segment--active:hover::after {
+  background: color-mix(in oklab, var(--color-text-primary) 72%, transparent);
+}
+
+.gallery-segment:focus-visible {
+  border-radius: 9999px;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.gallery-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--color-bg-surface) 82%, transparent);
+  color: var(--color-text-secondary);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  opacity: 1;
+  transform: translateY(-50%);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.gallery-arrow svg {
+  width: 20px;
+  height: 20px;
+}
+
+.gallery-arrow--prev {
+  left: 6px;
+}
+
+.gallery-arrow--next {
+  right: 6px;
+}
+
+.gallery-arrow:hover {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+.gallery-arrow:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Pointer devices: reveal the arrows on hover / keyboard focus. */
+@media (any-hover: hover) {
+  .horizontal-gallery .gallery-arrow {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.92);
+  }
+
+  .horizontal-gallery:hover .gallery-arrow,
+  .horizontal-gallery .gallery-arrow:focus-visible {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+.horizontal-gallery .gallery-arrow:disabled {
+  pointer-events: none;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-arrow {
+    transition: none;
+  }
 }
 </style>
