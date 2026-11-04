@@ -195,7 +195,7 @@ dist/
 
 胶囊格式是**公开规范**，你可以手写，也可以写转换器把别家的数据变成胶囊再导入。最小可用的一条 Echo 只需要 `id` 和 `created_at`——`id` 缺了用 `ech0 check --fix` 生成即可。时间接受任意合法 RFC3339 偏移（写 `+08:00` 也行）。
 
-完整规范见仓库 **[Capsule 规格](https://github.com/lin-snow/Ech0/blob/main/docs/dev/capsule/spec.md)**，操作细节见 **[使用说明](https://github.com/lin-snow/Ech0/blob/main/docs/usage/capsule.md)**。
+除 `id` 与 `created_at` 外，其余字段缺省时按空值处理，导入端不会因此拒绝。
 
 ---
 

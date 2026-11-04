@@ -204,7 +204,7 @@ Ech0 同时是 `/mcp` 的 **OAuth 2.1 授权服务器**，对齐 MCP 2026-07-28 
 - **2026-07-28（最新）**：无状态，没有 `initialize`，每个请求自带 `_meta` 与 `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` 头。
 - **2025-11-25 / 2025-06-18 / 2025-03-26**：传统 `initialize` 握手，之后只需带 `MCP-Protocol-Version` 头。
 
-服务端不发放会话（无 `Mcp-Session-Id`），`GET` / `DELETE /mcp` 返回 405。详见 [MCP 接入指南](https://github.com/lin-snow/Ech0/blob/main/docs/usage/mcp-usage.md#协议兼容)。
+服务端不发放会话（无 `Mcp-Session-Id`），`GET` / `DELETE /mcp` 返回 405。
 
 ---
 
@@ -242,5 +242,4 @@ curl -X POST "https://你的域名/mcp" \
 
 ## 延伸阅读
 
-- 仓库内实现说明：[internal/mcp/README.md](https://github.com/lin-snow/Ech0/blob/main/internal/mcp/README.md)
-- [访问令牌](/docs/guide/accesstoken) · [事件推送](/docs/guide/webhook) · [评论系统](/docs/guide/comment)
+- [访问令牌](/docs/guide/accesstoken) · [命令行（CLI）](/docs/guide/cli) · [事件推送](/docs/guide/webhook) · [评论系统](/docs/guide/comment)
