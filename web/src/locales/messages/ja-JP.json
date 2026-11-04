@@ -284,9 +284,8 @@
     "initDone": "初期化が完了しました",
     "alreadyInitializedRedirect": "システムは初期化済みです。ログイン画面へ移動します",
     "initFailed": "初期化に失敗しました",
-    "introKicker": "初回セットアップ",
-    "introHeading": "インスタンスを初期化",
-    "introDescription": "オーナーアカウントを作成し、サイト名を決めて、すぐに書き始めましょう。",
+    "introHeading": "Ech0 をはじめる",
+    "introDescription": "Owner アカウントを作成し、サイトの基本設定を完了して、あなたの記録スペースを始めましょう。",
     "siteTitlePlaceholder": "サイト名（任意）",
     "autoLoginFailed": "オーナーを作成しました。ログインしてください。"
   },
@@ -1073,8 +1072,7 @@
   "imageGallery": {
     "previewImage": "画像 {index} をプレビュー",
     "prevImage": "前の画像",
-    "nextImage": "次の画像",
-    "scrollHint": "← 左右にスワイプで続きを表示 →"
+    "nextImage": "次の画像"
   },
   "audioPlayer": {
     "unsupported": "お使いのブラウザは音声再生に対応していません",

@@ -284,9 +284,8 @@
     "initDone": "Initialisierung abgeschlossen",
     "alreadyInitializedRedirect": "System bereits initialisiert, Weiterleitung zur Anmeldung",
     "initFailed": "Initialisierung fehlgeschlagen",
-    "introKicker": "Erste Einrichtung",
-    "introHeading": "Instanz initialisieren",
-    "introDescription": "Lege das Owner-Konto an, benenne deine Seite und schreib direkt los.",
+    "introHeading": "Mit Ech0 loslegen",
+    "introDescription": "Erstelle das Owner-Konto, schließe die Grundeinrichtung der Seite ab und eröffne deinen persönlichen Aufzeichnungsraum.",
     "siteTitlePlaceholder": "Seitenname (optional)",
     "autoLoginFailed": "Owner erstellt. Bitte anmelden."
   },
@@ -1073,8 +1072,7 @@
   "imageGallery": {
     "previewImage": "Bild {index} anzeigen",
     "prevImage": "Vorheriges Bild",
-    "nextImage": "Nächstes Bild",
-    "scrollHint": "← Wischen, um mehr zu sehen →"
+    "nextImage": "Nächstes Bild"
   },
   "audioPlayer": {
     "unsupported": "Ihr Browser unterstützt keine Audiowiedergabe",

@@ -284,9 +284,8 @@
     "initDone": "Initialization completed",
     "alreadyInitializedRedirect": "System already initialized, redirecting to login",
     "initFailed": "Initialization failed",
-    "introKicker": "First setup",
-    "introHeading": "Claim your instance",
-    "introDescription": "Create the owner account, name your site, and start writing.",
+    "introHeading": "Get started with Ech0",
+    "introDescription": "Create the owner account, finish the basic site setup, and open your personal record space.",
     "siteTitlePlaceholder": "Site name (optional)",
     "autoLoginFailed": "Owner created. Please sign in."
   },
@@ -1073,8 +1072,7 @@
   "imageGallery": {
     "previewImage": "Preview image {index}",
     "prevImage": "Previous image",
-    "nextImage": "Next image",
-    "scrollHint": "← Swipe left/right to see more →"
+    "nextImage": "Next image"
   },
   "audioPlayer": {
     "unsupported": "Your browser does not support audio playback",

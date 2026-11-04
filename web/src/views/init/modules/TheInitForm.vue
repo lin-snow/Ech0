@@ -1,61 +1,66 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <section
-    class="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)]/40 p-3 sm:p-3.5"
+  <TheSketchFrame
+    :seed="4"
+    :radius="10"
+    class="w-full rounded-[10px] bg-[var(--color-bg-muted)]/40"
   >
-    <form class="space-y-3" @submit.prevent="emit('submit')">
-      <BaseInput
-        :model-value="email"
-        @update:model-value="emit('update:email', String($event))"
-        type="email"
-        :placeholder="t('init.ownerEmailPlaceholder')"
-        autocomplete="email"
-        required
-      />
+    <section class="w-full p-3.5 sm:p-4">
+      <form class="space-y-3" @submit.prevent="emit('submit')">
+        <BaseInput
+          :model-value="email"
+          @update:model-value="emit('update:email', String($event))"
+          type="email"
+          :placeholder="t('init.ownerEmailPlaceholder')"
+          autocomplete="email"
+          required
+        />
 
-      <BaseInput
-        :model-value="username"
-        @update:model-value="emit('update:username', String($event))"
-        type="text"
-        :placeholder="t('init.ownerUsernamePlaceholder')"
-        autocomplete="username"
-        required
-      />
+        <BaseInput
+          :model-value="username"
+          @update:model-value="emit('update:username', String($event))"
+          type="text"
+          :placeholder="t('init.ownerUsernamePlaceholder')"
+          autocomplete="username"
+          required
+        />
 
-      <BaseInput
-        :model-value="password"
-        @update:model-value="emit('update:password', String($event))"
-        type="password"
-        :placeholder="t('init.ownerPasswordPlaceholder')"
-        autocomplete="new-password"
-        required
-      />
+        <BaseInput
+          :model-value="password"
+          @update:model-value="emit('update:password', String($event))"
+          type="password"
+          :placeholder="t('init.ownerPasswordPlaceholder')"
+          autocomplete="new-password"
+          required
+        />
 
-      <BaseInput
-        :model-value="siteTitle"
-        @update:model-value="emit('update:siteTitle', String($event))"
-        type="text"
-        :placeholder="t('init.siteTitlePlaceholder')"
-        autocomplete="organization"
-      />
+        <BaseInput
+          :model-value="siteTitle"
+          @update:model-value="emit('update:siteTitle', String($event))"
+          type="text"
+          :placeholder="t('init.siteTitlePlaceholder')"
+          autocomplete="organization"
+        />
 
-      <BaseButton
-        type="submit"
-        :disabled="submitting"
-        class="w-full h-8.5 rounded-md disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        <span class="text-[var(--color-text-secondary)]">
-          {{ submitting ? t('init.initializing') : t('init.initialize') }}
-        </span>
-      </BaseButton>
-    </form>
-  </section>
+        <BaseButton
+          type="submit"
+          :disabled="submitting"
+          class="w-full h-8.5 rounded-md disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <span class="text-[var(--color-text-secondary)]">
+            {{ submitting ? t('init.initializing') : t('init.initialize') }}
+          </span>
+        </BaseButton>
+      </form>
+    </section>
+  </TheSketchFrame>
 </template>
 
 <script setup lang="ts">
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import TheSketchFrame from '@/components/common/TheSketchFrame.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()

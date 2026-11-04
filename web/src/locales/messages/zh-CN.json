@@ -284,9 +284,8 @@
     "initDone": "初始化完成",
     "alreadyInitializedRedirect": "系统已初始化，正在跳转登录",
     "initFailed": "初始化失败",
-    "introKicker": "首次设置",
-    "introHeading": "初始化系统",
-    "introDescription": "创建 Owner 账号，为站点取个名字，然后直接开始写。",
+    "introHeading": "开始使用 Ech0",
+    "introDescription": "创建 Owner 账号，完成站点基本设置，开启你的个人记录空间。",
     "siteTitlePlaceholder": "站点名称（可留空）",
     "autoLoginFailed": "Owner 已创建，请手动登录。"
   },
@@ -1073,8 +1072,7 @@
   "imageGallery": {
     "previewImage": "预览图片{index}",
     "prevImage": "上一张图片",
-    "nextImage": "下一张图片",
-    "scrollHint": "← 左右滑动查看更多 →"
+    "nextImage": "下一张图片"
   },
   "audioPlayer": {
     "unsupported": "您的浏览器不支持音频播放",
