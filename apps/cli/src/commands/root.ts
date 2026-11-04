@@ -124,7 +124,7 @@ function authCommand(): Command {
     "--token -：从 stdin 读取 access token（CI 也可用 ECH0_TOKEN）",
     "-u <name>：密码登录；管理员会额外铸造 audience=cli 的 1 个月令牌，普通用户保存会话令牌 + refresh cookie",
     `--scopes：只在密码/设备登录铸造令牌时生效，默认 ${auth.DEFAULT_CLI_SCOPES.join(",")}`,
-    "凭据按 profile 保存（ech0 config list 查看）；--no-keychain 或 ECH0_NO_KEYCHAIN=1 可跳过系统钥匙串",
+    "凭据按 profile 保存（ech0 config list 查看）；ECH0_NO_KEYCHAIN=1 可跳过系统钥匙串（强制写文件）",
   ]);
 
   group

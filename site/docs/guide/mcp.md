@@ -5,7 +5,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 **MCP（Model Context Protocol）** 是一套让「AI 客户端」和「你的服务」用统一方式对话的协议。Ech0 内建了 MCP Server：在**不另外起进程**的前提下，把帖子、评论、文件、互联等能力以 **Tools** 和 **Resources** 暴露给 Cursor、Claude Desktop 等支持 **远程 MCP（HTTP）** 的宿主。
 
-传输层为 **Streamable HTTP**（JSON-RPC 2.0 over HTTP），与主服务**同一端口**；鉴权与 REST API 一样使用 **`Authorization: Bearer`**，但 **Audience 必须是 `mcp-remote`**，否则返回 **403**。
+传输层为 **Streamable HTTP**（JSON-RPC 2.0 over HTTP），与主服务**同一端口**。鉴权有两种：**OAuth 2.1 授权码 + PKCE**（推荐，客户端自动发现并弹浏览器授权），或直接使用一枚 **Audience 为 `mcp-remote`** 的访问令牌；Audience 不匹配返回 **403**，令牌缺失或失效时 `/mcp` 的 **401** 会带 `resource_metadata`，指向本实例的授权服务器。
 
 ---
 
@@ -29,7 +29,29 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 ---
 
-## 第一步：创建 MCP 专用令牌
+## OAuth 2.1（推荐，无需手工复制令牌）
+
+Ech0 同时是 `/mcp` 的 **OAuth 2.1 授权服务器**，对齐 MCP 2026-07-28 的授权发现流程。支持远程 OAuth 的客户端通常会自动完成：请求 `/mcp` 拿到带 `resource_metadata` 的 401 → 读取受保护资源元数据 → 注册客户端 → 打开浏览器授权 → 换取令牌。
+
+| 用途                           | 路径                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| 受保护资源元数据（RFC 9728）   | `/.well-known/oauth-protected-resource`、`/.well-known/oauth-protected-resource/mcp` |
+| 授权服务器元数据（RFC 8414）   | `/.well-known/oauth-authorization-server`                                            |
+| 授权（授权码）                 | `/oauth/authorize`                                                                   |
+| 令牌                           | `/oauth/token`                                                                       |
+| 动态客户端注册（旧客户端兼容） | `/oauth/register`                                                                    |
+
+- 只支持 **授权码 + PKCE（S256）** 的公共客户端（`token_endpoint_auth_method=none`）；没有 client secret，也暂不提供 refresh token 和撤销端点（令牌在「访问令牌」列表里吊销）。
+- 客户端身份优先走 **CIMD**（`client_id` 是客户端元数据文档的 URL）；尚未支持 CIMD 的客户端仍可用 DCR 自动注册，注册接口有限流。
+- **授权必须由管理员的浏览器会话完成**：同意页会按「内容 / 文件 / 互联 / 管理」分组列出客户端申请的 scope，只能整体同意或拒绝；访问令牌本身不能审批。
+- 授权签发的令牌 `audience=mcp-remote`，与手动令牌同源，可在「访问令牌」列表中查看与吊销。
+- 服务端只向当前令牌展示**它实际能调用**的 Tools / Resources；scope 不够的能力不会出现在 `tools/list` 里。
+
+客户端不支持远程 OAuth 发现，或你只想在脚本里用 Bearer 时，改用下面的手动令牌方式。
+
+---
+
+## 手动令牌：创建 MCP 专用令牌
 
 在 **系统设置 → 访问令牌** 新建：
 
@@ -48,7 +70,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 ---
 
-## 第二步：在 MCP 客户端里配置
+## 在 MCP 客户端里配置
 
 将 `url` 指向你的实例的 **`/mcp`**，并带上 Bearer 头（占位符换成真实令牌与域名）：
 
@@ -86,11 +108,12 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 ## 端点说明
 
-| 方法   | 路径   | 说明                    |
-| ------ | ------ | ----------------------- |
-| `GET`  | `/mcp` | 服务状态信息            |
-| `POST` | `/mcp` | JSON-RPC 请求（主入口） |
+| 方法   | 路径   | 说明                      |
+| ------ | ------ | ------------------------- |
+| `POST` | `/mcp` | JSON-RPC 请求（唯一入口） |
 
+- `GET` 与 `DELETE /mcp` 返回 **405**：服务端不发放会话，也没有 `Mcp-Session-Id`。
+- 能力清单在 **`GET /api/mcp/manifest`**（需要 `mcp:read`），返回工具名、scope 与是否破坏性；客户端若只需要展示能力，不必先建 `mcp-remote` 令牌。
 - **协议版本**（随版本升级可能变化）：以当前实例返回为准。
 - 请求限流、请求体大小限制等以服务端实现为准；生产环境建议 **HTTPS** 并置于反向代理之后。
 
@@ -98,23 +121,23 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 ## 能力总览（Tools / Resources）
 
-下列为当前实现中暴露的主要能力；**每个 Tool/Resource 都会单独校验 Scope**，无权限会拒绝。
+下列为当前实现中暴露的主要能力；**每个 Tool/Resource 都会单独校验 Scope**。`tools/list`、`resources/list` 与 `resources/templates/list` 会按当前令牌过滤——没有权限的能力不会出现；标记为破坏性的 Tool 在支持确认流程的客户端上会先要求一次显式确认（服务端签发单次 state）。
 
 ### 帖子与标签（`echo:read` / `echo:write` / `echo:delete`）
 
-| 类型              | 名称                                          | 说明                                  |
-| ----------------- | --------------------------------------------- | ------------------------------------- |
-| Tool              | `search_posts`                                | 关键词 / 标签搜索，分页               |
-| Tool              | `get_post`                                    | 按 UUID 取单篇                        |
-| Tool              | `get_today_posts`                             | 当日帖子（可带时区）                  |
-| Tool              | `list_tags`                                   | 标签列表与计数                        |
-| Tool              | `create_post` / `update_post` / `delete_post` | 创建 / 更新 / 删除                    |
-| Tool              | `like_post`                                   | 点赞                                  |
-| Tool              | `delete_tag`                                  | 删除标签并解除关联                    |
-| Resource          | `ech0://posts/recent`                         | 最近帖子                              |
-| Resource Template | `ech0://posts/{id}`                           | 单篇（见 `resources/templates/list`） |
-| Resource          | `ech0://tags`                                 | 全部标签                              |
-| Resource          | `ech0://stats/heatmap`                        | 热力图数据                            |
+| 类型              | 名称                                                          | 说明                                  |
+| ----------------- | ------------------------------------------------------------- | ------------------------------------- |
+| Tool              | `search_posts`                                                | 关键词 / 标签搜索，分页               |
+| Tool              | `get_post`                                                    | 按 UUID 取单篇                        |
+| Tool              | `get_today_posts`                                             | 当日帖子（可带时区）                  |
+| Tool              | `list_tags`                                                   | 标签列表与计数                        |
+| Tool              | `create_post` / `update_post` / `delete_post`                 | 创建 / 更新 / 删除                    |
+| Tool              | `like_post`                                                   | 点赞                                  |
+| Tool              | `delete_tag`                                                  | 删除标签并解除关联                    |
+| Tool              | `get_hot_posts` / `get_random_post` / `get_on_this_day_posts` | 热门 / 随机 / 那年今日                |
+| Resource          | `ech0://posts/recent`                                         | 最近帖子                              |
+| Resource Template | `ech0://posts/{id}`                                           | 单篇（见 `resources/templates/list`） |
+| Resource          | `ech0://tags`                                                 | 全部标签                              |
 
 ### 评论（`comment:read` / `comment:write`）
 
@@ -156,6 +179,13 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 | 类型 | 名称                                                                                      | 说明                            |
 | ---- | ----------------------------------------------------------------------------------------- | ------------------------------- |
 | Tool | `list_webhooks` / `create_webhook` / `update_webhook` / `delete_webhook` / `test_webhook` | 管理 Webhook（列表不含 secret） |
+
+### 统计（`echo:read` / `admin:ops`）
+
+| 类型     | 名称                    | 说明                              |
+| -------- | ----------------------- | --------------------------------- |
+| Resource | `ech0://stats/heatmap`  | 近 30 天每日发帖数（`echo:read`） |
+| Resource | `ech0://stats/visitors` | 近 7 天 PV / UV（需 `admin:ops`） |
 
 ### 用户（`profile:read`）
 

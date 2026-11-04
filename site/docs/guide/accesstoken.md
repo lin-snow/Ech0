@@ -34,12 +34,12 @@ Authorization: Bearer <令牌>
 
 可以把 **Audience** 理解成「这枚令牌**打算给谁用**」——同一套 Scope 在不同 Audience 下，**能访问的入口可能不同**。后台下拉里四项与内部取值对应如下（以中文界面为准）：
 
-| 界面名称            | 内部值          | 典型用途                                                                                                              |
-| ------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **公开客户端**      | `public-client` | 浏览器外的一般 API 调用、自建小工具                                                                                   |
-| **命令行**          | `cli`           | 命令行或脚本（与「公开客户端」类似，按习惯区分用途）                                                                  |
-| **系统集成**        | `integration`   | **集成评论**等：`POST /api/comments/integration`（需同时勾选 `comment:write` 等，见 [评论系统](/docs/guide/comment)） |
-| **MCP（AI Agent）** | `mcp-remote`    | **仅**用于连接 **`/mcp`**（Cursor、Claude Desktop 等）。用错 Audience 访问 MCP 会 **403**                             |
+| 界面名称            | 内部值          | 典型用途                                                                                                                   |
+| ------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **公开客户端**      | `public-client` | 浏览器外的一般 API 调用、自建小工具                                                                                        |
+| **命令行**          | `cli`           | `ech0` CLI 与脚本（见 [命令行（CLI）](/docs/guide/cli)）                                                                   |
+| **系统集成**        | `integration`   | **集成评论**等：`POST /api/comments/integration`（需同时勾选 `comment:write` 等，见 [评论系统](/docs/guide/comment)）      |
+| **MCP（AI Agent）** | `mcp-remote`    | **仅**用于连接 **`/mcp`**（Cursor、Claude Desktop 等）。也可由 MCP 的 OAuth 授权自动签发（见 [MCP 接入](/docs/guide/mcp)） |
 
 **不要混用**：例如拿「公开客户端」令牌去调 `/mcp` 会被拒绝；做 AI 接入请单独建 **MCP（AI Agent）** 令牌，见 [MCP 接入](/docs/guide/mcp)。
 
@@ -49,34 +49,34 @@ Authorization: Bearer <令牌>
 
 勾选时遵循**最小权限**：只给脚本真正需要的权限。下面按「能做什么」说明（与后端常量一致）。
 
-| Scope                | 含义（白话）                                                       |
-| -------------------- | ------------------------------------------------------------------ |
-| `echo:read`          | 读公开时间线、单帖、标签等                                         |
-| `echo:write`         | 发布、编辑、点赞等写操作；**不含删除**                             |
-| `echo:delete`        | 删除帖子或标签                                                     |
-| `echo:private`       | 额外读取私密 Echo（需配合 `echo:read`）                            |
-| `comment:read`       | 读公开评论列表                                                     |
-| `comment:write`      | 发表评论（含集成评论路径，需配对 Audience）                        |
-| `comment:review`     | 审核面板读取、通过/拒绝、置顶                                      |
-| `comment:delete`     | 删除评论与批量操作                                                 |
-| `comment:settings`   | 评论设置与测试邮件                                                 |
-| `file:read`          | 读文件元数据、下载相关接口                                         |
-| `file:write`         | 上传、登记外链、编辑元信息；**不含删除**                           |
-| `file:delete`        | 删除文件                                                           |
-| `connect:read`       | 查看互联（Connect）配置与对端信息                                  |
-| `connect:write`      | 添加/编辑互联                                                      |
-| `connect:delete`     | 删除互联                                                           |
-| `profile:read`       | 读当前用户资料                                                     |
-| `profile:write`      | 修改个人资料（Passkey 与 OAuth 绑定只允许浏览器会话）              |
-| `admin:site`         | 站点品牌、CORS、系统设置                                           |
-| `admin:storage`      | S3 存储凭据与连接测试                                              |
-| `admin:auth`         | OAuth2 / Passkey 策略                                              |
-| `admin:webhook`      | Webhook 管理                                                       |
-| `admin:agent`        | Agent / Embedding / Copilot                                        |
-| `admin:data`         | 迁移、导入导出、快照计划                                           |
-| `admin:ops`          | 日志、更新检查、访问统计                                           |
-| `admin:user`         | 用户管理类接口                                                     |
-| `mcp:read`           | 读取 MCP manifest，不含任何 Tool 调用权限                          |
+| Scope              | 含义（白话）                                          |
+| ------------------ | ----------------------------------------------------- |
+| `echo:read`        | 读公开时间线、单帖、标签等                            |
+| `echo:write`       | 发布、编辑、点赞等写操作；**不含删除**                |
+| `echo:delete`      | 删除帖子或标签                                        |
+| `echo:private`     | 额外读取私密 Echo（需配合 `echo:read`）               |
+| `comment:read`     | 读公开评论列表                                        |
+| `comment:write`    | 发表评论（含集成评论路径，需配对 Audience）           |
+| `comment:review`   | 审核面板读取、通过/拒绝、置顶                         |
+| `comment:delete`   | 删除评论与批量操作                                    |
+| `comment:settings` | 评论设置与测试邮件                                    |
+| `file:read`        | 读文件元数据、下载相关接口                            |
+| `file:write`       | 上传、登记外链、编辑元信息；**不含删除**              |
+| `file:delete`      | 删除文件                                              |
+| `connect:read`     | 查看互联（Connect）配置与对端信息                     |
+| `connect:write`    | 添加/编辑互联                                         |
+| `connect:delete`   | 删除互联                                              |
+| `profile:read`     | 读当前用户资料                                        |
+| `profile:write`    | 修改个人资料（Passkey 与 OAuth 绑定只允许浏览器会话） |
+| `admin:site`       | 站点品牌、CORS、系统设置                              |
+| `admin:storage`    | S3 存储凭据与连接测试                                 |
+| `admin:auth`       | OAuth2 / Passkey 策略                                 |
+| `admin:webhook`    | Webhook 管理                                          |
+| `admin:agent`      | Agent / Embedding / Copilot                           |
+| `admin:data`       | 迁移、导入导出、快照计划                              |
+| `admin:ops`        | 日志、更新检查、访问统计                              |
+| `admin:user`       | 用户管理类接口                                        |
+| `mcp:read`         | 读取 MCP manifest，不含任何 Tool 调用权限             |
 
 包含 **`admin:*`** 的令牌威力大，仅在你完全信任的运行环境里使用，且**不要**提交到 Git 或截图外传。账号安全（Passkey、OAuth 绑定）、访问令牌管理和设备批准只接受浏览器会话，任何访问令牌都无法调用。
 
@@ -107,14 +107,14 @@ Authorization: Bearer <令牌>
 
 ## 常见场景对照
 
-| 你想做…                                | Audience                            | Scope（至少）                                                        |
-| -------------------------------------- | ----------------------------------- | -------------------------------------------------------------------- |
-| 只读拉取时间线、写脚本调 API           | **公开客户端** 或 **命令行**        | `echo:read`                                                          |
-| 脚本发帖                               | 同上                                | `echo:read`、`echo:write`                                            |
-| **集成评论**（无验证码、无表单 token） | **系统集成**                        | `comment:write`（并参考 Swagger 与 [评论系统](/docs/guide/comment)） |
-| **Cursor / MCP 客户端** 连 Ech0        | **MCP（AI Agent）**                 | 按 [MCP 接入](/docs/guide/mcp) 勾选                                  |
-| 删除帖子/文件/互联                     | 公开客户端或命令行                  | 对应资源的 `*:delete`                                                |
-| 管理 Webhook                           | 公开客户端等 + **`admin:webhook`**  | 仅 Webhook 面                                                        |
+| 你想做…                                | Audience                           | Scope（至少）                                                        |
+| -------------------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| 只读拉取时间线、写脚本调 API           | **公开客户端** 或 **命令行**       | `echo:read`                                                          |
+| 脚本发帖                               | 同上                               | `echo:read`、`echo:write`                                            |
+| **集成评论**（无验证码、无表单 token） | **系统集成**                       | `comment:write`（并参考 Swagger 与 [评论系统](/docs/guide/comment)） |
+| **Cursor / MCP 客户端** 连 Ech0        | **MCP（AI Agent）**                | 按 [MCP 接入](/docs/guide/mcp) 勾选                                  |
+| 删除帖子/文件/互联                     | 公开客户端或命令行                 | 对应资源的 `*:delete`                                                |
+| 管理 Webhook                           | 公开客户端等 + **`admin:webhook`** | 仅 Webhook 面                                                        |
 
 ---
 

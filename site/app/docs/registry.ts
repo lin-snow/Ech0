@@ -125,6 +125,7 @@ const DOC_ORDER: readonly string[] = [
   "guide/embedding",
   "guide/webhook",
   "guide/accesstoken",
+  "guide/cli",
   "guide/mcp",
   "guide/s3",
   "guide/datacontrol",

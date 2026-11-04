@@ -47,6 +47,7 @@ Ech0 是**自托管的个人微博客**：内容在一条**时间线**上展示�
 | 多站合并时间线                  | [互联聚合](/docs/guide/federation)（Connect + `/hub`）                                               |
 | 第三方登录与 Passkey            | [统一登录](/docs/guide/sso)                                                                          |
 | 访问令牌、MCP（AI 接入）        | [访问令牌](/docs/guide/accesstoken) · [MCP 接入](/docs/guide/mcp)                                    |
+| 在终端管理实例、审核评论        | [命令行（CLI）](/docs/guide/cli)                                                                     |
 | 跟自己的 Echo 对话、近期摘要    | [AI 问答](/docs/guide/chat) · [AI 模型与摘要](/docs/guide/agent) · [向量检索](/docs/guide/embedding) |
 | 站点 Logo、页脚、头像与面板偏好 | [偏好设置与用户资料](/docs/guide/preferences)                                                        |
 | 评论与审核                      | [评论系统](/docs/guide/comment)                                                                      |

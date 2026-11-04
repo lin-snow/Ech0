@@ -39,6 +39,8 @@ Ech0 使用**内置评论系统**，无需接入 Twikoo、Waline 等第三方评
 - 单条或批量通过、拒绝、删除。
 - 将优质评论标为「热评」等（若版本提供）。
 
+也可以在终端完成单条审核：`ech0 comment panel list --status pending` → `ech0 comment panel status --id <id> --status approved` → `ech0 comment panel delete --id <id> --yes`，见 [命令行（CLI）](/docs/guide/cli)。
+
 ---
 
 ## 防灌水（思路）
@@ -49,7 +51,7 @@ Ech0 使用**内置评论系统**，无需接入 Twikoo、Waline 等第三方评
 
 ## 第三方集成（AI / 自动化发评）
 
-若要从自己的脚本、n8n、上层 AI **代为发评论**，可使用仓库 README 中说明的集成接口（路径形如 `POST /api/comments/integration`）：使用在 **访问令牌** 中创建的、具备 **`comment:write`** 等所需权限且 **`audience` 为 `integration`** 的令牌，在请求头携带 `Authorization: Bearer <token>`。
+若要从自己的脚本、n8n、上层 AI **代为发评论**，可使用仓库 README 中说明的集成接口（路径形如 `POST /api/comments/integration`）：使用在 **访问令牌** 中创建的、具备 **`comment:write`** 等所需权限且 **`audience` 为 `integration`** 的令牌，在请求头携带 `Authorization: Bearer <token>`。CLI 登录铸造的 `audience=cli` 令牌也被同一个端点接受。
 
 **不要**把该令牌提交到公开仓库。完整请求体、限频与字段说明以你实例上的 **OpenAPI（/swagger）** 为准。
 

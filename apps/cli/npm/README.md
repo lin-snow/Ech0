@@ -18,9 +18,12 @@ bun add -g @useech0/cli
 
 ```bash
 ech0 auth login --server https://your-instance.example.com --device
+ech0 info                          # 实例信息、版本、token 状态与 catalog
 ech0 echo create --content "hello"
 ech0 echo delete --id <id> --yes   # 删除前默认要求确认；脚本里显式 --yes
+ech0 comment panel list --status pending
 ech0 tag list
+ech0 connect health
 ech0 webhook list
 ech0 help
 ```
