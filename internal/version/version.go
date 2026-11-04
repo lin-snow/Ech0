@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	Version = "5.9.1"
+	Version = "5.9.2"
 
 	// License is the SPDX identifier of the project license.
 	License = "AGPL-3.0-or-later"
