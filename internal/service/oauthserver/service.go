@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
+	"github.com/lin-snow/ech0/internal/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/lin-snow/ech0/pkg/egress"
 )
 
@@ -22,14 +22,14 @@ const (
 )
 
 type cimdEntry struct {
-	metadata authzModel.ClientMetadata
+	metadata oauthserverModel.ClientMetadata
 	expires  time.Time
 }
 
-// AuthzService implements the OAuth 2.1 authorization server used by MCP
+// OAuthServerService implements the OAuth 2.1 authorization server used by MCP
 // clients. It is deliberately stateless for authorization codes: the code is a
 // signed JWT, and the only in-memory state is a short-lived single-use ledger.
-type AuthzService struct {
+type OAuthServerService struct {
 	clients ClientRepository
 	users   UserReader
 	tokens  TokenIssuer
@@ -43,12 +43,12 @@ type AuthzService struct {
 	consumed map[string]time.Time
 }
 
-func NewAuthzService(
+func NewOAuthServerService(
 	clients ClientRepository,
 	users UserReader,
 	tokens TokenIssuer,
-) *AuthzService {
-	return &AuthzService{
+) *OAuthServerService {
+	return &OAuthServerService{
 		clients:   clients,
 		users:     users,
 		tokens:    tokens,
@@ -63,21 +63,21 @@ func NewAuthzService(
 // RFC 8414 requires the metadata issuer to equal the identifier that built the
 // well-known URL, so a separately configured server_url must not override it.
 // X-Forwarded-Proto is honoured by the HTTP handlers that build origin.
-func (s *AuthzService) issuer(_ context.Context, origin string) string {
+func (s *OAuthServerService) issuer(_ context.Context, origin string) string {
 	return strings.TrimRight(strings.TrimSpace(origin), "/")
 }
 
-func (s *AuthzService) resourceURI(ctx context.Context, origin string) string {
-	return s.issuer(ctx, origin) + authzModel.MCPResourcePath
+func (s *OAuthServerService) resourceURI(ctx context.Context, origin string) string {
+	return s.issuer(ctx, origin) + oauthserverModel.MCPResourcePath
 }
 
 func scopesSupported() []string {
-	return authModel.AllScopes()
+	return authz.AllScopes()
 }
 
 // consumeCode enforces single use of an authorization code. The ledger is
 // in-memory and keyed by jti; codes live for CodeTTL, so the map stays tiny.
-func (s *AuthzService) consumeCode(jti string) bool {
+func (s *OAuthServerService) consumeCode(jti string) bool {
 	now := s.now()
 	s.codeMu.Lock()
 	defer s.codeMu.Unlock()
@@ -90,6 +90,6 @@ func (s *AuthzService) consumeCode(jti string) bool {
 	if _, used := s.consumed[jti]; used {
 		return false
 	}
-	s.consumed[jti] = now.Add(2 * authzModel.CodeTTL)
+	s.consumed[jti] = now.Add(2 * oauthserverModel.CodeTTL)
 	return true
 }

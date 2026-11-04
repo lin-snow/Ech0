@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/handler"
 	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
@@ -29,7 +30,6 @@ import (
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/internal/visitor"
@@ -166,7 +166,7 @@ func TestSetupRouter_AccessTokenWithoutRequiredScopeGetsForbidden(t *testing.T) 
 	api.Use(middleware.NoCache(), middleware.RequireAuth(nil))
 	api.PUT(
 		"/settings",
-		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSettings),
 		func(ctx *gin.Context) { ctx.Status(http.StatusOK) },
 	)
 
@@ -175,8 +175,8 @@ func TestSetupRouter_AccessTokenWithoutRequiredScopeGetsForbidden(t *testing.T) 
 		jwtUtil.CreateAccessClaimsWithExpiry(
 			user,
 			int64(time.Hour),
-			[]string{authModel.ScopeEchoRead},
-			authModel.AudiencePublic,
+			[]string{authz.ScopeEchoRead},
+			authz.AudiencePublic,
 			"jti-read-only",
 		),
 	)
@@ -203,7 +203,7 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 	api.Use(middleware.NoCache(), middleware.RequireAuth(nil))
 	api.PUT(
 		"/settings",
-		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSettings),
 		func(ctx *gin.Context) { ctx.Status(http.StatusOK) },
 	)
 
@@ -212,8 +212,8 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 		jwtUtil.CreateAccessClaimsWithExpiry(
 			user,
 			int64(time.Hour),
-			[]string{authModel.ScopeAdminSettings},
-			authModel.AudiencePublic,
+			[]string{authz.ScopeAdminSettings},
+			authz.AudiencePublic,
 			"jti-admin",
 		),
 	)
@@ -268,8 +268,8 @@ func TestSetupRouter_IntegrationCommentRejectsWrongScope(t *testing.T) {
 		jwtUtil.CreateAccessClaimsWithExpiry(
 			user,
 			int64(time.Hour),
-			[]string{authModel.ScopeEchoRead},
-			authModel.AudienceIntegration,
+			[]string{authz.ScopeEchoRead},
+			authz.AudienceIntegration,
 			"jti-wrong-scope",
 		),
 	)
@@ -298,8 +298,8 @@ func TestSetupRouter_IntegrationCommentRejectsWrongAudience(t *testing.T) {
 		jwtUtil.CreateAccessClaimsWithExpiry(
 			user,
 			int64(time.Hour),
-			[]string{authModel.ScopeCommentWrite},
-			authModel.AudiencePublic,
+			[]string{authz.ScopeCommentWrite},
+			authz.AudiencePublic,
 			"jti-wrong-aud",
 		),
 	)
@@ -328,8 +328,8 @@ func TestSetupRouter_IntegrationCommentAcceptsCLIAudience(t *testing.T) {
 		jwtUtil.CreateAccessClaimsWithExpiry(
 			user,
 			int64(time.Hour),
-			[]string{authModel.ScopeCommentWrite},
-			authModel.AudienceCLI,
+			[]string{authz.ScopeCommentWrite},
+			authz.AudienceCLI,
 			"jti-cli-aud",
 		),
 	)

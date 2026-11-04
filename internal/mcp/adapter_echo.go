@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 )
@@ -32,7 +32,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.searchPosts, authModel.ScopeEchoRead)
+	}, a.searchPosts, authz.ScopeEchoRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_post",
@@ -46,7 +46,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getPost, authModel.ScopeEchoRead)
+	}, a.getPost, authz.ScopeEchoRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "list_tags",
@@ -57,7 +57,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: readOnlyHints(),
-	}, a.listTags, authModel.ScopeEchoRead)
+	}, a.listTags, authz.ScopeEchoRead)
 
 	echoFileSchema := map[string]any{
 		"type":     "object",
@@ -104,7 +104,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: createHints(),
-	}, a.createPost, authModel.ScopeEchoWrite)
+	}, a.createPost, authz.ScopeEchoWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:  "update_post",
@@ -125,7 +125,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.updatePost, authModel.ScopeEchoWrite)
+	}, a.updatePost, authz.ScopeEchoWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_post",
@@ -139,7 +139,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deletePost, authModel.ScopeEchoWrite)
+	}, a.deletePost, authz.ScopeEchoWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_today_posts",
@@ -152,7 +152,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getTodayPosts, authModel.ScopeEchoRead)
+	}, a.getTodayPosts, authz.ScopeEchoRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "like_post",
@@ -166,7 +166,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: createHints(),
-	}, a.likePost, authModel.ScopeEchoWrite)
+	}, a.likePost, authz.ScopeEchoWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_tag",
@@ -180,7 +180,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteTag, authModel.ScopeEchoWrite)
+	}, a.deleteTag, authz.ScopeEchoWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_hot_posts",
@@ -193,7 +193,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getHotPosts, authModel.ScopeEchoRead)
+	}, a.getHotPosts, authz.ScopeEchoRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_random_post",
@@ -204,7 +204,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getRandomPost, authModel.ScopeEchoRead)
+	}, a.getRandomPost, authz.ScopeEchoRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_on_this_day_posts",
@@ -217,7 +217,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getOnThisDayPosts, authModel.ScopeEchoRead)
+	}, a.getOnThisDayPosts, authz.ScopeEchoRead)
 }
 
 func (a *Adapter) registerEchoResources(reg *Registry) {
@@ -228,7 +228,7 @@ func (a *Adapter) registerEchoResources(reg *Registry) {
 		Description: "JSON array of all tags. Each object has id, name, and the number of posts using this tag.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceTags, authModel.ScopeEchoRead)
+	}, a.resourceTags, authz.ScopeEchoRead)
 
 	reg.RegisterResource(ResourceDefinition{
 		URI:         "ech0://posts/recent",
@@ -237,7 +237,7 @@ func (a *Adapter) registerEchoResources(reg *Registry) {
 		Description: "The 20 most recently created posts (newest first). Append ?limit=N (1–100) to the URI to change the count.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceRecentPosts, authModel.ScopeEchoRead)
+	}, a.resourceRecentPosts, authz.ScopeEchoRead)
 
 	reg.RegisterResourceTemplate(ResourceTemplateDefinition{
 		URITemplate: "ech0://posts/{id}",
@@ -246,7 +246,7 @@ func (a *Adapter) registerEchoResources(reg *Registry) {
 		Description: "Full post object (content, tags, timestamps, like count) for a given UUID. Replace {id} with the post UUID.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourcePostByID, authModel.ScopeEchoRead)
+	}, a.resourcePostByID, authz.ScopeEchoRead)
 }
 
 func (a *Adapter) searchPosts(ctx context.Context, args map[string]any) (*ToolCallResult, error) {

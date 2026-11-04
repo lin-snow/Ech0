@@ -5,8 +5,8 @@ package service
 
 import (
 	"github.com/google/wire"
+	accessService "github.com/lin-snow/ech0/internal/access"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
-	authzService "github.com/lin-snow/ech0/internal/service/authz"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
@@ -17,14 +17,20 @@ import (
 	fileService "github.com/lin-snow/ech0/internal/service/file"
 	initService "github.com/lin-snow/ech0/internal/service/init"
 	migratorService "github.com/lin-snow/ech0/internal/service/migrator"
+	oauthserverService "github.com/lin-snow/ech0/internal/service/oauthserver"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 )
 
 var (
-	AuthSet  = authService.ProviderSet
-	AuthzSet = authzService.ProviderSet
-	UserSet  = wire.NewSet(
+	AuthSet        = authService.ProviderSet
+	OAuthServerSet = oauthserverService.ProviderSet
+	AccessSet      = wire.NewSet(
+		accessService.ProviderSet,
+		wire.Bind(new(authService.TokenIssuer), new(*accessService.Service)),
+		wire.Bind(new(oauthserverService.TokenIssuer), new(*accessService.Service)),
+	)
+	UserSet = wire.NewSet(
 		userService.NewUserService,
 		wire.Bind(new(userService.Service), new(*userService.UserService)),
 	)
@@ -53,9 +59,6 @@ var (
 	SettingSet = wire.NewSet(
 		settingService.NewSettingService,
 		wire.Bind(new(settingService.Service), new(*settingService.SettingService)),
-		// Device approval mints access tokens through the setting service.
-		wire.Bind(new(authService.TokenIssuer), new(*settingService.SettingService)),
-		wire.Bind(new(authzService.TokenIssuer), new(*settingService.SettingService)),
 	)
 	ConnectSet = wire.NewSet(
 		connectService.NewConnectService,

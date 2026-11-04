@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -24,14 +25,14 @@ func TestRequireScopes_ReturnsScopeForbiddenCode(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeEchoRead},
-				[]string{authModel.AudiencePublic},
+				[]string{authz.ScopeEchoRead},
+				[]string{authz.AudiencePublic},
 				"jti-scope-test",
 			),
 		)
 		c.Next()
 	})
-	r.GET("/protected", RequireScopes(authModel.ScopeAdminSettings), func(c *gin.Context) {
+	r.GET("/protected", RequireScopes(authz.ScopeAdminSettings), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -55,14 +56,14 @@ func TestRequireScopes_ReturnsAudienceForbiddenCode(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeAdminSettings},
+				[]string{authz.ScopeAdminSettings},
 				[]string{"unknown-audience"},
 				"jti-audience-test",
 			),
 		)
 		c.Next()
 	})
-	r.GET("/protected", RequireScopes(authModel.ScopeAdminSettings), func(c *gin.Context) {
+	r.GET("/protected", RequireScopes(authz.ScopeAdminSettings), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -86,14 +87,14 @@ func TestRequireScopes_ProfileReadCannotAccessProfileWrite(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeProfileRead},
-				[]string{authModel.AudiencePublic},
+				[]string{authz.ScopeProfileRead},
+				[]string{authz.AudiencePublic},
 				"jti-profile-write-test",
 			),
 		)
 		c.Next()
 	})
-	r.PUT("/user", RequireScopes(authModel.ScopeProfileWrite), func(c *gin.Context) {
+	r.PUT("/user", RequireScopes(authz.ScopeProfileWrite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -117,14 +118,14 @@ func TestRequireScopes_ProfileWriteAllowsAccess(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeProfileWrite},
-				[]string{authModel.AudiencePublic},
+				[]string{authz.ScopeProfileWrite},
+				[]string{authz.AudiencePublic},
 				"jti-profile-write-ok",
 			),
 		)
 		c.Next()
 	})
-	r.PUT("/user", RequireScopes(authModel.ScopeProfileWrite), func(c *gin.Context) {
+	r.PUT("/user", RequireScopes(authz.ScopeProfileWrite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 

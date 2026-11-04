@@ -96,7 +96,7 @@ MCP-compatible client / Host
 
 ## 2026-07-28 最佳实践
 
-- **认证与发现**：`/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…/oauth-protected-resource/mcp"`；PRM / AS 元数据 / 授权码 + PKCE 由 `internal/service/authz` 提供（见 `docs/dev/mcp-authorization-design.md`）。
+- **认证与发现**：`/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…/oauth-protected-resource/mcp"`；PRM / AS 元数据 / 授权码 + PKCE 由 `internal/service/oauthserver` 提供（见 `docs/dev/mcp-authorization-design.md`）。
 - **最小暴露**：list 只返回 token 可调用的 primitive，避免模型选择注定 403 的工具；因列表随授权上下文变化，`ttlMs` + `cacheScope=private`。
 - **危险操作**：破坏性工具（`annotations.destructiveHint=true`）在支持 MRTR 的客户端上强制二次确认；`requestState` 用 HMAC 绑定用户、工具与参数，拒绝篡改/换目标/过期重放，并在批准后一次性消费（同一状态不能再次授权执行）；客户端未声明 `elicitation` 时退回 Host 侧注解确认。
 - **可观测性**：审计日志记录 era、tool、client（`_meta.clientInfo.name`）、token jti 与耗时。

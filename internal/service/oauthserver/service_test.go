@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
@@ -16,29 +16,29 @@ import (
 	"testing"
 	"time"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
+	"github.com/lin-snow/ech0/internal/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 )
 
 type fakeClients struct {
-	byID map[string]authzModel.Client
+	byID map[string]oauthserverModel.Client
 }
 
 func newFakeClients() *fakeClients {
-	return &fakeClients{byID: make(map[string]authzModel.Client)}
+	return &fakeClients{byID: make(map[string]oauthserverModel.Client)}
 }
 
-func (f *fakeClients) FindClient(_ context.Context, clientID string) (authzModel.Client, error) {
+func (f *fakeClients) FindClient(_ context.Context, clientID string) (oauthserverModel.Client, error) {
 	client, ok := f.byID[clientID]
 	if !ok {
-		return authzModel.Client{}, errors.New("not found")
+		return oauthserverModel.Client{}, errors.New("not found")
 	}
 	return client, nil
 }
 
-func (f *fakeClients) CreateClient(_ context.Context, client *authzModel.Client) error {
+func (f *fakeClients) CreateClient(_ context.Context, client *oauthserverModel.Client) error {
 	f.byID[client.ClientID] = *client
 	return nil
 }
@@ -63,7 +63,7 @@ type fakeIssuer struct {
 	token string
 }
 
-func (f *fakeIssuer) IssueAccessTokenForUser(
+func (f *fakeIssuer) IssueForUser(
 	_ context.Context,
 	_ string,
 	_ *settingModel.AccessTokenSettingDto,
@@ -72,11 +72,11 @@ func (f *fakeIssuer) IssueAccessTokenForUser(
 	return f.token, nil
 }
 
-func testService() (*AuthzService, *fakeClients, *fakeIssuer, userModel.User) {
+func testService() (*OAuthServerService, *fakeClients, *fakeIssuer, userModel.User) {
 	clients := newFakeClients()
 	user := userModel.User{ID: "user-1", Username: "admin", IsAdmin: true}
 	issuer := &fakeIssuer{token: "access-token"}
-	service := NewAuthzService(clients, fakeUsers{user: user}, issuer)
+	service := NewOAuthServerService(clients, fakeUsers{user: user}, issuer)
 	return service, clients, issuer, user
 }
 
@@ -86,9 +86,9 @@ func pkcePair() (verifier, challenge string) {
 	return verifier, base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-func registerTestClient(t *testing.T, service *AuthzService) authzModel.ClientMetadata {
+func registerTestClient(t *testing.T, service *OAuthServerService) oauthserverModel.ClientMetadata {
 	t.Helper()
-	registered, oauthErr := service.RegisterClient(context.Background(), authzModel.ClientMetadata{
+	registered, oauthErr := service.RegisterClient(context.Background(), oauthserverModel.ClientMetadata{
 		ClientName:      "Test Client",
 		RedirectURIs:    []string{"http://127.0.0.1:3000/callback"},
 		ApplicationType: "native",
@@ -123,7 +123,7 @@ func TestMetadataAdvertisesBestPractices(t *testing.T) {
 	if len(prm.AuthorizationServers) != 1 || prm.AuthorizationServers[0] != "https://ech0.test" {
 		t.Errorf("authorization_servers = %v", prm.AuthorizationServers)
 	}
-	if len(prm.ScopesSupported) != len(authModel.AllScopes()) {
+	if len(prm.ScopesSupported) != len(authz.AllScopes()) {
 		t.Errorf("scopes_supported = %v", prm.ScopesSupported)
 	}
 
@@ -155,7 +155,7 @@ func TestRegisterClientDefaultsAndValidation(t *testing.T) {
 		t.Errorf("grant types = %v", registered.GrantTypes)
 	}
 
-	cases := map[string]authzModel.ClientMetadata{
+	cases := map[string]oauthserverModel.ClientMetadata{
 		"missing redirect":  {},
 		"fragment redirect": {RedirectURIs: []string{"http://127.0.0.1:3000/cb#frag"}},
 		"remote http":       {RedirectURIs: []string{"http://example.com/cb"}},
@@ -206,7 +206,7 @@ func TestAuthorizationRequestValidation(t *testing.T) {
 		if oauthErr != nil {
 			t.Fatalf("unexpected error: %v", oauthErr)
 		}
-		if strings.Join(request.Scopes, " ") != strings.Join(authzModel.DefaultScopes, " ") {
+		if strings.Join(request.Scopes, " ") != strings.Join(oauthserverModel.DefaultScopes, " ") {
 			t.Errorf("scopes = %v", request.Scopes)
 		}
 	})
@@ -286,7 +286,7 @@ func TestApproveAndExchange(t *testing.T) {
 	}
 }
 
-func freshCode(t *testing.T, service *AuthzService, clientID, challenge, userID string) string {
+func freshCode(t *testing.T, service *OAuthServerService, clientID, challenge, userID string) string {
 	t.Helper()
 	redirect, oauthErr := service.Approve(
 		context.Background(), "https://ech0.test",
@@ -301,7 +301,7 @@ func freshCode(t *testing.T, service *AuthzService, clientID, challenge, userID 
 func TestConsentRequiresAdministrator(t *testing.T) {
 	clients := newFakeClients()
 	user := userModel.User{ID: "user-2", Username: "member", IsAdmin: false}
-	service := NewAuthzService(clients, fakeUsers{user: user}, &fakeIssuer{})
+	service := NewOAuthServerService(clients, fakeUsers{user: user}, &fakeIssuer{})
 	client := registerTestClient(t, service)
 	_, challenge := pkcePair()
 	query := authorizeQuery(client.ClientID, "http://127.0.0.1:3000/callback", challenge)
@@ -338,7 +338,7 @@ func TestClientIDMetadataDocument(t *testing.T) {
 
 	var clientID string
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(authzModel.ClientMetadata{
+		_ = json.NewEncoder(w).Encode(oauthserverModel.ClientMetadata{
 			ClientID:                clientID,
 			ClientName:              "CIMD Client",
 			RedirectURIs:            []string{"http://127.0.0.1:3000/callback"},

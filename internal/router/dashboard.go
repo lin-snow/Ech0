@@ -7,23 +7,23 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupDashboardRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.AuthRouterGroup.GET(
 		"/system/logs/stream",
-		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSettings),
 		h.DashboardHandler.SSESubscribeSystemLogs(),
 	)
 	appRouterGroup.WSRouterGroup.GET("/system/logs", h.DashboardHandler.WSSubscribeSystemLogs())
 }
 
 func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authModel.ScopeAdminSettings), huma.Operation{
+	route(api, secured(revoker, authz.ScopeAdminSettings), huma.Operation{
 		OperationID: "dashboard-check-update",
 		Method:      http.MethodGet,
 		Path:        "/system/check-update",
@@ -31,7 +31,7 @@ func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.Toke
 		Tags:        []string{"Dashboard"},
 	}, h.DashboardHandler.CheckUpdate)
 
-	route(api, secured(revoker, authModel.ScopeAdminSettings), huma.Operation{
+	route(api, secured(revoker, authz.ScopeAdminSettings), huma.Operation{
 		OperationID: "dashboard-system-logs",
 		Method:      http.MethodGet,
 		Path:        "/system/logs",
@@ -39,7 +39,7 @@ func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.Toke
 		Tags:        []string{"Dashboard"},
 	}, h.DashboardHandler.GetSystemLogs)
 
-	route(api, secured(revoker, authModel.ScopeAdminSettings), huma.Operation{
+	route(api, secured(revoker, authz.ScopeAdminSettings), huma.Operation{
 		OperationID: "dashboard-visitor-stats",
 		Method:      http.MethodGet,
 		Path:        "/system/visitor-stats",

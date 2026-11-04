@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"encoding/json"
@@ -28,6 +28,8 @@ type Client struct {
 	CreatedAt               int64  `gorm:"autoCreateTime" json:"client_id_issued_at"`
 	UpdatedAt               int64  `gorm:"autoUpdateTime" json:"-"`
 }
+
+func (c *Client) TableName() string { return "oauth_clients" }
 
 func (c *Client) BeforeCreate(_ *gorm.DB) error {
 	if c.ID == "" {

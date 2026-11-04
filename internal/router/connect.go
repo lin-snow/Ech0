@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
@@ -37,7 +37,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.GetConnectsInfo)
 
-	route(api, secured(revoker, authModel.ScopeConnectRead), huma.Operation{
+	route(api, secured(revoker, authz.ScopeConnectRead), huma.Operation{
 		OperationID: "connect-health",
 		Method:      http.MethodGet,
 		Path:        "/connects/health",
@@ -45,7 +45,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.GetConnectsHealth)
 
-	route(api, secured(revoker, authModel.ScopeConnectWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeConnectWrite), huma.Operation{
 		OperationID: "connect-add",
 		Method:      http.MethodPost,
 		Path:        "/connects",
@@ -53,7 +53,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.AddConnect)
 
-	route(api, secured(revoker, authModel.ScopeConnectWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeConnectWrite), huma.Operation{
 		OperationID: "connect-delete",
 		Method:      http.MethodDelete,
 		Path:        "/connects/{id}",

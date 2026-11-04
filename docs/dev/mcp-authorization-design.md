@@ -1,6 +1,6 @@
 # MCP 授权服务器设计（OAuth 2.1 + CIMD）
 
-状态：已落地（实现以 `internal/model/authz`、`internal/service/authz`、`internal/handler/authz`、`internal/router/authz.go` 为准）
+状态：已落地（实现以 `internal/model/oauthserver`、`internal/service/oauthserver`、`internal/handler/oauthserver`、`internal/router/oauthserver.go` 为准）
 关联：`docs/usage/mcp-usage.md`、`docs/dev/access-token-scope-design.md`、`internal/mcp/README.md`
 
 ## 1. 背景
@@ -13,6 +13,15 @@ MCP `2026-07-28` 把授权定义为 **OPTIONAL**，但一旦支持就必须按 O
 
 ## 2. 角色与端点
 
+### 2.0 代码边界
+
+| 包 | 职责 | 约束 |
+|---|---|---|
+| `internal/authz` | scope / audience 词汇与 `Allows` 判定 | 纯策略，零 IO |
+| `internal/access` | 令牌铸造与校验（策略 + JWT + 落库） | 被设置面板、device flow、OAuth 换 token 共用 |
+| `internal/service/oauthserver` | 授权服务器协议：元数据、CIMD/DCR、code、token | 只依赖 `access` + `authz` |
+| `internal/service/setting` | 设置聚合域；保留 `/api/access-tokens` CRUD | 通过 `access` 铸造令牌，不承载协议逻辑 |
+
 ```
 MCP Host ──POST /mcp──────────────▶ 资源服务器（现有 mcp.Server）
    │  401 + WWW-Authenticate       │
@@ -23,8 +32,8 @@ GET /.well-known/oauth-protected-resource[/mcp]   (RFC 9728)
 GET /.well-known/oauth-authorization-server       (RFC 8414)
    │
    ├── GET  /oauth/authorize        → SPA 同意页（/oauth/authorize）
-   ├── POST /api/authz/consent      → 校验请求，返回客户端与 scope
-   ├── POST /api/authz/authorize    → 批准/拒绝，签发 code 或错误跳转
+   ├── GET  /api/consent            → 校验请求，返回客户端与 scope
+   ├── POST /api/consent/approve    → 批准/拒绝，签发 code 或错误跳转
    ├── POST /oauth/token            → code + PKCE 换 access token
    └── POST /oauth/register         → DCR（兼容，deprecated）
 ```
@@ -43,7 +52,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 | `aud` | `mcp-remote` |
 | `scope` | 同意时批准的 scope 列表 |
 | `jti` | 唯一，支持吊销 |
-| `exp` | 30 天（`authz.AccessTokenTTL`） |
+| `exp` | 30 天（`oauthserver.AccessTokenTTL`） |
 | 名称 | `mcp:<client_name>`，出现在后台“访问令牌”列表里 |
 
 因此撤销路径完全复用：后台删除令牌 → `TokenRevoker` 拉黑 `jti` → `/mcp` 立即 401。
@@ -74,7 +83,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
    - `redirect_uris` 非空，且 https 或 loopback http；
    - 只接受 public client（`token_endpoint_auth_method` 为空或 `none`）。
    使用 `pkg/egress` 的 Guard 客户端（私网/保留地址拦截 + 重定向校验），64 KiB 响应上限，按 `Cache-Control: max-age` 缓存（1 分钟–1 小时）。
-2. **DCR**（`POST /oauth/register`）：生成 `ech0-…` client_id，落库 `authz_clients`；仅支持 `authorization_code` + `code` + `none`，上限 200 个，接口单独限流。规范已标记 deprecated，文档中明确说明仅为兼容。
+2. **DCR**（`POST /oauth/register`）：生成 `ech0-…` client_id，落库 `oauth_clients`；仅支持 `authorization_code` + `code` + `none`，上限 200 个，接口单独限流。规范已标记 deprecated，文档中明确说明仅为兼容。
 3. **预注册**：暂不提供 UI；需要时可直接在 DCR 表插入一行，或后续补管理页。
 
 ## 6. 发现元数据

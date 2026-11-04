@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -54,7 +55,7 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
-		if !containsAllScopes(v.Scopes(), scopes) {
+		if !authz.Allows(v.Scopes(), scopes) {
 			ctx.JSON(
 				http.StatusForbidden,
 				commonModel.FailWithLocalized[any](
@@ -111,21 +112,5 @@ func containsValidAudience(audiences []string) bool {
 	if len(audiences) == 0 {
 		return false
 	}
-	return slices.ContainsFunc(audiences, authModel.IsValidAudience)
-}
-
-func containsAllScopes(actual, required []string) bool {
-	if len(required) == 0 {
-		return true
-	}
-	set := make(map[string]struct{}, len(actual))
-	for _, scope := range actual {
-		set[scope] = struct{}{}
-	}
-	for _, requiredScope := range required {
-		if _, ok := set[requiredScope]; !ok {
-			return false
-		}
-	}
-	return true
+	return slices.ContainsFunc(audiences, authz.IsValidAudience)
 }

@@ -112,13 +112,13 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 | 具体原因 |
 |---|---|---|---|---|
-| GET | `/.well-known/oauth-protected-resource` | `AuthzHandler.ProtectedResource` | 公开 | RFC 9728 固定路径 |
-| GET | `/.well-known/oauth-protected-resource/mcp` | `AuthzHandler.ProtectedResource` | 公开 | 路径插入式发现 |
-| GET | `/.well-known/oauth-authorization-server` | `AuthzHandler.AuthorizationServerMetadata` | 公开 | RFC 8414 固定路径 |
-| POST | `/oauth/token` | `AuthzHandler.Token` | 公开 · 限流 | 表单请求体，响应必须是裸 RFC 6749 JSON（不能套 Ech0 信封） |
-| POST | `/oauth/register` | `AuthzHandler.Register` | 公开 · 限流 | DCR 兼容端点，裸 RFC 7591 JSON |
-| GET | `/api/authz/consent` | `AuthzHandler.Consent` | Auth（须 session） | 同意页读取校验结果，需拒绝 access token |
-| POST | `/api/authz/authorize` | `AuthzHandler.Approve` | Auth（须 session） | 批准后签发 code 并返回客户端跳转 URL |
+| GET | `/.well-known/oauth-protected-resource` | `OAuthServerHandler.ProtectedResource` | 公开 | RFC 9728 固定路径 |
+| GET | `/.well-known/oauth-protected-resource/mcp` | `OAuthServerHandler.ProtectedResource` | 公开 | 路径插入式发现 |
+| GET | `/.well-known/oauth-authorization-server` | `OAuthServerHandler.AuthorizationServerMetadata` | 公开 | RFC 8414 固定路径 |
+| POST | `/oauth/token` | `OAuthServerHandler.Token` | 公开 · 限流 | 表单请求体，响应必须是裸 RFC 6749 JSON（不能套 Ech0 信封） |
+| POST | `/oauth/register` | `OAuthServerHandler.Register` | 公开 · 限流 | DCR 兼容端点，裸 RFC 7591 JSON |
+| GET | `/api/consent` | `OAuthServerHandler.Consent` | Auth（须 session） | 同意页读取校验结果，需拒绝 access token |
+| POST | `/api/consent/approve` | `OAuthServerHandler.Approve` | Auth（须 session） | 批准后签发 code 并返回客户端跳转 URL |
 
 协议端点必须保持 OAuth 的线格式（`application/x-www-form-urlencoded` 请求、`error` / `error_description` 响应、`Cache-Control: no-store`），因此不进入 Huma 信封。
 

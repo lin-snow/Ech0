@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
@@ -30,18 +30,18 @@ func setupAuthRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/begin",
-		middleware.RequireScopes(authModel.ScopeProfileWrite),
+		middleware.RequireScopes(authz.ScopeProfileWrite),
 		h.AuthHandler.PasskeyRegisterBeginV2(),
 	)
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/finish",
-		middleware.RequireScopes(authModel.ScopeProfileWrite),
+		middleware.RequireScopes(authz.ScopeProfileWrite),
 		h.AuthHandler.PasskeyRegisterFinishV2(),
 	)
 }
 
 func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authModel.ScopeProfileWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeProfileWrite), huma.Operation{
 		OperationID: "oauth-bind",
 		Method:      http.MethodPost,
 		Path:        "/oauth/{provider}/bind",
@@ -49,7 +49,7 @@ func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.OAuthBind)
 
-	route(api, secured(revoker, authModel.ScopeProfileRead), huma.Operation{
+	route(api, secured(revoker, authz.ScopeProfileRead), huma.Operation{
 		OperationID: "oauth-info",
 		Method:      http.MethodGet,
 		Path:        "/oauth/info",
@@ -57,7 +57,7 @@ func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.GetOAuthInfo)
 
-	route(api, secured(revoker, authModel.ScopeProfileRead), huma.Operation{
+	route(api, secured(revoker, authz.ScopeProfileRead), huma.Operation{
 		OperationID: "passkey-list",
 		Method:      http.MethodGet,
 		Path:        "/passkeys",
@@ -65,7 +65,7 @@ func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.ListPasskeys)
 
-	route(api, secured(revoker, authModel.ScopeProfileWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeProfileWrite), huma.Operation{
 		OperationID: "passkey-delete",
 		Method:      http.MethodDelete,
 		Path:        "/passkeys/{id}",
@@ -73,7 +73,7 @@ func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.DeletePasskey)
 
-	route(api, secured(revoker, authModel.ScopeProfileWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeProfileWrite), huma.Operation{
 		OperationID: "passkey-update-name",
 		Method:      http.MethodPut,
 		Path:        "/passkeys/{id}",

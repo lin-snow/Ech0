@@ -4,6 +4,7 @@
 package service
 
 import (
+	accessService "github.com/lin-snow/ech0/internal/access"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
@@ -21,6 +22,7 @@ type SettingService struct {
 	webhookRepository WebhookRepository
 	webhookSender     *webhookclient.Sender
 	tokenRevoker      TokenRevoker
+	access            *accessService.Service
 	bus               *busen.Bus
 }
 
@@ -34,6 +36,7 @@ func NewSettingService(
 	webhookRepository WebhookRepository,
 	webhookSender *webhookclient.Sender,
 	tokenRevoker TokenRevoker,
+	access *accessService.Service,
 	busProvider func() *busen.Bus,
 ) *SettingService {
 	return &SettingService{
@@ -46,6 +49,7 @@ func NewSettingService(
 		webhookSender:     webhookSender,
 		settingRepository: settingRepository,
 		tokenRevoker:      tokenRevoker,
+		access:            access,
 		bus:               busProvider(),
 	}
 }

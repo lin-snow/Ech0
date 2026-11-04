@@ -7,14 +7,14 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	adminSettings := secured(revoker, authModel.ScopeAdminSettings)
-	adminToken := secured(revoker, authModel.ScopeAdminToken)
+	adminSettings := secured(revoker, authz.ScopeAdminSettings)
+	adminToken := secured(revoker, authz.ScopeAdminToken)
 
 	route(api, public(), huma.Operation{
 		OperationID: "settings-get",

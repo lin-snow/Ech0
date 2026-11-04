@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"net/http"
@@ -9,19 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	authzService "github.com/lin-snow/ech0/internal/service/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
-
-type Handler struct {
-	service authzService.Service
-}
-
-func NewAuthzHandler(service authzService.Service) *Handler {
-	return &Handler{service: service}
-}
 
 type approveRequest struct {
 	ClientID            string `json:"client_id"`
@@ -33,57 +24,6 @@ type approveRequest struct {
 	CodeChallenge       string `json:"code_challenge"`
 	CodeChallengeMethod string `json:"code_challenge_method"`
 	Decision            string `json:"decision"`
-}
-
-// ProtectedResource serves RFC 9728 metadata at both the root and the
-// /mcp-suffixed well-known URI so clients using either discovery order work.
-func (h *Handler) ProtectedResource() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		metadata := h.service.ProtectedResourceMetadata(ctx.Request.Context(), requestOrigin(ctx))
-		writeCacheableJSON(ctx, metadata)
-	}
-}
-
-func (h *Handler) AuthorizationServerMetadata() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		metadata := h.service.AuthorizationServerMetadata(ctx.Request.Context(), requestOrigin(ctx))
-		writeCacheableJSON(ctx, metadata)
-	}
-}
-
-func (h *Handler) Register() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		var metadata authzModel.ClientMetadata
-		if err := ctx.ShouldBindJSON(&metadata); err != nil {
-			writeOAuthError(ctx, authzModel.ErrInvalidClientMetadata("request body must be JSON"))
-			return
-		}
-		registered, oauthErr := h.service.RegisterClient(ctx.Request.Context(), metadata)
-		if oauthErr != nil {
-			writeOAuthError(ctx, oauthErr)
-			return
-		}
-		ctx.Header("Cache-Control", "no-store")
-		ctx.JSON(http.StatusCreated, registered)
-	}
-}
-
-func (h *Handler) Token() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		if err := ctx.Request.ParseForm(); err != nil {
-			writeOAuthError(ctx, authzModel.ErrInvalidRequest("malformed form body"))
-			return
-		}
-		token, oauthErr := h.service.Exchange(
-			ctx.Request.Context(), requestOrigin(ctx), ctx.Request.PostForm)
-		if oauthErr != nil {
-			writeOAuthError(ctx, oauthErr)
-			return
-		}
-		ctx.Header("Cache-Control", "no-store")
-		ctx.Header("Pragma", "no-cache")
-		ctx.JSON(http.StatusOK, token)
-	}
 }
 
 func (h *Handler) Consent() gin.HandlerFunc {
@@ -111,14 +51,14 @@ func (h *Handler) Approve() gin.HandlerFunc {
 		}
 		var request approveRequest
 		if err := ctx.ShouldBindJSON(&request); err != nil {
-			writeOAuthError(ctx, authzModel.ErrInvalidRequest("request body must be JSON"))
+			writeOAuthError(ctx, oauthserverModel.ErrInvalidRequest("request body must be JSON"))
 			return
 		}
 		query := approveQuery(request)
 
 		var (
 			redirect string
-			oauthErr *authzModel.Error
+			oauthErr *oauthserverModel.Error
 		)
 		if request.Decision == "deny" {
 			redirect, oauthErr = h.service.Deny(ctx.Request.Context(), requestOrigin(ctx), query)
@@ -164,39 +104,13 @@ func requireSession(ctx *gin.Context) (string, bool) {
 	return current.UserID(), true
 }
 
-func writeCacheableJSON(ctx *gin.Context, payload any) {
-	ctx.Header("Cache-Control", "public, max-age=3600")
-	ctx.JSON(http.StatusOK, payload)
-}
-
 // writeConsentError keeps the SPA on Ech0's result envelope while preserving
 // the OAuth error code for diagnostics.
-func writeConsentError(ctx *gin.Context, oauthErr *authzModel.Error) {
+func writeConsentError(ctx *gin.Context, oauthErr *oauthserverModel.Error) {
 	if oauthErr == nil {
-		oauthErr = authzModel.ErrInvalidRequest("request failed")
+		oauthErr = oauthserverModel.ErrInvalidRequest("request failed")
 	}
 	ctx.Header("Cache-Control", "no-store")
 	ctx.JSON(oauthErr.Status, commonModel.FailWithLocalized[any](
 		oauthErr.Description, oauthErr.Code, "", nil))
-}
-
-func writeOAuthError(ctx *gin.Context, oauthErr *authzModel.Error) {
-	if oauthErr == nil {
-		oauthErr = authzModel.ErrInvalidRequest("request failed")
-	}
-	ctx.Header("Cache-Control", "no-store")
-	ctx.JSON(oauthErr.Status, gin.H{
-		"error":             oauthErr.Code,
-		"error_description": oauthErr.Description,
-	})
-}
-
-// requestOrigin derives the externally visible origin. Both well-known
-// documents and OAuth responses use it when no canonical server_url is set.
-func requestOrigin(ctx *gin.Context) string {
-	scheme := "http"
-	if ctx.Request.TLS != nil || ctx.GetHeader("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	return scheme + "://" + ctx.Request.Host
 }

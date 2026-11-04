@@ -35,7 +35,7 @@ export function fetchOAuthConsent(params: OAuthAuthorizeParams) {
     if (value) query.set(key, value)
   }
   return request<OAuthConsentContext>({
-    url: `/authz/consent?${query.toString()}`,
+    url: `/consent?${query.toString()}`,
     method: 'GET',
     silentError: true,
   })
@@ -44,7 +44,7 @@ export function fetchOAuthConsent(params: OAuthAuthorizeParams) {
 /** Approves or denies the request; the server returns the client redirect. */
 export function submitOAuthConsent(payload: OAuthAuthorizePayload) {
   return request<{ redirect_url: string }>({
-    url: '/authz/authorize',
+    url: '/consent/approve',
     method: 'POST',
     data: payload,
     silentError: true,

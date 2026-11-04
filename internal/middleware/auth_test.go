@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"gorm.io/driver/sqlite"
@@ -93,8 +93,8 @@ func TestRequireAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	claims := jwtUtil.CreateAccessClaimsWithExpiry(
 		user,
 		int64(time.Hour),
-		[]string{authModel.ScopeAdminSettings},
-		authModel.AudiencePublic,
+		[]string{authz.ScopeAdminSettings},
+		authz.AudiencePublic,
 		"jti-admin-query",
 	)
 	tokenString, err := jwtUtil.GenerateToken(claims)
@@ -125,8 +125,8 @@ func TestOptionalAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	claims := jwtUtil.CreateAccessClaimsWithExpiry(
 		user,
 		int64(time.Hour),
-		[]string{authModel.ScopeAdminSettings},
-		authModel.AudiencePublic,
+		[]string{authz.ScopeAdminSettings},
+		authz.AudiencePublic,
 		"jti-admin-query-optional",
 	)
 	tokenString, err := jwtUtil.GenerateToken(claims)

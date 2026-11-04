@@ -43,7 +43,7 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 	registerOperations(api, h, revoker)
 	setupMigrationRoutes(groups, h)
 	setupMCPRoutes(groups, h)
-	setupAuthzRoutes(r, groups, h)
+	setupOAuthServerRoutes(r, groups, h)
 
 	catalogState.build(api)
 	r.GET("/api"+openapiCatalog.RoutePath, catalogState.handle)

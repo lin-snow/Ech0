@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
 
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 )
 
 // ProtectedResourceMetadata serves RFC 9728 discovery for the MCP endpoint.
-func (s *AuthzService) ProtectedResourceMetadata(
+func (s *OAuthServerService) ProtectedResourceMetadata(
 	ctx context.Context,
 	origin string,
-) authzModel.ProtectedResourceMetadata {
+) oauthserverModel.ProtectedResourceMetadata {
 	issuer := s.issuer(ctx, origin)
-	return authzModel.ProtectedResourceMetadata{
-		Resource:               issuer + authzModel.MCPResourcePath,
+	return oauthserverModel.ProtectedResourceMetadata{
+		Resource:               issuer + oauthserverModel.MCPResourcePath,
 		AuthorizationServers:   []string{issuer},
 		ScopesSupported:        scopesSupported(),
 		BearerMethodsSupported: []string{"header"},
@@ -27,16 +27,16 @@ func (s *AuthzService) ProtectedResourceMetadata(
 // AuthorizationServerMetadata serves RFC 8414 metadata. CIMD is advertised as
 // supported; Dynamic Client Registration is still offered for clients that
 // have not migrated yet.
-func (s *AuthzService) AuthorizationServerMetadata(
+func (s *OAuthServerService) AuthorizationServerMetadata(
 	ctx context.Context,
 	origin string,
-) authzModel.AuthorizationServerMetadata {
+) oauthserverModel.AuthorizationServerMetadata {
 	issuer := s.issuer(ctx, origin)
-	return authzModel.AuthorizationServerMetadata{
+	return oauthserverModel.AuthorizationServerMetadata{
 		Issuer:                                     issuer,
-		AuthorizationEndpoint:                      issuer + authzModel.AuthorizationPath,
-		TokenEndpoint:                              issuer + authzModel.TokenPath,
-		RegistrationEndpoint:                       issuer + authzModel.RegistrationPath,
+		AuthorizationEndpoint:                      issuer + oauthserverModel.AuthorizationPath,
+		TokenEndpoint:                              issuer + oauthserverModel.TokenPath,
+		RegistrationEndpoint:                       issuer + oauthserverModel.RegistrationPath,
 		ScopesSupported:                            scopesSupported(),
 		ResponseTypesSupported:                     []string{"code"},
 		GrantTypesSupported:                        []string{"authorization_code"},

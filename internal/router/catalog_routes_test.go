@@ -30,7 +30,7 @@ var catalogExclusions = []struct {
 	{"/api/auth/", "cookie/token plumbing plus device authorization, owned by `ech0 auth`"},
 	{"/api/passkey/", "WebAuthn ceremonies need a browser"},
 	{"/api/chat", "Ech0 Copilot: CLI support is intentionally deferred"},
-	{"/api/authz/", "MCP OAuth consent plumbing; the OAuth protocol endpoints live at /oauth/*"},
+	{"/api/consent", "MCP OAuth consent plumbing; the OAuth protocol endpoints live at /oauth/*"},
 }
 
 func excludedFromCatalog(path string) bool {

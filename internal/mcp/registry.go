@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/lin-snow/ech0/internal/authz"
 )
 
 type ToolHandler func(ctx context.Context, args map[string]any) (*ToolCallResult, error)
@@ -107,7 +109,7 @@ func (r *Registry) ToolDefinitions() []ToolDefinition {
 func (r *Registry) ToolDefinitionsFor(held []string) []ToolDefinition {
 	defs := make([]ToolDefinition, 0, len(r.tools))
 	for _, t := range r.tools {
-		if checkScopes(held, t.binding.Scopes) {
+		if authz.Allows(held, t.binding.Scopes) {
 			defs = append(defs, t.definition)
 		}
 	}
@@ -125,7 +127,7 @@ func (r *Registry) ResourceDefinitions() []ResourceDefinition {
 func (r *Registry) ResourceDefinitionsFor(held []string) []ResourceDefinition {
 	defs := make([]ResourceDefinition, 0, len(r.resources))
 	for _, res := range r.resources {
-		if checkScopes(held, res.binding.Scopes) {
+		if authz.Allows(held, res.binding.Scopes) {
 			defs = append(defs, res.definition)
 		}
 	}
@@ -143,7 +145,7 @@ func (r *Registry) ResourceTemplateDefinitions() []ResourceTemplateDefinition {
 func (r *Registry) ResourceTemplateDefinitionsFor(held []string) []ResourceTemplateDefinition {
 	defs := make([]ResourceTemplateDefinition, 0, len(r.templates))
 	for _, tpl := range r.templates {
-		if checkScopes(held, tpl.binding.Scopes) {
+		if authz.Allows(held, tpl.binding.Scopes) {
 			defs = append(defs, tpl.definition)
 		}
 	}

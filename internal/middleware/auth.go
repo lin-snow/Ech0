@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
@@ -54,7 +54,7 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 		return &rejection{http.StatusUnauthorized, commonModel.ErrCodeTokenRevoked, commonModel.MsgKeyAuthTokenRevoked, commonModel.TOKEN_REVOKED}, false
 	}
 
-	if tokenFromQuery && authModel.HasAdminScope(mc.Scopes) {
+	if tokenFromQuery && authz.HasAdminScope(mc.Scopes) {
 		return &rejection{http.StatusForbidden, commonModel.ErrCodeTokenTransportForbidden, commonModel.MsgKeyAuthTokenTransportForbidden, commonModel.NO_PERMISSION_DENIED}, true
 	}
 

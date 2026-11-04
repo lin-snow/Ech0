@@ -12,7 +12,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -21,7 +21,7 @@ func testViewer() viewer.Context {
 }
 
 func fullViewer() viewer.Context {
-	return viewer.NewUserViewerWithToken("test-user", "access", authModel.AllScopes(), []string{"mcp-remote"}, "test-jti")
+	return viewer.NewUserViewerWithToken("test-user", "access", authz.AllScopes(), []string{"mcp-remote"}, "test-jti")
 }
 
 func testRequest(t *testing.T, method, body string) *http.Request {
@@ -801,8 +801,8 @@ func TestAdapterRegistersDiscoveryCapabilities(t *testing.T) {
 			t.Errorf("tool %q not registered", name)
 			continue
 		}
-		if len(binding.Scopes) != 1 || binding.Scopes[0] != authModel.ScopeEchoRead {
-			t.Errorf("tool %q scopes = %v, want [%s]", name, binding.Scopes, authModel.ScopeEchoRead)
+		if len(binding.Scopes) != 1 || binding.Scopes[0] != authz.ScopeEchoRead {
+			t.Errorf("tool %q scopes = %v, want [%s]", name, binding.Scopes, authz.ScopeEchoRead)
 		}
 	}
 
@@ -810,8 +810,8 @@ func TestAdapterRegistersDiscoveryCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatal("resource ech0://stats/visitors not registered")
 	}
-	if len(binding.Scopes) != 1 || binding.Scopes[0] != authModel.ScopeAdminSettings {
-		t.Errorf("visitor stats scopes = %v, want [%s]", binding.Scopes, authModel.ScopeAdminSettings)
+	if len(binding.Scopes) != 1 || binding.Scopes[0] != authz.ScopeAdminSettings {
+		t.Errorf("visitor stats scopes = %v, want [%s]", binding.Scopes, authz.ScopeAdminSettings)
 	}
 }
 

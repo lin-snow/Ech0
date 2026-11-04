@@ -6,7 +6,7 @@ package mcp
 import (
 	"context"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
@@ -20,7 +20,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: readOnlyHints(),
-	}, a.listWebhooks, authModel.ScopeAdminSettings)
+	}, a.listWebhooks, authz.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "create_webhook",
@@ -37,7 +37,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: createHints(),
-	}, a.createWebhook, authModel.ScopeAdminSettings)
+	}, a.createWebhook, authz.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "update_webhook",
@@ -55,7 +55,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.updateWebhook, authModel.ScopeAdminSettings)
+	}, a.updateWebhook, authz.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_webhook",
@@ -69,7 +69,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteWebhook, authModel.ScopeAdminSettings)
+	}, a.deleteWebhook, authz.ScopeAdminSettings)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "test_webhook",
@@ -83,7 +83,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: remoteWriteHints(),
-	}, a.testWebhook, authModel.ScopeAdminSettings)
+	}, a.testWebhook, authz.ScopeAdminSettings)
 }
 
 func (a *Adapter) listWebhooks(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {

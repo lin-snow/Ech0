@@ -3,6 +3,8 @@
 
 package model
 
+import "github.com/lin-snow/ech0/internal/authz"
+
 // DeviceCodeRequest starts a device authorization (RFC 8628 style).
 type DeviceCodeRequest struct {
 	ClientName string   `json:"client_name"`
@@ -46,5 +48,5 @@ type DevicePendingInfo struct {
 
 // DefaultDeviceScopes are requested when the client sends none.
 func DefaultDeviceScopes() []string {
-	return []string{ScopeEchoRead, ScopeEchoWrite, ScopeProfileRead}
+	return []string{authz.ScopeEchoRead, authz.ScopeEchoWrite, authz.ScopeProfileRead}
 }

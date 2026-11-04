@@ -8,11 +8,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/captcha"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
@@ -28,7 +28,7 @@ func registerComment(api huma.API, h *handler.Bundle, revoker authService.TokenR
 	nc := humares.Bridge(middleware.NoCache())
 	stash := humares.Bridge(h.CommentHandler.StashMeta())
 	optViewer := humares.Bridge(h.CommentHandler.OptionalViewer())
-	moderate := secured(revoker, authModel.ScopeCommentMod)
+	moderate := secured(revoker, authz.ScopeCommentMod)
 
 	route(api, public(), huma.Operation{
 		OperationID: "comment-form-meta",
@@ -66,7 +66,7 @@ func registerComment(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Middlewares: huma.Middlewares{stash, optViewer},
 	}, h.CommentHandler.CreateComment)
 
-	route(api, secured(revoker, authModel.ScopeCommentWrite).audience(authModel.AudienceIntegration, authModel.AudienceMCPRemote, authModel.AudienceCLI), huma.Operation{
+	route(api, secured(revoker, authz.ScopeCommentWrite).audience(authz.AudienceIntegration, authz.AudienceMCPRemote, authz.AudienceCLI), huma.Operation{
 		OperationID: "comment-create-integration",
 		Method:      http.MethodPost,
 		Path:        "/comments/integration",

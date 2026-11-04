@@ -10,7 +10,7 @@ import {
   submitOAuthConsent,
   type OAuthAuthorizeParams,
   type OAuthConsentContext,
-} from '@/service/api/authz'
+} from '@/service/api/oauthserver'
 import { ACCESS_SCOPE_LABEL_KEYS } from '@/constants/accessScopes'
 import { useUserStore } from '@/stores'
 

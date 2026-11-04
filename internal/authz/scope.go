@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package model
-
-const (
-	TokenTypeSession = "session"
-	TokenTypeAccess  = "access"
-	TokenTypeRefresh = "refresh"
-)
+// Package authz is Ech0's pure authorization vocabulary and policy. It has no
+// I/O and no domain dependencies: middleware, the MCP server and the OAuth
+// authorization server all decide access through this package.
+package authz
 
 const (
 	ScopeEchoRead       = "echo:read"
@@ -96,4 +93,29 @@ func HasAdminScope(scopes []string) bool {
 		}
 	}
 	return false
+}
+
+// Allows reports whether held contains every required scope. Scopes are a
+// small fixed vocabulary, so the nested scan is cheaper than allocating a set
+// on every request.
+func Allows(held, required []string) bool {
+	if len(required) == 0 {
+		return true
+	}
+	if len(required) > len(held) {
+		return false
+	}
+	for _, want := range required {
+		found := false
+		for _, have := range held {
+			if have == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }

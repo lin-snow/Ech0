@@ -5,7 +5,6 @@ package handler
 
 import (
 	authHandler "github.com/lin-snow/ech0/internal/handler/auth"
-	authzHandler "github.com/lin-snow/ech0/internal/handler/authz"
 	commentHandler "github.com/lin-snow/ech0/internal/handler/comment"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
@@ -16,6 +15,7 @@ import (
 	fileHandler "github.com/lin-snow/ech0/internal/handler/file"
 	initHandler "github.com/lin-snow/ech0/internal/handler/init"
 	migratorHandler "github.com/lin-snow/ech0/internal/handler/migrator"
+	oauthserverHandler "github.com/lin-snow/ech0/internal/handler/oauthserver"
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
@@ -23,22 +23,22 @@ import (
 )
 
 type Bundle struct {
-	WebHandler       *webHandler.WebHandler
-	UserHandler      *userHandler.UserHandler
-	AuthHandler      *authHandler.AuthHandler
-	EchoHandler      *echoHandler.EchoHandler
-	FileHandler      *fileHandler.FileHandler
-	CommentHandler   *commentHandler.CommentHandler
-	InitHandler      *initHandler.InitHandler
-	CommonHandler    *commonHandler.CommonHandler
-	SettingHandler   *settingHandler.SettingHandler
-	ConnectHandler   *connectHandler.ConnectHandler
-	MigrationHandler *migratorHandler.MigrationHandler
-	DashboardHandler *dashboardHandler.DashboardHandler
-	CopilotHandler   *copilotHandler.CopilotHandler
-	EmbeddingHandler *embeddingHandler.EmbeddingHandler
-	MCPHandler       *mcp.Handler
-	AuthzHandler     *authzHandler.Handler
+	WebHandler         *webHandler.WebHandler
+	UserHandler        *userHandler.UserHandler
+	AuthHandler        *authHandler.AuthHandler
+	EchoHandler        *echoHandler.EchoHandler
+	FileHandler        *fileHandler.FileHandler
+	CommentHandler     *commentHandler.CommentHandler
+	InitHandler        *initHandler.InitHandler
+	CommonHandler      *commonHandler.CommonHandler
+	SettingHandler     *settingHandler.SettingHandler
+	ConnectHandler     *connectHandler.ConnectHandler
+	MigrationHandler   *migratorHandler.MigrationHandler
+	DashboardHandler   *dashboardHandler.DashboardHandler
+	CopilotHandler     *copilotHandler.CopilotHandler
+	EmbeddingHandler   *embeddingHandler.EmbeddingHandler
+	MCPHandler         *mcp.Handler
+	OAuthServerHandler *oauthserverHandler.Handler
 }
 
 func NewBundle(
@@ -57,24 +57,24 @@ func NewBundle(
 	copilotHandler *copilotHandler.CopilotHandler,
 	embeddingHandler *embeddingHandler.EmbeddingHandler,
 	mcpHandler *mcp.Handler,
-	authzHandler *authzHandler.Handler,
+	oauthserverHandler *oauthserverHandler.Handler,
 ) *Bundle {
 	return &Bundle{
-		WebHandler:       webHandler,
-		UserHandler:      userHandler,
-		AuthHandler:      authHandler,
-		EchoHandler:      echoHandler,
-		FileHandler:      fileHandler,
-		CommentHandler:   commentHandler,
-		InitHandler:      initHandler,
-		CommonHandler:    commonHandler,
-		SettingHandler:   settingHandler,
-		ConnectHandler:   connectHandler,
-		MigrationHandler: migratorHandler,
-		DashboardHandler: dashboardHandler,
-		CopilotHandler:   copilotHandler,
-		EmbeddingHandler: embeddingHandler,
-		MCPHandler:       mcpHandler,
-		AuthzHandler:     authzHandler,
+		WebHandler:         webHandler,
+		UserHandler:        userHandler,
+		AuthHandler:        authHandler,
+		EchoHandler:        echoHandler,
+		FileHandler:        fileHandler,
+		CommentHandler:     commentHandler,
+		InitHandler:        initHandler,
+		CommonHandler:      commonHandler,
+		SettingHandler:     settingHandler,
+		ConnectHandler:     connectHandler,
+		MigrationHandler:   migratorHandler,
+		DashboardHandler:   dashboardHandler,
+		CopilotHandler:     copilotHandler,
+		EmbeddingHandler:   embeddingHandler,
+		MCPHandler:         mcpHandler,
+		OAuthServerHandler: oauthserverHandler,
 	}
 }

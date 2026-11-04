@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
@@ -10,21 +10,21 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lin-snow/ech0/internal/config"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 )
 
-func (s *AuthzService) signCode(
+func (s *OAuthServerService) signCode(
 	ctx context.Context,
 	origin string,
-	request authzModel.AuthorizationRequest,
+	request oauthserverModel.AuthorizationRequest,
 	user userModel.User,
-) (string, *authzModel.Error) {
+) (string, *oauthserverModel.Error) {
 	now := s.now()
 	issuer := s.issuer(ctx, origin)
-	claims := authzModel.CodeClaims{
-		Type:          authzModel.CodeType,
+	claims := oauthserverModel.CodeClaims{
+		Type:          oauthserverModel.CodeType,
 		UserID:        user.ID,
 		Username:      user.Username,
 		ClientID:      request.ClientID,
@@ -37,7 +37,7 @@ func (s *AuthzService) signCode(
 			Issuer:    issuer,
 			Subject:   user.ID,
 			Audience:  jwt.ClaimStrings{issuer},
-			ExpiresAt: jwt.NewNumericDate(now.Add(authzModel.CodeTTL)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(oauthserverModel.CodeTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now.Add(-time.Minute)),
 			ID:        uuidUtil.NewV7(),
@@ -46,13 +46,13 @@ func (s *AuthzService) signCode(
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
 		SignedString(config.Config().Security.JWTSecret)
 	if err != nil {
-		return "", authzModel.ErrInvalidRequest("failed to issue authorization code")
+		return "", oauthserverModel.ErrInvalidRequest("failed to issue authorization code")
 	}
 	return signed, nil
 }
 
-func (s *AuthzService) parseCode(tokenString string) (*authzModel.CodeClaims, error) {
-	claims := &authzModel.CodeClaims{}
+func (s *OAuthServerService) parseCode(tokenString string) (*oauthserverModel.CodeClaims, error) {
+	claims := &oauthserverModel.CodeClaims{}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		claims,
@@ -68,7 +68,7 @@ func (s *AuthzService) parseCode(tokenString string) (*authzModel.CodeClaims, er
 	if err != nil || !token.Valid {
 		return nil, errors.New("invalid authorization code")
 	}
-	if claims.Type != authzModel.CodeType {
+	if claims.Type != oauthserverModel.CodeType {
 		return nil, errors.New("not an authorization code")
 	}
 	if claims.ID == "" || claims.UserID == "" || claims.ClientID == "" || claims.RedirectURI == "" {

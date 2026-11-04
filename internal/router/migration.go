@@ -7,27 +7,27 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupMigrationRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.AuthRouterGroup.POST(
 		"/migration/upload",
-		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSettings),
 		h.MigrationHandler.UploadSourceZip(),
 	)
 	appRouterGroup.AuthRouterGroup.GET(
 		"/migration/export/download",
-		middleware.RequireScopes(authModel.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSettings),
 		h.MigrationHandler.DownloadExport(),
 	)
 }
 
 func registerMigration(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	admin := secured(revoker, authModel.ScopeAdminSettings)
+	admin := secured(revoker, authz.ScopeAdminSettings)
 
 	route(api, admin, huma.Operation{
 		OperationID: "migration-start",

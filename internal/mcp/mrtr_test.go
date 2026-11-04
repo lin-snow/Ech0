@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -31,13 +31,13 @@ func countingServer(calls *int) *Server {
 	}, func(_ context.Context, _ map[string]any) (*ToolCallResult, error) {
 		*calls = *calls + 1
 		return &ToolCallResult{Content: []ContentItem{{Type: "text", Text: "deleted"}}}, nil
-	}, authModel.ScopeEchoWrite)
+	}, authz.ScopeEchoWrite)
 	return NewServer(reg)
 }
 
 func destructiveViewer() viewer.Context {
 	return viewer.NewUserViewerWithToken(
-		"test-user", "access", []string{authModel.ScopeEchoWrite}, []string{authModel.AudienceMCPRemote}, "test-jti")
+		"test-user", "access", []string{authz.ScopeEchoWrite}, []string{authz.AudienceMCPRemote}, "test-jti")
 }
 
 func TestDestructiveToolAsksForConfirmation(t *testing.T) {

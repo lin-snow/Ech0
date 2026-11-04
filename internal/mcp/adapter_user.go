@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -19,7 +19,7 @@ func (a *Adapter) registerUserResources(reg *Registry) {
 		Description: "JSON object with id, username, email, avatar URL, and admin flag of the token owner.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceProfile, authModel.ScopeProfileRead)
+	}, a.resourceProfile, authz.ScopeProfileRead)
 }
 
 func (a *Adapter) resourceProfile(ctx context.Context, _ string) (*ResourceReadResult, error) {

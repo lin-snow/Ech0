@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package model
+package authz
 
 import (
 	"testing"
@@ -84,6 +84,29 @@ func TestHasAdminScope(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.want, HasAdminScope(tc.scopes))
+		})
+	}
+}
+
+func TestAllows(t *testing.T) {
+	cases := []struct {
+		name     string
+		held     []string
+		required []string
+		want     bool
+	}{
+		{"nothing-required", nil, nil, true},
+		{"empty-required", []string{ScopeEchoRead}, []string{}, true},
+		{"exact", []string{ScopeEchoRead}, []string{ScopeEchoRead}, true},
+		{"superset", []string{ScopeEchoRead, ScopeEchoWrite, ScopeFileRead}, []string{ScopeEchoWrite}, true},
+		{"missing-one", []string{ScopeEchoRead}, []string{ScopeEchoRead, ScopeEchoWrite}, false},
+		{"none-held", nil, []string{ScopeEchoRead}, false},
+		{"duplicate-held", []string{ScopeEchoRead, ScopeEchoRead}, []string{ScopeEchoRead}, true},
+		{"required-longer", []string{ScopeEchoRead}, []string{ScopeEchoRead, ScopeEchoWrite}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, Allows(tc.held, tc.required))
 		})
 	}
 }

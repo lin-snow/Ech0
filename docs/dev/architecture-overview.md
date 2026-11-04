@@ -212,9 +212,12 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 | 领域 | 业务职责 | 关键关系 |
 | --- | --- | --- |
 | **user** | 用户资料与账号：身份、语言偏好、owner/admin 角色、头像 | 被 auth/copilot/dashboard 依赖；emit `User{Created,Updated,Deleted}` |
-| **auth** | 鉴权基础设施：JWT（access+refresh）生命周期、OAuth2/OIDC（GitHub/Google/QQ/自定义）、Passkey/WebAuthn、token 撤销黑名单、access token 的 scope/audience | 给 middleware 提供 `TokenRevoker`；scope 体系被 MCP（§8）复用 |
+| **auth** | 鉴权基础设施：JWT（access+refresh）生命周期、OAuth2/OIDC（GitHub/Google/QQ/自定义）、Passkey/WebAuthn、token 撤销黑名单 | 给 middleware 提供 `TokenRevoker`；scope/audience 词汇在 `internal/authz`，被 MCP（§8）复用 |
+| **access**（能力层） | 访问令牌铸造与校验：管理员校验、scope/audience 策略、JWT 生成、落库 | 被 setting 面板、device flow、`oauthserver` 共用；不拥有 HTTP 表面 |
+| **oauthserver** | MCP 的 OAuth 2.1 授权服务器：PRM/AS 元数据、CIMD/DCR、授权码 + PKCE、token 端点 | 依赖 `access` + `authz`；协议端点保持裸 RFC 线格式 |
+| **authz**（纯策略） | scope/audience 词汇、`Allows`、管理员 scope 判定 | 零 IO、零领域依赖，供 middleware、MCP、oauthserver 共用 |
 | **init** | 系统初始化：一次性引导流程、owner 账号建立检测 | — |
-| **setting** | 系统配置（落 KV）：站点品牌、OAuth2/S3/Passkey、Agent/embedding 配置、CORS、自定义 CSS/JS | 被所有域消费；改快照计划时 emit `UpdateSnapshotSchedule` |
+| **setting** | 系统配置（落 KV）：站点品牌、OAuth2/S3/Passkey、Agent/embedding 配置、CORS、自定义 CSS/JS；访问令牌管理面（`/api/access-tokens`，令牌铸造委托 `access`） | 被所有域消费；改快照计划时 emit `UpdateSnapshotSchedule` |
 
 ### 6.3 智能与检索
 

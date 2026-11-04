@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
@@ -11,21 +11,21 @@ import (
 	"net/url"
 	"strings"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
+	"github.com/lin-snow/ech0/internal/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
 // Exchange redeems an authorization code. PKCE is verified before the code is
 // consumed, and consumption happens before minting so a replay can never yield
 // a second token.
-func (s *AuthzService) Exchange(
+func (s *OAuthServerService) Exchange(
 	ctx context.Context,
 	origin string,
 	form url.Values,
-) (authzModel.TokenResponse, *authzModel.Error) {
+) (oauthserverModel.TokenResponse, *oauthserverModel.Error) {
 	if grant := form.Get("grant_type"); grant != "authorization_code" {
-		return authzModel.TokenResponse{}, authzModel.ErrUnsupportedGrantType(
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrUnsupportedGrantType(
 			"only authorization_code is supported")
 	}
 
@@ -34,67 +34,67 @@ func (s *AuthzService) Exchange(
 	redirectURI := strings.TrimSpace(form.Get("redirect_uri"))
 	verifier := strings.TrimSpace(form.Get("code_verifier"))
 	if code == "" || clientID == "" || redirectURI == "" || verifier == "" {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidRequest(
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidRequest(
 			"code, client_id, redirect_uri and code_verifier are required")
 	}
 	if err := validateCodeVerifier(verifier); err != nil {
-		return authzModel.TokenResponse{}, err
+		return oauthserverModel.TokenResponse{}, err
 	}
 
 	claims, err := s.parseCode(code)
 	if err != nil {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("authorization code is invalid or expired")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("authorization code is invalid or expired")
 	}
 
 	issuer := s.issuer(ctx, origin)
 	if claims.Issuer != issuer {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("authorization code was issued by another server")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("authorization code was issued by another server")
 	}
 	if claims.ClientID != clientID {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("client_id does not match the authorization code")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("client_id does not match the authorization code")
 	}
 	if claims.RedirectURI != redirectURI {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("redirect_uri does not match the authorization code")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("redirect_uri does not match the authorization code")
 	}
 	if claims.Resource != s.resourceURI(ctx, origin) {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("authorization code is bound to another resource")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("authorization code is bound to another resource")
 	}
 	if resource := strings.TrimRight(strings.TrimSpace(form.Get("resource")), "/"); resource != "" &&
 		resource != claims.Resource {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("resource does not match the authorization code")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("resource does not match the authorization code")
 	}
 	if !verifyPKCE(verifier, claims.CodeChallenge) {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("PKCE verification failed")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("PKCE verification failed")
 	}
 	if !s.consumeCode(claims.ID) {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("authorization code has already been used")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("authorization code has already been used")
 	}
 
-	token, err := s.tokens.IssueAccessTokenForUser(ctx, claims.UserID, &settingModel.AccessTokenSettingDto{
+	token, err := s.tokens.IssueForUser(ctx, claims.UserID, &settingModel.AccessTokenSettingDto{
 		Name:     tokenName(claims.ClientName),
 		Expiry:   settingModel.ONE_MONTH_EXPIRY,
 		Scopes:   claims.Scopes,
-		Audience: authModel.AudienceMCPRemote,
+		Audience: authz.AudienceMCPRemote,
 	})
 	if err != nil {
-		return authzModel.TokenResponse{}, authzModel.ErrInvalidGrant("failed to issue access token")
+		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("failed to issue access token")
 	}
 
-	return authzModel.TokenResponse{
+	return oauthserverModel.TokenResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		ExpiresIn:   int(authzModel.AccessTokenTTL.Seconds()),
+		ExpiresIn:   int(oauthserverModel.AccessTokenTTL.Seconds()),
 		Scope:       strings.Join(claims.Scopes, " "),
 	}, nil
 }
 
-func validateCodeVerifier(verifier string) *authzModel.Error {
+func validateCodeVerifier(verifier string) *oauthserverModel.Error {
 	if len(verifier) < 43 || len(verifier) > 128 {
-		return authzModel.ErrInvalidGrant("code_verifier must be 43-128 characters")
+		return oauthserverModel.ErrInvalidGrant("code_verifier must be 43-128 characters")
 	}
 	for _, r := range verifier {
 		if !isBase64URLRune(r) || r == '=' {
-			return authzModel.ErrInvalidGrant("code_verifier must be base64url")
+			return oauthserverModel.ErrInvalidGrant("code_verifier must be base64url")
 		}
 	}
 	return nil

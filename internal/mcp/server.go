@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -392,7 +393,7 @@ func (s *Server) handleToolsCall(
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("tool %q not found", call.Name)}
 	}
 
-	if !checkScopes(v.Scopes(), binding.Scopes) {
+	if !authz.Allows(v.Scopes(), binding.Scopes) {
 		return nil, insufficientScope(binding.Scopes)
 	}
 
@@ -513,7 +514,7 @@ func (s *Server) handleResourcesRead(
 		}
 	}
 
-	if !checkScopes(v.Scopes(), binding.Scopes) {
+	if !authz.Allows(v.Scopes(), binding.Scopes) {
 		return nil, insufficientScope(binding.Scopes)
 	}
 
@@ -526,22 +527,6 @@ func (s *Server) handleResourcesRead(
 		result.CacheInfo = &cache
 	}
 	return result, nil
-}
-
-func checkScopes(actual, required []string) bool {
-	if len(required) == 0 {
-		return true
-	}
-	set := make(map[string]struct{}, len(actual))
-	for _, s := range actual {
-		set[s] = struct{}{}
-	}
-	for _, s := range required {
-		if _, ok := set[s]; !ok {
-			return false
-		}
-	}
-	return true
 }
 
 func eraName(requestEra era) string {

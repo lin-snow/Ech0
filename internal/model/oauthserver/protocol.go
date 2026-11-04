@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/authz"
 )
 
 const (
@@ -28,11 +29,10 @@ const (
 	ProtectedResourcePathForMCP     = ProtectedResourcePath + "/mcp"
 	AuthorizationServerMetadataPath = "/.well-known/oauth-authorization-server"
 	MCPResourcePath                 = "/mcp"
-	ConsentPath                     = "/oauth/authorize"
 )
 
 // DefaultScopes is the least-privilege grant used when a client omits scope.
-var DefaultScopes = []string{"echo:read"}
+var DefaultScopes = []string{authz.ScopeEchoRead}
 
 // Error is an RFC 6749 error response. Status is the HTTP status the endpoint
 // should return; the OAuth layer never uses Ech0's result envelope.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
@@ -12,51 +12,52 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
-	authzService "github.com/lin-snow/ech0/internal/service/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
+	oauthserverService "github.com/lin-snow/ech0/internal/service/oauthserver"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 type fakeService struct {
-	exchange    authzModel.TokenResponse
-	exchangeErr *authzModel.Error
-	registered  authzModel.ClientMetadata
-	consent     authzModel.ConsentContext
+	exchange    oauthserverModel.TokenResponse
+	exchangeErr *oauthserverModel.Error
+	registered  oauthserverModel.ClientMetadata
+	consent     oauthserverModel.ConsentContext
 }
 
-func (f fakeService) ProtectedResourceMetadata(context.Context, string) authzModel.ProtectedResourceMetadata {
-	return authzModel.ProtectedResourceMetadata{Resource: "https://ech0.test/mcp"}
+func (f fakeService) ProtectedResourceMetadata(context.Context, string) oauthserverModel.ProtectedResourceMetadata {
+	return oauthserverModel.ProtectedResourceMetadata{Resource: "https://ech0.test/mcp"}
 }
 
-func (f fakeService) AuthorizationServerMetadata(context.Context, string) authzModel.AuthorizationServerMetadata {
-	return authzModel.AuthorizationServerMetadata{Issuer: "https://ech0.test"}
+func (f fakeService) AuthorizationServerMetadata(context.Context, string) oauthserverModel.AuthorizationServerMetadata {
+	return oauthserverModel.AuthorizationServerMetadata{Issuer: "https://ech0.test"}
 }
 
-func (f fakeService) Consent(context.Context, string, url.Values, string) (authzModel.ConsentContext, *authzModel.Error) {
+func (f fakeService) Consent(context.Context, string, url.Values, string) (oauthserverModel.ConsentContext, *oauthserverModel.Error) {
 	return f.consent, nil
 }
 
-func (f fakeService) Approve(context.Context, string, url.Values, string) (string, *authzModel.Error) {
+func (f fakeService) Approve(context.Context, string, url.Values, string) (string, *oauthserverModel.Error) {
 	return "http://127.0.0.1:3000/callback?code=abc", nil
 }
 
-func (f fakeService) Deny(context.Context, string, url.Values) (string, *authzModel.Error) {
+func (f fakeService) Deny(context.Context, string, url.Values) (string, *oauthserverModel.Error) {
 	return "http://127.0.0.1:3000/callback?error=access_denied", nil
 }
 
-func (f fakeService) RegisterClient(context.Context, authzModel.ClientMetadata) (authzModel.ClientMetadata, *authzModel.Error) {
+func (f fakeService) RegisterClient(context.Context, oauthserverModel.ClientMetadata) (oauthserverModel.ClientMetadata, *oauthserverModel.Error) {
 	return f.registered, nil
 }
 
-func (f fakeService) Exchange(context.Context, string, url.Values) (authzModel.TokenResponse, *authzModel.Error) {
+func (f fakeService) Exchange(context.Context, string, url.Values) (oauthserverModel.TokenResponse, *oauthserverModel.Error) {
 	return f.exchange, f.exchangeErr
 }
 
-func testRouter(service authzService.Service) *gin.Engine {
+func testRouter(service oauthserverService.Service) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	handler := NewAuthzHandler(service)
+	handler := NewOAuthServerHandler(service)
 	engine.GET("/.well-known/oauth-protected-resource", handler.ProtectedResource())
 	engine.GET("/.well-known/oauth-authorization-server", handler.AuthorizationServerMetadata())
 	engine.POST("/oauth/token", handler.Token())
@@ -67,7 +68,7 @@ func testRouter(service authzService.Service) *gin.Engine {
 }
 
 func TestTokenEndpointReturnsProtocolJSON(t *testing.T) {
-	engine := testRouter(fakeService{exchange: authzModel.TokenResponse{
+	engine := testRouter(fakeService{exchange: oauthserverModel.TokenResponse{
 		AccessToken: "token", TokenType: "Bearer", ExpiresIn: 3600, Scope: "echo:read",
 	}})
 
@@ -89,7 +90,7 @@ func TestTokenEndpointReturnsProtocolJSON(t *testing.T) {
 }
 
 func TestTokenEndpointMapsOAuthError(t *testing.T) {
-	engine := testRouter(fakeService{exchangeErr: authzModel.ErrUnsupportedGrantType("nope")})
+	engine := testRouter(fakeService{exchangeErr: oauthserverModel.ErrUnsupportedGrantType("nope")})
 	request := httptest.NewRequest(http.MethodPost, "/oauth/token",
 		strings.NewReader("grant_type=password"))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -105,7 +106,7 @@ func TestTokenEndpointMapsOAuthError(t *testing.T) {
 }
 
 func TestRegisterEndpointReturns201(t *testing.T) {
-	engine := testRouter(fakeService{registered: authzModel.ClientMetadata{
+	engine := testRouter(fakeService{registered: oauthserverModel.ClientMetadata{
 		ClientID: "ech0-test", ClientName: "Test", RedirectURIs: []string{"http://127.0.0.1:3000/cb"},
 	}})
 	request := httptest.NewRequest(http.MethodPost, "/oauth/register",
@@ -126,7 +127,7 @@ func TestConsentRejectsAccessToken(t *testing.T) {
 	engine := testRouter(fakeService{})
 	request := httptest.NewRequest(http.MethodGet, "/consent", nil)
 	accessViewer := viewer.NewUserViewerWithToken(
-		"user-1", authModel.TokenTypeAccess, []string{authModel.ScopeEchoRead}, nil, "jti")
+		"user-1", authModel.TokenTypeAccess, []string{authz.ScopeEchoRead}, nil, "jti")
 	request = request.WithContext(viewer.WithContext(request.Context(), accessViewer))
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
@@ -137,7 +138,7 @@ func TestConsentRejectsAccessToken(t *testing.T) {
 }
 
 func TestConsentReturnsEnvelopeForSession(t *testing.T) {
-	engine := testRouter(fakeService{consent: authzModel.ConsentContext{
+	engine := testRouter(fakeService{consent: oauthserverModel.ConsentContext{
 		ClientName: "Test Client", RedirectURI: "http://127.0.0.1:3000/cb",
 		Scopes: []string{"echo:read"}, Resource: "https://ech0.test/mcp",
 	}})

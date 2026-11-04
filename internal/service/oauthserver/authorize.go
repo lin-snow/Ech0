@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-package authz
+package oauthserver
 
 import (
 	"context"
 	"net/url"
 	"strings"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	authzModel "github.com/lin-snow/ech0/internal/model/authz"
+	"github.com/lin-snow/ech0/internal/authz"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 )
 
@@ -18,45 +18,45 @@ const maxStateLength = 1024
 // AuthorizationRequest validates an /oauth/authorize query. The checks are
 // ordered so that client identity and redirect_uri are trusted before any
 // response is derived from them.
-func (s *AuthzService) AuthorizationRequest(
+func (s *OAuthServerService) AuthorizationRequest(
 	ctx context.Context,
 	origin string,
 	query url.Values,
-) (authzModel.AuthorizationRequest, *authzModel.Error) {
+) (oauthserverModel.AuthorizationRequest, *oauthserverModel.Error) {
 	clientID := strings.TrimSpace(query.Get("client_id"))
 	redirectURI := strings.TrimSpace(query.Get("redirect_uri"))
 	if redirectURI == "" {
-		return authzModel.AuthorizationRequest{}, authzModel.ErrInvalidRequest("redirect_uri is required")
+		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrInvalidRequest("redirect_uri is required")
 	}
 
 	meta, oauthErr := s.resolveClient(ctx, clientID)
 	if oauthErr != nil {
-		return authzModel.AuthorizationRequest{}, oauthErr
+		return oauthserverModel.AuthorizationRequest{}, oauthErr
 	}
 	if !contains(meta.RedirectURIs, redirectURI) {
-		return authzModel.AuthorizationRequest{}, authzModel.ErrInvalidRequest(
+		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrInvalidRequest(
 			"redirect_uri is not registered for this client")
 	}
 
 	if responseType := query.Get("response_type"); responseType != "code" {
-		return authzModel.AuthorizationRequest{}, authzModel.ErrUnsupportedResponseType(
+		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrUnsupportedResponseType(
 			"response_type must be code")
 	}
 
 	challenge := strings.TrimSpace(query.Get("code_challenge"))
 	if err := validateCodeChallenge(challenge); err != nil {
-		return authzModel.AuthorizationRequest{}, err
+		return oauthserverModel.AuthorizationRequest{}, err
 	}
 	switch strings.ToUpper(strings.TrimSpace(query.Get("code_challenge_method"))) {
 	case "S256":
 	default:
-		return authzModel.AuthorizationRequest{}, authzModel.ErrInvalidRequest(
+		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrInvalidRequest(
 			"code_challenge_method must be S256")
 	}
 
 	scopes, err := parseScopes(query.Get("scope"))
 	if err != nil {
-		return authzModel.AuthorizationRequest{}, err
+		return oauthserverModel.AuthorizationRequest{}, err
 	}
 
 	resource := strings.TrimRight(strings.TrimSpace(query.Get("resource")), "/")
@@ -64,13 +64,13 @@ func (s *AuthzService) AuthorizationRequest(
 	if resource == "" {
 		resource = expectedResource
 	} else if resource != expectedResource {
-		return authzModel.AuthorizationRequest{}, authzModel.ErrInvalidRequest(
+		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrInvalidRequest(
 			"resource does not identify this MCP server")
 	}
 
 	state := query.Get("state")
 	if len(state) > maxStateLength {
-		return authzModel.AuthorizationRequest{}, authzModel.ErrInvalidRequest("state is too long")
+		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrInvalidRequest("state is too long")
 	}
 
 	clientName := strings.TrimSpace(meta.ClientName)
@@ -78,7 +78,7 @@ func (s *AuthzService) AuthorizationRequest(
 		clientName = clientID
 	}
 
-	return authzModel.AuthorizationRequest{
+	return oauthserverModel.AuthorizationRequest{
 		ClientID:            clientID,
 		ClientName:          clientName,
 		ClientURI:           meta.ClientURI,
@@ -95,17 +95,17 @@ func (s *AuthzService) AuthorizationRequest(
 // Consent validates the request and checks that the approving user may mint
 // tokens. Ech0 restricts access-token issuance to administrators, so the same
 // rule applies to OAuth consent.
-func (s *AuthzService) Consent(
+func (s *OAuthServerService) Consent(
 	ctx context.Context,
 	origin string,
 	query url.Values,
 	userID string,
-) (authzModel.ConsentContext, *authzModel.Error) {
+) (oauthserverModel.ConsentContext, *oauthserverModel.Error) {
 	request, _, oauthErr := s.consentRequest(ctx, origin, query, userID)
 	if oauthErr != nil {
-		return authzModel.ConsentContext{}, oauthErr
+		return oauthserverModel.ConsentContext{}, oauthErr
 	}
-	return authzModel.ConsentContext{
+	return oauthserverModel.ConsentContext{
 		ClientName:  request.ClientName,
 		ClientURI:   request.ClientURI,
 		RedirectURI: request.RedirectURI,
@@ -118,12 +118,12 @@ func (s *AuthzService) Consent(
 // Approve issues a single-use authorization code and returns the redirect the
 // browser must follow. The code is bound to the client, redirect URI, scopes,
 // resource and PKCE challenge.
-func (s *AuthzService) Approve(
+func (s *OAuthServerService) Approve(
 	ctx context.Context,
 	origin string,
 	query url.Values,
 	userID string,
-) (string, *authzModel.Error) {
+) (string, *oauthserverModel.Error) {
 	request, user, oauthErr := s.consentRequest(ctx, origin, query, userID)
 	if oauthErr != nil {
 		return "", oauthErr
@@ -140,11 +140,11 @@ func (s *AuthzService) Approve(
 }
 
 // Deny returns the RFC 6749 access_denied redirect for a validated request.
-func (s *AuthzService) Deny(
+func (s *OAuthServerService) Deny(
 	ctx context.Context,
 	origin string,
 	query url.Values,
-) (string, *authzModel.Error) {
+) (string, *oauthserverModel.Error) {
 	request, oauthErr := s.AuthorizationRequest(ctx, origin, query)
 	if oauthErr != nil {
 		return "", oauthErr
@@ -157,44 +157,44 @@ func (s *AuthzService) Deny(
 	}), nil
 }
 
-func (s *AuthzService) consentRequest(
+func (s *OAuthServerService) consentRequest(
 	ctx context.Context,
 	origin string,
 	query url.Values,
 	userID string,
-) (authzModel.AuthorizationRequest, userModel.User, *authzModel.Error) {
+) (oauthserverModel.AuthorizationRequest, userModel.User, *oauthserverModel.Error) {
 	request, oauthErr := s.AuthorizationRequest(ctx, origin, query)
 	if oauthErr != nil {
-		return authzModel.AuthorizationRequest{}, userModel.User{}, oauthErr
+		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthErr
 	}
 	user, err := s.users.GetUserByID(ctx, userID)
 	if err != nil {
-		return authzModel.AuthorizationRequest{}, userModel.User{}, authzModel.ErrAccessDenied("approving user not found")
+		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthserverModel.ErrAccessDenied("approving user not found")
 	}
 	if !user.IsAdmin {
-		return authzModel.AuthorizationRequest{}, userModel.User{}, authzModel.ErrAccessDenied(
+		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthserverModel.ErrAccessDenied(
 			"only administrators can authorize MCP clients")
 	}
-	if authModel.HasAdminScope(request.Scopes) && !user.IsAdmin {
-		return authzModel.AuthorizationRequest{}, userModel.User{}, authzModel.ErrInvalidScope(
+	if authz.HasAdminScope(request.Scopes) && !user.IsAdmin {
+		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthserverModel.ErrInvalidScope(
 			"admin scopes require an administrator")
 	}
 	return request, user, nil
 }
 
-func parseScopes(raw string) ([]string, *authzModel.Error) {
+func parseScopes(raw string) ([]string, *oauthserverModel.Error) {
 	fields := strings.Fields(raw)
 	if len(fields) == 0 {
-		return append([]string(nil), authzModel.DefaultScopes...), nil
+		return append([]string(nil), oauthserverModel.DefaultScopes...), nil
 	}
 	if len(fields) > 20 {
-		return nil, authzModel.ErrInvalidScope("too many scopes requested")
+		return nil, oauthserverModel.ErrInvalidScope("too many scopes requested")
 	}
 	seen := make(map[string]struct{}, len(fields))
 	scopes := make([]string, 0, len(fields))
 	for _, scope := range fields {
-		if !authModel.IsValidScope(scope) {
-			return nil, authzModel.ErrInvalidScope("unknown scope: " + scope)
+		if !authz.IsValidScope(scope) {
+			return nil, oauthserverModel.ErrInvalidScope("unknown scope: " + scope)
 		}
 		if _, ok := seen[scope]; ok {
 			continue
@@ -205,13 +205,13 @@ func parseScopes(raw string) ([]string, *authzModel.Error) {
 	return scopes, nil
 }
 
-func validateCodeChallenge(challenge string) *authzModel.Error {
+func validateCodeChallenge(challenge string) *oauthserverModel.Error {
 	if len(challenge) < 43 || len(challenge) > 128 {
-		return authzModel.ErrInvalidRequest("code_challenge must be 43-128 characters")
+		return oauthserverModel.ErrInvalidRequest("code_challenge must be 43-128 characters")
 	}
 	for _, r := range challenge {
 		if !isBase64URLRune(r) {
-			return authzModel.ErrInvalidRequest("code_challenge must be base64url")
+			return oauthserverModel.ErrInvalidRequest("code_challenge must be base64url")
 		}
 	}
 	return nil

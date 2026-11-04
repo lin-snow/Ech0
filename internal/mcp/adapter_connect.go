@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	connectModel "github.com/lin-snow/ech0/internal/model/connect"
 )
 
@@ -21,7 +21,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: readOnlyHints(),
-	}, a.listConnects, authModel.ScopeConnectRead)
+	}, a.listConnects, authz.ScopeConnectRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_connects_info",
@@ -32,7 +32,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: remoteReadHints(),
-	}, a.getConnectsInfo, authModel.ScopeConnectRead)
+	}, a.getConnectsInfo, authz.ScopeConnectRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "add_connect",
@@ -46,7 +46,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			},
 		},
 		Annotations: remoteWriteHints(),
-	}, a.addConnect, authModel.ScopeConnectWrite)
+	}, a.addConnect, authz.ScopeConnectWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_connect",
@@ -60,7 +60,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteConnect, authModel.ScopeConnectWrite)
+	}, a.deleteConnect, authz.ScopeConnectWrite)
 }
 
 func (a *Adapter) registerConnectResources(reg *Registry) {
@@ -71,7 +71,7 @@ func (a *Adapter) registerConnectResources(reg *Registry) {
 		Description: "Public card of this Ech0 instance: server name, URL, logo, today/total post counts, owner username, and version.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceConnectSelf, authModel.ScopeConnectRead)
+	}, a.resourceConnectSelf, authz.ScopeConnectRead)
 }
 
 func (a *Adapter) listConnects(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {

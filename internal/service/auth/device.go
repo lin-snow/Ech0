@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -63,7 +64,7 @@ func (authService *AuthService) StartDeviceAuthorization(
 	}
 	requested := normalizeDeviceScopes(scopes)
 	for _, scope := range requested {
-		if !authModel.IsValidScope(scope) {
+		if !authz.IsValidScope(scope) {
 			return authModel.DeviceCodeResponse{}, fmt.Errorf("invalid scope %q", scope)
 		}
 	}
@@ -158,11 +159,11 @@ func (authService *AuthService) ApproveDeviceAuthorization(ctx context.Context, 
 	if authService.tokenIssuer == nil {
 		return errors.New("token issuer unavailable")
 	}
-	token, err := authService.tokenIssuer.CreateAccessToken(ctx, &settingModel.AccessTokenSettingDto{
+	token, err := authService.tokenIssuer.IssueForViewer(ctx, &settingModel.AccessTokenSettingDto{
 		Name:     "cli:" + clientName,
 		Expiry:   settingModel.ONE_MONTH_EXPIRY,
 		Scopes:   scopes,
-		Audience: authModel.AudienceCLI,
+		Audience: authz.AudienceCLI,
 	})
 	if err != nil {
 		return err
