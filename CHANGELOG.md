@@ -9,6 +9,18 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.4] - 2026-11-05
+
+### Changed
+
+- **The horizontal image strip trades its drag scrollbar for a segmented slider.** A row of short pills — one per image — sits under the strip where the custom scrollbar used to be, highlights the segment matching the current scroll position, and disappears (together with the hover chevrons) when every image already fits. Segments jump to that image on click, scrub continuously on pointer drag and are reachable from the keyboard, with labels from the new `imageGallery.goToImage` key in all four locales. The dead `scrollHintText` prop and unused `imageGallery.scrollHint` key are removed.
+
+- **First-run setup and the boot splash match the paper style.** The owner-account form on `/init` is wrapped in `TheSketchFrame` with tightened spacing, its "First setup" kicker is dropped and the intro copy is reworded in every locale. The boot loader in `index.html` swaps the spinning smile for a serif "Ech0" wordmark with a letter-hop animation that is switched off under `prefers-reduced-motion`.
+
+### Fixed
+
+- **RSS media resolves outside the site origin, and browsers get a subscription landing page.** Local storage keeps `File.url` relative (`/api/files/…`), so external readers (Reeder, NetNewsWire) could not load attached media once the stored URL replaced the explicit `scheme://host` prefix; entry bodies are now rewritten through `absolutizeFeedHTML` (relative, absolute and `mailto:` URLs covered by tests) and emitted as `<content type="html">`, so readers render the full body instead of a summary. A browser hitting `GET /rss` now receives a landing page with the feed URL, entry count, last update and `rel=alternate` discovery instead of a duplicate of the entries.
+
 ## [5.9.3] - 2026-11-04
 
 ### Added
