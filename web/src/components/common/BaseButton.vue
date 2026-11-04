@@ -13,6 +13,7 @@
       ]"
       :disabled="isDisabled"
       :aria-label="resolvedAriaLabel"
+      v-bind="$attrs"
       @click="onClick"
     >
       <span v-if="icon" class="flex items-center justify-center" :class="{ invisible: loading }">
@@ -31,6 +32,10 @@ import type { Component } from 'vue'
 import { computed } from 'vue'
 import BaseTooltip from './BaseTooltip.vue'
 import TheLoadingIndicator from './TheLoadingIndicator.vue'
+
+// Keep attributes on the real <button>: the root is a tooltip wrapper, which
+// drops them, so `type="submit"` and friends would never reach the DOM.
+defineOptions({ inheritAttrs: false })
 
 const props = defineProps<{
   icon?: Component

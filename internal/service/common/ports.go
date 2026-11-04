@@ -16,7 +16,7 @@ type Service interface {
 	CommonGetUserByUserId(ctx context.Context, userId string) (userModel.User, error)
 	GetOwner() (userModel.User, error)
 	GetHeatMap(timezone string) ([]commonModel.Heatmap, error)
-	GenerateRSS(ctx *gin.Context) (string, error)
+	GenerateRSS(ctx *gin.Context) (RSSDocument, error)
 	GetWebsiteTitle(websiteURL string) (string, error)
 }
 

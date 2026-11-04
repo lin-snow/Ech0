@@ -283,7 +283,29 @@
     "initialize": "初期化",
     "initDone": "初期化が完了しました",
     "alreadyInitializedRedirect": "システムは初期化済みです。ログイン画面へ移動します",
-    "initFailed": "初期化に失敗しました"
+    "initFailed": "初期化に失敗しました",
+    "introKicker": "初回セットアップ",
+    "introHeading": "インスタンスを初期化",
+    "introDescription": "オーナーアカウントを作成し、サイト名を決めて、すぐに書き始めましょう。",
+    "siteTitlePlaceholder": "サイト名（任意）",
+    "autoLoginFailed": "オーナーを作成しました。ログインしてください。"
+  },
+  "onboarding": {
+    "title": "インスタンスの準備をしましょう",
+    "publishTitle": "最初の Echo を書く",
+    "publishDesc": "ひらめきをひとつ記録しましょう。ここからタイムラインが始まります。",
+    "siteTitleTitle": "サイトに名前を付ける",
+    "siteTitleDesc": "サイトの名前を決めましょう。ブラウザのタイトルや共有カードに表示されます。",
+    "siteURLTitle": "サイトのアドレスを設定",
+    "siteURLDesc": "公開アドレスを設定すると、RSS・共有リンク・スナップショットが正しく開けます。",
+    "done": "完了",
+    "hide": "非表示",
+    "firstEchoTitle": "最初の Echo を公開しました",
+    "firstEchoDesc": "タイムラインに新しい始まりができました。日付をクリックすると Echo の詳細を開けます。",
+    "dismiss": "あとで",
+    "actionPublish": "今すぐ投稿",
+    "actionSiteTitle": "名前を付ける",
+    "actionSiteURL": "アドレスを設定"
   },
   "hub": {
     "emptyList": "Hub一覧は空です。設定から Connect を追加してください～",

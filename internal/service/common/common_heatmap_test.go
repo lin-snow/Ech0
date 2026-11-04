@@ -9,6 +9,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
@@ -39,7 +40,7 @@ func sumCounts(hm []commonModel.Heatmap) int {
 
 func TestGetHeatMap_BucketingStructure(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, nil)
+	svc := commonService.NewCommonService(repo, nil, kvstore.NewMemory())
 
 	loc := time.UTC
 	now := time.Now().In(loc)
@@ -107,7 +108,7 @@ func TestGetHeatMap_CrossTimezoneBucketing(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := commonmock.NewMockCommonRepository(t)
-			svc := commonService.NewCommonService(repo, nil)
+			svc := commonService.NewCommonService(repo, nil, kvstore.NewMemory())
 
 			repo.EXPECT().
 				GetHeatMap(mock.Anything, mock.Anything, mock.Anything).
@@ -133,7 +134,7 @@ func TestGetHeatMap_CrossTimezoneBucketing(t *testing.T) {
 
 func TestGetHeatMap_RepositoryError(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, nil)
+	svc := commonService.NewCommonService(repo, nil, kvstore.NewMemory())
 
 	wantErr := assert.AnError
 	repo.EXPECT().
@@ -149,7 +150,7 @@ func TestGetHeatMap_RepositoryError(t *testing.T) {
 
 func TestGetHeatMap_InvalidTimezoneFallsBackToUTC(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, nil)
+	svc := commonService.NewCommonService(repo, nil, kvstore.NewMemory())
 
 	var gotStart int64
 	repo.EXPECT().

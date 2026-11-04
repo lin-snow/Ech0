@@ -4,15 +4,20 @@
 package service_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	"github.com/stretchr/testify/assert"
@@ -31,9 +36,31 @@ func newRSSContext(t *testing.T, host string) *gin.Context {
 	return ctx
 }
 
+// newRSSService builds the service over an in-memory settings store; passing a
+// setting seeds it, omitting it exercises the pristine defaults.
+func newRSSService(
+	t *testing.T,
+	repo commonService.CommonRepository,
+	settings ...settingModel.SystemSetting,
+) *commonService.CommonService {
+	t.Helper()
+	kv := kvstore.NewMemory()
+	if len(settings) > 0 {
+		require.NoError(t, coreSetting.System.Set(context.Background(), kv, settings[0]))
+	}
+	return commonService.NewCommonService(repo, helpers.NewTestCache(), kv)
+}
+
+// matchesRSSCacheKey asserts the key shape without pinning the identity hash.
+func matchesRSSCacheKey(prefix string) any {
+	return mock.MatchedBy(func(key string) bool {
+		return strings.HasPrefix(key, prefix+":") && len(key) == len(prefix)+1+12
+	})
+}
+
 func TestGenerateRSS_NormalFeed(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	echos := []echoModel.Echo{
 		{
@@ -45,22 +72,29 @@ func TestGenerateRSS_NormalFeed(t *testing.T) {
 	}
 
 	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
-	repo.EXPECT().TrackRSSCacheKey("rss:http:example.com").Return().Once()
+	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
-	atom, err := svc.GenerateRSS(ctx)
+	doc, err := svc.GenerateRSS(ctx)
 	require.NoError(t, err)
+	atom := doc.Atom
 
-	assert.Contains(t, atom, `<?xml-stylesheet type="text/xsl" href="/rss.xsl"?>`)
+	assert.NotContains(t, atom, "xml-stylesheet", "浏览器已移除 XSLT，Feed 不应再引用样式表")
 	assert.Contains(t, atom, "<title>Ech0</title>")
 	assert.Contains(t, atom, "hello rss world")
 	assert.Contains(t, atom, "alice")
 	assert.Contains(t, atom, "http://example.com/echo/echo-1")
+
+	assert.Contains(t, doc.HTML, "<title>Ech0 · RSS</title>")
+	assert.Contains(t, doc.HTML, "hello rss world")
+	assert.Contains(t, doc.HTML, "alice")
+	assert.Contains(t, doc.HTML, `href="http://example.com/echo/echo-1"`)
+	assert.Contains(t, doc.HTML, "http://example.com/rss")
 }
 
 func TestGenerateRSS_TagHTMLEntityEscaping(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	echos := []echoModel.Echo{
 		{
@@ -78,17 +112,19 @@ func TestGenerateRSS_TagHTMLEntityEscaping(t *testing.T) {
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
-	atom, err := svc.GenerateRSS(ctx)
+	doc, err := svc.GenerateRSS(ctx)
 	require.NoError(t, err)
+	atom := doc.Atom
 
 	assert.NotContains(t, atom, "<script>", "RSS 不应含原始 script 标签")
 	assert.NotContains(t, atom, "&lt;script&gt;", "标签名必须先做 HTML 实体转义，杜绝单层转义形态")
 	assert.Contains(t, atom, "&amp;lt;script&amp;gt;", "应为双层转义，证明 HTML 实体转义已生效")
+	assert.NotContains(t, doc.HTML, "<script>", "styled 页面同样不得出现原始 script 标签")
 }
 
 func TestGenerateRSS_RendersEchoImages(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	echos := []echoModel.Echo{
 		{
@@ -106,8 +142,9 @@ func TestGenerateRSS_RendersEchoImages(t *testing.T) {
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
-	atom, err := svc.GenerateRSS(ctx)
+	doc, err := svc.GenerateRSS(ctx)
 	require.NoError(t, err)
+	atom := doc.Atom
 
 	assert.Contains(t, atom, "http://example.com/files/pic.png", "图片直链应出现在条目描述里")
 	assert.Contains(t, atom, "look at this")
@@ -115,7 +152,7 @@ func TestGenerateRSS_RendersEchoImages(t *testing.T) {
 
 func TestGenerateRSS_RendersMediaByCategory(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	echos := []echoModel.Echo{
 		{
@@ -136,8 +173,9 @@ func TestGenerateRSS_RendersMediaByCategory(t *testing.T) {
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
-	atom, err := svc.GenerateRSS(ctx)
+	doc, err := svc.GenerateRSS(ctx)
 	require.NoError(t, err)
+	atom := doc.Atom
 
 	assert.Contains(t, atom, `&lt;img src=&#34;http://example.com/files/pic.png&#34;`, "图片应渲染为 <img>")
 	assert.Contains(t, atom, `&lt;video controls src=&#34;http://example.com/files/clip.mp4&#34;`, "视频应渲染为 <video controls>")
@@ -149,7 +187,7 @@ func TestGenerateRSS_RendersMediaByCategory(t *testing.T) {
 
 func TestGenerateRSS_MediaFieldEscaping(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	echos := []echoModel.Echo{
 		{
@@ -171,21 +209,24 @@ func TestGenerateRSS_MediaFieldEscaping(t *testing.T) {
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
-	atom, err := svc.GenerateRSS(ctx)
+	doc, err := svc.GenerateRSS(ctx)
 	require.NoError(t, err)
+	atom := doc.Atom
 
 	assert.NotContains(t, atom, "<script>", "URL/文件名注入的原始 script 标签不得出现")
 	assert.NotContains(t, atom, "&lt;script&gt;", "媒体字段必须先做 HTML 实体转义，杜绝单层转义形态")
+	assert.NotContains(t, doc.HTML, "<script>", "styled 页面同样不得出现原始 script 标签")
+	assert.NotContains(t, doc.HTML, `"><script`, "URL 不得跳出属性上下文")
 }
 
 func TestGenerateRSS_ReadThrough(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	echos := []echoModel.Echo{{ID: "e1", Username: "u", Content: "c", CreatedAt: time.Now().UTC().Unix()}}
 
 	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
-	repo.EXPECT().TrackRSSCacheKey("rss:http:example.com").Return().Once()
+	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
 
@@ -199,13 +240,64 @@ func TestGenerateRSS_ReadThrough(t *testing.T) {
 
 func TestGenerateRSS_RepositoryError(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
-	svc := commonService.NewCommonService(repo, helpers.NewTestCache())
+	svc := newRSSService(t, repo)
 
 	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(nil, assert.AnError).Once()
 
 	ctx := newRSSContext(t, "example.com")
-	atom, err := svc.GenerateRSS(ctx)
+	doc, err := svc.GenerateRSS(ctx)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
-	assert.Empty(t, atom)
+	assert.Empty(t, doc.Atom)
+	assert.Empty(t, doc.HTML)
+}
+
+func TestGenerateRSS_UsesSiteIdentity(t *testing.T) {
+	repo := commonmock.NewMockCommonRepository(t)
+	svc := newRSSService(t, repo, settingModel.SystemSetting{
+		SiteTitle:  "晨间笔记",
+		ServerName: "My Ech0",
+	})
+
+	echos := []echoModel.Echo{{ID: "e1", Username: "alice", Content: "hi", CreatedAt: time.Now().UTC().Unix()}}
+	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
+
+	doc, err := svc.GenerateRSS(newRSSContext(t, "example.com"))
+	require.NoError(t, err)
+	atom := doc.Atom
+
+	assert.Contains(t, atom, "<title>晨间笔记</title>")
+	assert.Contains(t, atom, "My Ech0")
+	assert.NotContains(t, atom, "<title>Ech0</title>")
+	assert.Contains(t, doc.HTML, "<title>晨间笔记 · RSS</title>")
+}
+
+func TestGenerateRSS_RenameMissesCache(t *testing.T) {
+	// Renaming the site must not keep serving the previous name: the identity is
+	// part of the cache key, so the second render loads instead of hitting cache.
+	repo := commonmock.NewMockCommonRepository(t)
+	cached := helpers.NewTestCache()
+	kv := kvstore.NewMemory()
+	require.NoError(t, coreSetting.System.Set(context.Background(), kv, settingModel.SystemSetting{SiteTitle: "Old Name"}))
+	svc := commonService.NewCommonService(repo, cached, kv)
+
+	echos := []echoModel.Echo{{ID: "e1", Username: "alice", Content: "hi", CreatedAt: time.Now().UTC().Unix()}}
+	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Twice()
+	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Twice()
+
+	ctx := newRSSContext(t, "example.com")
+	before, err := svc.GenerateRSS(ctx)
+	require.NoError(t, err)
+	require.Contains(t, before.Atom, "<title>Old Name</title>")
+	require.Contains(t, before.HTML, "Old Name")
+
+	require.NoError(t, coreSetting.System.Set(context.Background(), kv, settingModel.SystemSetting{SiteTitle: "New Name"}))
+
+	after, err := svc.GenerateRSS(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, after.Atom, "<title>New Name</title>")
+	assert.NotContains(t, after.Atom, "<title>Old Name</title>")
+	assert.Contains(t, after.HTML, "New Name")
+	assert.NotContains(t, after.HTML, "Old Name")
 }

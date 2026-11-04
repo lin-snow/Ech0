@@ -283,7 +283,29 @@
     "initialize": "初始化",
     "initDone": "初始化完成",
     "alreadyInitializedRedirect": "系统已初始化，正在跳转登录",
-    "initFailed": "初始化失败"
+    "initFailed": "初始化失败",
+    "introKicker": "首次设置",
+    "introHeading": "初始化系统",
+    "introDescription": "创建 Owner 账号，为站点取个名字，然后直接开始写。",
+    "siteTitlePlaceholder": "站点名称（可留空）",
+    "autoLoginFailed": "Owner 已创建，请手动登录。"
+  },
+  "onboarding": {
+    "title": "让你的实例准备就绪",
+    "publishTitle": "写下第一条 Echo",
+    "publishDesc": "记录一个想法，让你的时间线从这里开始。",
+    "siteTitleTitle": "为站点取个名字",
+    "siteTitleDesc": "给你的站点一个名字，它将显示在浏览器标题和分享卡片中。",
+    "siteURLTitle": "设置站点地址",
+    "siteURLDesc": "配置你的公开地址，让 RSS、分享链接和内容快照都能正确访问。",
+    "done": "已完成",
+    "hide": "不再提示",
+    "firstEchoTitle": "第一条 Echo 已发布",
+    "firstEchoDesc": "你的时间线有了新的开始。点击日期即可查看 Echo 详情。",
+    "dismiss": "稍后再说",
+    "actionPublish": "立即发布",
+    "actionSiteTitle": "填写名称",
+    "actionSiteURL": "填写地址"
   },
   "hub": {
     "emptyList": "Hub列表为空，请到设置中添加Connect吧~",

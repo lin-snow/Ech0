@@ -52,6 +52,33 @@ func (settingService *SettingService) BootstrapDefaultLocale(
 	})
 }
 
+// BootstrapSiteTitle applies the site title captured during first-run setup.
+// It is intentionally one-shot-ish: an already customised title wins, so the
+// value can only replace the pristine default.
+func (settingService *SettingService) BootstrapSiteTitle(
+	ctx context.Context,
+	title string,
+) error {
+	resolved := strings.TrimSpace(title)
+	if resolved == "" {
+		return nil
+	}
+
+	pristine := strings.TrimSpace(coreSetting.System.Pristine().SiteTitle)
+
+	return settingService.transactor.Run(ctx, func(ctx context.Context) error {
+		current, err := coreSetting.System.Get(ctx, settingService.durableKV)
+		if err != nil {
+			return err
+		}
+		if trimmed := strings.TrimSpace(current.SiteTitle); trimmed != "" && trimmed != pristine {
+			return nil
+		}
+		current.SiteTitle = resolved
+		return coreSetting.System.Set(ctx, settingService.durableKV, current)
+	})
+}
+
 func (settingService *SettingService) UpdateSetting(
 	ctx context.Context,
 	newSetting *model.SystemSettingDto,

@@ -6,7 +6,6 @@ package handler
 import (
 	"context"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	service "github.com/lin-snow/ech0/internal/service/init"
@@ -23,7 +22,7 @@ func NewInitHandler(initService service.Service) *InitHandler {
 type (
 	GetInitStatusInput struct{}
 	InitOwnerInput     struct {
-		Body authModel.RegisterDto
+		Body initModel.InitOwnerDto
 	}
 )
 

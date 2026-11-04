@@ -151,7 +151,7 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	accessService := access.NewService(tx, settingRepository, userRepository)
 	authService := auth.NewAuthService(tx, authRepository, authRepository, persistent, accessService)
 	authHandler := handler4.NewAuthHandler(authService, userService)
-	commonService := service4.NewCommonService(commonRepository, appCache)
+	commonService := service4.NewCommonService(commonRepository, appCache, persistent)
 	echoRepository := repository2.NewEchoRepository(dbProvider, appCache)
 	echoService := service5.NewEchoService(tx, commonService, fileService, echoRepository, ebProvider)
 	echoHandler := handler5.NewEchoHandler(echoService)

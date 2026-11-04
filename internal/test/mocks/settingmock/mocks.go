@@ -109,6 +109,63 @@ func (_c *MockService_BootstrapDefaultLocale_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// BootstrapSiteTitle provides a mock function for the type MockService
+func (_mock *MockService) BootstrapSiteTitle(ctx context.Context, title string) error {
+	ret := _mock.Called(ctx, title)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BootstrapSiteTitle")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, title)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_BootstrapSiteTitle_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BootstrapSiteTitle'
+type MockService_BootstrapSiteTitle_Call struct {
+	*mock.Call
+}
+
+// BootstrapSiteTitle is a helper method to define mock.On call
+//   - ctx context.Context
+//   - title string
+func (_e *MockService_Expecter) BootstrapSiteTitle(ctx any, title any) *MockService_BootstrapSiteTitle_Call {
+	return &MockService_BootstrapSiteTitle_Call{Call: _e.mock.On("BootstrapSiteTitle", ctx, title)}
+}
+
+func (_c *MockService_BootstrapSiteTitle_Call) Run(run func(ctx context.Context, title string)) *MockService_BootstrapSiteTitle_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_BootstrapSiteTitle_Call) Return(err error) *MockService_BootstrapSiteTitle_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_BootstrapSiteTitle_Call) RunAndReturn(run func(ctx context.Context, title string) error) *MockService_BootstrapSiteTitle_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateAccessToken provides a mock function for the type MockService
 func (_mock *MockService) CreateAccessToken(ctx context.Context, newToken *model.AccessTokenSettingDto) (string, error) {
 	ret := _mock.Called(ctx, newToken)

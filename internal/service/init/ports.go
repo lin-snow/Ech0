@@ -4,7 +4,6 @@
 package service
 
 import (
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
@@ -13,7 +12,7 @@ import (
 
 type Service interface {
 	GetStatus() (initModel.Status, error)
-	InitOwner(registerDto *authModel.RegisterDto) error
+	InitOwner(dto *initModel.InitOwnerDto) error
 }
 
 type Repository interface {
