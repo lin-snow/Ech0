@@ -14,10 +14,10 @@ Ech0 主仓库通常包含（以你克隆的 `main` 为准）：
 | 路径           | 说明                                                                    |
 | -------------- | ----------------------------------------------------------------------- |
 | 根目录 Go 代码 | 后端 API、业务逻辑、静态资源嵌入等                                      |
-| `web/`         | 用户-facing 前端（Vite + 现代前端栈）                                   |
-| `Site/`        | **官网与文档站**（本页所在文档由这里构建；开发方式见 `Site/README.md`） |
+| `web/`         | 面向用户的前端（Vite + 现代前端栈）                                     |
+| `site/`        | **官网与文档站**（本页所在文档由这里构建；开发方式见 `site/README.md`） |
 | `charts/`      | Helm Chart                                                              |
-| `docs/`        | 仓库内深度文档（用法、迁移等），与 `Site/docs` 官网文档互补             |
+| `docs/`        | 仓库内深度文档（用法、迁移等），与 `site/docs` 官网文档互补             |
 
 功能细节、环境变量、架构说明以根目录 **README.zh.md** 与 **`docs/`** 为准。
 
@@ -61,15 +61,15 @@ pnpm dev
 2. 启动前端 `cd web && pnpm dev`。
 3. 浏览器访问前端地址，确认接口指向本地后端。
 
-若只改 API，可用 Swagger 或 curl 直接调 `http://localhost:6277`；若只改官网文档，在 `Site/` 下按该目录 README 启动文档站。
+若只改 API，可用 Swagger 或 curl 直接调 `http://localhost:6277`；若只改官网文档，在 `site/` 下按该目录 README 启动文档站。
 
 ---
 
-## 官网文档站（`Site/`）
+## 官网文档站（`site/`）
 
-- 文档正文在 **`Site/docs/**/\*.md`**，路由与列表由 `Site/app/docs/registry.ts` 注册。
+- 文档正文在 **`site/docs/**/*.md`**，路由与列表由 `site/app/docs/registry.ts` 注册。
 - 新增文档后需在 `registry.ts` 的 `DOC_ORDER`（及可选 `DOC_HERO_SLUGS`）中加入 slug，否则排序可能靠后。
-- 本地开发：`pnpm install` / `pnpm dev`（在 `Site` 目录），详见 `Site/README.md`。
+- 本地开发：`pnpm install` / `pnpm dev`（在 `site` 目录），详见 `site/README.md`。
 
 ---
 
