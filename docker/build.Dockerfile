@@ -5,7 +5,7 @@ WORKDIR /web
 
 COPY web/package.json web/pnpm-lock.yaml ./
 
-RUN corepack enable
+RUN npm install -g pnpm@12.16.1
 
 RUN pnpm install --frozen-lockfile
 
