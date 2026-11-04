@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -20,13 +21,13 @@ func TestCreateAccessClaimsWithExpiry_AudienceOverride(t *testing.T) {
 	user := userModel.User{ID: "u-aud", Username: "aud"}
 
 	t.Run("explicit-audience-overrides", func(t *testing.T) {
-		claimsAny := CreateAccessClaimsWithExpiry(user, 3600, []string{authModel.ScopeEchoRead}, authModel.AudienceCLI, "jti-aud")
+		claimsAny := CreateAccessClaimsWithExpiry(user, 3600, []string{authz.ScopeEchoRead}, authz.AudienceCLI, "jti-aud")
 		claims, ok := claimsAny.(authModel.MyClaims)
 		require.True(t, ok, "unexpected claims type %T", claimsAny)
 
-		assert.Equal(t, jwt.ClaimStrings{authModel.AudienceCLI}, claims.Audience)
+		assert.Equal(t, jwt.ClaimStrings{authz.AudienceCLI}, claims.Audience)
 		assert.Equal(t, authModel.TokenTypeAccess, claims.Type)
-		assert.Equal(t, []string{authModel.ScopeEchoRead}, claims.Scopes)
+		assert.Equal(t, []string{authz.ScopeEchoRead}, claims.Scopes)
 		assert.Equal(t, "jti-aud", claims.ID)
 	})
 
@@ -42,7 +43,7 @@ func TestCreateAccessClaimsWithExpiry_AudienceOverride(t *testing.T) {
 
 func TestCreateAccessClaimsWithExpiry_NegativeExpiryGetsFiniteExp(t *testing.T) {
 	user := userModel.User{ID: "u-neg", Username: "neg"}
-	claimsAny := CreateAccessClaimsWithExpiry(user, -5, []string{authModel.ScopeProfileRead}, authModel.AudienceCLI, "jti-neg")
+	claimsAny := CreateAccessClaimsWithExpiry(user, -5, []string{authz.ScopeProfileRead}, authz.AudienceCLI, "jti-neg")
 	claims, ok := claimsAny.(authModel.MyClaims)
 	require.True(t, ok, "unexpected claims type %T", claimsAny)
 
@@ -56,7 +57,7 @@ func TestParseRefreshToken_TypeEnforcement(t *testing.T) {
 	user := userModel.User{ID: "u-r", Username: "r"}
 
 	t.Run("rejects-access-typ", func(t *testing.T) {
-		accessClaims := CreateAccessClaimsWithExpiry(user, 3600, nil, authModel.AudienceCLI, "jti-acc")
+		accessClaims := CreateAccessClaimsWithExpiry(user, 3600, nil, authz.AudienceCLI, "jti-acc")
 		tokenStr, err := GenerateToken(accessClaims)
 		require.NoError(t, err)
 

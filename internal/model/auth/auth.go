@@ -17,6 +17,7 @@ type MyClaims struct {
 	Username string   `json:"username"`
 	Type     string   `json:"typ"`
 	Scopes   []string `json:"scope,omitempty"`
+	IsAdmin  bool     `json:"is_admin,omitempty"`
 	jwt.RegisteredClaims
 }
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
@@ -20,7 +20,7 @@ type fakeTokenIssuer struct {
 	dto   *settingModel.AccessTokenSettingDto
 }
 
-func (issuer *fakeTokenIssuer) CreateAccessToken(
+func (issuer *fakeTokenIssuer) IssueForViewer(
 	_ context.Context,
 	dto *settingModel.AccessTokenSettingDto,
 ) (string, error) {
@@ -57,7 +57,7 @@ func TestStartDeviceAuthorizationRejectsUnknownScope(t *testing.T) {
 
 func TestDeviceAuthorizationInfoNormalizesUserCode(t *testing.T) {
 	service, _ := newDeviceService()
-	code, err := service.StartDeviceAuthorization("ech0-cli", []string{authModel.ScopeEchoRead})
+	code, err := service.StartDeviceAuthorization("ech0-cli", []string{authz.ScopeEchoRead})
 	if err != nil {
 		t.Fatalf("StartDeviceAuthorization: %v", err)
 	}
@@ -66,14 +66,14 @@ func TestDeviceAuthorizationInfoNormalizesUserCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DeviceAuthorizationInfo: %v", err)
 	}
-	if info.ClientName != "ech0-cli" || len(info.Scopes) != 1 || info.Scopes[0] != authModel.ScopeEchoRead {
+	if info.ClientName != "ech0-cli" || len(info.Scopes) != 1 || info.Scopes[0] != authz.ScopeEchoRead {
 		t.Fatalf("unexpected info %+v", info)
 	}
 }
 
 func TestPollDeviceAuthorizationPendingSlowDownAndApproval(t *testing.T) {
 	service, issuer := newDeviceService()
-	code, err := service.StartDeviceAuthorization("ech0-cli", []string{authModel.ScopeEchoRead, authModel.ScopeEchoWrite})
+	code, err := service.StartDeviceAuthorization("ech0-cli", []string{authz.ScopeEchoRead, authz.ScopeEchoWrite})
 	if err != nil {
 		t.Fatalf("StartDeviceAuthorization: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestPollDeviceAuthorizationPendingSlowDownAndApproval(t *testing.T) {
 	if issuer.dto == nil {
 		t.Fatal("issuer was not called")
 	}
-	if issuer.dto.Audience != authModel.AudienceCLI || issuer.dto.Expiry != settingModel.ONE_MONTH_EXPIRY {
+	if issuer.dto.Audience != authz.AudienceCLI || issuer.dto.Expiry != settingModel.ONE_MONTH_EXPIRY {
 		t.Fatalf("unexpected token request %+v", issuer.dto)
 	}
 	if len(issuer.dto.Scopes) != 2 {

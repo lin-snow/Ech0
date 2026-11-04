@@ -9,13 +9,22 @@ import { join } from "node:path";
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 
 function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
+  const configPath = join(mkdtempSync(join(tmpdir(), "ech0-cli-spawn-")), "config.json");
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ECH0_NO_KEYCHAIN: "1",
+    ECH0_CONFIG: configPath,
+  };
+  // A developer shell often exports ECH0_SERVER/ECH0_TOKEN; these cases assert
+  // the unconfigured behaviour, so start from a clean ECH0_* namespace.
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("ECH0_") && key !== "ECH0_NO_KEYCHAIN" && key !== "ECH0_CONFIG") {
+      delete env[key];
+    }
+  }
   const result = Bun.spawnSync({
     cmd: [process.execPath, "run", ENTRY, ...args],
-    env: {
-      ...process.env,
-      ECH0_NO_KEYCHAIN: "1",
-      ECH0_CONFIG: join(mkdtempSync(join(tmpdir(), "ech0-cli-spawn-")), "config.json"),
-    },
+    env,
     stdout: "pipe",
     stderr: "pipe",
   });

@@ -6,10 +6,10 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/util/reqinfo"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
@@ -47,22 +47,5 @@ func OriginGuard(allowedOrigins []string) gin.HandlerFunc {
 }
 
 func isSameOrigin(origin string, r *http.Request) bool {
-	parsed, err := url.Parse(origin)
-	if err != nil || parsed.Host == "" {
-		return false
-	}
-	if !strings.EqualFold(parsed.Host, r.Host) {
-		return false
-	}
-	return strings.EqualFold(parsed.Scheme, requestScheme(r))
-}
-
-func requestScheme(r *http.Request) string {
-	if r.TLS != nil {
-		return "https"
-	}
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		return strings.ToLower(strings.TrimSpace(strings.Split(proto, ",")[0]))
-	}
-	return "http"
+	return reqinfo.IsSameOrigin(origin, r)
 }

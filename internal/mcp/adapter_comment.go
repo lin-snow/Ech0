@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 )
 
@@ -49,7 +49,7 @@ func (a *Adapter) registerCommentTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.listComments, authModel.ScopeCommentRead)
+	}, a.listComments, authz.ScopeCommentRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:  "create_integration_comment",
@@ -59,7 +59,7 @@ func (a *Adapter) registerCommentTools(reg *Registry) {
 			"Requires comment:write. See resource ech0://guide/integration-comment for the REST equivalent (curl) and audience rules.",
 		InputSchema: integrationCommentInputSchema,
 		Annotations: createHints(),
-	}, a.createIntegrationComment, authModel.ScopeCommentWrite)
+	}, a.createIntegrationComment, authz.ScopeCommentWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "create_comment",
@@ -67,7 +67,7 @@ func (a *Adapter) registerCommentTools(reg *Registry) {
 		Description: "Alias of create_integration_comment. Prefer this name in agent workflows; behavior and requirements are identical.",
 		InputSchema: integrationCommentInputSchema,
 		Annotations: createHints(),
-	}, a.createIntegrationComment, authModel.ScopeCommentWrite)
+	}, a.createIntegrationComment, authz.ScopeCommentWrite)
 }
 
 func (a *Adapter) registerCommentResources(reg *Registry) {
@@ -78,7 +78,7 @@ func (a *Adapter) registerCommentResources(reg *Registry) {
 		Description: "The 20 most recent approved public comments across all posts, newest first.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceRecentComments, authModel.ScopeCommentRead)
+	}, a.resourceRecentComments, authz.ScopeCommentRead)
 
 	reg.RegisterResource(ResourceDefinition{
 		URI:         "ech0://guide/integration-comment",
@@ -87,7 +87,7 @@ func (a *Adapter) registerCommentResources(reg *Registry) {
 		Description: "REST and MCP usage for posting integration/AI comments without captcha (same as POST /api/comments/integration).",
 		MimeType:    "text/markdown",
 		Cache:       publicCache(staticTTLMs),
-	}, a.resourceIntegrationCommentGuide, authModel.ScopeCommentRead)
+	}, a.resourceIntegrationCommentGuide, authz.ScopeCommentRead)
 }
 
 func (a *Adapter) listComments(ctx context.Context, args map[string]any) (*ToolCallResult, error) {

@@ -212,9 +212,12 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 | 领域 | 业务职责 | 关键关系 |
 | --- | --- | --- |
 | **user** | 用户资料与账号：身份、语言偏好、owner/admin 角色、头像 | 被 auth/copilot/dashboard 依赖；emit `User{Created,Updated,Deleted}` |
-| **auth** | 鉴权基础设施：JWT（access+refresh）生命周期、OAuth2/OIDC（GitHub/Google/QQ/自定义）、Passkey/WebAuthn、token 撤销黑名单、access token 的 scope/audience | 给 middleware 提供 `TokenRevoker`；scope 体系被 MCP（§8）复用 |
+| **auth** | 鉴权基础设施：JWT（access+refresh）生命周期、OAuth2/OIDC（GitHub/Google/QQ/自定义）、Passkey/WebAuthn、token 撤销黑名单 | 给 middleware 提供 `TokenRevoker`；scope/audience 词汇在 `internal/authz`，被 MCP（§8）复用 |
+| **access**（能力层） | 访问令牌铸造与校验：管理员校验、scope/audience 策略、JWT 生成、落库 | 被 setting 面板、device flow、`oauthserver` 共用；不拥有 HTTP 表面 |
+| **oauthserver** | MCP 的 OAuth 2.1 授权服务器：PRM/AS 元数据、CIMD/DCR、授权码 + PKCE、token 端点 | 依赖 `access` + `authz`；协议端点保持裸 RFC 线格式 |
+| **authz**（纯策略） | scope/audience 词汇、`Allows`、管理员 scope 判定 | 零 IO、零领域依赖，供 middleware、MCP、oauthserver 共用 |
 | **init** | 系统初始化：一次性引导流程、owner 账号建立检测 | — |
-| **setting** | 系统配置（落 KV）：站点品牌、OAuth2/S3/Passkey、Agent/embedding 配置、CORS、自定义 CSS/JS | 被所有域消费；改快照计划时 emit `UpdateSnapshotSchedule` |
+| **setting** | 系统配置（落 KV）：站点品牌、OAuth2/S3/Passkey、Agent/embedding 配置、CORS、自定义 CSS/JS；访问令牌管理面（`/api/access-tokens`，令牌铸造委托 `access`） | 被所有域消费；改快照计划时 emit `UpdateSnapshotSchedule` |
 
 ### 6.3 智能与检索
 
@@ -329,12 +332,18 @@ middleware.RequireAuth ─► 解出 viewer.Context（带 token 的 scopes / aud
 mcp.Server.dispatch(method)：
    ├─ initialize              → ServerCapabilities + ServerInfo（能力握手）
    ├─ notifications/initialized
-   ├─ tools/list              → Registry.ToolDefinitions()（列全部工具声明）
+   ├─ tools/list              → Registry.ToolDefinitionsFor(viewer.Scopes())
+   │                            （按 token scope 过滤，结果标 cacheScope=private）
    ├─ tools/call              → handleToolsCall：
    │        ① Registry.LookupTool(name) 取 handler + 所需 scopes
-   │        ② 校验 viewer 是否具备全部 scope（不足 → insufficient scopes 错误）
-   │        ③ 执行 handler → Adapter → 领域 service
-   ├─ resources/list          → Registry.ResourceDefinitions()
+   │        ② 校验 viewer 是否具备全部 scope（不足 → 403 + insufficient_scope 挑战）
+   │        ③ destructive tool 且客户端声明 elicitation：
+   │            返回 input_required + inputRequests["confirm"] + HMAC requestState
+   │            （含 16 字节 nonce 与 TTL）；重试先读取 inputResponses，
+   │            只有 approved 才消费状态，再校验 principal/工具/参数摘要/TTL
+   │        ④ 执行 handler → Adapter → 领域 service
+   ├─ resources/list          → Registry.ResourceDefinitionsFor(viewer.Scopes())
+   ├─ resources/templates/list → 同样按 scope 过滤
    └─ resources/read          → handleResourcesRead（同样先校验 scope）
    ▼
 internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
@@ -342,8 +351,10 @@ internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
    RegisterAll 依次调用：
      registerEcho{Tools,Resources} · registerUser/Comment/File/Common/ConnectResources
      registerAgentTools（get_recent，复用 copilotSvc.SummaryService）
-     registerWebhookTools（list/create/update/delete/test，全部路由到 settingSvc，scope=admin:settings）
+     registerWebhookTools（list/create/update/delete/test，全部路由到 settingSvc，scope=admin:webhook）
    每个 register* 把 service 方法包装成 ToolHandler / ResourceHandler 注册进 Registry
+   ▼
+mcp_request 审计日志（method/tool/resource、era、client、token jti、latency、error）
 ```
 
 辅助：`RawTokenFromContext` / `BaseURLFromContext` 从 ctx 取原始 token 与外部 base URL（如 file_upload_guide 需要拼出可访问 URL）。
@@ -353,14 +364,17 @@ internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
 | 域 | 工具 | 所需 scope |
 | --- | --- | --- |
 | echo | `search_posts` · `get_post` · `list_tags` · `get_today_posts` | `echo:read` |
-| echo | `create_post` · `update_post` · `delete_post` · `like_post` · `delete_tag` | `echo:write` |
+| echo | `create_post` · `update_post` · `like_post` | `echo:write` |
+| echo | `delete_post` · `delete_tag` | `echo:delete` |
 | comment | `list_comments` | `comment:read` |
 | comment | `create_comment` · `create_integration_comment` | `comment:write` |
 | file | `list_files` · `get_file` | `file:read` |
-| file | `create_external_file` · `delete_file` | `file:write` |
+| file | `create_external_file` | `file:write` |
+| file | `delete_file` | `file:delete` |
 | connect | `list_connects` · `get_connects_info` | `connect:read` |
-| connect | `add_connect` · `delete_connect` | `connect:write` |
-| webhook | `list_webhooks` · `create_webhook` · `update_webhook` · `delete_webhook` · `test_webhook` | `admin:settings` |
+| connect | `add_connect` | `connect:write` |
+| connect | `delete_connect` | `connect:delete` |
+| webhook | `list_webhooks` · `create_webhook` · `update_webhook` · `delete_webhook` · `test_webhook` | `admin:webhook` |
 | agent | `get_recent`（AI 近期总结，复用 copilot `SummaryService`） | `echo:read` |
 
 ### 8.3 暴露的 Resources（只读上下文 / 指南，URI 寻址）

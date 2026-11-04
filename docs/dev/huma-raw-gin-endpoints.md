@@ -27,9 +27,9 @@
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
-| POST | `/api/chat` | `CopilotHandler.Ask` | Auth · `admin:settings` |
-| GET | `/api/system/logs/stream` | `DashboardHandler.SSESubscribeSystemLogs` | Auth · `admin:settings` |
-| GET | `/ws/system/logs` | `DashboardHandler.WSSubscribeSystemLogs` | WS 组（鉴权在 handler 内） |
+| POST | `/api/chat` | `CopilotHandler.Ask` | Auth · `admin:agent` |
+| GET | `/api/system/logs/stream` | `DashboardHandler.SSESubscribeSystemLogs` | Auth · session-only |
+| GET | `/ws/system/logs` | `DashboardHandler.WSSubscribeSystemLogs` | Auth · session-only |
 
 `/api/chat` 把 Agent ReAct 循环逐事件转成 Chat SSE（`searching\|sources\|delta\|done\|error`）。WebSocket 与请求-响应模型根本不兼容。
 
@@ -38,7 +38,7 @@
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
 | POST | `/api/files/upload` | `FileHandler.UploadFile` | Auth · `file:write` |
-| POST | `/api/migration/upload` | `MigrationHandler.UploadSourceZip` | Auth · `admin:settings` |
+| POST | `/api/migration/upload` | `MigrationHandler.UploadSourceZip` | Auth · `admin:data` |
 
 请求体是 `multipart/form-data` 文件流，非 JSON body。
 
@@ -48,7 +48,7 @@
 |---|---|---|---|
 | GET | `/api/file/stream` | `FileHandler.StreamFileByPath` | Auth · `file:read` |
 | GET | `/api/file/:id/stream` | `FileHandler.StreamFileByID` | Auth · `file:read` |
-| GET | `/api/migration/export/download` | `MigrationHandler.DownloadExport` | Auth · `admin:settings` |
+| GET | `/api/migration/export/download` | `MigrationHandler.DownloadExport` | Auth · `admin:data` |
 
 响应是字节流（图片 / 快照 zip / octet-stream），非 JSON 信封。
 
@@ -71,12 +71,12 @@
 | POST | `/api/auth/exchange` | `AuthHandler.Exchange` | Public | 一次性 code 换 token |
 | POST | `/api/passkey/login/begin` | `AuthHandler.PasskeyLoginBeginV2` | Public | 从 gin 请求读 Origin 推导 RP-ID/Origin |
 | POST | `/api/passkey/login/finish` | `AuthHandler.PasskeyLoginFinishV2` | Public | 同上 + 写 refresh cookie |
-| POST | `/api/passkey/register/begin` | `AuthHandler.PasskeyRegisterBeginV2` | Auth · `profile:write` | 从 gin 请求读 Origin 推导 RP-ID/Origin |
-| POST | `/api/passkey/register/finish` | `AuthHandler.PasskeyRegisterFinishV2` | Auth · `profile:write` | 同上 |
+| POST | `/api/passkey/register/begin` | `AuthHandler.PasskeyRegisterBeginV2` | Auth · session-only | 从 gin 请求读 Origin 推导 RP-ID/Origin |
+| POST | `/api/passkey/register/finish` | `AuthHandler.PasskeyRegisterFinishV2` | Auth · session-only | 同上 |
 | POST | `/api/auth/device/code` | `AuthHandler.DeviceCode` | Public | 返回 CLI 展示用的设备码 / 用户码 |
 | POST | `/api/auth/device/token` | `AuthHandler.DeviceToken` | Public | 轮询；pending / slow_down / expired / denied 用固定 `error_code` 表达 |
-| GET | `/api/auth/device/pending` | `AuthHandler.DevicePending` | Auth | 批准页展示申请的 client / scopes |
-| POST | `/api/auth/device/approve` | `AuthHandler.DeviceApprove` | Auth（须 admin） | 批准后由服务端直接铸造 `audience=cli` 的 access token |
+| GET | `/api/auth/device/pending` | `AuthHandler.DevicePending` | Auth · session-only | 批准页展示申请的 client / scopes |
+| POST | `/api/auth/device/approve` | `AuthHandler.DeviceApprove` | Auth · session-only（须 admin） | 批准后由服务端直接铸造 `audience=cli` 的 access token |
 
 这批都需要直接操作 `*gin.Context`（写/读 cookie，或经 `getPasskeyOriginAndRPID` 从原始请求头推导 WebAuthn 的 RP-ID 与 Origin），超出框架中立 handler 的能力边界，整组留在裸 gin。设备授权的轮询把“尚未批准”当作稳定的 `error_code` 而非错误文案，走 Huma 的统一错误映射会丢语义，因此同样保留裸 gin。
 
@@ -108,6 +108,20 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | —（NoRoute） | 任意未命中 | `WebHandler.Templates` | Engine 级 | SPA `index.html` fallback |
 | GET | `/api/files/*` | `StaticFS` | 专用组 · `StaticFileSecurity`（目录穿越防护） | 本地上传文件静态服务 |
 
+### I. MCP 授权服务器（7）
+
+| 方法 | 路径 | Handler | 分组 / 鉴权 | 具体原因 |
+|---|---|---|---|---|
+| GET | `/.well-known/oauth-protected-resource` | `OAuthServerHandler.ProtectedResource` | 公开 | RFC 9728 固定路径 |
+| GET | `/.well-known/oauth-protected-resource/mcp` | `OAuthServerHandler.ProtectedResource` | 公开 | 路径插入式发现 |
+| GET | `/.well-known/oauth-authorization-server` | `OAuthServerHandler.AuthorizationServerMetadata` | 公开 | RFC 8414 固定路径 |
+| POST | `/oauth/token` | `OAuthServerHandler.Token` | 公开 · 限流 | 表单请求体，响应必须是裸 RFC 6749 JSON（不能套 Ech0 信封） |
+| POST | `/oauth/register` | `OAuthServerHandler.Register` | 公开 · 限流 | DCR 兼容端点，裸 RFC 7591 JSON |
+| GET | `/api/consent` | `OAuthServerHandler.Consent` | Auth（须 session） | 同意页读取校验结果，需拒绝 access token |
+| POST | `/api/consent/approve` | `OAuthServerHandler.Approve` | Auth（须 session） | 批准后签发 code 并返回客户端跳转 URL |
+
+协议端点必须保持 OAuth 的线格式（`application/x-www-form-urlencoded` 请求、`error` / `error_description` 响应、`Cache-Control: no-store`），因此不进入 Huma 信封。
+
 ## 3. 汇总
 
 | 类别 | 端点数 |
@@ -116,11 +130,12 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | B multipart 上传 | 2 |
 | C 二进制下载/流 | 3 |
 | D OAuth 302 跳转 | 2 |
-| E Cookie/token/WebAuthn | 8 |
+| E Cookie/token/WebAuthn | 12 |
 | F captcha | 1 |
 | G MCP JSON-RPC | 2 |
 | H 非 JSON 资源/SPA/静态 | 6 |
-| **合计裸 gin** | **27** |
+| I MCP 授权服务器 | 7 |
+| **合计裸 gin** | **38** |
 
 对照面：13 个业务域（init / auth / common / echo / connect / user / setting / file / dashboard / copilot / comment / migration / embedding）均已在 Huma，约 100 个 JSON 端点，经 `registerOperations` 聚合。
 

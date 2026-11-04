@@ -5,6 +5,7 @@ package repository
 
 import (
 	"github.com/google/wire"
+	accessService "github.com/lin-snow/ech0/internal/access"
 	"github.com/lin-snow/ech0/internal/job"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
@@ -17,6 +18,7 @@ import (
 	initRepository "github.com/lin-snow/ech0/internal/repository/init"
 	jobRepository "github.com/lin-snow/ech0/internal/repository/job"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
+	oauthserverRepository "github.com/lin-snow/ech0/internal/repository/oauthserver"
 	settingRepository "github.com/lin-snow/ech0/internal/repository/setting"
 	userRepository "github.com/lin-snow/ech0/internal/repository/user"
 	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
@@ -29,6 +31,7 @@ import (
 	embeddingService "github.com/lin-snow/ech0/internal/service/embedding"
 	fileService "github.com/lin-snow/ech0/internal/service/file"
 	initService "github.com/lin-snow/ech0/internal/service/init"
+	oauthserverService "github.com/lin-snow/ech0/internal/service/oauthserver"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	webhookmodule "github.com/lin-snow/ech0/internal/webhook"
@@ -42,9 +45,15 @@ var (
 		wire.Bind(new(authService.Repository), new(*authRepository.AuthRepository)),
 		wire.Bind(new(settingService.TokenRevoker), new(*authRepository.AuthRepository)),
 	)
+	OAuthServerSet = wire.NewSet(
+		oauthserverRepository.NewClientRepository,
+		wire.Bind(new(oauthserverService.ClientRepository), new(*oauthserverRepository.ClientRepository)),
+	)
 	UserSet = wire.NewSet(
 		userRepository.NewUserRepository,
 		wire.Bind(new(userService.Repository), new(*userRepository.UserRepository)),
+		wire.Bind(new(oauthserverService.UserReader), new(*userRepository.UserRepository)),
+		wire.Bind(new(accessService.UserReader), new(*userRepository.UserRepository)),
 	)
 	EchoSet = wire.NewSet(
 		echoRepository.NewEchoRepository,
@@ -82,6 +91,7 @@ var (
 	SettingSet = wire.NewSet(
 		settingRepository.NewSettingRepository,
 		wire.Bind(new(settingService.SettingRepository), new(*settingRepository.SettingRepository)),
+		wire.Bind(new(accessService.TokenRepository), new(*settingRepository.SettingRepository)),
 	)
 	ConnectSet = wire.NewSet(
 		connectRepository.NewConnectRepository,

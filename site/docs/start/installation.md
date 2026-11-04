@@ -3,7 +3,7 @@ title: 安装部署
 description: Docker / Compose / 二进制 / Helm；端口、数据与安全要点
 ---
 
-> **推荐顺序**：**Docker 单容器** → Docker Compose → 安装脚本（systemd）→ 在线 Helm Repo 安装 → 直接运行二进制。若你是第一次部署，可先读 [快速上手](/docs/start/getting-started) 再回来选方式。下文与仓库根目录 `README.zh.md` 保持一致。
+> **推荐顺序**：**Docker 单容器** → Docker Compose → 安装脚本（systemd）→ 在线 Helm Repo 安装 → 直接运行二进制。若你是第一次部署，可先读 [快速上手](/docs/start/getting-started) 再回来选方式。
 
 ---
 
@@ -153,7 +153,7 @@ helm install ech0 ./charts/ech0
 
 ## 环境变量与进阶配置
 
-除 `JWT_SECRET` 外，其余变量（数据库路径、日志级别、对象存储等）以仓库 **`README.zh.md`** 与 **`docs/`** 目录说明为准。时区语义请参阅 `docs/dev/timezone-design.md`：站点级统计固定 UTC，用户视角接口（如「今日」、热力图）继续使用浏览器请求的 **`X-Timezone`**。生产环境建议：
+除 `JWT_SECRET` 外，其余变量（数据库路径、日志级别、对象存储等）按部署方式在 `.env` 或 Compose 中设置；具体名称以你的部署模板为准。时区语义：站点级统计固定 UTC，用户视角接口（如「今日」、热力图）使用浏览器请求的 **`X-Timezone`**。生产环境建议：
 
 - 不要用默认示例密钥；
 - 定期备份数据目录与快照；

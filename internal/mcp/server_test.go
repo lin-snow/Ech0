@@ -10,14 +10,19 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 func testViewer() viewer.Context {
 	return viewer.NewUserViewerWithToken("test-user", "access", []string{"echo:read", "echo:write", "profile:read"}, []string{"mcp-remote"}, "test-jti")
+}
+
+func fullViewer() viewer.Context {
+	return viewer.NewUserViewerWithToken("test-user", "access", authz.AllScopes(), []string{"mcp-remote"}, "test-jti")
 }
 
 func testRequest(t *testing.T, method, body string) *http.Request {
@@ -63,7 +68,7 @@ func setupTestServer() *Server {
 		Annotations: destructiveHints(),
 	}, func(_ context.Context, _ map[string]any) (*ToolCallResult, error) {
 		return &ToolCallResult{Content: []ContentItem{{Type: "text", Text: "written"}}}, nil
-	}, "admin:settings")
+	}, "admin:site")
 
 	reg.RegisterResource(ResourceDefinition{
 		URI:      "ech0://test",
@@ -131,7 +136,22 @@ func doRaw(t *testing.T, srv *Server, headers map[string]string, body string) (*
 
 func doModern(t *testing.T, srv *Server, method string, params map[string]any) (*httptest.ResponseRecorder, Response) {
 	t.Helper()
+	return doModernAs(t, srv, testViewer(), nil, method, params)
+}
+
+func doModernAs(
+	t *testing.T,
+	srv *Server,
+	v viewer.Context,
+	capabilities map[string]any,
+	method string,
+	params map[string]any,
+) (*httptest.ResponseRecorder, Response) {
+	t.Helper()
 	params = withMeta(params, ProtocolVersion)
+	if capabilities != nil {
+		params["_meta"].(map[string]any)[metaKeyClientCapabilities] = capabilities
+	}
 	paramsJSON, _ := json.Marshal(params)
 	body, _ := json.Marshal(Request{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: method, Params: paramsJSON})
 
@@ -145,7 +165,21 @@ func doModern(t *testing.T, srv *Server, method string, params map[string]any) (
 	if uri, ok := params["uri"].(string); ok {
 		headers["Mcp-Name"] = uri
 	}
-	return doRaw(t, srv, headers, string(body))
+	req := testRequest(t, http.MethodPost, string(body))
+	for k, val := range headers {
+		req.Header.Set(k, val)
+	}
+	req = req.WithContext(viewer.WithContext(req.Context(), v))
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	var resp Response
+	if rec.Body.Len() > 0 {
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("unmarshal response: %v", err)
+		}
+	}
+	return rec, resp
 }
 
 func doLegacy(
@@ -220,17 +254,39 @@ func TestToolsList(t *testing.T) {
 		t.Fatalf("unexpected error: %v", resp.Error)
 	}
 	result := unmarshalResult[ToolsListResult](t, resp)
-	if len(result.Tools) != 4 {
-		t.Errorf("tools count = %d, want 4", len(result.Tools))
+	if len(result.Tools) != 3 {
+		t.Errorf("tools count = %d, want 3 (admin:site tool must be hidden)", len(result.Tools))
 	}
-	if result.Tools[0].Name != "echo_tool" || result.Tools[3].Name != "write_tool" {
+	if result.Tools[0].Name != "echo_tool" || result.Tools[2].Name != "array_tool" {
 		t.Errorf("tools are not in registration order: %v", result.Tools)
 	}
 	if result.ResultType != resultTypeComplete {
 		t.Errorf("resultType = %q, want %q", result.ResultType, resultTypeComplete)
 	}
-	if result.TTLMs <= 0 || result.CacheScope != cacheScopePublic {
-		t.Errorf("cache hints = (%d, %q), want positive ttl and %q", result.TTLMs, result.CacheScope, cacheScopePublic)
+	if result.TTLMs <= 0 || result.CacheScope != cacheScopePrivate {
+		t.Errorf("cache hints = (%d, %q), want positive ttl and %q", result.TTLMs, result.CacheScope, cacheScopePrivate)
+	}
+}
+
+func TestToolsListFiltersByScopes(t *testing.T) {
+	srv := setupTestServer()
+	_, resp := doModernAs(t, srv, fullViewer(), nil, "tools/list", nil)
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %v", resp.Error)
+	}
+	result := unmarshalResult[ToolsListResult](t, resp)
+	if len(result.Tools) != 4 {
+		t.Fatalf("tools count = %d, want 4 for a full-scope token", len(result.Tools))
+	}
+
+	readOnly := viewer.NewUserViewerWithToken(
+		"test-user", "access", []string{"echo:read"}, []string{"mcp-remote"}, "test-jti")
+	_, resp = doModernAs(t, srv, readOnly, nil, "tools/list", nil)
+	result = unmarshalResult[ToolsListResult](t, resp)
+	for _, tool := range result.Tools {
+		if tool.Name == "write_tool" {
+			t.Fatal("write_tool advertised to a read-only token")
+		}
 	}
 }
 
@@ -312,8 +368,8 @@ func TestToolsCallInsufficientScopes(t *testing.T) {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 	challenge := rec.Header().Get("WWW-Authenticate")
-	if challenge != `Bearer error="insufficient_scope", scope="admin:settings"` {
-		t.Errorf("WWW-Authenticate = %q, want an insufficient_scope challenge naming admin:settings", challenge)
+	if challenge != `Bearer error="insufficient_scope", scope="admin:site"` {
+		t.Errorf("WWW-Authenticate = %q, want an insufficient_scope challenge naming admin:site", challenge)
 	}
 }
 
@@ -361,8 +417,8 @@ func TestResourceTemplatesList(t *testing.T) {
 	if result.ResourceTemplates[0].URITemplate != "ech0://items/{id}" {
 		t.Errorf("uriTemplate = %q, want %q", result.ResourceTemplates[0].URITemplate, "ech0://items/{id}")
 	}
-	if result.TTLMs <= 0 || result.CacheScope != cacheScopePublic {
-		t.Errorf("cache hints = (%d, %q), want positive ttl and %q", result.TTLMs, result.CacheScope, cacheScopePublic)
+	if result.TTLMs <= 0 || result.CacheScope != cacheScopePrivate {
+		t.Errorf("cache hints = (%d, %q), want positive ttl and %q", result.TTLMs, result.CacheScope, cacheScopePrivate)
 	}
 }
 
@@ -746,8 +802,8 @@ func TestAdapterRegistersDiscoveryCapabilities(t *testing.T) {
 			t.Errorf("tool %q not registered", name)
 			continue
 		}
-		if len(binding.Scopes) != 1 || binding.Scopes[0] != authModel.ScopeEchoRead {
-			t.Errorf("tool %q scopes = %v, want [%s]", name, binding.Scopes, authModel.ScopeEchoRead)
+		if len(binding.Scopes) != 1 || binding.Scopes[0] != authz.ScopeEchoRead {
+			t.Errorf("tool %q scopes = %v, want [%s]", name, binding.Scopes, authz.ScopeEchoRead)
 		}
 	}
 
@@ -755,8 +811,8 @@ func TestAdapterRegistersDiscoveryCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatal("resource ech0://stats/visitors not registered")
 	}
-	if len(binding.Scopes) != 1 || binding.Scopes[0] != authModel.ScopeAdminSettings {
-		t.Errorf("visitor stats scopes = %v, want [%s]", binding.Scopes, authModel.ScopeAdminSettings)
+	if len(binding.Scopes) != 1 || binding.Scopes[0] != authz.ScopeAdminOps {
+		t.Errorf("visitor stats scopes = %v, want [%s]", binding.Scopes, authz.ScopeAdminOps)
 	}
 }
 
@@ -786,6 +842,47 @@ func TestAdapterAnnotatesDestructiveTools(t *testing.T) {
 	}
 	if anno := byName["create_post"].Annotations; anno == nil || anno.DestructiveHint == nil || *anno.DestructiveHint {
 		t.Error("create_post must not be marked destructive")
+	}
+}
+
+func TestDeleteToolsUseDeleteScopes(t *testing.T) {
+	reg := NewRegistry()
+	NewAdapter(nil, nil, nil, nil, nil, nil, nil, nil, nil).RegisterAll(reg)
+
+	want := map[string]string{
+		"delete_post":    authz.ScopeEchoDelete,
+		"delete_tag":     authz.ScopeEchoDelete,
+		"delete_file":    authz.ScopeFileDelete,
+		"delete_connect": authz.ScopeConnectDelete,
+	}
+	for name, wantScope := range want {
+		binding, ok := reg.LookupTool(name)
+		if !ok {
+			t.Errorf("tool %q not registered", name)
+			continue
+		}
+		if len(binding.Scopes) != 1 || binding.Scopes[0] != wantScope {
+			t.Errorf("tool %q scopes = %v, want [%s]", name, binding.Scopes, wantScope)
+		}
+	}
+
+	// Admin configuration tools intentionally stay inside their domain scope;
+	// every other delete_* tool must use a dedicated :delete scope.
+	for _, def := range reg.ToolDefinitions() {
+		if !strings.HasPrefix(def.Name, "delete_") {
+			continue
+		}
+		binding, ok := reg.LookupTool(def.Name)
+		if !ok || len(binding.Scopes) == 0 {
+			t.Errorf("tool %q has no scope binding", def.Name)
+			continue
+		}
+		if strings.HasPrefix(binding.Scopes[0], "admin:") {
+			continue
+		}
+		if !strings.HasSuffix(binding.Scopes[0], ":delete") {
+			t.Errorf("tool %q uses %q; destructive tools need a :delete scope", def.Name, binding.Scopes[0])
+		}
 	}
 }
 

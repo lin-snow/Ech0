@@ -8,12 +8,59 @@ import (
 	"slices"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
+
+// RequireSession rejects access tokens for operations that are inherently
+// bound to an interactive browser session (account security, token
+// administration). Session tokens carry no scopes, so this guard is the only
+// authorization boundary those routes need.
+func RequireSession() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		v := viewer.MustFromContext(ctx.Request.Context())
+		if v.TokenType() == authModel.TokenTypeSession {
+			ctx.Next()
+			return
+		}
+		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+	}
+}
+
+// RequireAdminSession keeps administrator-only panel routes out of the reach
+// of ordinary browser sessions. Access tokens are unaffected: their admin
+// scopes are minted only for administrators and are checked by RequireScopes.
+func RequireAdminSession() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		v := viewer.MustFromContext(ctx.Request.Context())
+		if v.TokenType() == authModel.TokenTypeSession && !v.IsAdmin() {
+			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+			return
+		}
+		ctx.Next()
+	}
+}
+
+// abortAuth writes the shared localized auth error and stops the chain.
+func abortAuth(ctx *gin.Context, status int, code, messageKey, message string) {
+	ctx.JSON(
+		status,
+		commonModel.FailWithLocalized[any](
+			i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), messageKey, errUtil.HandleError(&commonModel.ServerError{
+				Msg: message,
+				Err: nil,
+			}), nil),
+			code,
+			messageKey,
+			nil,
+		),
+	)
+	ctx.Abort()
+}
 
 func RequireScopes(scopes ...string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -23,51 +70,15 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 			return
 		}
 		if v.TokenType() != authModel.TokenTypeAccess {
-			ctx.JSON(
-				http.StatusUnauthorized,
-				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
-						Msg: commonModel.TOKEN_NOT_VALID,
-						Err: nil,
-					}), nil),
-					commonModel.ErrCodeTokenInvalid,
-					commonModel.MsgKeyAuthTokenInvalid,
-					nil,
-				),
-			)
-			ctx.Abort()
+			abortAuth(ctx, http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID)
 			return
 		}
 		if !containsValidAudience(v.Audience()) {
-			ctx.JSON(
-				http.StatusForbidden,
-				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthAudienceForbidden, errUtil.HandleError(&commonModel.ServerError{
-						Msg: commonModel.NO_PERMISSION_DENIED,
-						Err: nil,
-					}), nil),
-					commonModel.ErrCodeAudienceForbidden,
-					commonModel.MsgKeyAuthAudienceForbidden,
-					nil,
-				),
-			)
-			ctx.Abort()
+			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
 			return
 		}
-		if !containsAllScopes(v.Scopes(), scopes) {
-			ctx.JSON(
-				http.StatusForbidden,
-				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthScopeForbidden, errUtil.HandleError(&commonModel.ServerError{
-						Msg: commonModel.NO_PERMISSION_DENIED,
-						Err: nil,
-					}), nil),
-					commonModel.ErrCodeScopeForbidden,
-					commonModel.MsgKeyAuthScopeForbidden,
-					nil,
-				),
-			)
-			ctx.Abort()
+		if !authz.Allows(v.Scopes(), scopes) {
+			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
 			return
 		}
 		ctx.Next()
@@ -75,6 +86,22 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 }
 
 func RequireAudience(allowed ...string) gin.HandlerFunc {
+	return requireAudience(nil, allowed...)
+}
+
+// RequireAudienceWithChallenge is RequireAudience for resource servers that
+// advertise OAuth discovery. A token signed for another audience is not
+// acceptable here, so the request is rejected as 401 with an RFC 6750
+// challenge instead of a bare 403: MCP clients only start (or restart) the
+// authorization flow when they see a challenge on 401.
+func RequireAudienceWithChallenge(
+	challenge func(*gin.Context) string,
+	allowed ...string,
+) gin.HandlerFunc {
+	return requireAudience(challenge, allowed...)
+}
+
+func requireAudience(challenge func(*gin.Context) string, allowed ...string) gin.HandlerFunc {
 	set := make(map[string]struct{}, len(allowed))
 	for _, a := range allowed {
 		set[a] = struct{}{}
@@ -91,19 +118,12 @@ func RequireAudience(allowed ...string) gin.HandlerFunc {
 				return
 			}
 		}
-		ctx.JSON(
-			http.StatusForbidden,
-			commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthAudienceForbidden, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.NO_PERMISSION_DENIED,
-					Err: nil,
-				}), nil),
-				commonModel.ErrCodeAudienceForbidden,
-				commonModel.MsgKeyAuthAudienceForbidden,
-				nil,
-			),
-		)
-		ctx.Abort()
+		if challenge != nil {
+			ctx.Header("WWW-Authenticate", challenge(ctx))
+			abortAuth(ctx, http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID)
+			return
+		}
+		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
 	}
 }
 
@@ -111,21 +131,5 @@ func containsValidAudience(audiences []string) bool {
 	if len(audiences) == 0 {
 		return false
 	}
-	return slices.ContainsFunc(audiences, authModel.IsValidAudience)
-}
-
-func containsAllScopes(actual, required []string) bool {
-	if len(required) == 0 {
-		return true
-	}
-	set := make(map[string]struct{}, len(actual))
-	for _, scope := range actual {
-		set[scope] = struct{}{}
-	}
-	for _, requiredScope := range required {
-		if _, ok := set[requiredScope]; !ok {
-			return false
-		}
-	}
-	return true
+	return slices.ContainsFunc(audiences, authz.IsValidAudience)
 }

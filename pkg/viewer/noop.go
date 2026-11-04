@@ -15,5 +15,6 @@ func (v *NoopViewer) Audience() []string {
 	return nil
 }
 func (v *NoopViewer) TokenID() string { return "" }
+func (v *NoopViewer) IsAdmin() bool   { return false }
 
 var _ Context = (*NoopViewer)(nil)

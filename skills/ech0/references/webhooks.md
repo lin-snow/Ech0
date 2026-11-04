@@ -1,8 +1,7 @@
 # Webhooks
 
 Webhooks push Ech0 events to an HTTP(S) URL. Every webhook command requires an
-admin account; the API scope is `admin:settings` (there is no finer webhook
-scope yet).
+admin account; the API scope is `admin:webhook`.
 
 ## List
 

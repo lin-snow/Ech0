@@ -64,7 +64,7 @@
       "title": "Delete Post",
       "description": "Permanently delete a post. Returns {id, message}. This action cannot be undone.",
       "scopes": [
-        "echo:write"
+        "echo:delete"
       ],
       "read_only": false,
       "destructive": true
@@ -94,7 +94,7 @@
       "title": "Delete Tag",
       "description": "Delete a tag and remove its association from all posts. Returns {id, message}. This action cannot be undone.",
       "scopes": [
-        "echo:write"
+        "echo:delete"
       ],
       "read_only": false,
       "destructive": true
@@ -184,7 +184,7 @@
       "title": "Delete File",
       "description": "Permanently delete a file from storage. Returns {id, message}. This action cannot be undone.",
       "scopes": [
-        "file:write"
+        "file:delete"
       ],
       "read_only": false,
       "destructive": true
@@ -234,7 +234,7 @@
       "title": "Delete Connect",
       "description": "Remove a saved peer connection by ID. Returns {id, message}. This action cannot be undone.",
       "scopes": [
-        "connect:write"
+        "connect:delete"
       ],
       "read_only": false,
       "destructive": true
@@ -254,7 +254,7 @@
       "title": "List Webhooks",
       "description": "List all configured webhooks. Returns an array of webhook objects (id, name, url, is_active, last_status, last_trigger, timestamps). Secrets are never exposed.",
       "scopes": [
-        "admin:settings"
+        "admin:webhook"
       ],
       "read_only": true,
       "destructive": false
@@ -264,7 +264,7 @@
       "title": "Create Webhook",
       "description": "Create a new webhook endpoint. Returns {message} on success.",
       "scopes": [
-        "admin:settings"
+        "admin:webhook"
       ],
       "read_only": false,
       "destructive": false
@@ -274,7 +274,7 @@
       "title": "Update Webhook",
       "description": "Update an existing webhook by ID. All fields in the body replace the current values. Returns {id, message}.",
       "scopes": [
-        "admin:settings"
+        "admin:webhook"
       ],
       "read_only": false,
       "destructive": true
@@ -284,7 +284,7 @@
       "title": "Delete Webhook",
       "description": "Delete a webhook by ID. Returns {id, message}. This action cannot be undone.",
       "scopes": [
-        "admin:settings"
+        "admin:webhook"
       ],
       "read_only": false,
       "destructive": true
@@ -294,7 +294,7 @@
       "title": "Test Webhook",
       "description": "Send a test POST request to the webhook endpoint. Returns {id, message} indicating whether the test was dispatched.",
       "scopes": [
-        "admin:settings"
+        "admin:webhook"
       ],
       "read_only": false,
       "destructive": false
@@ -379,7 +379,7 @@
       "title": "Visitor Stats",
       "description": "Daily visitor statistics (page views and unique visitors) for the past 7 days (UTC day boundaries). Returns an array of {date, pv, uv} objects. Requires admin scope.",
       "scopes": [
-        "admin:settings"
+        "admin:ops"
       ]
     }
   ],

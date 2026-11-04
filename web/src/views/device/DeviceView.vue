@@ -7,9 +7,9 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import ScopeAccordion from '@/components/common/ScopeAccordion.vue'
 import { fetchDeviceApprove, fetchDevicePending } from '@/service/api/device'
 import { resolveAvatarUrl } from '@/service/request/shared'
-import { ACCESS_SCOPE_LABEL_KEYS } from '@/constants/accessScopes'
 import { useSettingStore, useUserStore } from '@/stores'
 import { theToast } from '@/utils/toast'
 
@@ -136,11 +136,6 @@ async function switchAccount() {
   await router.push({ name: 'auth', query: { redirect: target } })
 }
 
-function scopeLabel(scope: string) {
-  const key = ACCESS_SCOPE_LABEL_KEYS[scope]
-  return key ? String(t(key)) : scope
-}
-
 // Typing a complete code is the intent to look it up — there is no separate submit step.
 watch(normalizedCode, scheduleLookup)
 
@@ -224,19 +219,7 @@ onBeforeUnmount(() => {
             </span>
           </div>
 
-          <div>
-            <p class="text-sm text-[var(--color-text-muted)] mb-2">{{ t('devicePage.scopes') }}</p>
-            <ul class="flex flex-wrap gap-1.5">
-              <li
-                v-for="scope in pending.scopes"
-                :key="scope"
-                :title="scope"
-                class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-text-primary)]"
-              >
-                {{ scopeLabel(scope) }}
-              </li>
-            </ul>
-          </div>
+          <ScopeAccordion :scopes="pending.scopes" />
 
           <div class="flex items-center justify-between text-xs">
             <span class="text-[var(--color-text-muted)]">{{ t('devicePage.expiresIn') }}</span>

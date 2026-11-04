@@ -9,6 +9,7 @@ type UserViewer struct {
 	scopes    []string
 	audience  []string
 	tokenID   string
+	isAdmin   bool
 }
 
 func NewUserViewer(userID string) *UserViewer {
@@ -38,5 +39,13 @@ func (v *UserViewer) Audience() []string {
 	return append([]string(nil), v.audience...)
 }
 func (v *UserViewer) TokenID() string { return v.tokenID }
+func (v *UserViewer) IsAdmin() bool   { return v.isAdmin }
+
+// WithAdmin marks the viewer as an administrator. Session tokens carry the
+// role claim; access-token authorization remains scope-driven.
+func (v *UserViewer) WithAdmin(isAdmin bool) *UserViewer {
+	v.isAdmin = isAdmin
+	return v
+}
 
 var _ Context = (*UserViewer)(nil)

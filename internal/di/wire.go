@@ -145,6 +145,7 @@ var HandlerSet = wire.NewSet(
 	repository.AuthSet,
 	service.UserSet,
 	service.AuthSet,
+	service.AccessSet,
 	handler.UserSet,
 	handler.AuthSet,
 
@@ -192,6 +193,10 @@ var HandlerSet = wire.NewSet(
 
 	handler.MCPSet,
 
+	repository.OAuthServerSet,
+	service.OAuthServerSet,
+	handler.OAuthServerSet,
+
 	handler.NewBundle,
 )
 
@@ -207,7 +212,9 @@ var TaskerSet = wire.NewSet(
 
 	repository.AuthSet,
 	repository.SettingSet,
+	repository.UserSet,
 	service.SettingSet,
+	service.AccessSet,
 
 	repository.EchoSet,
 	service.EchoSet,

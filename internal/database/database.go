@@ -24,6 +24,7 @@ import (
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
@@ -175,6 +176,7 @@ func MigrateDB() error {
 		&jobModel.Job{},
 		&settingModel.AccessTokenSetting{},
 		&authModel.Passkey{},
+		&oauthserverModel.Client{},
 		&visitorModel.DailyStat{},
 	}
 

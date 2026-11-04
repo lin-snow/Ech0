@@ -6,7 +6,7 @@ package mcp
 import (
 	"context"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
@@ -53,7 +53,7 @@ func (r *Registry) Manifest() Manifest {
 	manifest := Manifest{
 		Path:              MCPEndpointPath,
 		Transport:         TransportStreamableHTTP,
-		Audience:          authModel.AudienceMCPRemote,
+		Audience:          authz.AudienceMCPRemote,
 		ProtocolVersions:  SupportedVersions,
 		Tools:             make([]ManifestTool, 0, len(r.tools)),
 		Resources:         make([]ManifestResource, 0, len(r.resources)),

@@ -1,21 +1,24 @@
 # Connect (instance federation)
 
-The Connect commands are `connect.list`, `connect.info`, `connect.add` and
-`connect.delete`. List and info are public; add and delete need `connect:write`
-and an admin account. The CLI has no self-card or health-probe command.
+The Connect commands are `connect.list`, `connect.info`, `connect.health`,
+`connect.add` and `connect.delete`. List and info are public; health needs
+`connect:read`; add needs `connect:write`, delete needs `connect:delete`, and
+both require an admin account. The instance self card is not a Connect command:
+`ech0 info` shows it, together with site, version, counts and catalog state.
 
 ## Inspect
 
 ```bash
 ech0 connect list --json      # saved peers: {id, connect_url}
 ech0 connect info --json      # peer cards: name / logo / post stats / version
+ech0 connect health --json    # per-peer {id, connect_url, status, version}
 ```
 
 `list` returns `{id, connect_url}` records. Use the `id` with `connect delete`.
 `info` returns one public card per peer (`server_name`, `server_url`, `logo`,
 `total_echos`, `today_echos`, `sys_username`, `version`). The server caches these
 cards for 30 minutes; the first call after expiry fans out to every peer and may
-be slow.
+be slow. `health` probes every saved peer on each call and needs `connect:read`.
 
 ## Add and delete
 

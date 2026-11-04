@@ -52,6 +52,26 @@
         </section>
 
         <section class="mcp-block">
+          <h2 class="mcp-block-title">{{ t('mcpSetting.authorizationTitle') }}</h2>
+          <p class="mcp-hint">{{ t('mcpSetting.authorizationHint') }}</p>
+
+          <dl class="mcp-rows">
+            <dt>{{ t('mcpSetting.oauth') }}</dt>
+            <dd>{{ t('mcpSetting.oauthValue') }}</dd>
+            <dt>{{ t('mcpSetting.discovery') }}</dt>
+            <dd>{{ t('mcpSetting.discoveryValue') }}</dd>
+            <dt>{{ t('mcpSetting.clientRegistration') }}</dt>
+            <dd>{{ t('mcpSetting.clientRegistrationValue') }}</dd>
+            <dt>{{ t('mcpSetting.tokenPolicy') }}</dt>
+            <dd>{{ t('mcpSetting.tokenPolicyValue') }}</dd>
+            <dt>{{ t('mcpSetting.oauthServer') }}</dt>
+            <dd class="break-all">{{ oauthServerUrl }}</dd>
+          </dl>
+
+          <p class="mcp-hint">{{ t('mcpSetting.refreshHint') }}</p>
+        </section>
+
+        <section class="mcp-block">
           <h2 class="mcp-block-title">{{ t('mcpSetting.capabilitiesTitle') }}</h2>
 
           <div class="mcp-groups">
@@ -128,7 +148,7 @@
 
               <dl class="mcp-rows mcp-detail-rows">
                 <dt>{{ t('mcpSetting.detailScopes') }}</dt>
-                <dd>{{ selectedItem?.scopes.join(' · ') }}</dd>
+                <dd>{{ (selectedItem?.scopes ?? []).map(scopeLabel).join(' · ') }}</dd>
                 <template v-if="selectedItem?.danger">
                   <dt>{{ t('mcpSetting.detailRisk') }}</dt>
                   <dd class="text-[var(--color-danger)]">
@@ -156,6 +176,7 @@ import Clipboard from '@/components/icons/clipboard.vue'
 import Close from '@/components/icons/close.vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import { fetchGetMCPManifest } from '@/service/api'
+import { ACCESS_SCOPE_LABEL_KEYS } from '@/constants/accessScopes'
 import { theToast } from '@/utils/toast'
 
 const TRANSPORT_LABELS: Record<string, string> = {
@@ -171,11 +192,17 @@ const isLoading = ref<boolean>(true)
 const endpointUrl = computed<string>(
   () => `${window.location.origin}${manifest.value?.path ?? '/mcp'}`,
 )
+const oauthServerUrl = computed<string>(() => window.location.origin)
 
 const transportLabel = computed<string>(() => {
   const transport = manifest.value?.transport ?? ''
   return TRANSPORT_LABELS[transport] ?? transport
 })
+
+function scopeLabel(scope: string) {
+  const key = ACCESS_SCOPE_LABEL_KEYS[scope]
+  return key ? String(t(key)) : scope
+}
 
 const groupLabels = computed<Record<string, string>>(() => ({
   echo: String(t('mcpSetting.groupEcho')),
@@ -184,6 +211,7 @@ const groupLabels = computed<Record<string, string>>(() => ({
   file: String(t('mcpSetting.groupFile')),
   connect: String(t('mcpSetting.groupConnect')),
   admin: String(t('mcpSetting.groupAdmin')),
+  mcp: String(t('mcpSetting.groupMCP')),
 }))
 
 type CapabilityItem = {
@@ -256,7 +284,7 @@ const copyEndpoint = async () => {
 }
 
 const goToAccessTokens = () => {
-  router.push('/panel/setting')
+  router.push({ path: '/panel/setting', query: { tab: 'accessToken' } })
 }
 
 onMounted(async () => {

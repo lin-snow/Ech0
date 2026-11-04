@@ -74,8 +74,9 @@ MCP-compatible client / Host
 | `adapter_connect.go` | Connect 域：list/add/delete connects tools，connect self resource |
 | `adapter_agent.go` | Agent 域：get_recent tool（AI 近况摘要） |
 | `adapter_webhook.go` | Webhook 域：list/create/update/delete/test webhook tools |
-| `adapter_dashboard.go` | Dashboard 域：`ech0://stats/visitors` resource（近 7 天 PV/UV，需 admin scope） |
-| `server.go` | MCP Server 核心：era 判定、传输校验、方法分发、scope 校验、超时控制、审计日志 |
+| `adapter_dashboard.go` | Dashboard 域：`ech0://stats/visitors` resource（近 7 天 PV/UV，需 `admin:ops`） |
+| `mrtr.go` | MRTR：`input_required` 结果、elicitation 确认请求、HMAC `requestState`（绑定 principal / 工具 / 参数摘要 / nonce / TTL） |
+| `server.go` | MCP Server 核心：era 判定、传输校验、方法分发、scope 校验、超时控制、审计日志、按 scope 过滤 list |
 | `handler.go` | Gin 桥接层：组装 Registry → Adapter → Server，暴露 `ServeEndpoint()` |
 | `server_test.go` | 单元测试：两个时代的完整流程、版本协商、传输头校验、scope 拒绝、模板列举、缓存策略、错误映射 |
 
@@ -88,9 +89,18 @@ MCP-compatible client / Host
 5. **modern（2026-07-28）**：校验头与 body 一致（`MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name`，支持 Base64 sentinel），并要求 `_meta` 带 `protocolVersion` 与 `clientCapabilities`；违规分别返回 `-32020` 与 `-32602`，均为 HTTP 400
 6. **legacy**：不要求任何头与 `_meta`，额外支持 `initialize`（协商版本，不发放 session）与 `ping`
 7. 按 `method` 分发；未知方法返回 HTTP 404 + `-32601`
-8. `tools/call` / `resources/read` 查 Registry 取 binding，比对 token scope；不足返回 HTTP 403 + `WWW-Authenticate: Bearer error="insufficient_scope", scope="…"`
-9. 调用 Adapter 注册的业务函数，Adapter 转发到 Ech0 Service 层
-10. modern 结果盖上 `resultType: "complete"`、`_meta.serverInfo` 与缓存提示；legacy 结果不带这些 2026 专有字段
+8. list 方法按 token scope 过滤（`ToolDefinitionsFor` 等），并把 `cacheScope` 标为 `private`；`tools/call` / `resources/read` 查 Registry 取 binding，比对 token scope；不足返回 HTTP 403 + `WWW-Authenticate: Bearer error="insufficient_scope", scope="…"`
+9. modern 下 destructive 工具且客户端声明 `elicitation` 时，先返回 `input_required`（不执行）；重试校验 `requestState` 后按 `inputResponses.confirm` 执行或取消
+10. 调用 Adapter 注册的业务函数，Adapter 转发到 Ech0 Service 层
+11. modern 结果盖上 `resultType: "complete"`、`_meta.serverInfo` 与缓存提示；legacy 结果不带这些 2026 专有字段；`input_required` 结果只带 `_meta.serverInfo`，不带缓存提示
+
+## 2026-07-28 最佳实践
+
+- **认证与发现**：`/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…/oauth-protected-resource/mcp"`；PRM / AS 元数据 / 授权码 + PKCE 由 `internal/service/oauthserver` 提供（见 `docs/dev/mcp-authorization-design.md`）。
+- **最小暴露**：list 只返回 token 可调用的 primitive，避免模型选择注定 403 的工具；因列表随授权上下文变化，`ttlMs` + `cacheScope=private`。
+- **危险操作**：破坏性工具（`annotations.destructiveHint=true`）在支持 MRTR 的客户端上强制二次确认；`requestState` 用 HMAC 绑定用户、工具、参数与 16 字节 nonce，拒绝篡改/换目标/过期重放；服务端先读取确认结果，只有批准才一次性消费状态（未作答的重试不会烧掉状态）；客户端未声明 `elicitation` 时退回 Host 侧注解确认。
+- **可观测性**：审计日志记录 era、tool、client（`_meta.clientInfo.name`）、token jti 与耗时。
+- **无会话/无 SSE**：不发放 `Mcp-Session-Id`，不支持 `subscriptions/listen`、`Last-Event-ID`；能力声明为 `listChanged:false`、`subscribe:false`。
 
 ## 扩展新 Tool / Resource
 

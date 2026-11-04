@@ -6,7 +6,7 @@ package mcp
 import (
 	"context"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
@@ -25,7 +25,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.listFiles, authModel.ScopeFileRead)
+	}, a.listFiles, authz.ScopeFileRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_file",
@@ -39,7 +39,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 			},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getFile, authModel.ScopeFileRead)
+	}, a.getFile, authz.ScopeFileRead)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_file",
@@ -53,7 +53,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteFile, authModel.ScopeFileWrite)
+	}, a.deleteFile, authz.ScopeFileDelete)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:  "create_external_file",
@@ -73,7 +73,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 			},
 		},
 		Annotations: createHints(),
-	}, a.createExternalFile, authModel.ScopeFileWrite)
+	}, a.createExternalFile, authz.ScopeFileWrite)
 }
 
 func (a *Adapter) registerFileResources(reg *Registry) {
@@ -84,7 +84,7 @@ func (a *Adapter) registerFileResources(reg *Registry) {
 		Description: "Step-by-step instructions for uploading files via the REST API so they can be referenced in create_post/update_post echo_files.",
 		MimeType:    "text/markdown",
 		Cache:       publicCache(staticTTLMs),
-	}, a.resourceFileUploadGuide, authModel.ScopeFileRead)
+	}, a.resourceFileUploadGuide, authz.ScopeFileRead)
 }
 
 func (a *Adapter) resourceFileUploadGuide(ctx context.Context, _ string) (*ResourceReadResult, error) {

@@ -7,14 +7,19 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	adminSettings := secured(revoker, authModel.ScopeAdminSettings)
-	adminToken := secured(revoker, authModel.ScopeAdminToken)
+	site := secured(revoker, authz.ScopeAdminSite)
+	storage := secured(revoker, authz.ScopeAdminStorage)
+	auth := secured(revoker, authz.ScopeAdminAuth)
+	webhook := secured(revoker, authz.ScopeAdminWebhook)
+	agent := secured(revoker, authz.ScopeAdminAgent)
+	data := secured(revoker, authz.ScopeAdminData)
+	tokens := sessionOnly(revoker)
 
 	route(api, public(), huma.Operation{
 		OperationID: "settings-get",
@@ -48,7 +53,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetAgentInfo)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, site, huma.Operation{
 		OperationID: "settings-update",
 		Method:      http.MethodPut,
 		Path:        "/settings",
@@ -56,7 +61,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateSettings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, storage, huma.Operation{
 		OperationID: "s3-get",
 		Method:      http.MethodGet,
 		Path:        "/s3/settings",
@@ -64,7 +69,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetS3Settings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, storage, huma.Operation{
 		OperationID: "s3-update",
 		Method:      http.MethodPut,
 		Path:        "/s3/settings",
@@ -72,7 +77,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateS3Settings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, storage, huma.Operation{
 		OperationID: "s3-test",
 		Method:      http.MethodPost,
 		Path:        "/s3/settings/test",
@@ -80,7 +85,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.TestS3Connection)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, auth, huma.Operation{
 		OperationID: "oauth2-get",
 		Method:      http.MethodGet,
 		Path:        "/oauth2/settings",
@@ -88,7 +93,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetOAuth2Settings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, auth, huma.Operation{
 		OperationID: "oauth2-update",
 		Method:      http.MethodPut,
 		Path:        "/oauth2/settings",
@@ -96,7 +101,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateOAuth2Settings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, auth, huma.Operation{
 		OperationID: "passkey-get",
 		Method:      http.MethodGet,
 		Path:        "/passkey/settings",
@@ -104,7 +109,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetPasskeySettings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, auth, huma.Operation{
 		OperationID: "passkey-update",
 		Method:      http.MethodPut,
 		Path:        "/passkey/settings",
@@ -112,7 +117,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdatePasskeySettings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, webhook, huma.Operation{
 		OperationID: "webhook-list",
 		Method:      http.MethodGet,
 		Path:        "/webhook",
@@ -120,7 +125,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetWebhook)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, webhook, huma.Operation{
 		OperationID: "webhook-create",
 		Method:      http.MethodPost,
 		Path:        "/webhook",
@@ -128,7 +133,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.CreateWebhook)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, webhook, huma.Operation{
 		OperationID: "webhook-update",
 		Method:      http.MethodPut,
 		Path:        "/webhook/{id}",
@@ -136,7 +141,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateWebhook)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, webhook, huma.Operation{
 		OperationID: "webhook-delete",
 		Method:      http.MethodDelete,
 		Path:        "/webhook/{id}",
@@ -144,7 +149,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.DeleteWebhook)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, webhook, huma.Operation{
 		OperationID: "webhook-test",
 		Method:      http.MethodPost,
 		Path:        "/webhook/{id}/test",
@@ -152,7 +157,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.TestWebhook)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, data, huma.Operation{
 		OperationID: "snapshot-schedule-get",
 		Method:      http.MethodGet,
 		Path:        "/snapshot/schedule",
@@ -160,7 +165,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetSnapshotScheduleSetting)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, data, huma.Operation{
 		OperationID: "snapshot-schedule-update",
 		Method:      http.MethodPost,
 		Path:        "/snapshot/schedule",
@@ -168,7 +173,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateSnapshotScheduleSetting)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, agent, huma.Operation{
 		OperationID: "agent-settings-get",
 		Method:      http.MethodGet,
 		Path:        "/agent/settings",
@@ -176,7 +181,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetAgentSettings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, agent, huma.Operation{
 		OperationID: "agent-settings-update",
 		Method:      http.MethodPut,
 		Path:        "/agent/settings",
@@ -184,7 +189,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateAgentSettings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, agent, huma.Operation{
 		OperationID: "agent-settings-test",
 		Method:      http.MethodPost,
 		Path:        "/agent/settings/test",
@@ -192,7 +197,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.TestAgentConnection)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, agent, huma.Operation{
 		OperationID: "embedding-settings-get",
 		Method:      http.MethodGet,
 		Path:        "/embedding/settings",
@@ -200,7 +205,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetEmbeddingSettings)
 
-	route(api, adminSettings, huma.Operation{
+	route(api, agent, huma.Operation{
 		OperationID: "embedding-settings-update",
 		Method:      http.MethodPut,
 		Path:        "/embedding/settings",
@@ -208,7 +213,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.UpdateEmbeddingSettings)
 
-	route(api, adminToken, huma.Operation{
+	route(api, tokens, huma.Operation{
 		OperationID: "access-token-list",
 		Method:      http.MethodGet,
 		Path:        "/access-tokens",
@@ -216,7 +221,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.ListAccessTokens)
 
-	route(api, adminToken, huma.Operation{
+	route(api, tokens, huma.Operation{
 		OperationID: "access-token-create",
 		Method:      http.MethodPost,
 		Path:        "/access-tokens",
@@ -224,7 +229,7 @@ func registerSetting(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.CreateAccessToken)
 
-	route(api, adminToken, huma.Operation{
+	route(api, tokens, huma.Operation{
 		OperationID: "access-token-delete",
 		Method:      http.MethodDelete,
 		Path:        "/access-tokens/{id}",

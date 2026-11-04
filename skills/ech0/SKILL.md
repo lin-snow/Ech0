@@ -1,6 +1,6 @@
 ---
 name: ech0
-description: 'Use the ech0 CLI to read and publish on an Ech0 timeline: browse Echoes and files, upload media, create and edit posts with tags, files and extensions, read and post comments, manage Connect federation links, tags and webhooks, and log in with profiles or device authorization. Use when the task involves ech0, an Ech0 instance, or its timeline.'
+description: 'Use the ech0 CLI to inspect an Ech0 instance, browse Echoes and files, upload media, create and edit posts with tags, files and extensions, publish and moderate comments, manage Connect federation links and peer health, tags and webhooks, and log in with profiles or device authorization. Use when the task involves ech0, an Ech0 instance, or its timeline.'
 ---
 
 # ech0
@@ -10,13 +10,14 @@ Run `ech0 help --json` to see what this instance supports, and look commands up
 instead of assuming flags.
 
 Add `--json` whenever you parse output. Exit codes: `0` success, `2` usage error,
-`1` server or network error. Destructive commands (`echo delete`, `tag delete`, `connect delete`,
-`webhook delete`) never prompt in pipes or with `--json`; they require
-`--yes`, so confirm with the human first.
+`1` server or network error. Destructive commands (`echo delete`, `tag delete`,
+`connect delete`, `comment panel delete`, `webhook delete`) never prompt in pipes
+or with `--json`; they require `--yes`, so confirm with the human first.
 
 ## Before you start
 
 ```bash
+ech0 info                   # server, version, site, counts, token state, catalog
 ech0 auth status            # which profile and server are active
 ech0 auth login --server https://ech0.example.com --device
 ```
@@ -58,13 +59,17 @@ ech0 echo update --id <echo_id> --content "改过的正文" --tag daily
 # Delete (ask the human first; non-interactive runs must add --yes)
 ech0 echo delete --id <echo_id> --yes
 
-# Read and write comments (no moderation commands)
+# Read, write and moderate comments
 ech0 comment list --echo-id <echo_id> --json
 ech0 comment create --echo-id <echo_id> --content "写得好" --nickname "CI Bot"
+ech0 comment panel list --status pending --json          # needs comment:review
+ech0 comment panel status --id <comment_id> --status approved
+ech0 comment panel delete --id <comment_id> --yes        # needs comment:delete
 
 # Inspect and manage Connect federation links
 ech0 connect list --json
 ech0 connect info --json
+ech0 connect health --json
 ech0 connect add --connect-url https://peer.example
 ech0 connect delete --id <uuid> --yes
 
@@ -80,14 +85,15 @@ ech0 webhook test --id <webhook_id>
 ech0 webhook delete --id <webhook_id> --yes
 ```
 
-Echo create/update/delete, tag delete, Connect add/delete and every webhook
-command require an admin account. Field
+Echo create/update/delete, tag delete, Connect add/delete, comment deletion and
+every webhook command require an admin account. Field
 meanings, attachment rules and merge behaviour:
 [references/echo.md](references/echo.md). Comment creation uses the trusted
-integration route and needs `comment:write` (no form token, no moderation
-scope): [references/comments.md](references/comments.md). Peer links:
-[references/connect.md](references/connect.md). Tags and webhooks:
-[references/tags.md](references/tags.md), [references/webhooks.md](references/webhooks.md).
+integration route (`comment:write`); moderation needs `comment:review`, deletion
+needs `comment:delete`: [references/comments.md](references/comments.md). Peer
+links and health: [references/connect.md](references/connect.md). Tags and
+webhooks: [references/tags.md](references/tags.md),
+[references/webhooks.md](references/webhooks.md).
 
 ## Finding the right command
 

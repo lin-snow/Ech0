@@ -8,6 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/authz"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
@@ -87,6 +89,51 @@ func TestGetEchoById_Visibility(t *testing.T) {
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		got, err := svc.GetEchoById(helpers.CtxAsUser(adminID), echoID)
+
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		assert.True(t, got.Private)
+	})
+
+	t.Run("echo:read token cannot read private echo", func(t *testing.T) {
+		repo := echomock.NewMockRepository(t)
+		common := commonmock.NewMockService(t)
+		private := helpers.NewEcho(helpers.AsPrivate)
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
+
+		ctx := helpers.CtxAsToken(
+			adminID,
+			authModel.TokenTypeAccess,
+			[]string{authz.ScopeEchoRead},
+			[]string{authz.AudienceCLI},
+			"jti-read",
+		)
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		got, err := svc.GetEchoById(ctx, echoID)
+
+		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		assert.Nil(t, got)
+	})
+
+	t.Run("echo:private token can read private echo", func(t *testing.T) {
+		repo := echomock.NewMockRepository(t)
+		common := commonmock.NewMockService(t)
+		private := helpers.NewEcho(helpers.AsPrivate)
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, adminID).
+			Return(helpers.NewUser(helpers.AsAdmin), nil).
+			Once()
+
+		ctx := helpers.CtxAsToken(
+			adminID,
+			authModel.TokenTypeAccess,
+			[]string{authz.ScopeEchoRead, authz.ScopeEchoPrivate},
+			[]string{authz.AudienceCLI},
+			"jti-private",
+		)
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		got, err := svc.GetEchoById(ctx, echoID)
 
 		require.NoError(t, err)
 		require.NotNil(t, got)

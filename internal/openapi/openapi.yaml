@@ -2534,8 +2534,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
       security:
-        - bearerAuth:
-            - admin:token
+        - bearerAuth: []
       summary: 列出访问令牌
       tags:
         - Setting
@@ -2561,8 +2560,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
       security:
-        - bearerAuth:
-            - admin:token
+        - bearerAuth: []
       summary: 创建访问令牌
       tags:
         - Setting
@@ -2592,8 +2590,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
       security:
-        - bearerAuth:
-            - admin:token
+        - bearerAuth: []
       summary: 删除访问令牌
       tags:
         - Setting
@@ -2653,7 +2650,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 获取 Agent 设置
       tags:
         - Setting
@@ -2680,7 +2677,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 更新 Agent 设置
       tags:
         - Setting
@@ -2708,7 +2705,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 测试 Copilot 连接
       tags:
         - Setting
@@ -2736,7 +2733,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 回答 Copilot 正在等待的提问/确认
       tags:
         - Copilot
@@ -2758,7 +2755,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 清除持久化 Chat 会话
       tags:
         - Copilot
@@ -2779,7 +2776,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 获取持久化 Chat 会话
       tags:
         - Copilot
@@ -3045,7 +3042,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - connect:write
+            - connect:delete
       summary: 删除连接
       tags:
         - Connect
@@ -3390,7 +3387,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - echo:write
+            - echo:delete
       summary: 删除 Echo
       tags:
         - Echo
@@ -3440,7 +3437,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 触发全量向量索引重建
       tags:
         - Embedding
@@ -3463,7 +3460,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 取消进行中的重建索引作业
       tags:
         - Embedding
@@ -3486,7 +3483,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 查询重建索引作业状态
       tags:
         - Embedding
@@ -3508,7 +3505,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 获取 Embedding 设置
       tags:
         - Setting
@@ -3535,7 +3532,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:agent
       summary: 更新 Embedding 设置
       tags:
         - Setting
@@ -3603,7 +3600,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - file:write
+            - file:delete
       summary: 删除文件
       tags:
         - File
@@ -3890,7 +3887,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:token
+            - mcp:read
       summary: 获取 MCP 端点信息与能力清单
       tags:
         - MCP
@@ -3912,7 +3909,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 取消进行中的全局迁移
       tags:
         - Migration
@@ -3934,7 +3931,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 清理迁移中间产物
       tags:
         - Migration
@@ -3962,7 +3959,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 提交导出作业
       tags:
         - Migration
@@ -3984,7 +3981,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 取消导出作业
       tags:
         - Migration
@@ -4006,7 +4003,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 查询导出作业状态
       tags:
         - Migration
@@ -4034,7 +4031,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 启动全局数据迁移
       tags:
         - Migration
@@ -4056,7 +4053,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 查询全局迁移状态
       tags:
         - Migration
@@ -4121,8 +4118,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
       security:
-        - bearerAuth:
-            - profile:write
+        - bearerAuth: []
       summary: 绑定 OAuth2 账号到当前用户
       tags:
         - Auth
@@ -4144,7 +4140,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:auth
       summary: 获取 OAuth2 设置
       tags:
         - Setting
@@ -4171,7 +4167,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:auth
       summary: 更新 OAuth2 设置
       tags:
         - Setting
@@ -4249,7 +4245,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:review
       summary: 管理面板列出评论
       tags:
         - Comment
@@ -4277,7 +4273,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:review
       summary: 批量操作评论
       tags:
         - Comment
@@ -4299,7 +4295,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:settings
       summary: 获取评论系统设置
       tags:
         - Comment
@@ -4326,7 +4322,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:settings
       summary: 更新评论系统设置
       tags:
         - Comment
@@ -4354,7 +4350,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:settings
       summary: 发送评论通知测试邮件
       tags:
         - Comment
@@ -4384,7 +4380,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:delete
       summary: 删除评论
       tags:
         - Comment
@@ -4413,7 +4409,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:review
       summary: 获取单条评论
       tags:
         - Comment
@@ -4449,7 +4445,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:review
       summary: 置顶/取消置顶评论
       tags:
         - Comment
@@ -4485,7 +4481,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:moderate
+            - comment:review
       summary: 更新评论审核状态
       tags:
         - Comment
@@ -4507,7 +4503,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:auth
       summary: 获取 Passkey 设置
       tags:
         - Setting
@@ -4534,7 +4530,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:auth
       summary: 更新 Passkey 设置
       tags:
         - Setting
@@ -4605,8 +4601,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
       security:
-        - bearerAuth:
-            - profile:write
+        - bearerAuth: []
       summary: 删除 Passkey 设备
       tags:
         - Auth
@@ -4641,8 +4636,7 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
       security:
-        - bearerAuth:
-            - profile:write
+        - bearerAuth: []
       summary: 更新 Passkey 设备名称
       tags:
         - Auth
@@ -4689,7 +4683,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:storage
       summary: 获取 S3 存储设置
       tags:
         - Setting
@@ -4716,7 +4710,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:storage
       summary: 更新 S3 存储设置
       tags:
         - Setting
@@ -4744,7 +4738,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:storage
       summary: 测试 S3 存储连接
       tags:
         - Setting
@@ -4790,7 +4784,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:site
       summary: 更新系统全局设置
       tags:
         - Setting
@@ -4812,7 +4806,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 获取定时快照计划
       tags:
         - Setting
@@ -4839,7 +4833,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:data
       summary: 设置定时快照计划
       tags:
         - Setting
@@ -4861,7 +4855,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:ops
       summary: 检查 Ech0 版本更新
       tags:
         - Dashboard
@@ -4905,7 +4899,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:ops
       summary: 获取系统历史日志
       tags:
         - Dashboard
@@ -4927,7 +4921,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:ops
       summary: 获取近七天访客统计
       tags:
         - Dashboard
@@ -4986,7 +4980,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - echo:write
+            - echo:delete
       summary: 删除标签
       tags:
         - Echo
@@ -5160,7 +5154,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:webhook
       summary: 获取所有 Webhook
       tags:
         - Setting
@@ -5187,7 +5181,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:webhook
       summary: 创建 Webhook
       tags:
         - Setting
@@ -5218,7 +5212,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:webhook
       summary: 删除 Webhook
       tags:
         - Setting
@@ -5254,7 +5248,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:webhook
       summary: 更新 Webhook
       tags:
         - Setting
@@ -5285,7 +5279,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - admin:settings
+            - admin:webhook
       summary: 测试 Webhook
       tags:
         - Setting

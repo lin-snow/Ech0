@@ -7,12 +7,9 @@ import (
 	"testing"
 	"time"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
-	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeS3SettingDto(t *testing.T) {
@@ -118,24 +115,6 @@ func TestNormalizeAgentProtocol(t *testing.T) {
 	}
 }
 
-func TestNormalizeScopes(t *testing.T) {
-	cases := []struct {
-		name string
-		in   []string
-		want []string
-	}{
-		{"dedup preserves first-seen order", []string{"a", "b", "a", "c", "b"}, []string{"a", "b", "c"}},
-		{"no duplicates is unchanged", []string{"x", "y"}, []string{"x", "y"}},
-		{"empty stays empty", []string{}, []string{}},
-		{"nil stays empty", nil, []string{}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, normalizeScopes(tc.in))
-		})
-	}
-}
-
 func TestSanitizeURLList(t *testing.T) {
 	got := sanitizeURLList([]string{"https://a.example.com/", "", "   ", "/b/"})
 	assert.Equal(t, []string{"https://a.example.com", "b"}, got)
@@ -162,54 +141,4 @@ func TestRemainingTTLForRevoke(t *testing.T) {
 		assert.Greater(t, got, time.Hour)
 		assert.LessOrEqual(t, got, 2*time.Hour+time.Minute)
 	})
-}
-
-func TestValidateAccessTokenRequest_EdgeCases(t *testing.T) {
-	admin := userModel.User{IsAdmin: true}
-	normal := userModel.User{IsAdmin: false}
-
-	cases := []struct {
-		name    string
-		user    userModel.User
-		dto     *model.AccessTokenSettingDto
-		wantErr string
-	}{
-		{"nil dto rejected", admin, nil, commonModel.INVALID_PARAMS_BODY},
-		{
-			"blank name rejected",
-			admin,
-			&model.AccessTokenSettingDto{Name: "   ", Scopes: []string{authModel.ScopeEchoRead}, Audience: authModel.AudiencePublic},
-			commonModel.INVALID_PARAMS_BODY,
-		},
-		{
-			"empty scopes rejected",
-			admin,
-			&model.AccessTokenSettingDto{Name: "tok", Scopes: nil, Audience: authModel.AudiencePublic},
-			commonModel.INVALID_PARAMS_BODY,
-		},
-		{
-			"valid admin scope for admin accepted",
-			admin,
-			&model.AccessTokenSettingDto{Name: "tok", Scopes: []string{authModel.ScopeAdminSettings}, Audience: authModel.AudiencePublic},
-			"",
-		},
-		{
-			"valid non-admin scope for normal user accepted",
-			normal,
-			&model.AccessTokenSettingDto{Name: "tok", Scopes: []string{authModel.ScopeEchoRead}, Audience: authModel.AudienceCLI},
-			"",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := validateAccessTokenRequest(tc.user, tc.dto)
-			if tc.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			assert.Equal(t, tc.wantErr, err.Error())
-		})
-	}
 }

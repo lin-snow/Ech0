@@ -4,14 +4,15 @@
 /**
  * Operations the CLI exposes. The catalog describes every callable operation
  * the server offers; the CLI deliberately surfaces only the core Echo CRUD and
- * read views, file, tag, comment, Connect and webhook commands. The comment and
- * Connect sets mirror the MCP tool surface: post/read comments and
- * list/info/add/delete peers. There is no comment moderation, Connect health
- * probe or self card, so the default login token never needs
- * `comment:moderate` or `connect:read`. Tag management is list/delete only —
- * Echo create/update already auto-creates tags by name. Webhook management
- * mirrors the MCP tools and needs `admin:settings`, the only admin scope in the
- * default set. Widen this list to add a capability — the command generation
+ * read views, file, tag, comment, Connect and webhook commands. The comment set
+ * covers publishing plus the review lifecycle — list pending, change status,
+ * delete — because that is the one workflow an owner cannot finish from the
+ * terminal otherwise; `comment:review` and `comment:delete` stay separate
+ * scopes, like every other write/delete pair. Connect keeps list/info/add/delete
+ * and now the read-only health probe (`connect:read`); the self card stays out
+ * because `ech0 info` presents it. Tag management is list/delete only — Echo
+ * create/update already auto-creates tags by name. Webhook management uses
+ * `admin:webhook`. Widen this list to add a capability — the command generation
  * needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
@@ -34,8 +35,12 @@ export const CLI_OPERATIONS: readonly string[] = [
   "tag.delete",
   "comment.create.integration",
   "comment.list.by.echo",
+  "comment.panel.list",
+  "comment.panel.status",
+  "comment.panel.delete",
   "connect.list",
   "connect.info",
+  "connect.health",
   "connect.add",
   "connect.delete",
   "webhook.list",

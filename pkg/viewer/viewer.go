@@ -9,4 +9,5 @@ type Context interface {
 	Scopes() []string
 	Audience() []string
 	TokenID() string
+	IsAdmin() bool
 }

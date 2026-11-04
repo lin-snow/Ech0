@@ -362,3 +362,39 @@ describe("invokeOperation", () => {
     expect(refreshes).toBe(0);
   });
 });
+
+describe("session-only catalog operations", () => {
+  test("are never registered as CLI commands, even when in scope", () => {
+    const catalog = parseCatalog(
+      new TextEncoder().encode(
+        JSON.stringify({
+          ops: {
+            "system.logs.stream": {
+              summary: "订阅系统日志",
+              method: "GET",
+              path: "/system/logs/stream",
+              effect: "read",
+              kind: "stream",
+              session_only: true,
+            },
+            "echo.list": {
+              summary: "列出 Echo",
+              method: "GET",
+              path: "/echo",
+              effect: "read",
+            },
+          },
+        }),
+      ),
+    );
+    const program = new Command("ech0");
+    registerCatalogCommands(program, catalog, {
+      scope: () => true,
+      run: async () => ({ human: "", json: "" }),
+    });
+
+    const names = program.commands.map((child) => child.name());
+    expect(names).toContain("echo");
+    expect(names).not.toContain("system");
+  });
+});

@@ -6,7 +6,7 @@ package mcp
 import (
 	"context"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 )
 
 func (a *Adapter) registerAgentTools(reg *Registry) {
@@ -20,7 +20,7 @@ func (a *Adapter) registerAgentTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: readOnlyHints(),
-	}, a.getRecent, authModel.ScopeEchoRead)
+	}, a.getRecent, authz.ScopeEchoRead)
 }
 
 func (a *Adapter) getRecent(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {

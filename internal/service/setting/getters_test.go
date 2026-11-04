@@ -371,7 +371,7 @@ func TestUpdateSetting(t *testing.T) {
 		file.EXPECT().ConfirmTempFiles(mock.Anything, []string{"logo-file-1"}).Return(nil).Once()
 
 		svc := settingService.NewSettingService(
-			d.tx, d.common, file, nil, d.kv, d.settingRepo, d.webhookRepo, nil, d.revoker,
+			d.tx, d.common, file, nil, d.kv, d.settingRepo, d.webhookRepo, nil, d.revoker, d.access,
 			func() *busen.Bus { return d.bus },
 		)
 		err := svc.UpdateSetting(ctx, &settingModel.SystemSettingDto{

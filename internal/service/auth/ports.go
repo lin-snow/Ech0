@@ -35,10 +35,10 @@ type Service interface {
 	TokenRevoker
 }
 
-// TokenIssuer is satisfied by the setting service; the device approval path
-// mints the same kind of access token the panel does.
+// TokenIssuer mints an access token for the session principal; device
+// approval uses the same policy as the settings panel.
 type TokenIssuer interface {
-	CreateAccessToken(ctx context.Context, dto *settingModel.AccessTokenSettingDto) (string, error)
+	IssueForViewer(ctx context.Context, dto *settingModel.AccessTokenSettingDto) (string, error)
 }
 
 type TokenRevoker interface {

@@ -32,6 +32,7 @@ type MyClaims struct {
     Username string   `json:"username"`
     Type     string   `json:"typ"`       // "session" | "access" | "refresh"
     Scopes   []string `json:"scope,omitempty"`
+    IsAdmin  bool     `json:"is_admin,omitempty"` // session 角色，access token 不依赖它
     jwt.RegisteredClaims                  // iss, sub, aud, exp, iat, nbf, jti
 }
 ```
@@ -45,6 +46,10 @@ type MyClaims struct {
 | `TokenTypeRefresh` | `"refresh"` | `CreateRefreshClaims()` | 静默刷新专用 |
 
 > `ParseToken()` 仅接受 `session` / `access`，`ParseRefreshToken()` 仅接受 `refresh`，两者互不接受对方类型，防止 token 混用。
+
+`session` token 额外携带 `is_admin`。`admin:*` 路由与系统日志流在 `RequireScopes` 之后还会执行 `RequireAdminSession`：普通用户的浏览器会话即使能登录，也不能读取日志、修改站点设置或访问其他管理面板接口。`access` token 不依赖该 claim，仍以签发的 scope 为准。
+
+刷新会话时 `AuthHandler.Refresh` 会重新加载用户并调用 `CreateClaims(user)`，因此旧 token 刷新后自动带上最新角色；已签发但未携带 `is_admin` 的旧 session 需要重新登录或等待刷新。
 
 ### 2.3 TokenPair 结构
 
@@ -274,7 +279,7 @@ Set-Cookie: ech0_refresh_token=<jwt>;
 
 - `typ: access`（区别于浏览器会话的 `typ: session`）
 - 不走 Cookie，走 `Authorization: Bearer` header
-- 有独立的 scope（`echo:read`, `admin:settings` 等）和 audience（`cli`, `integration`, `mcp-remote`）
+- 有独立的 scope（`echo:read`, `admin:webhook` 等）和 audience（`cli`, `integration`, `mcp-remote`）
 - 详见 [access-token-scope-design.md](./access-token-scope-design.md)
 
 ## 9. 文件索引
@@ -283,7 +288,8 @@ Set-Cookie: ech0_refresh_token=<jwt>;
 
 | 文件 | 职责 |
 |---|---|
-| `internal/model/auth/scope.go` | Token 类型常量、Scope/Audience 定义与校验 |
+| `internal/authz/scope.go` | Scope/Audience 定义与校验（纯策略） |
+| `internal/model/auth/token.go` | Token 类型常量（`session` / `access` / `refresh`） |
 | `internal/model/auth/auth.go` | MyClaims、TokenPair、OAuth/Passkey DTO、Passkey GORM 实体 |
 | `internal/model/auth/auth_dto.go` | LoginDto、RegisterDto |
 | `internal/util/jwt/jwt.go` | JWT 签发与解析（CreateClaims / CreateRefreshClaims / ParseToken / ParseRefreshToken / GenerateOAuthState / ParseOAuthState / ParseAndVerifyIDToken） |

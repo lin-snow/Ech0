@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 )
 
 func TestManifestMirrorsRegistry(t *testing.T) {
@@ -20,8 +20,8 @@ func TestManifestMirrorsRegistry(t *testing.T) {
 	if manifest.Transport != TransportStreamableHTTP {
 		t.Errorf("transport = %q, want %q", manifest.Transport, TransportStreamableHTTP)
 	}
-	if manifest.Audience != authModel.AudienceMCPRemote {
-		t.Errorf("audience = %q, want %q", manifest.Audience, authModel.AudienceMCPRemote)
+	if manifest.Audience != authz.AudienceMCPRemote {
+		t.Errorf("audience = %q, want %q", manifest.Audience, authz.AudienceMCPRemote)
 	}
 	if len(manifest.ProtocolVersions) != len(SupportedVersions) {
 		t.Errorf("protocol versions = %v, want %v", manifest.ProtocolVersions, SupportedVersions)
@@ -57,8 +57,8 @@ func TestManifestCarriesScopesAndHints(t *testing.T) {
 	if !readTool.ReadOnly || readTool.Destructive {
 		t.Errorf("echo_tool hints = (readOnly %v, destructive %v), want (true, false)", readTool.ReadOnly, readTool.Destructive)
 	}
-	if len(readTool.Scopes) != 1 || readTool.Scopes[0] != authModel.ScopeEchoRead {
-		t.Errorf("echo_tool scopes = %v, want [%s]", readTool.Scopes, authModel.ScopeEchoRead)
+	if len(readTool.Scopes) != 1 || readTool.Scopes[0] != authz.ScopeEchoRead {
+		t.Errorf("echo_tool scopes = %v, want [%s]", readTool.Scopes, authz.ScopeEchoRead)
 	}
 
 	writeTool, ok := tools["write_tool"]
@@ -68,8 +68,8 @@ func TestManifestCarriesScopesAndHints(t *testing.T) {
 	if writeTool.ReadOnly || !writeTool.Destructive {
 		t.Errorf("write_tool hints = (readOnly %v, destructive %v), want (false, true)", writeTool.ReadOnly, writeTool.Destructive)
 	}
-	if len(writeTool.Scopes) != 1 || writeTool.Scopes[0] != authModel.ScopeAdminSettings {
-		t.Errorf("write_tool scopes = %v, want [%s]", writeTool.Scopes, authModel.ScopeAdminSettings)
+	if len(writeTool.Scopes) != 1 || writeTool.Scopes[0] != authz.ScopeAdminSite {
+		t.Errorf("write_tool scopes = %v, want [%s]", writeTool.Scopes, authz.ScopeAdminSite)
 	}
 
 	if len(manifest.ResourceTemplates) != 1 || manifest.ResourceTemplates[0].URITemplate != "ech0://items/{id}" {

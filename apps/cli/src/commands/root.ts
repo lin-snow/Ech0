@@ -35,6 +35,7 @@ import * as catalogCommands from "./catalog.ts";
 import * as config from "./config.ts";
 import { registerCatalogCommands } from "./dynamic.ts";
 import { createHelpCommand } from "./help.ts";
+import { info } from "./info.ts";
 import { invokeOperation } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
 import { CLI_VERSION } from "../version-info.ts";
@@ -123,7 +124,7 @@ function authCommand(): Command {
     "--token -：从 stdin 读取 access token（CI 也可用 ECH0_TOKEN）",
     "-u <name>：密码登录；管理员会额外铸造 audience=cli 的 1 个月令牌，普通用户保存会话令牌 + refresh cookie",
     `--scopes：只在密码/设备登录铸造令牌时生效，默认 ${auth.DEFAULT_CLI_SCOPES.join(",")}`,
-    "凭据按 profile 保存（ech0 config list 查看）；--no-keychain 或 ECH0_NO_KEYCHAIN=1 可跳过系统钥匙串",
+    "凭据按 profile 保存（ech0 config list 查看）；ECH0_NO_KEYCHAIN=1 可跳过系统钥匙串（强制写文件）",
   ]);
 
   group
@@ -220,6 +221,15 @@ function versionCommand(): Command {
     });
 }
 
+function infoCommand(): Command {
+  return new Command("info")
+    .description("查看当前连接的实例：站点、版本、规模、凭据与 catalog")
+    .action(async (_options, command: Command) => {
+      const flags = readGlobalFlags(command);
+      emit(await info(loadContext(flags)), flags);
+    });
+}
+
 interface CatalogBootstrap {
   catalog?: LoadedCatalog;
   server?: string;
@@ -272,6 +282,7 @@ function localExamples(program: Command): void {
       ],
     ],
     [["auth", "status"], ["ech0 auth status --verify"]],
+    [["info"], ["ech0 info", "ech0 info --json", "ech0 info --server https://example.com"]],
     [["config", "use"], ["ech0 config use memo"]],
     [["config", "list"], ["ech0 config list"]],
     [["catalog", "refresh"], ["ech0 catalog refresh"]],
@@ -316,6 +327,7 @@ export async function createRootCommand(): Promise<Command> {
   program.addCommand(configCommand());
   program.addCommand(catalogCommand(refresh));
   program.addCommand(versionCommand());
+  program.addCommand(infoCommand());
   program.addCommand(installCommand());
   program.addCommand(createHelpCommand());
 
@@ -366,6 +378,7 @@ export async function createRootCommand(): Promise<Command> {
   );
   setCommandExamples(program, [
     "ech0 auth login --server https://example.com --device",
+    "ech0 info",
     "ech0 help",
     ...(serverGroup === undefined ? [] : [`ech0 help ${serverGroup.name()}`]),
     "ech0 catalog refresh",

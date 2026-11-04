@@ -38,10 +38,12 @@ automatically.
 ## Scopes
 
 `--scopes a,b,c` applies when a login mints a token. The default is
-`echo:read,echo:write,profile:read,file:read,file:write,comment:write,connect:write,admin:settings`.
-`admin:settings` is included for webhook management (the API has no finer
-webhook scope); it also allows the other admin settings endpoints.
-Tokens minted elsewhere keep their own scopes.
+`echo:read,echo:private,echo:write,echo:delete,profile:read,file:read,file:write,comment:write,comment:review,comment:delete,connect:read,connect:write,connect:delete,admin:webhook`.
+The delete scopes cover the destructive commands, `echo:private` lets an admin
+read private echoes, `comment:review` covers the moderation list/status,
+`comment:delete` covers comment deletion, `connect:read` covers `connect health`,
+and `admin:webhook` only covers the webhook surface. Tokens minted elsewhere keep
+their own scopes.
 
 ## Profiles
 
@@ -74,6 +76,7 @@ keychain (headless machines, locked keyrings).
 ## Checking and clearing
 
 ```bash
+ech0 info                   # instance site/version/counts, token state, catalog
 ech0 auth status            # profile, server, token source (no network)
 ech0 auth status --verify   # also verifies the token with the server
 ech0 auth logout            # delete the token for the current profile

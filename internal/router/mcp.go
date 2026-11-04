@@ -7,11 +7,12 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
@@ -20,7 +21,10 @@ func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
 	g.Use(
 		middleware.RateLimit(20, 40),
 		middleware.OriginGuard(config.Config().Web.CORS.AllowedOrigins),
-		middleware.RequireAudience(authModel.AudienceMCPRemote),
+		middleware.RequireAudienceWithChallenge(
+			middleware.InvalidTokenChallenge(oauthserverModel.ProtectedResourcePathForMCP),
+			authz.AudienceMCPRemote,
+		),
 	)
 	g.POST("", h.MCPHandler.ServeEndpoint())
 	g.GET("", h.MCPHandler.ServeEndpoint())
@@ -28,7 +32,7 @@ func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
 }
 
 func registerMCP(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authModel.ScopeAdminToken), huma.Operation{
+	route(api, secured(revoker, authz.ScopeMCPRead), huma.Operation{
 		OperationID: "mcp-manifest",
 		Method:      http.MethodGet,
 		Path:        mcp.MCPEndpointPath + "/manifest",

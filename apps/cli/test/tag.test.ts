@@ -24,7 +24,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "删除标签",
       method: "DELETE",
       path: "/tag/{id}",
-      scopes: ["echo:write"],
+      scopes: ["echo:delete"],
       effect: "destructive",
       kind: "json",
       input: {

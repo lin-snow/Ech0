@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 )
 
 func (a *Adapter) registerCommonResources(reg *Registry) {
@@ -18,7 +18,7 @@ func (a *Adapter) registerCommonResources(reg *Registry) {
 		Description: "Daily post counts for the past 30 calendar days (UTC day boundaries). Returns an array of {date, count} objects, suitable for calendar heatmap rendering.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceHeatmap, authModel.ScopeEchoRead)
+	}, a.resourceHeatmap, authz.ScopeEchoRead)
 }
 
 func (a *Adapter) resourceHeatmap(_ context.Context, _ string) (*ResourceReadResult, error) {

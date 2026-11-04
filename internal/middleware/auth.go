@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 	errUtil "github.com/lin-snow/ech0/internal/util/err"
@@ -54,13 +54,15 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 		return &rejection{http.StatusUnauthorized, commonModel.ErrCodeTokenRevoked, commonModel.MsgKeyAuthTokenRevoked, commonModel.TOKEN_REVOKED}, false
 	}
 
-	if tokenFromQuery && authModel.HasAdminScope(mc.Scopes) {
+	if tokenFromQuery && authz.HasAdminScope(mc.Scopes) {
 		return &rejection{http.StatusForbidden, commonModel.ErrCodeTokenTransportForbidden, commonModel.MsgKeyAuthTokenTransportForbidden, commonModel.NO_PERMISSION_DENIED}, true
 	}
 
 	viewer.AttachToRequest(
 		&ctx.Request,
-		viewer.NewUserViewerWithToken(mc.Userid, mc.Type, mc.Scopes, []string(mc.Audience), mc.ID),
+		viewer.NewUserViewerWithToken(
+			mc.Userid, mc.Type, mc.Scopes, []string(mc.Audience), mc.ID,
+		).WithAdmin(mc.IsAdmin),
 	)
 	i18nUtil.ApplyUserLocaleFromUserID(ctx, mc.Userid)
 	return nil, false
@@ -78,8 +80,29 @@ func writeRejection(ctx *gin.Context, rej *rejection) {
 }
 
 func RequireAuth(tokenBlacklist authService.TokenRevoker) gin.HandlerFunc {
+	return requireAuth(tokenBlacklist, nil)
+}
+
+// RequireAuthWithChallenge behaves like RequireAuth but decorates 401
+// responses with an RFC 6750 bearertoken challenge. MCP uses it to advertise
+// the protected resource metadata URL so clients can start OAuth discovery.
+func RequireAuthWithChallenge(
+	tokenBlacklist authService.TokenRevoker,
+	challenge func(*gin.Context) string,
+) gin.HandlerFunc {
+	return requireAuth(tokenBlacklist, challenge)
+}
+
+func requireAuth(
+	tokenBlacklist authService.TokenRevoker,
+	challenge func(*gin.Context) string,
+) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if rej, _ := resolveViewer(ctx, tokenBlacklist); rej != nil {
+		rej, _ := resolveViewer(ctx, tokenBlacklist)
+		if rej != nil {
+			if challenge != nil && rej.status == http.StatusUnauthorized {
+				ctx.Header("WWW-Authenticate", challenge(ctx))
+			}
 			writeRejection(ctx, rej)
 			return
 		}

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -24,14 +25,14 @@ func TestRequireScopes_ReturnsScopeForbiddenCode(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeEchoRead},
-				[]string{authModel.AudiencePublic},
+				[]string{authz.ScopeEchoRead},
+				[]string{authz.AudiencePublic},
 				"jti-scope-test",
 			),
 		)
 		c.Next()
 	})
-	r.GET("/protected", RequireScopes(authModel.ScopeAdminSettings), func(c *gin.Context) {
+	r.GET("/protected", RequireScopes(authz.ScopeAdminSite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -55,14 +56,14 @@ func TestRequireScopes_ReturnsAudienceForbiddenCode(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeAdminSettings},
+				[]string{authz.ScopeAdminSite},
 				[]string{"unknown-audience"},
 				"jti-audience-test",
 			),
 		)
 		c.Next()
 	})
-	r.GET("/protected", RequireScopes(authModel.ScopeAdminSettings), func(c *gin.Context) {
+	r.GET("/protected", RequireScopes(authz.ScopeAdminSite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -86,14 +87,14 @@ func TestRequireScopes_ProfileReadCannotAccessProfileWrite(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeProfileRead},
-				[]string{authModel.AudiencePublic},
+				[]string{authz.ScopeProfileRead},
+				[]string{authz.AudiencePublic},
 				"jti-profile-write-test",
 			),
 		)
 		c.Next()
 	})
-	r.PUT("/user", RequireScopes(authModel.ScopeProfileWrite), func(c *gin.Context) {
+	r.PUT("/user", RequireScopes(authz.ScopeProfileWrite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -117,18 +118,164 @@ func TestRequireScopes_ProfileWriteAllowsAccess(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authModel.ScopeProfileWrite},
-				[]string{authModel.AudiencePublic},
+				[]string{authz.ScopeProfileWrite},
+				[]string{authz.AudiencePublic},
 				"jti-profile-write-ok",
 			),
 		)
 		c.Next()
 	})
-	r.PUT("/user", RequireScopes(authModel.ScopeProfileWrite), func(c *gin.Context) {
+	r.PUT("/user", RequireScopes(authz.ScopeProfileWrite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	req := httptest.NewRequest(http.MethodPut, "/user", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestRequireSession_RejectsAccessToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeAdminSite},
+				[]string{authz.AudienceCLI},
+				"jti-session-test",
+			),
+		)
+		c.Next()
+	})
+	r.POST("/passkey", RequireSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/passkey", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseErrorCode(rec.Body.Bytes()); got != commonModel.ErrCodeScopeForbidden {
+		t.Fatalf("expected error code %s, got %s", commonModel.ErrCodeScopeForbidden, got)
+	}
+}
+
+func TestRequireSession_AllowsSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeSession,
+				nil,
+				nil,
+				"jti-session-ok",
+			),
+		)
+		c.Next()
+	})
+	r.POST("/passkey", RequireSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/passkey", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestRequireAdminSession_RejectsNonAdminSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeSession,
+				nil,
+				nil,
+				"jti-admin-session-deny",
+			),
+		)
+		c.Next()
+	})
+	r.GET("/logs", RequireAdminSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/logs", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseErrorCode(rec.Body.Bytes()); got != commonModel.ErrCodeScopeForbidden {
+		t.Fatalf("expected error code %s, got %s", commonModel.ErrCodeScopeForbidden, got)
+	}
+}
+
+func TestRequireAdminSession_AllowsAdminSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeSession,
+				nil,
+				nil,
+				"jti-admin-session-allow",
+			).WithAdmin(true),
+		)
+		c.Next()
+	})
+	r.GET("/logs", RequireAdminSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/logs", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestRequireAdminSession_LeavesAccessTokensToScopeChecks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeAdminOps},
+				[]string{authz.AudienceCLI},
+				"jti-admin-access",
+			),
+		)
+		c.Next()
+	})
+	r.GET("/logs", RequireAdminSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/logs", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -142,4 +289,71 @@ func parseErrorCode(body []byte) string {
 	}
 	_ = json.Unmarshal(body, &payload)
 	return payload.ErrorCode
+}
+
+func TestRequireAudienceWithChallenge_Returns401AndMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeEchoRead},
+				[]string{authz.AudienceCLI},
+				"jti-audience-mismatch",
+			),
+		)
+		c.Next()
+	})
+	path := "/.well-known/oauth-protected-resource/mcp"
+	r.GET("/mcp", RequireAudienceWithChallenge(InvalidTokenChallenge(path), authz.AudienceMCPRemote), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	req.Host = "ech0.example"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+	}
+	want := `Bearer error="invalid_token", resource_metadata="https://ech0.example` + path + `"`
+	if got := rec.Header().Get("WWW-Authenticate"); got != want {
+		t.Fatalf("WWW-Authenticate = %q, want %q", got, want)
+	}
+	if got := parseErrorCode(rec.Body.Bytes()); got != commonModel.ErrCodeTokenInvalid {
+		t.Fatalf("expected error code %s, got %s", commonModel.ErrCodeTokenInvalid, got)
+	}
+}
+
+func TestRequireAudienceWithChallenge_AllowsMatchingAudience(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				nil,
+				[]string{authz.AudienceMCPRemote},
+				"jti-audience-match",
+			),
+		)
+		c.Next()
+	})
+	r.GET("/mcp", RequireAudienceWithChallenge(InvalidTokenChallenge("/.well-known/oauth-protected-resource/mcp"), authz.AudienceMCPRemote), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
 }

@@ -20,9 +20,11 @@ var rawOps = map[string]Op{
 		Summary: "订阅系统日志（SSE，data 为信封）",
 		Method:  "GET",
 		Path:    "/system/logs/stream",
-		Scopes:  []string{"admin:settings"},
 		Effect:  EffectRead,
 		Kind:    KindStream,
+		// RequireSession/RequireAdminSession reject access tokens; only the
+		// browser session (sent as `?token=` for EventSource) works.
+		SessionOnly: true,
 		Input: objectSchema(
 			nil,
 			map[string]any{"level": stringSchema(), "keyword": stringSchema()},
@@ -36,12 +38,13 @@ var rawOps = map[string]Op{
 		},
 	},
 	"ws.system.logs": {
-		Summary: "订阅系统日志（WebSocket，token 走查询参数）",
-		Method:  "GET",
-		Path:    "/system/logs",
-		Mount:   MountWS,
-		Effect:  EffectRead,
-		Kind:    KindWebSocket,
+		Summary:     "订阅系统日志（WebSocket，token 走查询参数）",
+		Method:      "GET",
+		Path:        "/system/logs",
+		Mount:       MountWS,
+		Effect:      EffectRead,
+		Kind:        KindWebSocket,
+		SessionOnly: true,
 		Input: objectSchema(
 			nil,
 			map[string]any{"level": stringSchema(), "keyword": stringSchema()},
@@ -76,7 +79,7 @@ var rawOps = map[string]Op{
 		Summary: "上传迁移源文件（multipart zip）",
 		Method:  "POST",
 		Path:    "/migration/upload",
-		Scopes:  []string{"admin:settings"},
+		Scopes:  []string{"admin:data"},
 		Effect:  EffectWrite,
 		Kind:    KindJSON,
 		Input: objectSchema(
@@ -125,7 +128,7 @@ var rawOps = map[string]Op{
 		Summary: "下载当前快照（zip）",
 		Method:  "GET",
 		Path:    "/migration/export/download",
-		Scopes:  []string{"admin:settings"},
+		Scopes:  []string{"admin:data"},
 		Effect:  EffectRead,
 		Kind:    KindBinary,
 		Input:   objectSchema(nil, map[string]any{"format": stringSchema()}),

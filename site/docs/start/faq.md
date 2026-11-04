@@ -1,9 +1,9 @@
 ---
 title: 常见问题
-description: 与 README 对齐的问答；部署、权限、存储与集成
+description: 部署、权限、存储与集成问答
 ---
 
-以下与仓库根目录 **README.zh.md → 常见问题** 对应，便于官网与仓库说法一致。若这里没有你的情况，可到 [GitHub Discussions](https://github.com/lin-snow/Ech0/discussions) 搜索或提问。
+若这里没有你的情况，可到 [GitHub Discussions](https://github.com/lin-snow/Ech0/discussions) 搜索或提问。
 
 ---
 
@@ -31,7 +31,7 @@ description: 与 README 对齐的问答；部署、权限、存储与集成
 
 ### 存储结构、换桶、本地⇄对象迁移？
 
-见仓库 **[存储迁移指南](https://github.com/lin-snow/Ech0/blob/main/docs/usage/storage-migration.md)**，操作前务必备份。
+见 [对象存储](/docs/guide/s3) 与 [数据管理](/docs/guide/datacontrol)；操作前务必备份。
 
 ---
 

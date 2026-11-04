@@ -37,7 +37,7 @@ func (s *CopilotService) agentSetting(ctx context.Context) (settingModel.AgentSe
 // requireAdmin admits the site owner and nobody else.
 //
 // Copilot spends the operator's own model budget and reads and writes the
-// owner's Echos, so being signed in is not enough. The admin:settings scope on
+// owner's Echos, so being signed in is not enough. The admin:agent scope on
 // the routes only binds access tokens — a session token passes scope checks by
 // design — which is why the check lives here, beside every entry point, the
 // same way the other settings services do it.

@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/authz"
 )
 
 func (a *Adapter) registerDashboardResources(reg *Registry) {
@@ -18,7 +18,7 @@ func (a *Adapter) registerDashboardResources(reg *Registry) {
 		Description: "Daily visitor statistics (page views and unique visitors) for the past 7 days (UTC day boundaries). Returns an array of {date, pv, uv} objects. Requires admin scope.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
-	}, a.resourceVisitorStats, authModel.ScopeAdminSettings)
+	}, a.resourceVisitorStats, authz.ScopeAdminOps)
 }
 
 func (a *Adapter) resourceVisitorStats(_ context.Context, _ string) (*ResourceReadResult, error) {

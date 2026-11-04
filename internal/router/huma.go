@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
@@ -42,6 +43,20 @@ func optional(revoker authService.TokenRevoker) posture {
 	}}
 }
 
+// sessionOnly marks an endpoint as requiring an interactive session. It is
+// security-silent about scopes on purpose: access tokens must never reach
+// account-security or token-administration operations, regardless of scopes.
+func sessionOnly(revoker authService.TokenRevoker) posture {
+	return posture{
+		security: humares.Secured(),
+		middlewares: huma.Middlewares{
+			humares.Bridge(middleware.NoCache()),
+			humares.Bridge(middleware.RequireAuth(revoker)),
+			humares.Bridge(middleware.RequireSession()),
+		},
+	}
+}
+
 func secured(revoker authService.TokenRevoker, scopes ...string) posture {
 	mws := huma.Middlewares{
 		humares.Bridge(middleware.NoCache()),
@@ -49,6 +64,9 @@ func secured(revoker authService.TokenRevoker, scopes ...string) posture {
 	}
 	if len(scopes) > 0 {
 		mws = append(mws, humares.Bridge(middleware.RequireScopes(scopes...)))
+	}
+	if authz.HasAdminScope(scopes) {
+		mws = append(mws, humares.Bridge(middleware.RequireAdminSession()))
 	}
 	return posture{security: humares.Secured(scopes...), middlewares: mws}
 }
