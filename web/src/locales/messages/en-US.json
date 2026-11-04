@@ -283,7 +283,29 @@
     "initialize": "Initialize",
     "initDone": "Initialization completed",
     "alreadyInitializedRedirect": "System already initialized, redirecting to login",
-    "initFailed": "Initialization failed"
+    "initFailed": "Initialization failed",
+    "introKicker": "First setup",
+    "introHeading": "Claim your instance",
+    "introDescription": "Create the owner account, name your site, and start writing.",
+    "siteTitlePlaceholder": "Site name (optional)",
+    "autoLoginFailed": "Owner created. Please sign in."
+  },
+  "onboarding": {
+    "title": "Get your instance ready",
+    "publishTitle": "Write your first Echo",
+    "publishDesc": "Capture a thought — your timeline starts here.",
+    "siteTitleTitle": "Name your site",
+    "siteTitleDesc": "Give your site a name; it shows up in the browser title and on share cards.",
+    "siteURLTitle": "Set your site address",
+    "siteURLDesc": "Configure your public address so RSS, share links and snapshots all resolve.",
+    "done": "Done",
+    "hide": "Hide",
+    "firstEchoTitle": "Your first Echo is published",
+    "firstEchoDesc": "Your timeline has a new beginning. Click the date to open the Echo.",
+    "dismiss": "Maybe later",
+    "actionPublish": "Publish now",
+    "actionSiteTitle": "Name it",
+    "actionSiteURL": "Add address"
   },
   "hub": {
     "emptyList": "Hub list is empty. Add Connect entries in settings first.",

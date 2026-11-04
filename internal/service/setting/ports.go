@@ -17,6 +17,7 @@ type Service interface {
 	GetSetting(setting *model.SystemSetting) error
 	UpdateSetting(ctx context.Context, newSetting *model.SystemSettingDto) error
 	BootstrapDefaultLocale(ctx context.Context, locale string) error
+	BootstrapSiteTitle(ctx context.Context, title string) error
 	GetS3Setting(ctx context.Context, setting *model.S3Setting) error
 	UpdateS3Setting(ctx context.Context, newSetting *model.S3SettingDto) error
 	TestS3Connection(ctx context.Context, newSetting *model.S3SettingDto) error

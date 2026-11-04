@@ -74,7 +74,7 @@ func (commonHandler *CommonHandler) GetHeatMap(ctx context.Context, in *GetHeatM
 }
 
 func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
-	atom, err := commonHandler.commonService.GenerateRSS(ctx)
+	doc, err := commonHandler.commonService.GenerateRSS(ctx)
 	if err != nil {
 		ctx.JSON(
 			http.StatusOK,
@@ -86,13 +86,14 @@ func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
 		return
 	}
 
-	const browserContentType = "application/xml; charset=utf-8"
-	const feedContentType = "application/atom+xml; charset=utf-8"
-	contentType := feedContentType
+	// The same URL yields two representations, so caches must key on Accept.
+	ctx.Header("Vary", "Accept")
+
 	if strings.Contains(ctx.GetHeader("Accept"), "text/html") {
-		contentType = browserContentType
+		ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(doc.HTML))
+		return
 	}
-	ctx.Data(http.StatusOK, contentType, []byte(atom))
+	ctx.Data(http.StatusOK, "application/atom+xml; charset=utf-8", []byte(doc.Atom))
 }
 
 func (commonHandler *CommonHandler) HelloEch0(ctx context.Context, _ *HelloInput) (HelloOutput, error) {

@@ -8,6 +8,14 @@ declare namespace App {
         initialized: boolean
         owner_exists: boolean
       }
+
+      type InitOwnerParams = {
+        username: string
+        password: string
+        email?: string
+        locale?: string
+        site_title?: string
+      }
     }
 
     namespace Connect {

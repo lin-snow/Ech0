@@ -41,7 +41,7 @@ func (s *InitService) GetStatus() (initModel.Status, error) {
 	}, nil
 }
 
-func (s *InitService) InitOwner(registerDto *authModel.RegisterDto) error {
+func (s *InitService) InitOwner(dto *initModel.InitOwnerDto) error {
 	initialized, err := s.repository.IsInitialized()
 	if err != nil {
 		return err
@@ -49,12 +49,21 @@ func (s *InitService) InitOwner(registerDto *authModel.RegisterDto) error {
 	if initialized {
 		return commonModel.NewBizError(commonModel.ErrCodeInitAlreadyDone, commonModel.SYSTEM_ALREADY_INITED)
 	}
-	if err := s.userService.InitOwner(registerDto); err != nil {
+	if err := s.userService.InitOwner(&authModel.RegisterDto{
+		Username: dto.Username,
+		Password: dto.Password,
+		Email:    dto.Email,
+		Locale:   dto.Locale,
+	}); err != nil {
 		return err
 	}
 
-	if err := s.settingService.BootstrapDefaultLocale(context.Background(), registerDto.Locale); err != nil {
+	ctx := context.Background()
+	if err := s.settingService.BootstrapDefaultLocale(ctx, dto.Locale); err != nil {
 		logUtil.GetLogger().Warn("Failed to bootstrap default locale on init owner", logUtil.Err(err))
+	}
+	if err := s.settingService.BootstrapSiteTitle(ctx, dto.SiteTitle); err != nil {
+		logUtil.GetLogger().Warn("Failed to bootstrap site title on init owner", logUtil.Err(err))
 	}
 	return nil
 }

@@ -5,6 +5,8 @@
     class="mx-auto mt-1 sm:mt-0 mb-4 sm:mb-5 md:mb-6"
     :class="compact ? 'pl-1 pr-0 max-w-full' : 'px-2 sm:px-4 md:px-6 max-w-full'"
   >
+    <TheOnboardingChecklist v-if="showChecklist" />
+    <TheFirstEchoCard v-if="showFirstEchoCard" @dismiss="dismissFirstEchoCard" />
     <TransitionGroup
       v-if="echoStore.echoList"
       name="list"
@@ -46,7 +48,7 @@
     </Transition>
     <Transition name="fade">
       <div
-        v-if="!echoStore.isLoading && echoStore.total === 0"
+        v-if="!showChecklist && !echoStore.isLoading && echoStore.total === 0"
         class="mx-auto my-5 text-center echos-toolbar"
       >
         <p class="text-xl text-[var(--color-text-muted)]">
@@ -77,8 +79,13 @@
 
 <script setup lang="ts">
 import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
+import TheFirstEchoCard from './TheFirstEchoCard.vue'
+import TheOnboardingChecklist from './TheOnboardingChecklist.vue'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useEchoStore, useSettingStore } from '@/stores'
+import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
+import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables/useSiteOnboarding'
+import { useSiteChecklist } from '@/composables/useSiteChecklist'
+import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
@@ -94,8 +101,30 @@ const settingStore = useSettingStore()
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const userStore = useUserStore()
 const { SystemSetting } = storeToRefs(settingStore)
 const { isFilteringMode } = storeToRefs(echoStore)
+const { isLogin } = storeToRefs(userStore)
+
+const firstEchoSeen = ref(localStg.getItem<boolean>(FIRST_ECHO_CARD_SEEN_KEY) === true)
+
+const { visible: showChecklist } = useSiteChecklist()
+
+const showFirstEchoCard = computed(() => {
+  const echo = echoStore.echoList?.[0]
+  if (!echo) return false
+  return shouldShowFirstEchoCard({
+    isOwner: isLogin.value,
+    echoTotal: echoStore.total,
+    firstEchoPrivate: echo.private === true,
+    dismissed: firstEchoSeen.value,
+  })
+})
+
+const dismissFirstEchoCard = () => {
+  firstEchoSeen.value = true
+  localStg.setItem(FIRST_ECHO_CARD_SEEN_KEY, true)
+}
 const footerContent = computed(
   () => SystemSetting.value.footer_content || SystemSetting.value.ICP_number,
 )

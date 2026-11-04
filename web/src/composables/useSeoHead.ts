@@ -4,13 +4,13 @@
 import type { Ref } from 'vue'
 import { watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { DEFAULT_SITE_TITLE } from '@/constants/site'
 
 type SeoSystemSetting = {
   site_title?: string
   server_url?: string
 }
 
-const DEFAULT_SITE_TITLE = 'Ech0'
 const DEFAULT_OG_IMAGE = '/Ech0.png'
 const WEBSITE_JSONLD_ID = 'website-jsonld'
 const DEFAULT_SEO_DESCRIPTION =

@@ -14,6 +14,7 @@ import (
 	model0 "github.com/lin-snow/ech0/internal/model/common"
 	model1 "github.com/lin-snow/ech0/internal/model/echo"
 	"github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/service/common"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -120,22 +121,22 @@ func (_c *MockService_CommonGetUserByUserId_Call) RunAndReturn(run func(ctx cont
 }
 
 // GenerateRSS provides a mock function for the type MockService
-func (_mock *MockService) GenerateRSS(ctx *gin.Context) (string, error) {
+func (_mock *MockService) GenerateRSS(ctx *gin.Context) (service.RSSDocument, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateRSS")
 	}
 
-	var r0 string
+	var r0 service.RSSDocument
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(*gin.Context) (string, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(*gin.Context) (service.RSSDocument, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(*gin.Context) string); ok {
+	if returnFunc, ok := ret.Get(0).(func(*gin.Context) service.RSSDocument); ok {
 		r0 = returnFunc(ctx)
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Get(0).(service.RSSDocument)
 	}
 	if returnFunc, ok := ret.Get(1).(func(*gin.Context) error); ok {
 		r1 = returnFunc(ctx)
@@ -169,12 +170,12 @@ func (_c *MockService_GenerateRSS_Call) Run(run func(ctx *gin.Context)) *MockSer
 	return _c
 }
 
-func (_c *MockService_GenerateRSS_Call) Return(s string, err error) *MockService_GenerateRSS_Call {
-	_c.Call.Return(s, err)
+func (_c *MockService_GenerateRSS_Call) Return(rSSDocument service.RSSDocument, err error) *MockService_GenerateRSS_Call {
+	_c.Call.Return(rSSDocument, err)
 	return _c
 }
 
-func (_c *MockService_GenerateRSS_Call) RunAndReturn(run func(ctx *gin.Context) (string, error)) *MockService_GenerateRSS_Call {
+func (_c *MockService_GenerateRSS_Call) RunAndReturn(run func(ctx *gin.Context) (service.RSSDocument, error)) *MockService_GenerateRSS_Call {
 	_c.Call.Return(run)
 	return _c
 }

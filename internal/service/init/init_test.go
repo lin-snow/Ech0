@@ -115,7 +115,10 @@ func TestInitService_GetStatus(t *testing.T) {
 func TestInitService_InitOwner(t *testing.T) {
 	t.Parallel()
 
-	dto := &authModel.RegisterDto{Username: "owner", Password: "pw", Locale: "ja"}
+	dto := &initModel.InitOwnerDto{Username: "owner", Password: "pw", Locale: "ja", SiteTitle: "My notes"}
+	registerDto := mock.MatchedBy(func(r *authModel.RegisterDto) bool {
+		return r != nil && r.Username == "owner" && r.Password == "pw" && r.Locale == "ja"
+	})
 
 	t.Run("IsInitialized error short-circuits before user service", func(t *testing.T) {
 		t.Parallel()
@@ -154,7 +157,7 @@ func TestInitService_InitOwner(t *testing.T) {
 		sentinel := errors.New("create owner failed")
 		repo := &fakeInitRepo{initialized: false}
 		us := usermock.NewMockService(t)
-		us.EXPECT().InitOwner(dto).Return(sentinel).Once()
+		us.EXPECT().InitOwner(registerDto).Return(sentinel).Once()
 		ss := settingmock.NewMockService(t)
 		svc := initService.NewInitService(repo, us, ss)
 
@@ -169,9 +172,10 @@ func TestInitService_InitOwner(t *testing.T) {
 
 		repo := &fakeInitRepo{initialized: false}
 		us := usermock.NewMockService(t)
-		us.EXPECT().InitOwner(dto).Return(nil).Once()
+		us.EXPECT().InitOwner(registerDto).Return(nil).Once()
 		ss := settingmock.NewMockService(t)
 		ss.EXPECT().BootstrapDefaultLocale(mock.Anything, dto.Locale).Return(nil).Once()
+		ss.EXPECT().BootstrapSiteTitle(mock.Anything, dto.SiteTitle).Return(nil).Once()
 		svc := initService.NewInitService(repo, us, ss)
 
 		err := svc.InitOwner(dto)
@@ -184,11 +188,31 @@ func TestInitService_InitOwner(t *testing.T) {
 
 		repo := &fakeInitRepo{initialized: false}
 		us := usermock.NewMockService(t)
-		us.EXPECT().InitOwner(dto).Return(nil).Once()
+		us.EXPECT().InitOwner(registerDto).Return(nil).Once()
 		ss := settingmock.NewMockService(t)
 		ss.EXPECT().
 			BootstrapDefaultLocale(mock.Anything, dto.Locale).
 			Return(errors.New("locale write failed")).
+			Once()
+		ss.EXPECT().BootstrapSiteTitle(mock.Anything, dto.SiteTitle).Return(nil).Once()
+		svc := initService.NewInitService(repo, us, ss)
+
+		err := svc.InitOwner(dto)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("site title bootstrap failure is best-effort and does not fail init", func(t *testing.T) {
+		t.Parallel()
+
+		repo := &fakeInitRepo{initialized: false}
+		us := usermock.NewMockService(t)
+		us.EXPECT().InitOwner(registerDto).Return(nil).Once()
+		ss := settingmock.NewMockService(t)
+		ss.EXPECT().BootstrapDefaultLocale(mock.Anything, dto.Locale).Return(nil).Once()
+		ss.EXPECT().
+			BootstrapSiteTitle(mock.Anything, dto.SiteTitle).
+			Return(errors.New("title write failed")).
 			Once()
 		svc := initService.NewInitService(repo, us, ss)
 

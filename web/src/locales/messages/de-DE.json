@@ -283,7 +283,29 @@
     "initialize": "Initialisieren",
     "initDone": "Initialisierung abgeschlossen",
     "alreadyInitializedRedirect": "System bereits initialisiert, Weiterleitung zur Anmeldung",
-    "initFailed": "Initialisierung fehlgeschlagen"
+    "initFailed": "Initialisierung fehlgeschlagen",
+    "introKicker": "Erste Einrichtung",
+    "introHeading": "Instanz initialisieren",
+    "introDescription": "Lege das Owner-Konto an, benenne deine Seite und schreib direkt los.",
+    "siteTitlePlaceholder": "Seitenname (optional)",
+    "autoLoginFailed": "Owner erstellt. Bitte anmelden."
+  },
+  "onboarding": {
+    "title": "Mach deine Instanz fertig",
+    "publishTitle": "Schreibe deinen ersten Echo",
+    "publishDesc": "Halte einen Gedanken fest — hier beginnt deine Timeline.",
+    "siteTitleTitle": "Gib deiner Seite einen Namen",
+    "siteTitleDesc": "Gib deiner Seite einen Namen; er erscheint im Browsertitel und auf Freigabekarten.",
+    "siteURLTitle": "Lege deine Seitenadresse fest",
+    "siteURLDesc": "Trag deine öffentliche Adresse ein, damit RSS, Freigabelinks und Snapshots erreichbar sind.",
+    "done": "Erledigt",
+    "hide": "Ausblenden",
+    "firstEchoTitle": "Dein erster Echo ist veröffentlicht",
+    "firstEchoDesc": "Deine Timeline hat einen neuen Anfang. Klick auf das Datum, um den Echo zu öffnen.",
+    "dismiss": "Später",
+    "actionPublish": "Jetzt veröffentlichen",
+    "actionSiteTitle": "Namen geben",
+    "actionSiteURL": "Adresse anlegen"
   },
   "hub": {
     "emptyList": "Hub-Liste ist leer. Füge zuerst Connect-Einträge in den Einstellungen hinzu.",

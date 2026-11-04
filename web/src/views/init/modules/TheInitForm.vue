@@ -32,6 +32,14 @@
         required
       />
 
+      <BaseInput
+        :model-value="siteTitle"
+        @update:model-value="emit('update:siteTitle', String($event))"
+        type="text"
+        :placeholder="t('init.siteTitlePlaceholder')"
+        autocomplete="organization"
+      />
+
       <BaseButton
         type="submit"
         :disabled="submitting"
@@ -56,6 +64,7 @@ defineProps<{
   email: string
   username: string
   password: string
+  siteTitle: string
   submitting: boolean
 }>()
 
@@ -63,6 +72,7 @@ const emit = defineEmits<{
   (e: 'update:email', value: string): void
   (e: 'update:username', value: string): void
   (e: 'update:password', value: string): void
+  (e: 'update:siteTitle', value: string): void
   (e: 'submit'): void
 }>()
 </script>

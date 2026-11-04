@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	commonService "github.com/lin-snow/ech0/internal/service/common"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
@@ -221,7 +222,10 @@ func TestGetSitemap(t *testing.T) {
 func TestGetRss(t *testing.T) {
 	t.Run("feed-content-type-for-subscriber", func(t *testing.T) {
 		svc := commonmock.NewMockService(t)
-		svc.EXPECT().GenerateRSS(mock.Anything).Return("<feed/>", nil).Once()
+		svc.EXPECT().GenerateRSS(mock.Anything).Return(commonService.RSSDocument{
+			Atom: "<feed/>",
+			HTML: "<html>styled</html>",
+		}, nil).Once()
 		h := commonHandler.NewCommonHandler(svc)
 		r := gin.New()
 		r.GET("/rss", h.GetRss)
@@ -231,12 +235,16 @@ func TestGetRss(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, "application/atom+xml; charset=utf-8", rec.Header().Get("Content-Type"))
+		assert.Equal(t, "Accept", rec.Header().Get("Vary"))
 		assert.Equal(t, "<feed/>", rec.Body.String())
 	})
 
-	t.Run("browser-accept-html-gets-generic-xml", func(t *testing.T) {
+	t.Run("browser-accept-html-gets-server-rendered-page", func(t *testing.T) {
 		svc := commonmock.NewMockService(t)
-		svc.EXPECT().GenerateRSS(mock.Anything).Return("<feed/>", nil).Once()
+		svc.EXPECT().GenerateRSS(mock.Anything).Return(commonService.RSSDocument{
+			Atom: "<feed/>",
+			HTML: "<html>styled</html>",
+		}, nil).Once()
 		h := commonHandler.NewCommonHandler(svc)
 		r := gin.New()
 		r.GET("/rss", h.GetRss)
@@ -247,12 +255,14 @@ func TestGetRss(t *testing.T) {
 		r.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, "application/xml; charset=utf-8", rec.Header().Get("Content-Type"))
+		assert.Equal(t, "text/html; charset=utf-8", rec.Header().Get("Content-Type"))
+		assert.Equal(t, "Accept", rec.Header().Get("Vary"))
+		assert.Equal(t, "<html>styled</html>", rec.Body.String())
 	})
 
 	t.Run("service-error-returns-fail-envelope", func(t *testing.T) {
 		svc := commonmock.NewMockService(t)
-		svc.EXPECT().GenerateRSS(mock.Anything).Return("", errors.New("rss boom")).Once()
+		svc.EXPECT().GenerateRSS(mock.Anything).Return(commonService.RSSDocument{}, errors.New("rss boom")).Once()
 		h := commonHandler.NewCommonHandler(svc)
 		r := gin.New()
 		r.GET("/rss", h.GetRss)

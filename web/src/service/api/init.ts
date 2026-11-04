@@ -10,7 +10,7 @@ export function fetchGetInitStatus() {
   })
 }
 
-export function fetchInitOwner(payload: App.Api.Auth.SignupParams) {
+export function fetchInitOwner(payload: App.Api.Init.InitOwnerParams) {
   return request({
     url: '/init/owner',
     method: 'POST',

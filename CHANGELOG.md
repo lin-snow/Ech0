@@ -9,6 +9,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Changed
+
+- **The `/rss` browser view no longer depends on client-side XSLT.** Microsoft Edge removes XSLT in v159 (Canary/Dev/Beta v157) and the origin-trial/policy escape hatches expire at v176, so the `<?xml-stylesheet?>` route would have degraded to a raw Atom dump. `GET /rss` now content-negotiates on `Accept`: browsers receive a server-rendered `text/html` page (same paper-themed light/dark layout, now with the feed URL injected server-side instead of by script), while feed readers keep receiving `application/atom+xml` with the same entries and no stylesheet processing instruction. `web/public/rss.xsl` is deleted.
+
 ## [5.9.2] - 2026-11-04
 
 > **Upgrade notes.** This release changes how browser sessions and access tokens are authorized.

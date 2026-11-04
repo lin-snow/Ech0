@@ -883,6 +883,20 @@ components:
         version:
           type: string
       type: object
+    InitOwnerDto:
+      additionalProperties: true
+      properties:
+        email:
+          type: string
+        locale:
+          type: string
+        password:
+          type: string
+        site_title:
+          type: string
+        username:
+          type: string
+      type: object
     LogEntry:
       additionalProperties: true
       properties:
@@ -3831,7 +3845,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RegisterDto"
+              $ref: "#/components/schemas/InitOwnerDto"
         required: true
       responses:
         "200":

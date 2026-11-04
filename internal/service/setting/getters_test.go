@@ -415,3 +415,32 @@ func TestBootstrapDefaultLocale(t *testing.T) {
 		require.NoError(t, d.build().BootstrapDefaultLocale(ctx, "en-US"))
 	})
 }
+
+func TestBootstrapSiteTitle(t *testing.T) {
+	ctx := helpers.CtxAnonymous()
+
+	t.Run("blank title is a no-op", func(t *testing.T) {
+		d := newDeps(t)
+		require.NoError(t, d.build().BootstrapSiteTitle(ctx, "   "))
+	})
+
+	t.Run("title replaces the pristine default", func(t *testing.T) {
+		d := newDeps(t)
+		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
+		d.kv.EXPECT().Get(mock.Anything, commonModel.SystemSettingsKey).Return("", kvstore.ErrNotFound).Once()
+		d.kv.EXPECT().Set(mock.Anything, commonModel.SystemSettingsKey, mock.Anything).Return(nil).Once()
+
+		require.NoError(t, d.build().BootstrapSiteTitle(ctx, "My notes"))
+	})
+
+	t.Run("custom title wins over the bootstrap value", func(t *testing.T) {
+		d := newDeps(t)
+		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
+		d.kv.EXPECT().
+			Get(mock.Anything, commonModel.SystemSettingsKey).
+			Return(settingJSON(t, settingModel.SystemSetting{SiteTitle: "Already named"}), nil).
+			Once()
+
+		require.NoError(t, d.build().BootstrapSiteTitle(ctx, "My notes"))
+	})
+}

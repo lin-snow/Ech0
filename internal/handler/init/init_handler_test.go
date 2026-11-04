@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	initHandler "github.com/lin-snow/ech0/internal/handler/init"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	initmock "github.com/lin-snow/ech0/internal/test/mocks/initmock"
@@ -56,10 +55,10 @@ func TestGetInitStatus_ServiceError(t *testing.T) {
 func TestInitOwner(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := initmock.NewMockService(t)
-		dto := authModel.RegisterDto{Username: "owner", Password: "s3cret", Email: "o@example.com"}
+		dto := initModel.InitOwnerDto{Username: "owner", Password: "s3cret", Email: "o@example.com", SiteTitle: "My notes"}
 		svc.EXPECT().
-			InitOwner(mock.MatchedBy(func(d *authModel.RegisterDto) bool {
-				return d != nil && d.Username == "owner" && d.Password == "s3cret"
+			InitOwner(mock.MatchedBy(func(d *initModel.InitOwnerDto) bool {
+				return d != nil && d.Username == "owner" && d.Password == "s3cret" && d.SiteTitle == "My notes"
 			})).
 			Return(nil).Once()
 
@@ -78,7 +77,7 @@ func TestInitOwner(t *testing.T) {
 		svc.EXPECT().InitOwner(mock.Anything).Return(bizErr).Once()
 
 		h := initHandler.NewInitHandler(svc)
-		out, err := h.InitOwner(context.Background(), &initHandler.InitOwnerInput{Body: authModel.RegisterDto{Username: "x", Password: "y"}})
+		out, err := h.InitOwner(context.Background(), &initHandler.InitOwnerInput{Body: initModel.InitOwnerDto{Username: "x", Password: "y"}})
 
 		require.Error(t, err)
 		var got *commonModel.BizError

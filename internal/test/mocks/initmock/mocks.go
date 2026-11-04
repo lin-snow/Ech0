@@ -8,7 +8,6 @@
 package initmock
 
 import (
-	model0 "github.com/lin-snow/ech0/internal/model/auth"
 	"github.com/lin-snow/ech0/internal/model/init"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -103,16 +102,16 @@ func (_c *MockService_GetStatus_Call) RunAndReturn(run func() (model.Status, err
 }
 
 // InitOwner provides a mock function for the type MockService
-func (_mock *MockService) InitOwner(registerDto *model0.RegisterDto) error {
-	ret := _mock.Called(registerDto)
+func (_mock *MockService) InitOwner(dto *model.InitOwnerDto) error {
+	ret := _mock.Called(dto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InitOwner")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*model0.RegisterDto) error); ok {
-		r0 = returnFunc(registerDto)
+	if returnFunc, ok := ret.Get(0).(func(*model.InitOwnerDto) error); ok {
+		r0 = returnFunc(dto)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -125,16 +124,16 @@ type MockService_InitOwner_Call struct {
 }
 
 // InitOwner is a helper method to define mock.On call
-//   - registerDto *model0.RegisterDto
-func (_e *MockService_Expecter) InitOwner(registerDto any) *MockService_InitOwner_Call {
-	return &MockService_InitOwner_Call{Call: _e.mock.On("InitOwner", registerDto)}
+//   - dto *model.InitOwnerDto
+func (_e *MockService_Expecter) InitOwner(dto any) *MockService_InitOwner_Call {
+	return &MockService_InitOwner_Call{Call: _e.mock.On("InitOwner", dto)}
 }
 
-func (_c *MockService_InitOwner_Call) Run(run func(registerDto *model0.RegisterDto)) *MockService_InitOwner_Call {
+func (_c *MockService_InitOwner_Call) Run(run func(dto *model.InitOwnerDto)) *MockService_InitOwner_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *model0.RegisterDto
+		var arg0 *model.InitOwnerDto
 		if args[0] != nil {
-			arg0 = args[0].(*model0.RegisterDto)
+			arg0 = args[0].(*model.InitOwnerDto)
 		}
 		run(
 			arg0,
@@ -148,7 +147,7 @@ func (_c *MockService_InitOwner_Call) Return(err error) *MockService_InitOwner_C
 	return _c
 }
 
-func (_c *MockService_InitOwner_Call) RunAndReturn(run func(registerDto *model0.RegisterDto) error) *MockService_InitOwner_Call {
+func (_c *MockService_InitOwner_Call) RunAndReturn(run func(dto *model.InitOwnerDto) error) *MockService_InitOwner_Call {
 	_c.Call.Return(run)
 	return _c
 }

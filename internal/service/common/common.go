@@ -5,17 +5,21 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	stdhtml "html"
+	htmltemplate "html/template"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/feeds"
 	"github.com/lin-snow/ech0/internal/cache"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/storage"
 	mdUtil "github.com/lin-snow/ech0/internal/util/md"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
@@ -27,15 +31,18 @@ import (
 type CommonService struct {
 	commonRepository CommonRepository
 	cache            *cache.Cache
+	durableKV        kvstore.Store
 }
 
 func NewCommonService(
 	commonRepository CommonRepository,
 	cache *cache.Cache,
+	durableKV kvstore.Store,
 ) *CommonService {
 	return &CommonService{
 		commonRepository: commonRepository,
 		cache:            cache,
+		durableKV:        durableKV,
 	}
 }
 
@@ -77,29 +84,61 @@ func (s *CommonService) GetHeatMap(timezone string) ([]commonModel.Heatmap, erro
 	return results[:], nil
 }
 
-func (s *CommonService) GenerateRSS(ctx *gin.Context) (string, error) {
+const rssDefaultTitle = "Ech0"
+
+// rssCacheKey folds the feed identity into the key: the site title is rendered
+// into the payload, so renaming the site must miss the cache instead of serving
+// the previous name until the next echo mutation clears it.
+func rssCacheKey(schema, host, title, description string) string {
+	identity := sha256.Sum256([]byte(title + "\x00" + description))
+	return fmt.Sprintf("rss:%s:%s:%x", schema, host, identity[:6])
+}
+
+func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 	schema := "http"
 	if ctx.Request.TLS != nil {
 		schema = "https"
 	}
 	host := ctx.Request.Host
-	cacheKey := "rss:" + schema + ":" + host
+
+	system, err := coreSetting.System.Get(ctx.Request.Context(), s.durableKV)
+	if err != nil {
+		return RSSDocument{}, err
+	}
+	title := strings.TrimSpace(system.SiteTitle)
+	if title == "" {
+		title = rssDefaultTitle
+	}
+	description := strings.TrimSpace(system.ServerName)
+	if description == "" {
+		description = title
+	}
+	cacheKey := rssCacheKey(schema, host, title, description)
 
 	return s.cache.ReadThrough(
 		cacheKey,
 		1,
-		func() (string, error) {
+		func() (RSSDocument, error) {
 			echos, err := s.commonRepository.GetAllEchos(ctx.Request.Context(), false)
 			if err != nil {
-				return "", err
+				return RSSDocument{}, err
+			}
+
+			home := fmt.Sprintf("%s://%s/", schema, host)
+			logo := fmt.Sprintf("%s://%s/Ech0.svg", schema, host)
+			page := rssPage{
+				Title:   title,
+				Logo:    logo,
+				Home:    home,
+				FeedURL: fmt.Sprintf("%s://%s/rss", schema, host),
 			}
 
 			feed := &feeds.Feed{
-				Title:       "Ech0",
-				Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/", schema, host)},
-				Image:       &feeds.Image{Url: fmt.Sprintf("%s://%s/Ech0.svg", schema, host)},
-				Description: "Ech0",
-				Author:      &feeds.Author{Name: "Ech0"},
+				Title:       title,
+				Link:        &feeds.Link{Href: home},
+				Image:       &feeds.Image{Url: logo},
+				Description: description,
+				Author:      &feeds.Author{Name: title},
 				Updated:     time.Now().UTC(),
 			}
 
@@ -146,26 +185,36 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (string, error) {
 					}
 				}
 
+				entryLink := fmt.Sprintf("%s://%s/echo/%s", schema, host, msg.ID)
 				feed.Items = append(feed.Items, &feeds.Item{
 					Title:       title,
-					Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/echo/%s", schema, host, msg.ID)},
+					Link:        &feeds.Link{Href: entryLink},
 					Description: string(renderedContent),
 					Author:      &feeds.Author{Name: msg.Username},
 					Created:     createdAt,
+				})
+				page.Entries = append(page.Entries, rssPageEntry{
+					Author:  msg.Username,
+					Updated: createdAt.Format(time.RFC3339),
+					Date:    createdAt.Format("2006-01-02"),
+					// #nosec G203 -- renderedContent comes from mdUtil.MdToHTML, which
+					// drops raw HTML and HTML-escapes every media and tag field.
+					Content: htmltemplate.HTML(renderedContent),
+					Link:    entryLink,
 				})
 			}
 
 			atom, err := feed.ToAtom()
 			if err != nil {
-				return "", err
+				return RSSDocument{}, err
+			}
+			body, err := renderRSSPage(page)
+			if err != nil {
+				return RSSDocument{}, err
 			}
 
-			const xmlDecl = `<?xml version="1.0" encoding="UTF-8"?>`
-			const stylesheetPI = `<?xml-stylesheet type="text/xsl" href="/rss.xsl"?>`
-			atom = strings.Replace(atom, xmlDecl, xmlDecl+"\n"+stylesheetPI, 1)
-
 			s.commonRepository.TrackRSSCacheKey(cacheKey)
-			return atom, nil
+			return RSSDocument{Atom: atom, HTML: body}, nil
 		},
 	)
 }
