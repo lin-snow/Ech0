@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
@@ -63,6 +64,9 @@ func secured(revoker authService.TokenRevoker, scopes ...string) posture {
 	}
 	if len(scopes) > 0 {
 		mws = append(mws, humares.Bridge(middleware.RequireScopes(scopes...)))
+	}
+	if authz.HasAdminScope(scopes) {
+		mws = append(mws, humares.Bridge(middleware.RequireAdminSession()))
 	}
 	return posture{security: humares.Secured(scopes...), middlewares: mws}
 }

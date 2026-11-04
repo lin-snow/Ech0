@@ -88,7 +88,8 @@ MCP：
 - `comment:review` 只覆盖审核面板的读取与状态/置顶；删除和批量操作需要 `comment:delete`，评论设置与测试邮件需要 `comment:settings`。
 - Passkey 注册/删除、OAuth 绑定、访问令牌 CRUD 是 **session-only**，不进入 scope 词表；任何 `typ=access` token 即使持有全部 scope 也不能调用。
 - 用 access token 铸造新 token 时，新 token 的 scopes 必须是调用者 scopes 的子集；该检查是纵深防御，正常入口已被 session-only 限制。
-- 服务端始终以 scope 判定是否允许调用，即便用户角色是 admin。
+- 服务端始终以 scope 判定 access token 是否允许调用，即便用户角色是 admin。
+- 浏览器 session 不是 scope 通配符：`admin:*` 接口额外要求 session 的 `is_admin` claim，非管理员会话返回 403；系统日志 SSE/WS 同样拒绝普通会话。
 
 ### 3.3 Audience 与时效
 

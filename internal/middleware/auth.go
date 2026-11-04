@@ -60,7 +60,9 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 
 	viewer.AttachToRequest(
 		&ctx.Request,
-		viewer.NewUserViewerWithToken(mc.Userid, mc.Type, mc.Scopes, []string(mc.Audience), mc.ID),
+		viewer.NewUserViewerWithToken(
+			mc.Userid, mc.Type, mc.Scopes, []string(mc.Audience), mc.ID,
+		).WithAdmin(mc.IsAdmin),
 	)
 	i18nUtil.ApplyUserLocaleFromUserID(ctx, mc.Userid)
 	return nil, false

@@ -25,12 +25,14 @@ func setupDashboardRoutes(
 	appRouterGroup.AuthRouterGroup.GET(
 		"/system/logs/stream",
 		middleware.RequireSession(),
+		middleware.RequireAdminSession(),
 		h.DashboardHandler.SSESubscribeSystemLogs(),
 	)
 	appRouterGroup.WSRouterGroup.GET(
 		"/system/logs",
 		middleware.RequireAuth(revoker),
 		middleware.RequireSession(),
+		middleware.RequireAdminSession(),
 		h.DashboardHandler.WSSubscribeSystemLogs(),
 	)
 }

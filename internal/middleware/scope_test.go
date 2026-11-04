@@ -196,6 +196,93 @@ func TestRequireSession_AllowsSession(t *testing.T) {
 	}
 }
 
+func TestRequireAdminSession_RejectsNonAdminSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeSession,
+				nil,
+				nil,
+				"jti-admin-session-deny",
+			),
+		)
+		c.Next()
+	})
+	r.GET("/logs", RequireAdminSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/logs", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseErrorCode(rec.Body.Bytes()); got != commonModel.ErrCodeScopeForbidden {
+		t.Fatalf("expected error code %s, got %s", commonModel.ErrCodeScopeForbidden, got)
+	}
+}
+
+func TestRequireAdminSession_AllowsAdminSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeSession,
+				nil,
+				nil,
+				"jti-admin-session-allow",
+			).WithAdmin(true),
+		)
+		c.Next()
+	})
+	r.GET("/logs", RequireAdminSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/logs", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestRequireAdminSession_LeavesAccessTokensToScopeChecks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeAdminOps},
+				[]string{authz.AudienceCLI},
+				"jti-admin-access",
+			),
+		)
+		c.Next()
+	})
+	r.GET("/logs", RequireAdminSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/logs", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
 func parseErrorCode(body []byte) string {
 	var payload struct {
 		ErrorCode string `json:"error_code"`

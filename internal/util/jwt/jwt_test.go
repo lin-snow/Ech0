@@ -33,6 +33,17 @@ func TestCreateClaims_WithSessionType(t *testing.T) {
 	if claims.Type != authModel.TokenTypeSession {
 		t.Fatalf("expected typ=%s, got %s", authModel.TokenTypeSession, claims.Type)
 	}
+	if claims.IsAdmin {
+		t.Fatal("ordinary user session must not carry the admin role")
+	}
+}
+
+func TestCreateClaims_SessionCarriesAdminRole(t *testing.T) {
+	user := userModel.User{ID: "u-owner", Username: "owner", IsOwner: true}
+	claims := CreateClaims(user).(authModel.MyClaims)
+	if !claims.IsAdmin {
+		t.Fatal("owner session must carry the admin role")
+	}
 }
 
 func TestCreateAccessClaimsWithExpiry_NeverExpiryGetsFiniteExp(t *testing.T) {

@@ -31,6 +31,20 @@ func RequireSession() gin.HandlerFunc {
 	}
 }
 
+// RequireAdminSession keeps administrator-only panel routes out of the reach
+// of ordinary browser sessions. Access tokens are unaffected: their admin
+// scopes are minted only for administrators and are checked by RequireScopes.
+func RequireAdminSession() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		v := viewer.MustFromContext(ctx.Request.Context())
+		if v.TokenType() == authModel.TokenTypeSession && !v.IsAdmin() {
+			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+			return
+		}
+		ctx.Next()
+	}
+}
+
 // abortAuth writes the shared localized auth error and stops the chain.
 func abortAuth(ctx *gin.Context, status int, code, messageKey, message string) {
 	ctx.JSON(
