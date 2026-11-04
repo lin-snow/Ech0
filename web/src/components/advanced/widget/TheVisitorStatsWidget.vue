@@ -1,75 +1,69 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="visitor-widget p-1">
-    <div class="visitor-head">
-      <div class="visitor-chip">7 DAYS</div>
-      <div class="visitor-title-wrap">
-        <div class="visitor-title">{{ t('dashboard.visitorTitle') }}</div>
-        <div class="visitor-title-accent">{{ t('dashboard.visitorAccent') }}</div>
-      </div>
-    </div>
-
-    <div class="visitor-legend">
-      <span class="legend-item">
-        <span class="legend-dot legend-dot--pv" />
-        {{ t('dashboard.visitorPv') }}
-      </span>
-      <span class="legend-item">
-        <span class="legend-dot legend-dot--uv" />
-        {{ t('dashboard.visitorUv') }}
-      </span>
-    </div>
-
-    <div class="bar-chart-wrap">
-      <svg
-        v-if="last7Days.length >= 1"
-        class="bar-chart-svg"
-        :viewBox="`0 0 ${chartW} ${chartH}`"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        <line
-          :x1="chartPadX"
-          :y1="chartH - chartPadY"
-          :x2="chartW - chartPadX"
-          :y2="chartH - chartPadY"
-          class="bar-chart-baseline"
-        />
-        <g v-for="(bar, i) in barGroups" :key="`group-${i}`">
-          <rect
-            :x="bar.pvX"
-            :y="bar.pvY"
-            :width="barWidth"
-            :height="bar.pvHeight"
-            rx="2"
-            class="bar-rect bar-rect--pv"
-          />
-          <rect
-            :x="bar.uvX"
-            :y="bar.uvY"
-            :width="barWidth"
-            :height="bar.uvHeight"
-            rx="2"
-            class="bar-rect bar-rect--uv"
-          />
-          <rect
-            :x="bar.hitX"
-            :y="chartPadY"
-            :width="bar.hitW"
-            :height="chartH - chartPadY * 2"
-            class="bar-hit-area"
-            @mouseenter="showTooltip(i, $event)"
-            @mouseleave="hideTooltip"
-          />
-        </g>
-      </svg>
-      <div v-else class="visitor-empty">{{ t('dashboard.visitorEmpty') }}</div>
-      <div v-if="last7Days.length >= 1" class="bar-chart-labels">
-        <span v-for="(d, i) in last7Days" :key="i" class="line-chart-label">
-          {{ (d.date || '').slice(5) }}
+  <div class="visitor-widget">
+    <WidgetShell :title="t('dashboard.visitorTitle')" meta="7 DAYS" :fluid="fluid">
+      <div class="visitor-legend">
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--pv" />
+          {{ t('dashboard.visitorPv') }}
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--uv" />
+          {{ t('dashboard.visitorUv') }}
         </span>
       </div>
-    </div>
+
+      <div class="bar-chart-wrap">
+        <svg
+          v-if="last7Days.length >= 1"
+          class="bar-chart-svg"
+          :viewBox="`0 0 ${chartW} ${chartH}`"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <line
+            :x1="chartPadX"
+            :y1="chartH - chartPadY"
+            :x2="chartW - chartPadX"
+            :y2="chartH - chartPadY"
+            class="bar-chart-baseline"
+          />
+          <g v-for="(bar, i) in barGroups" :key="`group-${i}`">
+            <rect
+              :x="bar.pvX"
+              :y="bar.pvY"
+              :width="barWidth"
+              :height="bar.pvHeight"
+              rx="2"
+              class="bar-rect bar-rect--pv"
+            />
+            <rect
+              :x="bar.uvX"
+              :y="bar.uvY"
+              :width="barWidth"
+              :height="bar.uvHeight"
+              rx="2"
+              class="bar-rect bar-rect--uv"
+            />
+            <rect
+              :x="bar.hitX"
+              :y="chartPadY"
+              :width="bar.hitW"
+              :height="chartH - chartPadY * 2"
+              class="bar-hit-area"
+              @mouseenter="showTooltip(i, $event)"
+              @mouseleave="hideTooltip"
+            />
+          </g>
+        </svg>
+        <div v-else class="visitor-empty">{{ t('dashboard.visitorEmpty') }}</div>
+        <div v-if="last7Days.length >= 1" class="bar-chart-labels">
+          <span v-for="(d, i) in last7Days" :key="i" class="line-chart-label">
+            {{ (d.date || '').slice(5) }}
+          </span>
+        </div>
+      </div>
+    </WidgetShell>
 
     <div
       v-if="tooltip.visible"
@@ -84,7 +78,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import WidgetShell from './WidgetShell.vue'
 import { fetchGetVisitorStats } from '@/service/api'
+
+defineProps<{ fluid?: boolean }>()
 
 const { t } = useI18n()
 
@@ -175,43 +172,6 @@ onMounted(async () => {
 <style scoped>
 .visitor-widget {
   min-width: 0;
-}
-
-.visitor-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.visitor-chip {
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.15em;
-  padding: 0.08rem 0.45rem;
-  font-family: var(--font-family-mono);
-  transform: rotate(-1.8deg);
-}
-
-.visitor-title-wrap {
-  line-height: 0.9;
-  text-align: right;
-}
-
-.visitor-title {
-  font-family: Georgia, 'Times New Roman', var(--font-family-display);
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.visitor-title-accent {
-  font-family: var(--font-family-handwritten);
-  color: var(--color-accent);
-  font-size: 0.95rem;
-  margin-top: -2px;
 }
 
 .visitor-legend {

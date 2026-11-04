@@ -145,7 +145,7 @@ const { openConfirm } = useBaseDialog()
 
 const connectStore = useConnectStore()
 const { t } = useI18n()
-const { getConnect } = connectStore
+const { getConnect, invalidateConnectsInfo } = connectStore
 const { connects } = storeToRefs(connectStore)
 const connectsEdit = ref<boolean>(false)
 const connectUrl = ref<string>('')
@@ -232,6 +232,7 @@ const refreshConnectivityStatus = async () => {
 }
 
 const refreshConnectData = async () => {
+  invalidateConnectsInfo()
   await getConnect({ force: true })
   await refreshConnectivityStatus()
 }

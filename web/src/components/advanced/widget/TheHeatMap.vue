@@ -1,56 +1,45 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="px-2">
-    <div class="widget bg-transparent! w-full max-w-[19rem] mx-auto rounded-md p-4">
-      <div class="heatmap-head mb-2">
-        <div class="heatmap-date-chip">{{ displayDate }}</div>
-        <div class="heatmap-title-wrap">
-          <div class="heatmap-title">Daily</div>
-          <div class="heatmap-title-accent">Log</div>
+  <WidgetShell title="Daily Log" :fluid="fluid">
+    <template #icon>
+      <CalendarIcon />
+    </template>
+    <div class="flex justify-center items-start">
+      <div class="flex gap-1">
+        <div v-for="col in 10" :key="col" class="flex flex-col gap-1">
+          <div
+            v-for="row in 3"
+            :key="row"
+            class="relative w-5 h-5 rounded-[6px] transition-colors duration-300 ease ring-1 ring-[var(--color-border-subtle)] hover:ring-[var(--color-border-strong)] hover:shadow-sm"
+            :style="{ backgroundColor: getColor(getCell(row - 1, col - 1)?.count ?? 0) }"
+            @mouseenter="showTooltip(row - 1, col - 1, $event)"
+            @mouseleave="hideTooltip"
+          ></div>
         </div>
-      </div>
-      <div class="flex justify-start items-start py-2 px-0">
-        <div class="">
-          <div class="flex gap-1">
-            <div v-for="col in 10" :key="col" class="flex flex-col gap-1">
-              <div
-                v-for="row in 3"
-                :key="row"
-                class="relative w-5 h-5 rounded-[6px] transition-colors duration-300 ease ring-1 ring-[var(--color-border-subtle)] hover:ring-[var(--color-border-strong)] hover:shadow-sm"
-                :style="{ backgroundColor: getColor(getCell(row - 1, col - 1)?.count ?? 0) }"
-                @mouseenter="showTooltip(row - 1, col - 1, $event)"
-                @mouseleave="hideTooltip"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        v-if="tooltip.visible"
-        class="fixed z-50 px-2 py-1 bg-orange-500 text-white text-xs rounded shadow"
-        :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
-      >
-        {{ tooltip.text }}
       </div>
     </div>
+  </WidgetShell>
+  <div
+    v-if="tooltip.visible"
+    class="fixed z-50 px-2 py-1 bg-orange-500 text-white text-xs rounded shadow"
+    :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
+  >
+    {{ tooltip.text }}
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import CalendarIcon from '@/components/icons/calendar.vue'
+import WidgetShell from './WidgetShell.vue'
 import { fetchGetHeatMap } from '@/service/api'
 import { useI18n } from 'vue-i18n'
 
+defineProps<{ fluid?: boolean }>()
+
 const heatmapData = ref<App.Api.Ech0.HeatMap>([])
-const { t, locale } = useI18n()
-const displayDate = computed(() => {
-  return new Date().toLocaleDateString(locale.value, {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-  })
-})
+const { t } = useI18n()
 
 const grid = computed(() => {
   const cells = [...heatmapData.value]
@@ -110,42 +99,3 @@ onMounted(() => {
   })
 })
 </script>
-
-<style scoped>
-.heatmap-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.heatmap-date-chip {
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  padding: 2px 8px;
-  transform: rotate(-1.8deg);
-}
-
-.heatmap-title-wrap {
-  line-height: 0.9;
-  text-align: right;
-}
-
-.heatmap-title {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.heatmap-title-accent {
-  font-family: var(--font-family-handwritten);
-  color: var(--color-accent);
-  font-size: 20px;
-  font-weight: 700;
-  margin-top: -2px;
-}
-</style>

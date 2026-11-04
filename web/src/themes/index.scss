@@ -6,12 +6,3 @@
 @use './base';
 @use './tooltip';
 @use './utilities';
-
-.widget {
-  background-color: var(--color-bg-surface);
-  color: var(--color-text-secondary);
-}
-
-.widget-title {
-  color: var(--color-text-primary);
-}

@@ -1,39 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div v-if="AgentSetting.enable" class="px-2">
-    <div class="widget bg-transparent! w-full max-w-[19rem] mx-auto rounded-md p-4">
-      <div class="recent-head mb-2">
-        <div class="recent-icon-chip">
-          <RecentIcon class="w-8 h-8" />
-        </div>
-        <div class="recent-title-wrap">
-          <div class="recent-title">Recent</div>
-          <div class="recent-title-accent">AI</div>
-        </div>
-      </div>
+  <WidgetShell v-if="AgentSetting.enable" title="Recent AI" :fluid="fluid">
+    <template #icon>
+      <RecentIcon />
+    </template>
 
-      <div class="recent-body">
-        <div class="recent-card">
-          <div v-if="!loading" class="recent-content">
-            <TheMdPreview :content="recent" />
-          </div>
-          <div v-else>
-            <div class="recent-loading">{{ t('recentCard.generating') }}</div>
-          </div>
+    <div class="recent-body">
+      <div class="recent-card">
+        <div v-if="!loading" class="recent-content">
+          <TheMdPreview :content="recent" />
+        </div>
+        <div v-else>
+          <div class="recent-loading">{{ t('recentCard.generating') }}</div>
         </div>
       </div>
     </div>
-  </div>
+  </WidgetShell>
 </template>
 <script setup lang="ts">
 import { fetchGetRecent } from '@/service/api'
 import { onMounted, ref } from 'vue'
 import RecentIcon from '@/components/icons/recent.vue'
+import WidgetShell from './WidgetShell.vue'
 import { TheMdPreview } from '@/components/advanced/md'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+
+defineProps<{ fluid?: boolean }>()
 
 const settingStore = useSettingStore()
 const { AgentSetting } = storeToRefs(settingStore)
@@ -50,6 +45,9 @@ onMounted(() => {
           recent.value = res.data
         }
       })
+      .catch((err) => {
+        console.error(err)
+      })
       .finally(() => {
         loading.value = false
       })
@@ -57,43 +55,6 @@ onMounted(() => {
 })
 </script>
 <style scoped>
-.recent-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.recent-icon-chip {
-  width: 64px;
-  height: 64px;
-  border-radius: 9999px;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.recent-title-wrap {
-  line-height: 0.9;
-  text-align: right;
-}
-
-.recent-title {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.recent-title-accent {
-  font-family: var(--font-family-handwritten);
-  color: var(--color-accent);
-  font-size: 20px;
-  font-weight: 700;
-  margin-top: -2px;
-}
-
 .recent-body {
   width: 100%;
 }

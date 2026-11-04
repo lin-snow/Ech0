@@ -79,7 +79,7 @@ import TheEchos from './TheEchos.vue'
 import TheCommandPalette from './TheCommandPalette.vue'
 import TheChatLauncher from './TheChatLauncher.vue'
 import { defineAsyncComponent, onMounted, ref, onBeforeUnmount, computed, watch } from 'vue'
-import { useEchoStore, useUserStore, useSettingStore } from '@/stores'
+import { useEchoStore, useUserStore, useSettingStore, useConnectStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
@@ -97,6 +97,7 @@ const HubPage = defineAsyncComponent(() => import('@/views/hub/modules/HubPage.v
 const userStore = useUserStore()
 const settingStore = useSettingStore()
 const echoStore = useEchoStore()
+const connectStore = useConnectStore()
 const { isLogin } = storeToRefs(userStore)
 const { AgentSetting } = storeToRefs(settingStore)
 const { searchingMode, isFilteringMode } = storeToRefs(echoStore)
@@ -110,6 +111,16 @@ const activeTab = computed<'home' | 'publish' | 'status' | 'tags' | 'hub'>(() =>
 })
 const shouldHideBannerOnMobile = computed(
   () => mobileSearchOpen.value || searchingMode.value || isFilteringMode.value,
+)
+
+// Start the (potentially slow) connect lookup before the status widgets mount,
+// so it never queues behind the AI Recent request on the status page.
+watch(
+  activeTab,
+  (tab) => {
+    if (tab === 'status') void connectStore.getConnectInfo()
+  },
+  { immediate: true },
 )
 
 const mainColumn = ref<HTMLElement | null>(null)

@@ -309,10 +309,11 @@
   },
   "hub": {
     "emptyList": "Hub-Liste ist leer. Füge zuerst Connect-Einträge in den Einstellungen hinzu.",
+    "emptyListGuest": "Noch keine Ech0-Instanz verbunden – hier gibt es gerade nichts zu entdecken.",
     "noAvailableInstance": "Derzeit keine erreichbaren Hub-Instanzen verfügbar.",
     "connectedCount": "Mit {count} Instanz(en) verbunden, Echos werden geladen…",
     "loading": "Wird geladen…",
-    "emptyConnectHint": "Noch keine Daten. Füge zuerst einen Connect hinzu.",
+    "noEchoes": "Gerade gibt es nichts zu entdecken.",
     "noMoreData": "Keine weiteren Daten"
   },
   "systemLog": {
@@ -342,17 +343,14 @@
     "alreadyLatest": "Bereits auf dem neuesten Stand",
     "checkUpdateFailed": "Update-Prüfung fehlgeschlagen",
     "clickToCheckUpdate": "Klicken, um auf Updates zu prüfen",
-    "activityTitle": "Activity",
-    "activityAccent": "Log",
-    "visitorTitle": "Besucher",
-    "visitorAccent": "Statistik",
+    "activityTitle": "Activity Log",
+    "visitorTitle": "Besucherstatistik",
     "visitorPv": "Seitenaufrufe",
     "visitorUv": "Eindeutige Besucher",
     "visitorEmpty": "Noch keine Besucherdaten"
   },
   "tagPileWidget": {
-    "title": "Tech",
-    "accent": "Stacks",
+    "title": "Tech Stacks",
     "empty": "Keine Trending-Tags"
   },
   "panelPage": {

@@ -98,19 +98,11 @@ const statValueText = (item: StatCard) => {
   return formatAnimatedMetric(item.key)
 }
 
-const todayText = computed(() => {
-  return new Intl.DateTimeFormat(locale.value, {
-    month: '2-digit',
-    day: '2-digit',
-    weekday: 'long',
-  }).format(new Date())
-})
-
 const loadDashboardStats = async () => {
   loading.value = true
   const [echoRes, , todayRes] = await Promise.allSettled([
     fetchGetEchosByPage({ page: 1, pageSize: 1, search: '' }),
-    connectStore.getConnect(),
+    connectStore.getConnect({ force: true }),
     fetchGetTodayEchos(),
   ])
 
@@ -170,11 +162,6 @@ onMounted(() => {
 
 <template>
   <div class="dashboard-page">
-    <section class="dashboard-meta">
-      <span class="meta-item meta-item-strong">PANEL DASHBOARD</span>
-      <span class="meta-item">DATE {{ todayText }}</span>
-    </section>
-
     <section class="stats-grid">
       <div
         v-for="(item, statIndex) in dashboardStats"
@@ -229,10 +216,10 @@ onMounted(() => {
 
     <section class="dashboard-panels">
       <div class="panel-widget-wrap">
-        <TheActivityLog />
+        <TheActivityLog fluid />
       </div>
       <div class="panel-widget-wrap panel-widget-wrap--divider">
-        <TheVisitorStatsWidget />
+        <TheVisitorStatsWidget fluid />
       </div>
     </section>
   </div>
@@ -243,30 +230,9 @@ onMounted(() => {
   width: 100%;
   max-width: 100%;
   overflow: hidden;
-  padding: 0.35rem 0 1rem;
+  padding: 0 0 1rem;
   display: grid;
   gap: 0.85rem;
-}
-
-.dashboard-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.5rem;
-  border-bottom: 1px dashed var(--color-border-subtle);
-  padding: 0.35rem 0.2rem 0.55rem;
-}
-
-.meta-item {
-  font-size: 0.73rem;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  font-family: var(--font-family-mono);
-}
-
-.meta-item-strong {
-  color: var(--color-text-secondary);
-  font-weight: 700;
 }
 
 .stats-grid {
@@ -279,7 +245,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.65rem 0.4rem;
+  padding: 0.1rem 0.5rem 0.5rem 0;
   border-bottom: 1px dashed var(--color-border-subtle);
   transition: opacity 0.2s ease;
   animation: stat-card-enter 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;

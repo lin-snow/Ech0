@@ -309,10 +309,11 @@
   },
   "hub": {
     "emptyList": "Hub list is empty. Add Connect entries in settings first.",
+    "emptyListGuest": "No Ech0 instances connected yet — nothing to explore here for now.",
     "noAvailableInstance": "No available Hub instances can be connected right now.",
     "connectedCount": "Connected to {count} instance(s), loading Echos...",
     "loading": "Loading...",
-    "emptyConnectHint": "No data yet. Add a Connect first.",
+    "noEchoes": "Nothing to explore right now.",
     "noMoreData": "No more data"
   },
   "systemLog": {
@@ -342,17 +343,14 @@
     "alreadyLatest": "Already up to date",
     "checkUpdateFailed": "Failed to check for updates",
     "clickToCheckUpdate": "Click to check for updates",
-    "activityTitle": "Activity",
-    "activityAccent": "Log",
-    "visitorTitle": "Visitor",
-    "visitorAccent": "Stats",
+    "activityTitle": "Activity Log",
+    "visitorTitle": "Visitor Stats",
     "visitorPv": "Page Views",
     "visitorUv": "Unique Visitors",
     "visitorEmpty": "No visitor data yet"
   },
   "tagPileWidget": {
-    "title": "Tech",
-    "accent": "Stacks",
+    "title": "Tech Stacks",
     "empty": "No trending tags"
   },
   "panelPage": {

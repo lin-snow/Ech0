@@ -309,10 +309,11 @@
   },
   "hub": {
     "emptyList": "Hub列表为空，请到设置中添加Connect吧~",
+    "emptyListGuest": "这里还没有连接其他 Ech0，暂时探测不到别人的 Echo～",
     "noAvailableInstance": "当前Hub暂无可连接的实例。",
     "connectedCount": "成功连接 {count} 个实例，开始加载 Echos",
     "loading": "加载中...",
-    "emptyConnectHint": "暂无数据，快去添加 Connect 吧",
+    "noEchoes": "暂时没有可探索的 Echo",
     "noMoreData": "没有更多数据了"
   },
   "systemLog": {
@@ -342,17 +343,14 @@
     "alreadyLatest": "已是最新版本",
     "checkUpdateFailed": "检查更新失败",
     "clickToCheckUpdate": "点击检查更新",
-    "activityTitle": "Activity",
-    "activityAccent": "Log",
-    "visitorTitle": "Visitor",
-    "visitorAccent": "Stats",
+    "activityTitle": "Activity Log",
+    "visitorTitle": "Visitor Stats",
     "visitorPv": "访问量",
     "visitorUv": "独立访客",
     "visitorEmpty": "暂无访客数据"
   },
   "tagPileWidget": {
-    "title": "Tech",
-    "accent": "Stacks",
+    "title": "Tech Stacks",
     "empty": "暂无热门标签"
   },
   "panelPage": {

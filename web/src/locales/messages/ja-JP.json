@@ -309,10 +309,11 @@
   },
   "hub": {
     "emptyList": "Hub一覧は空です。設定から Connect を追加してください～",
+    "emptyListGuest": "まだ他の Ech0 とつながっていないので、他の Echo は探せません～",
     "noAvailableInstance": "現在 Hub に接続可能なインスタンスはありません。",
     "connectedCount": "{count} 個のインスタンスに接続しました。Echo の読み込みを開始します",
     "loading": "読み込み中...",
-    "emptyConnectHint": "データはありません。Connect を追加しましょう",
+    "noEchoes": "今は探索できる Echo がありません。",
     "noMoreData": "これ以上データはありません"
   },
   "systemLog": {
@@ -342,17 +343,14 @@
     "alreadyLatest": "最新バージョンです",
     "checkUpdateFailed": "更新の確認に失敗しました",
     "clickToCheckUpdate": "クリックして更新を確認",
-    "activityTitle": "Activity",
-    "activityAccent": "Log",
-    "visitorTitle": "Visitor",
-    "visitorAccent": "Stats",
+    "activityTitle": "Activity Log",
+    "visitorTitle": "Visitor Stats",
     "visitorPv": "PV",
     "visitorUv": "UV",
     "visitorEmpty": "訪問者データはありません"
   },
   "tagPileWidget": {
-    "title": "Tech",
-    "accent": "Stacks",
+    "title": "Tech Stacks",
     "empty": "人気タグはありません"
   },
   "panelPage": {

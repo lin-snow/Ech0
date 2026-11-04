@@ -16,14 +16,10 @@ export const useConnectStore = defineStore('connectStore', () => {
   const connectsInFlight = ref<Promise<void> | null>(null)
   const connectsInfoInFlight = ref<Promise<void> | null>(null)
 
-  const isFresh = (ts: number) => ts > 0 && Date.now() - ts < CONNECT_CACHE_TTL_MS
-
-  async function getConnect(options?: { force?: boolean }) {
-    const force = Boolean(options?.force)
-    if (!force && isFresh(connectsFetchedAt.value)) return
+  const requestConnects = () => {
     if (connectsInFlight.value) return connectsInFlight.value
 
-    connectsInFlight.value = fetchGetConnectList()
+    const task = fetchGetConnectList()
       .then((res) => {
         if (res.code === 1) {
           connects.value = res.data
@@ -37,19 +33,15 @@ export const useConnectStore = defineStore('connectStore', () => {
         connectsInFlight.value = null
       })
 
-    return connectsInFlight.value
+    connectsInFlight.value = task
+    return task
   }
 
-  const getConnectInfo = async (options?: { force?: boolean }) => {
-    const force = Boolean(options?.force)
-    if (!force && isFresh(connectsInfoFetchedAt.value)) {
-      loading.value = false
-      return
-    }
+  const requestConnectsInfo = () => {
     if (connectsInfoInFlight.value) return connectsInfoInFlight.value
 
-    loading.value = true
-    connectsInfoInFlight.value = fetchGetAllConnectInfo()
+    loading.value = connectsInfoFetchedAt.value === 0
+    const task = fetchGetAllConnectInfo()
       .then((res) => {
         if (res.code === 1) {
           connectsInfo.value = res.data
@@ -64,7 +56,59 @@ export const useConnectStore = defineStore('connectStore', () => {
         connectsInfoInFlight.value = null
       })
 
-    return connectsInfoInFlight.value
+    connectsInfoInFlight.value = task
+    return task
+  }
+
+  // Stale-while-revalidate: cached data is returned immediately and refreshed
+  // in the background, so a page open never waits on an expired cache.
+  async function getConnect(options?: { force?: boolean }) {
+    const force = Boolean(options?.force)
+    const hasCache = connectsFetchedAt.value > 0
+
+    if (
+      !force &&
+      connectsFetchedAt.value > 0 &&
+      Date.now() - connectsFetchedAt.value < CONNECT_CACHE_TTL_MS
+    ) {
+      return
+    }
+    if (connectsInFlight.value) {
+      if (hasCache && !force) return
+      return connectsInFlight.value
+    }
+
+    const task = requestConnects()
+    if (hasCache && !force) return
+    return task
+  }
+
+  async function getConnectInfo(options?: { force?: boolean }) {
+    const force = Boolean(options?.force)
+    const hasCache = connectsInfoFetchedAt.value > 0
+
+    if (
+      !force &&
+      connectsInfoFetchedAt.value > 0 &&
+      Date.now() - connectsInfoFetchedAt.value < CONNECT_CACHE_TTL_MS
+    ) {
+      loading.value = false
+      return
+    }
+    if (connectsInfoInFlight.value) {
+      if (hasCache && !force) return
+      return connectsInfoInFlight.value
+    }
+
+    const task = requestConnectsInfo()
+    if (hasCache && !force) return
+    return task
+  }
+
+  function invalidateConnectsInfo() {
+    connectsInfo.value = []
+    connectsInfoFetchedAt.value = 0
+    loading.value = false
   }
 
   return {
@@ -73,5 +117,6 @@ export const useConnectStore = defineStore('connectStore', () => {
     loading,
     getConnect,
     getConnectInfo,
+    invalidateConnectsInfo,
   }
 })

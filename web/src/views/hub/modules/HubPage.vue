@@ -69,11 +69,22 @@
       </div>
       <div
         v-else-if="echoList.length === 0 && hasTriedInitialLoad && !isPreparing && !isLoading"
-        class="my-6"
+        class="mx-auto my-8 w-full max-w-[21rem]"
       >
-        <p class="text-[var(--color-text-secondary)] text-center">
-          {{ t('hub.emptyConnectHint') }}
-        </p>
+        <TheSketchFrame :seed="12">
+          <div class="hub-empty-body">
+            <div class="hub-empty-sketch" aria-hidden="true">
+              <div v-for="row in 3" :key="row" class="hub-empty-card">
+                <span class="hub-empty-avatar" />
+                <span class="hub-empty-lines">
+                  <span class="hub-empty-line hub-empty-line--short" />
+                  <span class="hub-empty-line" />
+                </span>
+              </div>
+            </div>
+            <p class="hub-empty-text">{{ emptyMessage }}</p>
+          </div>
+        </TheSketchFrame>
       </div>
 
       <div v-if="echoList.length > 0 && !hasMore" class="my-6">
@@ -99,12 +110,13 @@
 import 'vue-virtual-scroller/index.css'
 
 import BaseButton from '@/components/common/BaseButton.vue'
+import TheSketchFrame from '@/components/common/TheSketchFrame.vue'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import Arrow from '@/components/icons/arrow.vue'
 import TheBackTop from '@/components/advanced/TheBackTop.vue'
 import TheHubEcho from '@/components/advanced/echo/cards/TheHubEcho.vue'
 import { onMounted, watch, computed, ref, onBeforeUnmount, nextTick } from 'vue'
-import { useHubStore } from '@/stores'
+import { useHubStore, useUserStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
 import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
@@ -143,7 +155,18 @@ const getButtonClasses = (routeName: string, isBackButton = false) => {
 }
 
 const hubStore = useHubStore()
-const { echoList, isLoading, isPreparing, hasMore, hasTriedInitialLoad } = storeToRefs(hubStore)
+const userStore = useUserStore()
+const { echoList, isLoading, isPreparing, hasMore, hasTriedInitialLoad, emptyReason } =
+  storeToRefs(hubStore)
+const { isLogin } = storeToRefs(userStore)
+
+const emptyMessage = computed(() => {
+  if (emptyReason.value === 'no-connects') {
+    return isLogin.value ? t('hub.emptyList') : t('hub.emptyListGuest')
+  }
+  if (emptyReason.value === 'no-instances') return t('hub.noAvailableInstance')
+  return t('hub.noEchoes')
+})
 
 const mainColumn = ref<HTMLElement | null>(null)
 const sentinelRef = ref<HTMLElement | null>(null)
@@ -355,6 +378,57 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.hub-empty-body {
+  padding: 1rem 1rem 0.9rem;
+}
+
+.hub-empty-sketch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+
+.hub-empty-card {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.hub-empty-avatar {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: 9999px;
+}
+
+.hub-empty-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hub-empty-line {
+  border-top: 1px dashed var(--color-border-subtle);
+}
+
+.hub-empty-line--short {
+  width: 45%;
+}
+
+.hub-empty-text {
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+}
+
 .hub-dynamic-scroller {
   width: 100%;
 }

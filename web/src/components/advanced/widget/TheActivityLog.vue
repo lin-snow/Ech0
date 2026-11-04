@@ -1,40 +1,35 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="activity-log p-1">
-    <div class="activity-head">
-      <div class="activity-chip">7 DAYS</div>
-      <div class="activity-title-wrap">
-        <div class="activity-title">{{ t('dashboard.activityTitle') }}</div>
-        <div class="activity-title-accent">{{ t('dashboard.activityAccent') }}</div>
+  <div class="activity-log">
+    <WidgetShell :title="t('dashboard.activityTitle')" meta="7 DAYS" :fluid="fluid">
+      <div class="line-chart-wrap">
+        <svg
+          v-if="last7Days.length >= 2"
+          class="line-chart-svg"
+          :viewBox="`0 0 ${chartW} ${chartH}`"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <path :d="chartFillPath" class="line-chart-fill" />
+          <polyline :points="chartPoints" class="line-chart-line" />
+          <circle
+            v-for="(dot, i) in chartDotPositions"
+            :key="i"
+            :cx="dot.x"
+            :cy="dot.y"
+            r="6"
+            class="line-chart-dot"
+            @mouseenter="showTooltip(dot, $event)"
+            @mouseleave="hideTooltip"
+          />
+        </svg>
+        <div v-if="last7Days.length >= 2" class="line-chart-labels">
+          <span v-for="(d, i) in last7Days" :key="i" class="line-chart-label">
+            {{ (d.date || '').slice(5) }}
+          </span>
+        </div>
       </div>
-    </div>
-    <div class="line-chart-wrap">
-      <svg
-        v-if="last7Days.length >= 2"
-        class="line-chart-svg"
-        :viewBox="`0 0 ${chartW} ${chartH}`"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        <path :d="chartFillPath" class="line-chart-fill" />
-        <polyline :points="chartPoints" class="line-chart-line" />
-        <circle
-          v-for="(dot, i) in chartDotPositions"
-          :key="i"
-          :cx="dot.x"
-          :cy="dot.y"
-          r="6"
-          class="line-chart-dot"
-          @mouseenter="showTooltip(dot, $event)"
-          @mouseleave="hideTooltip"
-        />
-      </svg>
-      <div v-if="last7Days.length >= 2" class="line-chart-labels">
-        <span v-for="(d, i) in last7Days" :key="i" class="line-chart-label">
-          {{ (d.date || '').slice(5) }}
-        </span>
-      </div>
-    </div>
+    </WidgetShell>
     <div
       v-if="tooltip.visible"
       class="chart-tooltip"
@@ -48,7 +43,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import WidgetShell from './WidgetShell.vue'
 import { fetchGetHeatMap } from '@/service/api'
+
+defineProps<{ fluid?: boolean }>()
 
 const { t } = useI18n()
 
@@ -128,43 +126,6 @@ onMounted(async () => {
 <style scoped>
 .activity-log {
   min-width: 0;
-}
-
-.activity-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.activity-chip {
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.15em;
-  padding: 0.08rem 0.45rem;
-  font-family: var(--font-family-mono);
-  transform: rotate(-1.8deg);
-}
-
-.activity-title-wrap {
-  line-height: 0.9;
-  text-align: right;
-}
-
-.activity-title {
-  font-family: Georgia, 'Times New Roman', var(--font-family-display);
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.activity-title-accent {
-  font-family: var(--font-family-handwritten);
-  color: var(--color-accent);
-  font-size: 0.95rem;
-  margin-top: -2px;
 }
 
 .line-chart-wrap {

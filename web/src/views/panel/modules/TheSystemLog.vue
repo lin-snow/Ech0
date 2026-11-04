@@ -6,16 +6,27 @@
       <div class="log-toolbar-grid">
         <label class="toolbar-field">
           <span class="field-label">{{ t('systemLog.level') }}</span>
-          <select
-            v-model="level"
-            class="h-9 rounded-[var(--radius-md)] px-2 bg-[var(--input-bg-color)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)]"
-          >
-            <option value="all">{{ t('systemLog.allLevels') }}</option>
-            <option value="debug">debug</option>
-            <option value="info">info</option>
-            <option value="warn">warn</option>
-            <option value="error">error</option>
-          </select>
+          <span class="select-wrap">
+            <select
+              v-model="level"
+              class="h-9 w-full appearance-none rounded-[var(--radius-md)] pl-2 pr-8 bg-[var(--input-bg-color)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)]"
+            >
+              <option value="all">{{ t('systemLog.allLevels') }}</option>
+              <option value="debug">debug</option>
+              <option value="info">info</option>
+              <option value="warn">warn</option>
+              <option value="error">error</option>
+            </select>
+            <svg class="select-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M5 7.5 10 12.5 15 7.5"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
         </label>
 
         <label class="toolbar-field field-grow">
@@ -24,6 +35,7 @@
             v-model="keyword"
             :placeholder="t('systemLog.keywordPlaceholder')"
             class="h-9 rounded-[var(--radius-md)] px-2 bg-[var(--input-bg-color)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)]"
+            @keydown.enter="handleFilterEnter"
           />
         </label>
 
@@ -65,7 +77,9 @@
         <div v-for="(line, idx) in logs" :key="`${line.time}-${idx}`" class="log-line">
           <div class="log-line-main">
             <span class="time">[{{ line.time || '-' }}]</span>
-            <span class="level">[{{ line.level || 'info' }}]</span>
+            <span class="level" :class="`level--${normalizeLevel(line.level || 'info')}`"
+              >[{{ line.level || 'info' }}]</span
+            >
             <span class="msg">{{ line.msg }}</span>
           </div>
           <div v-if="line.error" class="log-line-detail">{{ line.error }}</div>
@@ -179,6 +193,12 @@ const reload = async () => {
   restartStream()
 }
 
+const handleFilterEnter = (event: KeyboardEvent) => {
+  if (event.isComposing) return
+  event.preventDefault()
+  void reload()
+}
+
 const clearLogs = () => {
   logs.value = []
 }
@@ -286,6 +306,22 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.select-wrap {
+  position: relative;
+  display: block;
+}
+
+.select-chevron {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
 .field-hint {
   font-size: 0.72rem;
   line-height: 1.2;
@@ -333,7 +369,25 @@ onUnmounted(() => {
 
 .level {
   margin: 0 6px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.level--debug {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.level--info {
+  color: var(--color-text-secondary);
+}
+
+.level--warn {
   color: var(--color-accent);
+}
+
+.level--error {
+  color: var(--color-danger);
 }
 
 .msg {

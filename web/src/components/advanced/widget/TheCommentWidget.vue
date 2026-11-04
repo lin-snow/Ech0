@@ -1,49 +1,46 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="px-2">
-    <div class="widget bg-transparent! w-full max-w-[19rem] mx-auto rounded-md p-4">
-      <div class="comment-head mb-2">
-        <div class="comment-icon-chip">
-          <div class="doodle-smile" aria-hidden="true">
-            <span class="smile-eye smile-eye-left"></span>
-            <span class="smile-eye smile-eye-right"></span>
-            <span class="smile-mouth"></span>
-          </div>
-        </div>
-        <div class="comment-title-wrap">
-          <div class="comment-title">Comment</div>
-          <div class="comment-title-accent">Random</div>
-        </div>
-      </div>
-      <div class="comment-teaser-body">
-        <div class="comment-teaser-card">
-          <button
-            v-if="canJumpToEchoDetail"
-            type="button"
-            class="comment-jump-btn"
-            v-tooltip="t('connectWidget.jumpToEchoDetail')"
-            :aria-label="t('connectWidget.jumpToEchoDetail')"
-            @click="handleJumpToEchoDetail"
-          >
-            <LinkTo class="w-4 h-4" />
-          </button>
-          <p v-if="commentLoading" class="comment-teaser-content">
-            {{ t('connectWidget.randomCommentLoading') }}
-          </p>
-          <p v-else class="comment-teaser-content">{{ randomCommentContent }}</p>
-        </div>
+  <WidgetShell title="Comment" :fluid="fluid">
+    <template #icon>
+      <span class="comment-doodle" aria-hidden="true">
+        <span class="doodle-smile">
+          <span class="smile-eye smile-eye-left"></span>
+          <span class="smile-eye smile-eye-right"></span>
+          <span class="smile-mouth"></span>
+        </span>
+      </span>
+    </template>
+    <div class="comment-teaser-body">
+      <div class="comment-teaser-card">
+        <button
+          v-if="canJumpToEchoDetail"
+          type="button"
+          class="comment-jump-btn"
+          v-tooltip="t('connectWidget.jumpToEchoDetail')"
+          :aria-label="t('connectWidget.jumpToEchoDetail')"
+          @click="handleJumpToEchoDetail"
+        >
+          <LinkTo class="w-4 h-4" />
+        </button>
+        <p v-if="commentLoading" class="comment-teaser-content">
+          {{ t('connectWidget.randomCommentLoading') }}
+        </p>
+        <p v-else class="comment-teaser-content">{{ randomCommentContent }}</p>
       </div>
     </div>
-  </div>
+  </WidgetShell>
 </template>
 
 <script setup lang="ts">
 import LinkTo from '@/components/icons/linkto.vue'
+import WidgetShell from './WidgetShell.vue'
 import { fetchGetPublicComments } from '@/service/api'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+
+defineProps<{ fluid?: boolean }>()
 
 const router = useRouter()
 const { t } = useI18n()
@@ -105,20 +102,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.comment-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 12px;
+.comment-doodle {
+  position: relative;
+  display: block;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
-.comment-icon-chip {
-  width: 52px;
-  height: 52px;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.comment-doodle .doodle-smile {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-5deg) scale(0.55);
 }
 
 .doodle-smile {
@@ -156,26 +151,6 @@ onMounted(() => {
   height: 6px;
   border-bottom: 1.5px solid #3f362d;
   border-radius: 0 0 10px 10px;
-}
-
-.comment-title-wrap {
-  line-height: 0.9;
-  text-align: right;
-}
-
-.comment-title {
-  font-family: Georgia, 'Times New Roman', serif;
-  color: var(--color-text-primary);
-  font-size: 26px;
-  font-weight: 600;
-}
-
-.comment-title-accent {
-  font-family: var(--font-family-handwritten);
-  color: var(--color-accent);
-  font-size: 20px;
-  font-weight: 700;
-  margin-top: -2px;
 }
 
 .comment-teaser-body {

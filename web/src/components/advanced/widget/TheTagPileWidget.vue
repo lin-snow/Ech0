@@ -1,50 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="px-2">
-    <div class="widget bg-transparent! w-full max-w-[19rem] mx-auto rounded-md p-1">
-      <div class="tag-pile-head mb-2">
-        <div class="tag-pile-chip">TAGS</div>
-        <div class="tag-pile-title-wrap">
-          <div class="tag-pile-title">{{ t('tagPileWidget.title') }}</div>
-          <div class="tag-pile-title-accent">{{ t('tagPileWidget.accent') }}</div>
-        </div>
+  <WidgetShell :title="t('tagPileWidget.title')" :fluid="fluid">
+    <div ref="stageRef" class="tag-pile-stage" :style="{ minHeight }">
+      <div v-if="!hasTags" class="tag-pile-empty">
+        {{ t('tagPileWidget.empty') }}
       </div>
-      <div ref="stageRef" class="tag-pile-stage" :style="{ minHeight }">
-        <div v-if="!hasTags" class="tag-pile-empty">
-          {{ t('tagPileWidget.empty') }}
-        </div>
-        <span
-          v-for="item in physicsItems"
-          :key="item.key"
-          :ref="(el) => setTagRef(item.key, el as Element | null)"
-          class="tag-pill"
-          :class="{ 'is-dragging': item.dragging }"
-          :style="{
-            left: `${item.x}px`,
-            top: `${item.y}px`,
-            transform: `translate(-50%, -50%) rotate(${item.angle.toFixed(2)}deg)`,
-            backgroundColor: item.backgroundColor,
-            color: item.color,
-            zIndex: item.zIndex,
-          }"
-          @pointerdown="handlePointerDown($event, item.key)"
-        >
-          {{ item.label }}
-        </span>
-      </div>
+      <span
+        v-for="item in physicsItems"
+        :key="item.key"
+        :ref="(el) => setTagRef(item.key, el as Element | null)"
+        class="tag-pill"
+        :class="{ 'is-dragging': item.dragging }"
+        :style="{
+          left: `${item.x}px`,
+          top: `${item.y}px`,
+          transform: `translate(-50%, -50%) rotate(${item.angle.toFixed(2)}deg)`,
+          backgroundColor: item.backgroundColor,
+          color: item.color,
+          zIndex: item.zIndex,
+        }"
+        @pointerdown="handlePointerDown($event, item.key)"
+      >
+        {{ item.label }}
+      </span>
     </div>
-  </div>
+  </WidgetShell>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import WidgetShell from './WidgetShell.vue'
 
 interface Props {
   layoutSeed?: number | string
   minHeight?: string
   ech0Version?: string
+  fluid?: boolean
 }
 
 type PhysicsTag = {
@@ -74,6 +67,7 @@ const props = withDefaults(defineProps<Props>(), {
   layoutSeed: 'ech0-tag-pile',
   minHeight: '8.85rem',
   ech0Version: '--',
+  fluid: false,
 })
 
 const { t } = useI18n()
@@ -446,45 +440,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.tag-pile-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.tag-pile-chip {
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.15em;
-  padding: 0.08rem 0.45rem;
-  font-family: var(--font-family-mono);
-  transform: rotate(-1.8deg);
-}
-
-.tag-pile-title-wrap {
-  line-height: 0.9;
-  text-align: right;
-}
-
-.tag-pile-title {
-  font-family: Georgia, 'Times New Roman', var(--font-family-display);
-  color: var(--color-text-primary);
-  font-size: 1.3rem;
-  font-weight: 600;
-}
-
-.tag-pile-title-accent {
-  font-family: var(--font-family-handwritten);
-  color: var(--color-accent);
-  font-size: 0.95rem;
-  margin-top: -2px;
-}
-
 .tag-pile-stage {
   position: relative;
-  margin-top: 0.65rem;
   border-radius: 0.75rem;
   background: transparent;
   border: 1px dashed var(--color-border-subtle);

@@ -4,10 +4,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useFetch } from '@vueuse/core'
-import { theToast } from '@/utils/toast'
 import { timeValueToMs } from '@/utils/timeValue'
 import { useConnectStore } from './connect'
 import { i18n } from '@/locales'
+
+type HubEmptyReason = 'no-connects' | 'no-instances' | 'no-echos'
 
 interface HubState {
   url: string
@@ -34,18 +35,35 @@ export const useHubStore = defineStore('hubStore', () => {
   const pageSize = ref<number>(10)
   const batchSize = ref<number>(10)
   const hasMore = ref<boolean>(true)
+  const emptyReason = ref<HubEmptyReason | null>(null)
+  let generation = 0
 
   const getHubList = async () => {
+    generation += 1
+    const currentGeneration = generation
     isPreparing.value = true
     hasTriedInitialLoad.value = false
-    await connectStore.getConnect()
+    emptyReason.value = null
+    echoList.value = []
+    existingIds.value = new Set()
+    hubInfoMap.value = new Map()
+    hubinfoList.value = []
+    hubStates.value = new Map()
+    hasMore.value = true
 
-    hubList.value = connectStore.connects
+    await connectStore.getConnect({ force: true })
+    if (currentGeneration !== generation) return
+
+    hubList.value = [...connectStore.connects]
+    if (hubList.value.length === 0) {
+      emptyReason.value = 'no-connects'
+    }
   }
 
   const getHubInfoList = async () => {
+    const currentGeneration = generation
     if (hubList.value.length === 0) {
-      theToast.info(String(i18n.global.t('hub.emptyList')))
+      emptyReason.value = 'no-connects'
       isPreparing.value = false
       return
     }
@@ -112,6 +130,7 @@ export const useHubStore = defineStore('hubStore', () => {
     })
 
     const results = await Promise.allSettled(promises)
+    if (currentGeneration !== generation) return
 
     const validHubs: typeof hubList.value = []
     const failedHubs: string[] = []
@@ -140,7 +159,7 @@ export const useHubStore = defineStore('hubStore', () => {
     hubList.value = validHubs
 
     if (hubList.value.length === 0) {
-      theToast.info(String(i18n.global.t('hub.noAvailableInstance')))
+      emptyReason.value = 'no-instances'
       isPreparing.value = false
       return
     }
@@ -207,6 +226,7 @@ export const useHubStore = defineStore('hubStore', () => {
 
   const loadEchoListPage = async () => {
     if (isLoading.value || isPreparing.value) return
+    const currentGeneration = generation
 
     const canLoadMore = Array.from(hubStates.value.values()).some(
       (s) => s.hasMore || s.buffer.length > 0,
@@ -214,6 +234,9 @@ export const useHubStore = defineStore('hubStore', () => {
     if (!canLoadMore) {
       hasMore.value = false
       hasTriedInitialLoad.value = true
+      if (echoList.value.length === 0 && emptyReason.value === null) {
+        emptyReason.value = 'no-echos'
+      }
       return
     }
 
@@ -250,6 +273,7 @@ export const useHubStore = defineStore('hubStore', () => {
           }
 
           await Promise.all(emptyHubsWithMore.map((s) => fetchHubPage(s.url)))
+          if (currentGeneration !== generation) return
           continue
         }
 
@@ -267,18 +291,21 @@ export const useHubStore = defineStore('hubStore', () => {
         }
       }
 
+      if (currentGeneration !== generation) return
+
       echoList.value.push(...result)
 
       hasMore.value = Array.from(hubStates.value.values()).some(
         (s) => s.hasMore || s.buffer.length > 0,
       )
-
-      if (!hasMore.value && echoList.value.length > 0) {
-        theToast.info(String(i18n.global.t('hub.noMoreData')))
-      }
     } finally {
       isLoading.value = false
-      hasTriedInitialLoad.value = true
+      if (currentGeneration === generation) {
+        hasTriedInitialLoad.value = true
+        if (echoList.value.length === 0 && emptyReason.value === null) {
+          emptyReason.value = 'no-echos'
+        }
+      }
     }
   }
 
@@ -291,6 +318,7 @@ export const useHubStore = defineStore('hubStore', () => {
     isLoading,
     isPreparing,
     hasTriedInitialLoad,
+    emptyReason,
     pageSize,
     batchSize,
     hasMore,
