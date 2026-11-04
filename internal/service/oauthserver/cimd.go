@@ -74,7 +74,7 @@ func (s *OAuthServerService) fetchClientMetadata(
 
 	// The URL was validated above; the guarded client below also enforces
 	// private/reserved-IP and redirect checks at dial time.
-	// codeql[go/request-forgery]
+	// lgtm[go/request-forgery]
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, clientID, nil)
 	if err != nil {
 		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient("invalid client metadata URL")
@@ -86,7 +86,7 @@ func (s *OAuthServerService) fetchClientMetadata(
 	// egress.Validate) and s.http is an egress.NewClient(egress.Guard()): its
 	// dialer rejects private/reserved IPs and its redirect hook re-validates
 	// every hop.
-	// codeql[go/request-forgery]
+	// lgtm[go/request-forgery]
 	resp, err := s.http.Do(req)
 	if err != nil {
 		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient("failed to fetch client metadata")
