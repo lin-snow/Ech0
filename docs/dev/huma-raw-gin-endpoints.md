@@ -103,7 +103,7 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 |---|---|---|---|---|
 | GET | `/robots.txt` | `CommonHandler.GetRobotsTxt` | Resource（公开） | `text/plain` |
 | GET | `/sitemap.xml` | `CommonHandler.GetSitemap` | Resource（公开） | `application/xml` |
-| GET | `/rss` | `CommonHandler.GetRss` | Resource（公开） | `application/atom+xml` / `text/html`（按 `Accept` 协商；浏览器的样式页由服务端渲染，不依赖 XSLT） |
+| GET | `/rss` | `CommonHandler.GetRss` | Resource（公开） | `application/atom+xml` / `text/html`（按 `Accept` 协商；浏览器拿到服务端渲染的订阅落地页——只含订阅 URL 与条数/最近更新，不重复 feed 正文，不依赖 XSLT） |
 | GET | `/healthz` | `CommonHandler.Healthz` | Resource（公开） | 探活（惯例裸 gin 探针） |
 | —（NoRoute） | 任意未命中 | `WebHandler.Templates` | Engine 级 | SPA `index.html` fallback |
 | GET | `/api/files/*` | `StaticFS` | 专用组 · `StaticFileSecurity`（目录穿越防护） | 本地上传文件静态服务 |

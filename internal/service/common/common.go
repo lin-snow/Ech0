@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	stdhtml "html"
-	htmltemplate "html/template"
+	"net/url"
 	"strings"
 	"time"
 
@@ -126,6 +126,7 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 
 			home := fmt.Sprintf("%s://%s/", schema, host)
 			logo := fmt.Sprintf("%s://%s/Ech0.svg", schema, host)
+			baseURL := &url.URL{Scheme: schema, Host: host}
 			page := rssPage{
 				Title:   title,
 				Logo:    logo,
@@ -142,10 +143,14 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 				Updated:     time.Now().UTC(),
 			}
 
+			var latest time.Time
 			for _, msg := range echos {
 				renderedContent := mdUtil.MdToHTML([]byte(msg.Content))
 				createdAt := time.Unix(msg.CreatedAt, 0).UTC()
 				title := msg.Username + " - " + createdAt.Format("2006-01-02")
+				if createdAt.After(latest) {
+					latest = createdAt
+				}
 
 				if len(msg.EchoFiles) > 0 {
 					var mediaContent []byte
@@ -153,6 +158,8 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 						if ef.File.URL == "" {
 							continue
 						}
+						// Local storage yields a relative URL; absolutizeFeedHTML
+						// resolves it against the feed origin for readers.
 						url := stdhtml.EscapeString(ef.File.URL)
 						switch storage.NormalizeCategory(ef.File.Category) {
 						case storage.CategoryImage:
@@ -185,23 +192,23 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 					}
 				}
 
+				renderedContent = absolutizeFeedHTML(renderedContent, baseURL)
+
 				entryLink := fmt.Sprintf("%s://%s/echo/%s", schema, host, msg.ID)
 				feed.Items = append(feed.Items, &feeds.Item{
-					Title:       title,
-					Link:        &feeds.Link{Href: entryLink},
-					Description: string(renderedContent),
-					Author:      &feeds.Author{Name: msg.Username},
-					Created:     createdAt,
+					Title:   title,
+					Link:    &feeds.Link{Href: entryLink},
+					Content: string(renderedContent),
+					Author:  &feeds.Author{Name: msg.Username},
+					Created: createdAt,
 				})
-				page.Entries = append(page.Entries, rssPageEntry{
-					Author:  msg.Username,
-					Updated: createdAt.Format(time.RFC3339),
-					Date:    createdAt.Format("2006-01-02"),
-					// #nosec G203 -- renderedContent comes from mdUtil.MdToHTML, which
-					// drops raw HTML and HTML-escapes every media and tag field.
-					Content: htmltemplate.HTML(renderedContent),
-					Link:    entryLink,
-				})
+			}
+
+			// The landing page reports liveness only; entry bodies stay in Atom.
+			page.Count = len(echos)
+			if !latest.IsZero() {
+				page.Updated = latest.Format("2006-01-02")
+				page.UpdatedISO = latest.Format(time.RFC3339)
 			}
 
 			atom, err := feed.ToAtom()

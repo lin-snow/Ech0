@@ -9,31 +9,27 @@ import (
 )
 
 // RSSDocument is one feed render in both wire forms: Atom for feed readers and
-// a ready-to-serve HTML page for browsers.
+// a subscription landing page for browsers.
 //
 // The browser form is rendered on the server because Chromium — and therefore
 // Microsoft Edge in v159 — is removing client-side XSLT; an XML document that
 // only looked good through <?xml-stylesheet?> degrades to a raw XML dump once
-// that lands.
+// that lands. The page carries only the subscription affordance (feed URL) and
+// feed liveness (count, last update); entry bodies live in the Atom document
+// alone so the landing page never duplicates feed content.
 type RSSDocument struct {
 	Atom string
 	HTML string
 }
 
 type rssPage struct {
-	Title   string
-	Logo    string
-	Home    string
-	FeedURL string
-	Entries []rssPageEntry
-}
-
-type rssPageEntry struct {
-	Author  string
-	Updated string
-	Date    string
-	Content htmltemplate.HTML
-	Link    string
+	Title      string
+	Logo       string
+	Home       string
+	FeedURL    string
+	Count      int
+	Updated    string
+	UpdatedISO string
 }
 
 var rssPageTemplate = htmltemplate.Must(htmltemplate.New("rss-page").Parse(rssPageSource))
@@ -54,6 +50,7 @@ const rssPageSource = `<!DOCTYPE html>
     <meta name="robots" content="noindex,follow">
     <title>{{.Title}} · RSS</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="alternate" type="application/atom+xml" href="{{.FeedURL}}" title="{{.Title}}">
     <style>
       :root {
         --bg-canvas: #f4f1ec;
@@ -63,10 +60,8 @@ const rssPageSource = `<!DOCTYPE html>
         --text-secondary: #5b4f46;
         --text-muted: #8e847d;
         --border-subtle: #e4dfdb;
-        --border-strong: #c2b9b2;
         --accent: #b84200;
         --accent-soft: #f4e3cd;
-        --shadow: 0 1px 2px rgb(51 37 29 / 4%), 0 8px 24px rgb(51 37 29 / 6%);
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -77,10 +72,8 @@ const rssPageSource = `<!DOCTYPE html>
           --text-secondary: #cfcac4;
           --text-muted: #a29e99;
           --border-subtle: #3e3c3a;
-          --border-strong: #5e5a57;
           --accent: #e7b063;
           --accent-soft: #493e30;
-          --shadow: 0 1px 2px rgb(0 0 0 / 24%), 0 8px 24px rgb(0 0 0 / 32%);
         }
       }
       * { box-sizing: border-box; }
@@ -152,18 +145,6 @@ const rssPageSource = `<!DOCTYPE html>
         color: var(--accent);
         flex-shrink: 0;
       }
-      .feed-badge::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--accent);
-        animation: pulse 2s ease-in-out infinite;
-      }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
-      }
       .hint {
         background: var(--bg-muted);
         border: 1px solid var(--border-subtle);
@@ -171,12 +152,13 @@ const rssPageSource = `<!DOCTYPE html>
         padding: 14px 16px;
         font-size: 13.5px;
         color: var(--text-secondary);
-        margin-bottom: 28px;
+        margin-bottom: 20px;
         display: flex;
         gap: 12px;
         align-items: flex-start;
       }
       .hint svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+      .feed-url { display: block; margin-top: 6px; }
       .hint code {
         background: var(--bg-surface);
         border: 1px solid var(--border-subtle);
@@ -185,126 +167,16 @@ const rssPageSource = `<!DOCTYPE html>
         font-size: 12.5px;
         color: var(--text-primary);
         word-break: break-all;
+        -webkit-user-select: all;
+                user-select: all;
       }
-      .entries { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
-      .entry {
-        background: var(--bg-surface);
-        border: 1px solid var(--border-subtle);
-        border-radius: 14px;
-        padding: 20px 22px;
-        box-shadow: var(--shadow);
-        transition: transform .18s ease, border-color .18s ease;
-      }
-      .entry:hover { transform: translateY(-1px); border-color: var(--border-strong); }
-      .entry-meta {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 13px;
-        color: var(--text-muted);
-        margin-bottom: 10px;
-      }
-      .entry-author {
-        font-weight: 600;
-        color: var(--text-secondary);
-      }
-      .entry-meta .dot {
-        width: 3px;
-        height: 3px;
-        border-radius: 50%;
-        background: var(--border-strong);
-      }
-      .entry-meta time {
-        font-variant-numeric: tabular-nums;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 12.5px;
-      }
-      .entry-content {
-        position: relative;
-        color: var(--text-primary);
-        font-size: 15px;
-        line-height: 1.7;
-        overflow-wrap: break-word;
-        max-height: 16em;
-        overflow: hidden;
-        -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
-                mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
-      }
-      .entry-content p { margin: 0 0 0.6em; }
-      .entry-content p:last-child { margin-bottom: 0; }
-      .entry-content img {
-        display: inline-block !important;
-        width: auto !important;
-        max-width: calc(50% - 6px) !important;
-        height: 120px !important;
-        object-fit: cover;
-        border-radius: 8px;
-        border: 1px solid var(--border-subtle);
-        margin: 0 4px 4px 0;
-        vertical-align: top;
-      }
-      .entry-content img:only-of-type {
-        max-width: 100% !important;
-        height: auto !important;
-        max-height: 240px;
-        display: block !important;
-      }
-      .entry-content blockquote {
-        margin: 12px 0;
-        padding: 4px 14px;
-        border-left: 3px solid var(--accent);
-        background: var(--bg-muted);
-        border-radius: 0 8px 8px 0;
-        color: var(--text-secondary);
-      }
-      .entry-content code {
-        background: var(--bg-muted);
-        border: 1px solid var(--border-subtle);
-        padding: 1px 6px;
-        border-radius: 4px;
-        font-size: 0.9em;
-      }
-      .entry-content pre {
-        background: var(--bg-muted);
-        border: 1px solid var(--border-subtle);
-        border-radius: 8px;
-        padding: 12px 14px;
-        overflow-x: auto;
+      .meta {
+        margin: 0 0 32px;
         font-size: 13.5px;
-      }
-      .entry-content pre code { background: none; border: none; padding: 0; }
-      .entry-content .tag {
-        display: inline-block;
-        background: var(--accent-soft);
-        color: var(--accent);
-        padding: 1px 8px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 500;
-        margin-right: 4px;
-      }
-      .entry-footer {
-        margin-top: 14px;
-        padding-top: 12px;
-        border-top: 1px dashed var(--border-subtle);
-        font-size: 13px;
-      }
-      .entry-footer a {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
         color: var(--text-muted);
-        transition: color .15s ease;
+        font-variant-numeric: tabular-nums;
       }
-      .entry-footer a:hover { color: var(--accent); text-decoration: none; }
-      .empty {
-        text-align: center;
-        padding: 64px 20px;
-        color: var(--text-muted);
-        background: var(--bg-surface);
-        border: 1px dashed var(--border-strong);
-        border-radius: 14px;
-      }
+      .meta time { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
       .site-footer {
         margin-top: 40px;
         text-align: center;
@@ -312,9 +184,9 @@ const rssPageSource = `<!DOCTYPE html>
         color: var(--text-muted);
       }
       .site-footer a { color: var(--text-secondary); }
+      .site-footer .sep { margin: 0 10px; opacity: 0.4; }
       @media (max-width: 520px) {
         .wrap { padding: 20px 14px 60px; }
-        .entry { padding: 16px 16px; border-radius: 12px; }
         .masthead-brand h1 { font-size: 19px; }
       }
     </style>
@@ -341,46 +213,17 @@ const rssPageSource = `<!DOCTYPE html>
         </svg>
         <div>
           This is an RSS feed. Copy this page's URL into your favorite reader (Feedly, Inoreader, Reeder…) to subscribe.
-          <br>
-          <span style="display:inline-block; margin-top:6px;">
-            <code>{{.FeedURL}}</code>
-          </span>
+          <span class="feed-url"><code>{{.FeedURL}}</code></span>
         </div>
       </div>
 
-      {{if .Entries}}
-      <ul class="entries">
-        {{range .Entries}}
-        <li class="entry">
-          <div class="entry-meta">
-            <span class="entry-author">{{.Author}}</span>
-            <span class="dot"></span>
-            <time datetime="{{.Updated}}">{{.Date}}</time>
-          </div>
-          <div class="entry-content">{{.Content}}</div>
-          {{if .Link}}
-          <div class="entry-footer">
-            <a href="{{.Link}}" target="_blank" rel="noopener">
-              查看原文
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2.2"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M7 17 17 7"/>
-                <path d="M8 7h9v9"/>
-              </svg>
-            </a>
-          </div>
-          {{end}}
-        </li>
-        {{end}}
-      </ul>
-      {{else}}
-      <div class="empty">暂无内容</div>
-      {{end}}
+      <p class="meta">
+        {{if .Count}}共 {{.Count}} 条动态{{if .Updated}} · 最近更新 <time datetime="{{.UpdatedISO}}">{{.Updated}}</time>{{end}}{{else}}暂无内容{{end}}
+      </p>
 
       <footer class="site-footer">
         <a href="{{.Home}}" target="_blank" rel="noopener">访问站点 →</a>
-        <span style="margin: 0 10px; opacity: 0.4;">|</span>
+        <span class="sep">|</span>
         Powered by Ech0
       </footer>
     </main>
