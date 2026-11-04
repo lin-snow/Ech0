@@ -9,17 +9,31 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.2] - 2026-11-04
+
+> **Upgrade notes.** This release changes how browser sessions and access tokens are authorized.
+>
+> * **Sign in again.** Administrator sessions issued before this release do not carry the role the admin APIs now check, so administrator actions return `403` until the session refreshes or you sign in again.
+> * **Recreate access tokens** used by scripts, `ech0` CLI profiles, integrations and MCP clients, then delete the old ones. A token keeps the scopes it was created with, so anything that moved to a new scope — deletes, admin settings, comment moderation, token management — stops working until you create a replacement. CLI users can just run `ech0 auth login` again.
+> * **Reconnect MCP clients** with a token whose scopes cover the tools they call (`mcp:read` is discovery only). OAuth-capable clients can authorize from the client instead, without registration if they publish a Client ID Metadata Document.
+
 ### Added
+
+* **The CLI can inspect and moderate an instance.** `ech0 info` shows the site name, server version, Echo count, initialization and sign-in state and whether the command catalog is current, and works signed out. `ech0 comment panel list|status|delete` completes the review loop started by `ech0 comment create`, and `ech0 connect health` probes every peer. Default CLI logins now request the full command surface (`echo:private`, `echo:delete`, `comment:review`, `comment:delete`, `connect:read`, `connect:delete`, `admin:webhook`, …); `--scopes` still narrows a token. `PATCH` operations are sent as `PATCH` instead of falling back to `GET`.
+
+* **The account center shows your role.** Owner, administrator and member appear as distinct badges, so it is clear which account can approve MCP clients and manage the instance.
 
 * **Standard MCP authorization (OAuth 2.1 + CIMD).** `/mcp` now advertises RFC 9728 protected-resource metadata and implements RFC 8414 authorization-server metadata, `/oauth/authorize` consent, `/oauth/token` (PKCE S256 only) and a deprecated-but-compatible Dynamic Client Registration endpoint. Clients that publish a Client ID Metadata Document need no registration; non-loopback redirects must share the `client_id` origin, fetches stay on HTTPS and must return JSON. Ech0-branded consent screens list the requested scopes and only administrators can approve. Destructive MCP tools honour the client's `elicitation` capability through MRTR (`input_required` + nonce-bound, single-use `requestState`). `/.well-known` documents vary on the forwarded host/proto headers they derive the origin from.
 
 ### Changed
 
-* **Access-token scopes now follow trust boundaries instead of resource buckets.** Writes no longer imply deletes: `echo:delete`, `file:delete` and `connect:delete` are separate grants. Comment moderation splits into `comment:review`, `comment:delete` and `comment:settings`. `echo:private` is an additive grant for private posts; `echo:read` alone returns public content only. The former `admin:settings` is split into `admin:site`, `admin:storage`, `admin:auth`, `admin:webhook`, `admin:agent`, `admin:data` and `admin:ops`; `admin:user` keeps its existing meaning, and `admin:token` is gone because token CRUD is now session-only. `mcp:read` replaces the old `admin:token` requirement for `GET /api/mcp/manifest`. This is an intentional breaking change: old tokens keep their stored scopes but lose any capability that moved to a new scope, so reissue tokens with the narrower grants.
+* **Access-token scopes now follow trust boundaries instead of resource buckets.** Writes no longer imply deletes: `echo:delete`, `file:delete` and `connect:delete` are separate grants. The former `comment:moderate` is split into `comment:review`, `comment:delete` and `comment:settings`. `echo:private` is an additive grant for private posts; `echo:read` alone returns public content only. The former `admin:settings` is split into `admin:site`, `admin:storage`, `admin:auth`, `admin:webhook`, `admin:agent`, `admin:data` and `admin:ops`; `admin:user` keeps its existing meaning, and `admin:token` is gone because token CRUD is now session-only. `mcp:read` replaces the old `admin:token` requirement for `GET /api/mcp/manifest`. This is an intentional breaking change: old tokens keep their stored scopes but lose any capability that moved to a new scope, so reissue tokens with the narrower grants.
 
 ### Security
 
 * **Account-security operations are browser-session only.** Passkey enrollment/deletion, OAuth identity binding, access-token CRUD, device approval, OAuth consent and live log streams reject every access token regardless of its scopes. An access token that mints another token may no longer grant scopes beyond its own set.
+
+* **Administrator-only APIs now require an administrator session.** Endpoints that need an `admin:*` scope reject ordinary browser sessions with `403` instead of trusting any signed-in account. Access tokens keep using their admin scopes, so token-based automation is unaffected.
 
 ## [5.9.1] - 2026-11-02
 
