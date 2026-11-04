@@ -1235,13 +1235,15 @@
     "exportPhasePacking": "Pack",
     "exportPhaseCompleted": "Done"
   },
+  "scopeAccordion": {
+    "scopes": "Permissions",
+    "summary": "{count} permissions · {groups} categories",
+    "otherScopes": "Other permissions"
+  },
   "oauthConsent": {
     "title": "Authorize application",
     "subtitle": "An application wants to access your Ech0 instance.",
     "client": "Client",
-    "scopes": "Requested permissions",
-    "scopeSummary": "{count} permissions · {groups} categories",
-    "otherScopes": "Other permissions",
     "resource": "Resource",
     "approve": "Allow",
     "deny": "Deny",
@@ -1260,7 +1262,6 @@
     "approve": "Approve",
     "approving": "Approving…",
     "client": "Client:",
-    "scopes": "Requested scopes",
     "expiresIn": "Expires in",
     "expired": "This code has expired. Start a new request in your terminal.",
     "approved": "Approved. Return to your terminal to continue.",

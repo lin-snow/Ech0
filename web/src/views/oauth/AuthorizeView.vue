@@ -11,7 +11,7 @@ import {
   type OAuthAuthorizeParams,
   type OAuthConsentContext,
 } from '@/service/api/oauthserver'
-import { ACCESS_SCOPE_GROUPS } from '@/constants/accessScopes'
+import ScopeAccordion from '@/components/common/ScopeAccordion.vue'
 import { useUserStore } from '@/stores'
 
 const { t } = useI18n()
@@ -46,41 +46,6 @@ const canApprove = computed(() => user.value?.is_admin === true)
 const requestIncomplete = computed(
   () => !params.value.client_id || !params.value.redirect_uri || !params.value.code_challenge,
 )
-
-const scopeCount = computed(() => consent.value?.scopes.length ?? 0)
-
-type ScopeGroupView = {
-  key: string
-  label: string
-  items: { value: string; label: string }[]
-}
-
-const scopeGroups = computed<ScopeGroupView[]>(() => {
-  const requested = new Set(consent.value?.scopes ?? [])
-  const known = new Set<string>()
-  const groups: ScopeGroupView[] = []
-
-  for (const group of ACCESS_SCOPE_GROUPS) {
-    const items = group.items
-      .filter((item) => requested.has(item.value))
-      .map((item) => {
-        known.add(item.value)
-        return { value: item.value, label: String(t(item.labelKey)) }
-      })
-    if (items.length > 0) {
-      groups.push({ key: group.labelKey, label: String(t(group.labelKey)), items })
-    }
-  }
-
-  const other = [...requested]
-    .filter((scope) => !known.has(scope))
-    .map((scope) => ({ value: scope, label: scope }))
-  if (other.length > 0) {
-    groups.push({ key: 'other', label: String(t('oauthConsent.otherScopes')), items: other })
-  }
-
-  return groups
-})
 
 async function load() {
   if (requestIncomplete.value) {
@@ -160,64 +125,7 @@ onMounted(load)
           </p>
         </div>
 
-        <div>
-          <div class="mb-2 flex items-baseline justify-between gap-2">
-            <p class="text-sm text-[var(--color-text-muted)]">{{ t('oauthConsent.scopes') }}</p>
-            <p class="text-[11px] text-[var(--color-text-muted)]">
-              {{
-                t('oauthConsent.scopeSummary', {
-                  count: scopeCount,
-                  groups: scopeGroups.length,
-                })
-              }}
-            </p>
-          </div>
-          <div class="space-y-1.5">
-            <details
-              v-for="(group, index) in scopeGroups"
-              :key="group.key"
-              class="scope-group rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] overflow-hidden"
-              :open="index === 0"
-            >
-              <summary
-                class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)]/60"
-              >
-                <span class="flex min-w-0 items-center gap-2">
-                  <span class="truncate font-medium">{{ group.label }}</span>
-                  <span
-                    class="shrink-0 rounded-full bg-[var(--color-bg-muted)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-muted)]"
-                  >
-                    {{ group.items.length }}
-                  </span>
-                </span>
-                <svg
-                  class="scope-group__chevron h-4 w-4 shrink-0 text-[var(--color-text-muted)]"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M5 7.5 10 12.5 15 7.5"
-                    stroke="currentColor"
-                    stroke-width="1.75"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </summary>
-              <ul class="flex flex-wrap gap-1.5 px-3 pb-3">
-                <li
-                  v-for="item in group.items"
-                  :key="item.value"
-                  :title="item.value"
-                  class="text-xs px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-text-primary)]"
-                >
-                  {{ item.label }}
-                </li>
-              </ul>
-            </details>
-          </div>
-        </div>
+        <ScopeAccordion :scopes="consent.scopes" />
 
         <p class="text-xs text-[var(--color-text-muted)] break-all">
           {{ t('oauthConsent.resource') }}:

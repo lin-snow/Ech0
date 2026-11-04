@@ -1235,13 +1235,15 @@
     "exportPhasePacking": "打包",
     "exportPhaseCompleted": "完成"
   },
+  "scopeAccordion": {
+    "scopes": "权限范围",
+    "summary": "{count} 项权限 · {groups} 个类别",
+    "otherScopes": "其他权限"
+  },
   "oauthConsent": {
     "title": "授权应用访问",
     "subtitle": "一个应用请求访问你的 Ech0 实例。",
     "client": "客户端",
-    "scopes": "请求的权限",
-    "scopeSummary": "{count} 项权限 · {groups} 个类别",
-    "otherScopes": "其他权限",
     "resource": "资源",
     "approve": "允许",
     "deny": "拒绝",
@@ -1260,7 +1262,6 @@
     "approve": "确认授权",
     "approving": "授权中…",
     "client": "客户端：",
-    "scopes": "申请的权限",
     "expiresIn": "剩余有效期",
     "expired": "该设备码已过期，请在终端重新发起授权。",
     "approved": "已授权，请回到终端继续。",

@@ -1235,13 +1235,15 @@
     "exportPhasePacking": "圧縮",
     "exportPhaseCompleted": "完了"
   },
+  "scopeAccordion": {
+    "scopes": "権限",
+    "summary": "{count} 件の権限 · {groups} カテゴリ",
+    "otherScopes": "その他の権限"
+  },
   "oauthConsent": {
     "title": "アプリケーションを承認",
     "subtitle": "アプリケーションがこの Ech0 インスタンスへのアクセスを要求しています。",
     "client": "クライアント",
-    "scopes": "要求された権限",
-    "scopeSummary": "{count} 件の権限 · {groups} カテゴリ",
-    "otherScopes": "その他の権限",
     "resource": "リソース",
     "approve": "許可",
     "deny": "拒否",
@@ -1260,7 +1262,6 @@
     "approve": "承認する",
     "approving": "承認中…",
     "client": "クライアント:",
-    "scopes": "要求されたスコープ",
     "expiresIn": "残り時間",
     "expired": "このコードは期限切れです。ターミナルで新しい要求を開始してください。",
     "approved": "承認しました。ターミナルに戻って続行してください。",

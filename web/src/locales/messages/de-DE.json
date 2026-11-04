@@ -1235,13 +1235,15 @@
     "exportPhasePacking": "Packen",
     "exportPhaseCompleted": "Fertig"
   },
+  "scopeAccordion": {
+    "scopes": "Berechtigungen",
+    "summary": "{count} Berechtigungen · {groups} Kategorien",
+    "otherScopes": "Weitere Berechtigungen"
+  },
   "oauthConsent": {
     "title": "Anwendung autorisieren",
     "subtitle": "Eine Anwendung möchte auf deine Ech0-Instanz zugreifen.",
     "client": "Client",
-    "scopes": "Angeforderte Berechtigungen",
-    "scopeSummary": "{count} Berechtigungen · {groups} Kategorien",
-    "otherScopes": "Weitere Berechtigungen",
     "resource": "Ressource",
     "approve": "Erlauben",
     "deny": "Ablehnen",
@@ -1260,7 +1262,6 @@
     "approve": "Bestätigen",
     "approving": "Wird bestätigt…",
     "client": "Client:",
-    "scopes": "Angeforderte Berechtigungen",
     "expiresIn": "Läuft ab in",
     "expired": "Dieser Code ist abgelaufen. Starte im Terminal eine neue Anfrage.",
     "approved": "Bestätigt. Kehre zum Terminal zurück.",
