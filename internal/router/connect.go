@@ -53,7 +53,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.AddConnect)
 
-	route(api, secured(revoker, authz.ScopeConnectWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeConnectDelete), huma.Operation{
 		OperationID: "connect-delete",
 		Method:      http.MethodDelete,
 		Path:        "/connects/{id}",

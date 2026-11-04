@@ -8,9 +8,13 @@ export const ACCESS_SCOPE_GROUPS = [
     items: [
       { value: 'echo:read', labelKey: 'accessTokenSetting.scopeEchoRead' },
       { value: 'echo:write', labelKey: 'accessTokenSetting.scopeEchoWrite' },
+      { value: 'echo:delete', labelKey: 'accessTokenSetting.scopeEchoDelete' },
+      { value: 'echo:private', labelKey: 'accessTokenSetting.scopeEchoPrivate' },
       { value: 'comment:read', labelKey: 'accessTokenSetting.scopeCommentRead' },
       { value: 'comment:write', labelKey: 'accessTokenSetting.scopeCommentWrite' },
-      { value: 'comment:moderate', labelKey: 'accessTokenSetting.scopeCommentModerate' },
+      { value: 'comment:review', labelKey: 'accessTokenSetting.scopeCommentReview' },
+      { value: 'comment:delete', labelKey: 'accessTokenSetting.scopeCommentDelete' },
+      { value: 'comment:settings', labelKey: 'accessTokenSetting.scopeCommentSettings' },
     ],
   },
   {
@@ -18,6 +22,7 @@ export const ACCESS_SCOPE_GROUPS = [
     items: [
       { value: 'file:read', labelKey: 'accessTokenSetting.scopeFileRead' },
       { value: 'file:write', labelKey: 'accessTokenSetting.scopeFileWrite' },
+      { value: 'file:delete', labelKey: 'accessTokenSetting.scopeFileDelete' },
     ],
   },
   {
@@ -25,6 +30,7 @@ export const ACCESS_SCOPE_GROUPS = [
     items: [
       { value: 'connect:read', labelKey: 'accessTokenSetting.scopeConnectRead' },
       { value: 'connect:write', labelKey: 'accessTokenSetting.scopeConnectWrite' },
+      { value: 'connect:delete', labelKey: 'accessTokenSetting.scopeConnectDelete' },
     ],
   },
   {
@@ -37,10 +43,19 @@ export const ACCESS_SCOPE_GROUPS = [
   {
     labelKey: 'accessTokenSetting.scopeGroupAdmin',
     items: [
-      { value: 'admin:settings', labelKey: 'accessTokenSetting.scopeAdminSettings' },
+      { value: 'admin:site', labelKey: 'accessTokenSetting.scopeAdminSite' },
+      { value: 'admin:storage', labelKey: 'accessTokenSetting.scopeAdminStorage' },
+      { value: 'admin:auth', labelKey: 'accessTokenSetting.scopeAdminAuth' },
+      { value: 'admin:webhook', labelKey: 'accessTokenSetting.scopeAdminWebhook' },
+      { value: 'admin:agent', labelKey: 'accessTokenSetting.scopeAdminAgent' },
+      { value: 'admin:data', labelKey: 'accessTokenSetting.scopeAdminData' },
+      { value: 'admin:ops', labelKey: 'accessTokenSetting.scopeAdminOps' },
       { value: 'admin:user', labelKey: 'accessTokenSetting.scopeAdminUser' },
-      { value: 'admin:token', labelKey: 'accessTokenSetting.scopeAdminToken' },
     ],
+  },
+  {
+    labelKey: 'accessTokenSetting.scopeGroupMcp',
+    items: [{ value: 'mcp:read', labelKey: 'accessTokenSetting.scopeMcpRead' }],
   },
 ] as const
 

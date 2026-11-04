@@ -47,7 +47,26 @@ func (s *Service) IssueForViewer(
 	ctx context.Context,
 	dto *model.AccessTokenSettingDto,
 ) (string, error) {
-	return s.IssueForUser(ctx, viewer.MustFromContext(ctx).UserID(), dto)
+	v := viewer.MustFromContext(ctx)
+	if v.TokenType() == authModel.TokenTypeAccess {
+		if err := ensureDelegatedScopes(v.Scopes(), dto); err != nil {
+			return "", err
+		}
+	}
+	return s.IssueForUser(ctx, v.UserID(), dto)
+}
+
+// ensureDelegatedScopes prevents an access token from minting a token wider
+// than itself. Token creation is currently session-only, but keeping the
+// invariant here makes the service safe if that gate ever moves.
+func ensureDelegatedScopes(held []string, dto *model.AccessTokenSettingDto) error {
+	if dto == nil {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+	if !authz.Allows(held, dto.Scopes) {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+	return nil
 }
 
 // IssueForUser mints a token for an explicit principal. The OAuth token

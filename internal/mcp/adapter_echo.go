@@ -139,7 +139,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deletePost, authz.ScopeEchoWrite)
+	}, a.deletePost, authz.ScopeEchoDelete)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_today_posts",
@@ -180,7 +180,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteTag, authz.ScopeEchoWrite)
+	}, a.deleteTag, authz.ScopeEchoDelete)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_hot_posts",

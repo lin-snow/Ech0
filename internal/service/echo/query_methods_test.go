@@ -8,6 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/authz"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
@@ -182,6 +184,50 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		got, err := svc.QueryEchos(helpers.CtxAsUser(adminID), commonModel.EchoQueryDto{Page: 1, PageSize: 10})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), got.Total)
+	})
+
+	t.Run("echo:read token queries public-only", func(t *testing.T) {
+		repo := echomock.NewMockRepository(t)
+		common := commonmock.NewMockService(t)
+		repo.EXPECT().
+			QueryEchos(mock.Anything, false).
+			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
+			Once()
+
+		ctx := helpers.CtxAsToken(
+			adminID,
+			authModel.TokenTypeAccess,
+			[]string{authz.ScopeEchoRead},
+			[]string{authz.AudienceCLI},
+			"jti-read-query",
+		)
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		_, err := svc.QueryEchos(ctx, commonModel.EchoQueryDto{Page: 1, PageSize: 10})
+		require.NoError(t, err)
+	})
+
+	t.Run("echo:private token queries private-visible", func(t *testing.T) {
+		repo := echomock.NewMockRepository(t)
+		common := commonmock.NewMockService(t)
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, adminID).
+			Return(helpers.NewUser(helpers.AsAdmin), nil).
+			Once()
+		repo.EXPECT().
+			QueryEchos(mock.Anything, true).
+			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
+			Once()
+
+		ctx := helpers.CtxAsToken(
+			adminID,
+			authModel.TokenTypeAccess,
+			[]string{authz.ScopeEchoRead, authz.ScopeEchoPrivate},
+			[]string{authz.AudienceCLI},
+			"jti-private-query",
+		)
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		_, err := svc.QueryEchos(ctx, commonModel.EchoQueryDto{Page: 1, PageSize: 10})
+		require.NoError(t, err)
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {

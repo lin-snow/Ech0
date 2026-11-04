@@ -13,17 +13,30 @@ import (
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func setupDashboardRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
+func setupDashboardRoutes(
+	appRouterGroup *AppRouterGroup,
+	h *handler.Bundle,
+	revoker authService.TokenRevoker,
+) {
+	// Log streams authenticate with a query token, and high-privilege query
+	// tokens are rejected at the transport layer. Keep both streams bound to
+	// an interactive session; programmatic clients read the JSON log endpoint
+	// with the admin:ops scope instead.
 	appRouterGroup.AuthRouterGroup.GET(
 		"/system/logs/stream",
-		middleware.RequireScopes(authz.ScopeAdminSettings),
+		middleware.RequireSession(),
 		h.DashboardHandler.SSESubscribeSystemLogs(),
 	)
-	appRouterGroup.WSRouterGroup.GET("/system/logs", h.DashboardHandler.WSSubscribeSystemLogs())
+	appRouterGroup.WSRouterGroup.GET(
+		"/system/logs",
+		middleware.RequireAuth(revoker),
+		middleware.RequireSession(),
+		h.DashboardHandler.WSSubscribeSystemLogs(),
+	)
 }
 
 func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authz.ScopeAdminSettings), huma.Operation{
+	route(api, secured(revoker, authz.ScopeAdminOps), huma.Operation{
 		OperationID: "dashboard-check-update",
 		Method:      http.MethodGet,
 		Path:        "/system/check-update",
@@ -31,7 +44,7 @@ func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.Toke
 		Tags:        []string{"Dashboard"},
 	}, h.DashboardHandler.CheckUpdate)
 
-	route(api, secured(revoker, authz.ScopeAdminSettings), huma.Operation{
+	route(api, secured(revoker, authz.ScopeAdminOps), huma.Operation{
 		OperationID: "dashboard-system-logs",
 		Method:      http.MethodGet,
 		Path:        "/system/logs",
@@ -39,7 +52,7 @@ func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.Toke
 		Tags:        []string{"Dashboard"},
 	}, h.DashboardHandler.GetSystemLogs)
 
-	route(api, secured(revoker, authz.ScopeAdminSettings), huma.Operation{
+	route(api, secured(revoker, authz.ScopeAdminOps), huma.Operation{
 		OperationID: "dashboard-visitor-stats",
 		Method:      http.MethodGet,
 		Path:        "/system/visitor-stats",

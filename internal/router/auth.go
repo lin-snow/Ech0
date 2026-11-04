@@ -25,23 +25,33 @@ func setupAuthRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.PublicRouterGroup.POST("/auth/exchange", middleware.NoCache(), h.AuthHandler.Exchange())
 	appRouterGroup.PublicRouterGroup.POST("/auth/device/code", middleware.NoCache(), h.AuthHandler.DeviceCode())
 	appRouterGroup.PublicRouterGroup.POST("/auth/device/token", middleware.NoCache(), h.AuthHandler.DeviceToken())
-	appRouterGroup.AuthRouterGroup.GET("/auth/device/pending", middleware.NoCache(), h.AuthHandler.DevicePending())
-	appRouterGroup.AuthRouterGroup.POST("/auth/device/approve", middleware.NoCache(), h.AuthHandler.DeviceApprove())
+	appRouterGroup.AuthRouterGroup.GET(
+		"/auth/device/pending",
+		middleware.NoCache(),
+		middleware.RequireSession(),
+		h.AuthHandler.DevicePending(),
+	)
+	appRouterGroup.AuthRouterGroup.POST(
+		"/auth/device/approve",
+		middleware.NoCache(),
+		middleware.RequireSession(),
+		h.AuthHandler.DeviceApprove(),
+	)
 
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/begin",
-		middleware.RequireScopes(authz.ScopeProfileWrite),
+		middleware.RequireSession(),
 		h.AuthHandler.PasskeyRegisterBeginV2(),
 	)
 	appRouterGroup.AuthRouterGroup.POST(
 		"/passkey/register/finish",
-		middleware.RequireScopes(authz.ScopeProfileWrite),
+		middleware.RequireSession(),
 		h.AuthHandler.PasskeyRegisterFinishV2(),
 	)
 }
 
 func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authz.ScopeProfileWrite), huma.Operation{
+	route(api, sessionOnly(revoker), huma.Operation{
 		OperationID: "oauth-bind",
 		Method:      http.MethodPost,
 		Path:        "/oauth/{provider}/bind",
@@ -65,7 +75,7 @@ func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.ListPasskeys)
 
-	route(api, secured(revoker, authz.ScopeProfileWrite), huma.Operation{
+	route(api, sessionOnly(revoker), huma.Operation{
 		OperationID: "passkey-delete",
 		Method:      http.MethodDelete,
 		Path:        "/passkeys/{id}",
@@ -73,7 +83,7 @@ func registerAuth(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.DeletePasskey)
 
-	route(api, secured(revoker, authz.ScopeProfileWrite), huma.Operation{
+	route(api, sessionOnly(revoker), huma.Operation{
 		OperationID: "passkey-update-name",
 		Method:      http.MethodPut,
 		Path:        "/passkeys/{id}",

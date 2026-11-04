@@ -50,7 +50,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "删除连接",
       method: "DELETE",
       path: "/connects/{id}",
-      scopes: ["connect:write"],
+      scopes: ["connect:delete"],
       effect: "destructive",
       kind: "json",
       input: {

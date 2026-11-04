@@ -125,7 +125,7 @@ func registerEcho(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.UpdateEcho)
 
-	route(api, secured(revoker, authz.ScopeEchoWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeEchoDelete), huma.Operation{
 		OperationID: "echo-delete",
 		Method:      http.MethodDelete,
 		Path:        "/echo/{id}",
@@ -141,7 +141,7 @@ func registerEcho(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.CreateTag)
 
-	route(api, secured(revoker, authz.ScopeEchoWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeEchoDelete), huma.Operation{
 		OperationID: "tag-delete",
 		Method:      http.MethodDelete,
 		Path:        "/tag/{id}",

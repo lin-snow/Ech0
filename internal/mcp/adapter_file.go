@@ -53,7 +53,7 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteFile, authz.ScopeFileWrite)
+	}, a.deleteFile, authz.ScopeFileDelete)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:  "create_external_file",

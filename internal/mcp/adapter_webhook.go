@@ -20,7 +20,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			"properties": map[string]any{},
 		},
 		Annotations: readOnlyHints(),
-	}, a.listWebhooks, authz.ScopeAdminSettings)
+	}, a.listWebhooks, authz.ScopeAdminWebhook)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "create_webhook",
@@ -37,7 +37,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: createHints(),
-	}, a.createWebhook, authz.ScopeAdminSettings)
+	}, a.createWebhook, authz.ScopeAdminWebhook)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "update_webhook",
@@ -55,7 +55,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.updateWebhook, authz.ScopeAdminSettings)
+	}, a.updateWebhook, authz.ScopeAdminWebhook)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_webhook",
@@ -69,7 +69,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteWebhook, authz.ScopeAdminSettings)
+	}, a.deleteWebhook, authz.ScopeAdminWebhook)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "test_webhook",
@@ -83,7 +83,7 @@ func (a *Adapter) registerWebhookTools(reg *Registry) {
 			},
 		},
 		Annotations: remoteWriteHints(),
-	}, a.testWebhook, authz.ScopeAdminSettings)
+	}, a.testWebhook, authz.ScopeAdminWebhook)
 }
 
 func (a *Adapter) listWebhooks(ctx context.Context, _ map[string]any) (*ToolCallResult, error) {

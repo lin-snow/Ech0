@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/authz"
@@ -67,7 +68,7 @@ func setupTestServer() *Server {
 		Annotations: destructiveHints(),
 	}, func(_ context.Context, _ map[string]any) (*ToolCallResult, error) {
 		return &ToolCallResult{Content: []ContentItem{{Type: "text", Text: "written"}}}, nil
-	}, "admin:settings")
+	}, "admin:site")
 
 	reg.RegisterResource(ResourceDefinition{
 		URI:      "ech0://test",
@@ -254,7 +255,7 @@ func TestToolsList(t *testing.T) {
 	}
 	result := unmarshalResult[ToolsListResult](t, resp)
 	if len(result.Tools) != 3 {
-		t.Errorf("tools count = %d, want 3 (admin:settings tool must be hidden)", len(result.Tools))
+		t.Errorf("tools count = %d, want 3 (admin:site tool must be hidden)", len(result.Tools))
 	}
 	if result.Tools[0].Name != "echo_tool" || result.Tools[2].Name != "array_tool" {
 		t.Errorf("tools are not in registration order: %v", result.Tools)
@@ -367,8 +368,8 @@ func TestToolsCallInsufficientScopes(t *testing.T) {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 	challenge := rec.Header().Get("WWW-Authenticate")
-	if challenge != `Bearer error="insufficient_scope", scope="admin:settings"` {
-		t.Errorf("WWW-Authenticate = %q, want an insufficient_scope challenge naming admin:settings", challenge)
+	if challenge != `Bearer error="insufficient_scope", scope="admin:site"` {
+		t.Errorf("WWW-Authenticate = %q, want an insufficient_scope challenge naming admin:site", challenge)
 	}
 }
 
@@ -810,8 +811,8 @@ func TestAdapterRegistersDiscoveryCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatal("resource ech0://stats/visitors not registered")
 	}
-	if len(binding.Scopes) != 1 || binding.Scopes[0] != authz.ScopeAdminSettings {
-		t.Errorf("visitor stats scopes = %v, want [%s]", binding.Scopes, authz.ScopeAdminSettings)
+	if len(binding.Scopes) != 1 || binding.Scopes[0] != authz.ScopeAdminOps {
+		t.Errorf("visitor stats scopes = %v, want [%s]", binding.Scopes, authz.ScopeAdminOps)
 	}
 }
 
@@ -841,6 +842,47 @@ func TestAdapterAnnotatesDestructiveTools(t *testing.T) {
 	}
 	if anno := byName["create_post"].Annotations; anno == nil || anno.DestructiveHint == nil || *anno.DestructiveHint {
 		t.Error("create_post must not be marked destructive")
+	}
+}
+
+func TestDeleteToolsUseDeleteScopes(t *testing.T) {
+	reg := NewRegistry()
+	NewAdapter(nil, nil, nil, nil, nil, nil, nil, nil, nil).RegisterAll(reg)
+
+	want := map[string]string{
+		"delete_post":    authz.ScopeEchoDelete,
+		"delete_tag":     authz.ScopeEchoDelete,
+		"delete_file":    authz.ScopeFileDelete,
+		"delete_connect": authz.ScopeConnectDelete,
+	}
+	for name, wantScope := range want {
+		binding, ok := reg.LookupTool(name)
+		if !ok {
+			t.Errorf("tool %q not registered", name)
+			continue
+		}
+		if len(binding.Scopes) != 1 || binding.Scopes[0] != wantScope {
+			t.Errorf("tool %q scopes = %v, want [%s]", name, binding.Scopes, wantScope)
+		}
+	}
+
+	// Admin configuration tools intentionally stay inside their domain scope;
+	// every other delete_* tool must use a dedicated :delete scope.
+	for _, def := range reg.ToolDefinitions() {
+		if !strings.HasPrefix(def.Name, "delete_") {
+			continue
+		}
+		binding, ok := reg.LookupTool(def.Name)
+		if !ok || len(binding.Scopes) == 0 {
+			t.Errorf("tool %q has no scope binding", def.Name)
+			continue
+		}
+		if strings.HasPrefix(binding.Scopes[0], "admin:") {
+			continue
+		}
+		if !strings.HasSuffix(binding.Scopes[0], ":delete") {
+			t.Errorf("tool %q uses %q; destructive tools need a :delete scope", def.Name, binding.Scopes[0])
+		}
 	}
 }
 

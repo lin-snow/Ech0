@@ -1,8 +1,9 @@
 # Connect (instance federation)
 
 The Connect commands are `connect.list`, `connect.info`, `connect.add` and
-`connect.delete`. List and info are public; add and delete need `connect:write`
-and an admin account. The CLI has no self-card or health-probe command.
+`connect.delete`. List and info are public; add needs `connect:write`, delete
+needs `connect:delete`, and both require an admin account. The CLI has no
+self-card or health-probe command.
 
 ## Inspect
 

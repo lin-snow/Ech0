@@ -112,7 +112,7 @@ const CATALOG = {
       summary: "向 Copilot 提问（SSE 流式回答）",
       method: "POST",
       path: "/chat",
-      scopes: ["admin:settings"],
+      scopes: ["admin:agent"],
       effect: "write",
       kind: "stream",
       input: {
@@ -263,7 +263,7 @@ describe("help", () => {
     expect(result.stdout).toContain("audience=cli");
     // The hint wraps at the terminal width, so compare with whitespace collapsed.
     expect(result.stdout.replace(/\s+/g, " ")).toContain(
-      "默认 echo:read,echo:write,profile:read,file:read,file:write",
+      "默认 echo:read,echo:write,echo:delete,profile:read,file:read,file:write",
     );
   });
 

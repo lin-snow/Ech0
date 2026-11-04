@@ -20,7 +20,6 @@ var rawOps = map[string]Op{
 		Summary: "订阅系统日志（SSE，data 为信封）",
 		Method:  "GET",
 		Path:    "/system/logs/stream",
-		Scopes:  []string{"admin:settings"},
 		Effect:  EffectRead,
 		Kind:    KindStream,
 		Input: objectSchema(
@@ -76,7 +75,7 @@ var rawOps = map[string]Op{
 		Summary: "上传迁移源文件（multipart zip）",
 		Method:  "POST",
 		Path:    "/migration/upload",
-		Scopes:  []string{"admin:settings"},
+		Scopes:  []string{"admin:data"},
 		Effect:  EffectWrite,
 		Kind:    KindJSON,
 		Input: objectSchema(
@@ -125,7 +124,7 @@ var rawOps = map[string]Op{
 		Summary: "下载当前快照（zip）",
 		Method:  "GET",
 		Path:    "/migration/export/download",
-		Scopes:  []string{"admin:settings"},
+		Scopes:  []string{"admin:data"},
 		Effect:  EffectRead,
 		Kind:    KindBinary,
 		Input:   objectSchema(nil, map[string]any{"format": stringSchema()}),

@@ -59,7 +59,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "删除评论",
       method: "DELETE",
       path: "/panel/comments/{id}",
-      scopes: ["comment:moderate"],
+      scopes: ["comment:delete"],
       effect: "destructive",
       kind: "json",
       input: {

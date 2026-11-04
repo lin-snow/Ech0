@@ -8,11 +8,11 @@
  * Connect sets mirror the MCP tool surface: post/read comments and
  * list/info/add/delete peers. There is no comment moderation, Connect health
  * probe or self card, so the default login token never needs
- * `comment:moderate` or `connect:read`. Tag management is list/delete only —
- * Echo create/update already auto-creates tags by name. Webhook management
- * mirrors the MCP tools and needs `admin:settings`, the only admin scope in the
- * default set. Widen this list to add a capability — the command generation
- * needs no other change.
+ * `comment:review` or `connect:read`. Tag management is list/delete only —
+ * Echo create/update already auto-creates tags by name. Deletes use the
+ * dedicated `echo:delete` / `connect:delete` scopes, and webhook management
+ * uses `admin:webhook`. Widen this list to add a capability — the command
+ * generation needs no other change.
  */
 export const CLI_OPERATIONS: readonly string[] = [
   "file.upload",

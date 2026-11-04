@@ -72,7 +72,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.CreateExternalFile)
 
-	route(api, secured(revoker, authz.ScopeFileWrite), huma.Operation{
+	route(api, secured(revoker, authz.ScopeFileDelete), huma.Operation{
 		OperationID: "file-delete",
 		Method:      http.MethodDelete,
 		Path:        "/file/{id}",

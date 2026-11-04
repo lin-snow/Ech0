@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -166,7 +167,7 @@ func TestSetupRouter_AccessTokenWithoutRequiredScopeGetsForbidden(t *testing.T) 
 	api.Use(middleware.NoCache(), middleware.RequireAuth(nil))
 	api.PUT(
 		"/settings",
-		middleware.RequireScopes(authz.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSite),
 		func(ctx *gin.Context) { ctx.Status(http.StatusOK) },
 	)
 
@@ -203,7 +204,7 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 	api.Use(middleware.NoCache(), middleware.RequireAuth(nil))
 	api.PUT(
 		"/settings",
-		middleware.RequireScopes(authz.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminSite),
 		func(ctx *gin.Context) { ctx.Status(http.StatusOK) },
 	)
 
@@ -212,7 +213,7 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 		jwtUtil.CreateAccessClaimsWithExpiry(
 			user,
 			int64(time.Hour),
-			[]string{authz.ScopeAdminSettings},
+			[]string{authz.ScopeAdminSite},
 			authz.AudiencePublic,
 			"jti-admin",
 		),
@@ -228,6 +229,73 @@ func TestSetupRouter_AccessTokenWithScopePasses(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestSetupRouter_DeleteRoutesRequireDeleteScope(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+
+	user := userModel.User{ID: "u-delete-1", Username: "delete-scope"}
+	token, err := jwtUtil.GenerateToken(
+		jwtUtil.CreateAccessClaimsWithExpiry(
+			user,
+			int64(time.Hour),
+			[]string{authz.ScopeEchoWrite, authz.ScopeFileWrite, authz.ScopeConnectWrite},
+			authz.AudienceCLI,
+			"jti-write-only",
+		),
+	)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	paths := []string{
+		"/api/echo/0190f3f4-0000-7000-8000-000000000001",
+		"/api/tag/0190f3f4-0000-7000-8000-000000000002",
+		"/api/file/0190f3f4-0000-7000-8000-000000000003",
+		"/api/connects/0190f3f4-0000-7000-8000-000000000004",
+	}
+	for _, path := range paths {
+		req := httptest.NewRequest(http.MethodDelete, path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("%s status = %d, want %d for a write-only token", path, rec.Code, http.StatusForbidden)
+		}
+	}
+}
+
+func TestSetupRouter_AccessTokenCannotMintTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	initTestDatabase(t)
+	engine := gin.New()
+	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+
+	user := userModel.User{ID: "u-token-1", Username: "token-scope"}
+	token, err := jwtUtil.GenerateToken(
+		jwtUtil.CreateAccessClaimsWithExpiry(
+			user,
+			int64(time.Hour),
+			authz.AllScopes(),
+			authz.AudienceCLI,
+			"jti-token-admin",
+		),
+	)
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/access-tokens", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("access token minted another token: status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }
 

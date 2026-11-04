@@ -12,8 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	"github.com/lin-snow/ech0/internal/storage"
@@ -191,56 +193,54 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 	return nil
 }
 
-func (echoService *EchoService) GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	showPrivate := false
-	if userid != "" {
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
-		if err != nil {
-			return nil, err
-		}
-		showPrivate = user.IsAdmin
+// canReadPrivate reports whether the caller may see private echoes. The
+// interactive session keeps its admin behaviour; access tokens additionally
+// need echo:private, so echo:read alone cannot exfiltrate private content.
+func (echoService *EchoService) canReadPrivate(ctx context.Context) (bool, error) {
+	v := viewer.MustFromContext(ctx)
+	if v.UserID() == "" {
+		return false, nil
 	}
+	// An access token without echo:private never needs the user lookup: the
+	// answer is public-only regardless of the account's admin flag.
+	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
+		return false, nil
+	}
+	user, err := echoService.commonService.CommonGetUserByUserId(ctx, v.UserID())
+	if err != nil {
+		return false, err
+	}
+	return user.IsAdmin, nil
+}
 
-	todayEchos := echoService.echoRepository.GetTodayEchos(showPrivate, timezone)
-	return todayEchos, nil
+func (echoService *EchoService) GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
+	showPrivate, err := echoService.canReadPrivate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return echoService.echoRepository.GetTodayEchos(showPrivate, timezone), nil
 }
 
 func (echoService *EchoService) GetHotEchos(ctx context.Context, limit int) ([]model.Echo, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	showPrivate := false
-	if userid != "" {
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
-		if err != nil {
-			return nil, err
-		}
-		showPrivate = user.IsAdmin
+	showPrivate, err := echoService.canReadPrivate(ctx)
+	if err != nil {
+		return nil, err
 	}
 	return echoService.echoRepository.GetHotEchos(limit, showPrivate)
 }
 
 func (echoService *EchoService) GetRandomEcho(ctx context.Context) (*model.Echo, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	showPrivate := false
-	if userid != "" {
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
-		if err != nil {
-			return nil, err
-		}
-		showPrivate = user.IsAdmin
+	showPrivate, err := echoService.canReadPrivate(ctx)
+	if err != nil {
+		return nil, err
 	}
 	return echoService.echoRepository.GetRandomEcho(showPrivate)
 }
 
 func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	showPrivate := false
-	if userid != "" {
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
-		if err != nil {
-			return nil, err
-		}
-		showPrivate = user.IsAdmin
+	showPrivate, err := echoService.canReadPrivate(ctx)
+	if err != nil {
+		return nil, err
 	}
 	return echoService.echoRepository.GetOnThisDayEchos(showPrivate, timezone), nil
 }
@@ -319,15 +319,11 @@ func (echoService *EchoService) LikeEcho(ctx context.Context, id string) error {
 		return errors.New(commonModel.ECHO_NOT_FOUND)
 	}
 	if echo.Private {
-		userID := viewer.MustFromContext(ctx).UserID()
-		if userID == "" {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
-		}
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userID)
+		allowed, err := echoService.canReadPrivate(ctx)
 		if err != nil {
 			return err
 		}
-		if !user.IsAdmin {
+		if !allowed {
 			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 	}
@@ -342,7 +338,6 @@ func (echoService *EchoService) LikeEcho(ctx context.Context, id string) error {
 }
 
 func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*model.Echo, error) {
-	userId := viewer.MustFromContext(ctx).UserID()
 	echo, err := echoService.echoRepository.GetEchosById(ctx, id)
 	if err != nil {
 		return nil, err
@@ -350,21 +345,15 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 	if echo == nil {
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
-
-	if userId == "" {
-		if echo.Private {
-			return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
-		}
-	} else {
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userId)
+	if echo.Private {
+		allowed, err := echoService.canReadPrivate(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if echo.Private && !user.IsAdmin {
+		if !allowed {
 			return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 	}
-
 	return echo, nil
 }
 
@@ -503,14 +492,9 @@ func (echoService *EchoService) QueryEchos(
 		queryDto.SortOrder = "desc"
 	}
 
-	userId := viewer.MustFromContext(ctx).UserID()
-	showPrivate := false
-	if userId != "" {
-		user, err := echoService.commonService.CommonGetUserByUserId(ctx, userId)
-		if err != nil {
-			return commonModel.PageQueryResult[[]model.Echo]{}, err
-		}
-		showPrivate = user.IsAdmin
+	showPrivate, err := echoService.canReadPrivate(ctx)
+	if err != nil {
+		return commonModel.PageQueryResult[[]model.Echo]{}, err
 	}
 
 	echos, total, err := echoService.echoRepository.QueryEchos(queryDto, showPrivate)

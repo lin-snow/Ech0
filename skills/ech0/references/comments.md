@@ -3,7 +3,7 @@
 The comment commands are `comment.create` (catalog id
 `comment.create.integration`) and `comment.list` (`comment.list.by.echo`).
 Reading is public; creating needs `comment:write`. The CLI deliberately has no
-moderation commands, so it never asks for `comment:moderate`.
+moderation commands, so it never asks for `comment:review` or `comment:delete`.
 
 ## Read
 

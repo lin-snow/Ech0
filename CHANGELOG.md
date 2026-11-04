@@ -9,6 +9,14 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Changed
+
+* **Access-token scopes now follow trust boundaries instead of resource buckets.** Writes no longer imply deletes: `echo:delete`, `file:delete` and `connect:delete` are separate grants. Comment moderation splits into `comment:review`, `comment:delete` and `comment:settings`. `echo:private` is an additive grant for private posts; `echo:read` alone returns public content only. The former `admin:settings` is split into `admin:site`, `admin:storage`, `admin:auth`, `admin:webhook`, `admin:agent`, `admin:data`, `admin:ops` and `admin:user`, and `admin:token` is gone because token CRUD is now session-only. `mcp:read` replaces the old `admin:token` requirement for `GET /api/mcp/manifest`. This is an intentional breaking change: old tokens keep their stored scopes but lose any capability that moved to a new scope, so reissue tokens with the narrower grants.
+
+### Security
+
+* **Account-security operations are browser-session only.** Passkey enrollment/deletion, OAuth identity binding, access-token CRUD, device approval, OAuth consent and live log streams reject every access token regardless of its scopes. An access token that mints another token may no longer grant scopes beyond its own set.
+
 ## [5.9.1] - 2026-11-02
 
 ### Added

@@ -116,6 +116,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 同批落地（见 `internal/mcp/README.md`）：
 
 - `tools/list` / `resources/list` / `resources/templates/list` **按 token scope 过滤**，`cacheScope` 改为 `private`（列表随授权上下文变化，不能再声明 public）。
+- 删除类 Tool（`delete_post` / `delete_tag` / `delete_file` / `delete_connect`）使用独立的 `*:delete` scope；`echo:write` 等写 scope 不再暴露它们。账号安全与访问令牌管理是 session-only，OAuth 同意页同样拒绝 `typ=access`。
 - destructive 工具（注解 `destructiveHint=true`）在客户端声明 `elicitation` 能力时走 **MRTR 确认**：返回 `resultType: "input_required"` + `inputRequests["confirm"]` + HMAC `requestState`，重试时校验 principal / 工具 / 参数摘要 / TTL，拒绝换目标重放。
 - `/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…"`，让客户端能自动进入发现流程。
 

@@ -54,26 +54,40 @@
 - 新签发 API token 必须写入 `typ=access`；
 - 旧 JWT（含旧 access token 与旧 session token）在切换后全部失效，不提供兼容窗口。
 
-### 3.2 Scope 词表（第一批）
+### 3.2 Scope 词表
 
-建议首批控制在 8-12 个以内：
+Scope 按**信任边界**拆分，而不是按 CRUD 动词无限拆分。`write` 只覆盖创建/更新；删除是不可逆能力，单独授予。
 
-- `echo:read`
-- `echo:write`
-- `comment:read`
-- `comment:write`
-- `comment:moderate`
-- `file:read`
-- `file:write`
-- `profile:read`
-- `profile:write`
-- `admin:settings`
-- `admin:user`
-- `admin:token`
+内容与账号：
+
+- `echo:read` / `echo:write` / `echo:delete` / `echo:private`
+- `comment:read` / `comment:write` / `comment:review` / `comment:delete` / `comment:settings`
+- `file:read` / `file:write` / `file:delete`
+- `connect:read` / `connect:write` / `connect:delete`
+- `profile:read` / `profile:write`
+
+管理域（按爆炸半径拆分，互不隐含）：
+
+- `admin:site`：站点品牌、CORS、系统设置
+- `admin:storage`：S3 凭据与连接测试
+- `admin:auth`：OAuth2 / Passkey 策略
+- `admin:webhook`
+- `admin:agent`：Agent / Embedding / Copilot
+- `admin:data`：迁移、导入导出、快照计划
+- `admin:ops`：日志、更新检查、访问统计
+- `admin:user`：用户列表、删除、管理员切换
+
+MCP：
+
+- `mcp:read`：只读 MCP manifest，不授予任何 Tool 调用能力。
 
 约束：
 
-- 面向不受信任客户端时，UI 默认不展示 `admin:*`。
+- `echo:private` 是 `echo:read` 的附加能力；`echo:read` 默认只返回公开内容。
+- `echo:write` / `file:write` / `connect:write` **不包含**对应的 `:delete`。
+- `comment:review` 只覆盖审核面板的读取与状态/置顶；删除和批量操作需要 `comment:delete`，评论设置与测试邮件需要 `comment:settings`。
+- Passkey 注册/删除、OAuth 绑定、访问令牌 CRUD 是 **session-only**，不进入 scope 词表；任何 `typ=access` token 即使持有全部 scope 也不能调用。
+- 用 access token 铸造新 token 时，新 token 的 scopes 必须是调用者 scopes 的子集；该检查是纵深防御，正常入口已被 session-only 限制。
 - 服务端始终以 scope 判定是否允许调用，即便用户角色是 admin。
 
 ### 3.3 Audience 与时效
@@ -149,13 +163,16 @@ claim 来源统一策略：
 - 保留 `PublicRouterGroup` 与 `AuthRouterGroup`。
 - 在 `AuthRouterGroup` 内按资源挂 `RequireScopes`：
   - 写接口：例如 `POST /echo` 需要 `echo:write`
-  - 管理接口：例如设置、用户管理、token 管理需要相应 `admin:*`
+  - 删除接口：例如 `DELETE /echo/{id}` 需要 `echo:delete`
+  - 管理接口：按域使用 `admin:site` / `admin:storage` / `admin:auth` / `admin:webhook` / `admin:agent` / `admin:data` / `admin:ops` / `admin:user`
+  - 账号安全与令牌管理：使用 `RequireSession`，不挂 scope
 - 匿名放行接口维持现有策略（首页分页、今日内容、公开详情等）。
 
 ### 5.3 Service 层策略
 
 - 业务角色（`user.IsAdmin`）继续保留，用于业务规则本身。
 - API 调用授权以 scope 为先：token scope 不足时必须拒绝，即使用户是 admin。
+- 私密 Echo 的可见性在服务层统一判定：session 沿用 admin 规则；access token 必须同时具备 `echo:read` 场景和 `echo:private`。`QueryEchos`、`GetEchoById`、`LikeEcho`、今日/热门/随机/历史上的今天共用同一 helper，避免各入口漂移。
 
 viewer 扩展约定：
 
@@ -198,6 +215,7 @@ viewer 扩展约定：
 3. **重新签发**
    - 管理后台提示“旧 token 已失效，请重新创建”；
    - 由管理员按最小权限重新生成并分发 token。
+   - Scope 词表切换不保留 legacy 别名：旧的 `admin:settings`、`admin:token`、`comment:moderate` 不再有效；旧的 `*:write` token 也不再隐含 `*:delete`。
 
 4. **回滚策略**
    - 回滚到旧版本可恢复旧鉴权行为；
@@ -243,7 +261,7 @@ viewer 扩展约定：
 ## 10. 风险与应对
 
 - 风险：scope 词表过粗导致“看似细粒度，实则过权”  
-  应对：首版小词表 + 真实集成反馈后迭代。
+  应对：按信任边界拆分（`admin:*` 分域、写与删分离、私密读取独立），并用 MCP `delete_*` 工具测试和 REST 删除路由测试防止回退。
 
 - 风险：切换当日第三方集成全部失效  
   应对：发布公告 + 版本说明 + 管理后台显式提示“先创建新 token 再升级”。

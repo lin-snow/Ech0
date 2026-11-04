@@ -36,11 +36,12 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 1. **受众**：选 **MCP（AI Agent）**（值为 `mcp-remote`）。
 2. **Scopes**：按最小权限勾选（示例）
    - 只读动态：`echo:read`、`profile:read`
-   - 要发帖：再加 `echo:write`
-   - 评论：`comment:read`、`comment:write`
-   - 文件：`file:read`、`file:write`
-   - 互联：`connect:read`、`connect:write`
-   - 通过 MCP 管理 Webhook：`admin:settings`（慎用）
+   - 要发帖：再加 `echo:write`；删除帖子/标签另需 `echo:delete`
+   - 私密动态：再加 `echo:private`
+   - 评论：`comment:read`、`comment:write`（审核、删除、设置分别需要 `comment:review`、`comment:delete`、`comment:settings`）
+   - 文件：`file:read`、`file:write`；删除另需 `file:delete`
+   - 互联：`connect:read`、`connect:write`；删除另需 `connect:delete`
+   - 通过 MCP 管理 Webhook：`admin:webhook`（慎用）
 3. **有效期**：建议 **8 小时** 或 **1 个月**，避免长期不过期。
 
 创建后**保存好整串令牌**（通常只显示一次）。详见 [访问令牌](/docs/guide/accesstoken)。
@@ -99,7 +100,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 下列为当前实现中暴露的主要能力；**每个 Tool/Resource 都会单独校验 Scope**，无权限会拒绝。
 
-### 帖子与标签（`echo:read` / `echo:write`）
+### 帖子与标签（`echo:read` / `echo:write` / `echo:delete`）
 
 | 类型              | 名称                                          | 说明                                  |
 | ----------------- | --------------------------------------------- | ------------------------------------- |
@@ -125,7 +126,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 | Resource | `ech0://comments/recent`           | 全站最近评论                                       |
 | Resource | `ech0://guide/integration-comment` | 集成评论说明与 curl 示例                           |
 
-### 文件（`file:read` / `file:write`）
+### 文件（`file:read` / `file:write` / `file:delete`）
 
 | 类型     | 名称                       | 说明                    |
 | -------- | -------------------------- | ----------------------- |
@@ -136,7 +137,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 
 实际上传多使用 **`POST /api/files/upload`**（multipart），可把文件 `id` 再用于发帖；详见 Resource 内说明。
 
-### 互联 Connect（`connect:read` / `connect:write`）
+### 互联 Connect（`connect:read` / `connect:write` / `connect:delete`）
 
 | 类型     | 名称                                  | 说明            |
 | -------- | ------------------------------------- | --------------- |
@@ -150,7 +151,7 @@ description: Model Context Protocol、/mcp 端点、令牌与 Tools 能力
 | ---- | ------------ | ----------------------------------- |
 | Tool | `get_recent` | AI 生成的站点近况摘要（可能有缓存） |
 
-### Webhook（`admin:settings`）
+### Webhook（`admin:webhook`）
 
 | 类型 | 名称                                                                                      | 说明                            |
 | ---- | ----------------------------------------------------------------------------------------- | ------------------------------- |
@@ -203,7 +204,7 @@ curl -X POST "https://你的域名/mcp" \
 
 ## 安全提示
 
-- 令牌与 **Scope** 决定能做什么；**不要用 `admin:settings` 除非确有需要**。
+- 令牌与 **Scope** 决定能做什么；`admin:*` 按域拆分，不要授予当前用途之外的域。
 - MCP 与 API 共用限流等保护；勿在不可信网络明文传令牌（优先 HTTPS）。
 - Tool 调用有**超时**（实现上约数秒级），长任务应在你方异步处理。
 

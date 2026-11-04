@@ -27,9 +27,9 @@
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
-| POST | `/api/chat` | `CopilotHandler.Ask` | Auth · `admin:settings` |
-| GET | `/api/system/logs/stream` | `DashboardHandler.SSESubscribeSystemLogs` | Auth · `admin:settings` |
-| GET | `/ws/system/logs` | `DashboardHandler.WSSubscribeSystemLogs` | WS 组（鉴权在 handler 内） |
+| POST | `/api/chat` | `CopilotHandler.Ask` | Auth · `admin:agent` |
+| GET | `/api/system/logs/stream` | `DashboardHandler.SSESubscribeSystemLogs` | Auth · session-only |
+| GET | `/ws/system/logs` | `DashboardHandler.WSSubscribeSystemLogs` | Auth · session-only |
 
 `/api/chat` 把 Agent ReAct 循环逐事件转成 Chat SSE（`searching\|sources\|delta\|done\|error`）。WebSocket 与请求-响应模型根本不兼容。
 
@@ -38,7 +38,7 @@
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
 | POST | `/api/files/upload` | `FileHandler.UploadFile` | Auth · `file:write` |
-| POST | `/api/migration/upload` | `MigrationHandler.UploadSourceZip` | Auth · `admin:settings` |
+| POST | `/api/migration/upload` | `MigrationHandler.UploadSourceZip` | Auth · `admin:data` |
 
 请求体是 `multipart/form-data` 文件流，非 JSON body。
 
@@ -48,7 +48,7 @@
 |---|---|---|---|
 | GET | `/api/file/stream` | `FileHandler.StreamFileByPath` | Auth · `file:read` |
 | GET | `/api/file/:id/stream` | `FileHandler.StreamFileByID` | Auth · `file:read` |
-| GET | `/api/migration/export/download` | `MigrationHandler.DownloadExport` | Auth · `admin:settings` |
+| GET | `/api/migration/export/download` | `MigrationHandler.DownloadExport` | Auth · `admin:data` |
 
 响应是字节流（图片 / 快照 zip / octet-stream），非 JSON 信封。
 
@@ -71,12 +71,12 @@
 | POST | `/api/auth/exchange` | `AuthHandler.Exchange` | Public | 一次性 code 换 token |
 | POST | `/api/passkey/login/begin` | `AuthHandler.PasskeyLoginBeginV2` | Public | 从 gin 请求读 Origin 推导 RP-ID/Origin |
 | POST | `/api/passkey/login/finish` | `AuthHandler.PasskeyLoginFinishV2` | Public | 同上 + 写 refresh cookie |
-| POST | `/api/passkey/register/begin` | `AuthHandler.PasskeyRegisterBeginV2` | Auth · `profile:write` | 从 gin 请求读 Origin 推导 RP-ID/Origin |
-| POST | `/api/passkey/register/finish` | `AuthHandler.PasskeyRegisterFinishV2` | Auth · `profile:write` | 同上 |
+| POST | `/api/passkey/register/begin` | `AuthHandler.PasskeyRegisterBeginV2` | Auth · session-only | 从 gin 请求读 Origin 推导 RP-ID/Origin |
+| POST | `/api/passkey/register/finish` | `AuthHandler.PasskeyRegisterFinishV2` | Auth · session-only | 同上 |
 | POST | `/api/auth/device/code` | `AuthHandler.DeviceCode` | Public | 返回 CLI 展示用的设备码 / 用户码 |
 | POST | `/api/auth/device/token` | `AuthHandler.DeviceToken` | Public | 轮询；pending / slow_down / expired / denied 用固定 `error_code` 表达 |
-| GET | `/api/auth/device/pending` | `AuthHandler.DevicePending` | Auth | 批准页展示申请的 client / scopes |
-| POST | `/api/auth/device/approve` | `AuthHandler.DeviceApprove` | Auth（须 admin） | 批准后由服务端直接铸造 `audience=cli` 的 access token |
+| GET | `/api/auth/device/pending` | `AuthHandler.DevicePending` | Auth · session-only | 批准页展示申请的 client / scopes |
+| POST | `/api/auth/device/approve` | `AuthHandler.DeviceApprove` | Auth · session-only（须 admin） | 批准后由服务端直接铸造 `audience=cli` 的 access token |
 
 这批都需要直接操作 `*gin.Context`（写/读 cookie，或经 `getPasskeyOriginAndRPID` 从原始请求头推导 WebAuthn 的 RP-ID 与 Origin），超出框架中立 handler 的能力边界，整组留在裸 gin。设备授权的轮询把“尚未批准”当作稳定的 `error_code` 而非错误文案，走 Huma 的统一错误映射会丢语义，因此同样保留裸 gin。
 

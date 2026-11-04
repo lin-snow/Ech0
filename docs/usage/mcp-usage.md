@@ -48,7 +48,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 管理后台 **功能扩展 → MCP** 展示当前实例的端点地址、传输方式、令牌 audience、支持的协议版本，以及按权限分组的完整 Tool / Resource 名单。破坏性操作标红；点击任意名称弹出详情，显示类型、所需 Scope 与完整描述——Tool 的 `description` 是写给模型看的提示词，平铺在面板上只会挤占版面。
 
-该页面读取 `GET /api/mcp/manifest`（需要 `admin:token` scope，与访问令牌管理同权限），数据直接由 MCP 注册表推导——注册新的 Tool 或 Resource 会自动出现，不存在需要手工同步的第二份清单。端点地址按打开面板的来源拼出，所以显示的地址一定是可达的。
+该页面读取 `GET /api/mcp/manifest`（需要 `mcp:read` scope，只授予清单发现能力），数据直接由 MCP 注册表推导——注册新的 Tool 或 Resource 会自动出现，不存在需要手工同步的第二份清单。端点地址按打开面板的来源拼出，所以显示的地址一定是可达的。
 
 ## 快速开始
 
@@ -59,11 +59,12 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 - **Audience**：选择 `MCP (AI Agent)`（即 `mcp-remote`，MCP 专用 audience，区别于 `cli`、`integration` 等）
 - **Scopes**：根据需要勾选（建议最小权限）
   - 只读场景：`echo:read`、`profile:read`
-  - 读写场景：再加上 `echo:write`
-  - 评论场景：`comment:read`（查看）、`comment:write`（发表）
-  - 文件场景：`file:read`（查看）、`file:write`（删除 / 外部文件入库）
-  - 互联场景：`connect:read`（查看连接列表与对端信息）、`connect:write`（添加/删除连接）
-  - 管理场景：`admin:settings`（Webhook 管理等管理员操作）
+  - 读写场景：再加上 `echo:write`；删除帖子/标签需要单独的 `echo:delete`
+  - 私密内容：再加上 `echo:private`（`echo:read` 默认只返回公开帖子）
+  - 评论场景：`comment:read`（查看）、`comment:write`（发表）；审核面板、删除、评论设置分别需要 `comment:review`、`comment:delete`、`comment:settings`
+  - 文件场景：`file:read`（查看）、`file:write`（上传 / 外部文件入库）、`file:delete`（删除）
+  - 互联场景：`connect:read`（查看连接列表与对端信息）、`connect:write`（添加）、`connect:delete`（删除）
+  - 管理场景：按域选择 `admin:webhook`、`admin:storage`、`admin:auth`、`admin:agent`、`admin:data`、`admin:ops`、`admin:site` 或 `admin:user`
 - **有效期**：建议选择 8 小时或 1 个月（不建议永不过期）
 
 创建后妥善保存 Token，它只会显示一次。
@@ -125,14 +126,14 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 | Tool | `list_tags` | 列出全部标签（id、名称、使用次数） | `echo:read` |
 | Tool | `create_post` | 创建帖子；支持 `content`、`echo_files`、`layout`、`extension`，至少提供其一 | `echo:write` |
 | Tool | `update_post` | 更新帖子；`echo_files` / `extension` 提供时为**全量替换** | `echo:write` |
-| Tool | `delete_post` | 永久删除帖子 | `echo:write` |
+| Tool | `delete_post` | 永久删除帖子 | `echo:delete` |
 | Tool | `like_post` | 帖子点赞数 +1 | `echo:write` |
-| Tool | `delete_tag` | 删除标签并解除与所有帖子的关联 | `echo:write` |
+| Tool | `delete_tag` | 删除标签并解除与所有帖子的关联 | `echo:delete` |
 | Resource | `ech0://posts/recent` | 最近 20 条帖子（可附 `?limit=N`） | `echo:read` |
 | Resource Template | `ech0://posts/{id}` | 按 UUID 读取单篇帖子（通过 `resources/templates/list` 公布） | `echo:read` |
 | Resource | `ech0://tags` | 全部标签及使用次数 | `echo:read` |
 | Resource | `ech0://stats/heatmap` | 过去 30 个日历日每日发帖数（热力图，UTC 日界） | `echo:read` |
-| Resource | `ech0://stats/visitors` | 过去 7 天每日访客统计 `{date, pv, uv}`（UTC 日界）；仅管理员 | `admin:settings` |
+| Resource | `ech0://stats/visitors` | 过去 7 天每日访客统计 `{date, pv, uv}`（UTC 日界）；仅管理员 | `admin:ops` |
 
 ### Comments
 
@@ -150,7 +151,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 |------|------|------|-------|
 | Tool | `list_files` | 分页列出已上传文件元数据；返回的 `id` 可作为 `create_post.echo_files[].file_id` 引用 | `file:read` |
 | Tool | `get_file` | 获取单个文件元信息（名称、URL、尺寸等）；`id` 可用于 `echo_files` 引用 | `file:read` |
-| Tool | `delete_file` | 永久删除文件 | `file:write` |
+| Tool | `delete_file` | 永久删除文件 | `file:delete` |
 | Tool | `create_external_file` | 用外部 URL 注册文件记录（无需上传）；返回含 `id` 的文件元信息，可直接用于 `echo_files` | `file:write` |
 | Resource | `ech0://guide/file-upload` | 文件上传指南：REST 上传端点、参数、curl 示例、以及如何将上传结果用于 `create_post` | `file:read` |
 
@@ -163,7 +164,7 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 | Tool | `list_connects` | 列出本实例已保存的对端连接 | `connect:read` |
 | Tool | `get_connects_info` | 聚合获取所有对端的公开信息（有 30 分钟缓存） | `connect:read` |
 | Tool | `add_connect` | 添加远程 Ech0 实例连接 | `connect:write` |
-| Tool | `delete_connect` | 删除已保存的连接 | `connect:write` |
+| Tool | `delete_connect` | 删除已保存的连接 | `connect:delete` |
 | Resource | `ech0://connect/self` | 本实例公开信息卡片（名称、URL、logo、帖子统计、版本） | `connect:read` |
 
 ### Agent
@@ -176,11 +177,11 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 
 | 类型 | 名称 | 说明 | Scope |
 |------|------|------|-------|
-| Tool | `list_webhooks` | 列出所有已配置的 Webhook（不含 secret） | `admin:settings` |
-| Tool | `create_webhook` | 创建 Webhook 端点 | `admin:settings` |
-| Tool | `update_webhook` | 更新 Webhook（按 id，全量替换） | `admin:settings` |
-| Tool | `delete_webhook` | 删除 Webhook | `admin:settings` |
-| Tool | `test_webhook` | 向 Webhook 端点发送测试请求 | `admin:settings` |
+| Tool | `list_webhooks` | 列出所有已配置的 Webhook（不含 secret） | `admin:webhook` |
+| Tool | `create_webhook` | 创建 Webhook 端点 | `admin:webhook` |
+| Tool | `update_webhook` | 更新 Webhook（按 id，全量替换） | `admin:webhook` |
+| Tool | `delete_webhook` | 删除 Webhook | `admin:webhook` |
+| Tool | `test_webhook` | 向 Webhook 端点发送测试请求 | `admin:webhook` |
 
 ### User
 
@@ -195,7 +196,9 @@ Ech0 的 MCP 端点采用 **Streamable HTTP**（JSON-RPC over HTTP），与 [MCP
 - 请求体大小限制：256 KB。
 - Tool 执行超时：10 秒。
 - 建议在生产环境使用 HTTPS 并配合反向代理。
-- Token 遵循最小权限原则：只读场景不要赋予 `echo:write`。
+- Token 遵循最小权限原则：只读场景不要赋予 `echo:write`；`echo:write` 不包含删除，删除需要 `echo:delete`。
+- 账号安全（Passkey、OAuth 绑定）和访问令牌管理只接受浏览器会话，任何 access token 都无法调用。
+- `admin:*` 按域拆分：Webhook、存储、认证、Agent、迁移/快照、运维、站点设置和用户管理互不隐含。
 
 ## 协议兼容
 

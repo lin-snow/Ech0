@@ -16,18 +16,18 @@ import (
 func setupMigrationRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	appRouterGroup.AuthRouterGroup.POST(
 		"/migration/upload",
-		middleware.RequireScopes(authz.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminData),
 		h.MigrationHandler.UploadSourceZip(),
 	)
 	appRouterGroup.AuthRouterGroup.GET(
 		"/migration/export/download",
-		middleware.RequireScopes(authz.ScopeAdminSettings),
+		middleware.RequireScopes(authz.ScopeAdminData),
 		h.MigrationHandler.DownloadExport(),
 	)
 }
 
 func registerMigration(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	admin := secured(revoker, authz.ScopeAdminSettings)
+	admin := secured(revoker, authz.ScopeAdminData)
 
 	route(api, admin, huma.Operation{
 		OperationID: "migration-start",

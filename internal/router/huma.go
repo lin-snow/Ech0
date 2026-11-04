@@ -42,6 +42,20 @@ func optional(revoker authService.TokenRevoker) posture {
 	}}
 }
 
+// sessionOnly marks an endpoint as requiring an interactive session. It is
+// security-silent about scopes on purpose: access tokens must never reach
+// account-security or token-administration operations, regardless of scopes.
+func sessionOnly(revoker authService.TokenRevoker) posture {
+	return posture{
+		security: humares.Secured(),
+		middlewares: huma.Middlewares{
+			humares.Bridge(middleware.NoCache()),
+			humares.Bridge(middleware.RequireAuth(revoker)),
+			humares.Bridge(middleware.RequireSession()),
+		},
+	}
+}
+
 func secured(revoker authService.TokenRevoker, scopes ...string) posture {
 	mws := huma.Middlewares{
 		humares.Bridge(middleware.NoCache()),

@@ -345,7 +345,7 @@ internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
    RegisterAll 依次调用：
      registerEcho{Tools,Resources} · registerUser/Comment/File/Common/ConnectResources
      registerAgentTools（get_recent，复用 copilotSvc.SummaryService）
-     registerWebhookTools（list/create/update/delete/test，全部路由到 settingSvc，scope=admin:settings）
+     registerWebhookTools（list/create/update/delete/test，全部路由到 settingSvc，scope=admin:webhook）
    每个 register* 把 service 方法包装成 ToolHandler / ResourceHandler 注册进 Registry
 ```
 
@@ -356,14 +356,17 @@ internal/mcp/Adapter（adapter_*.go）── 注入 8 个领域 service：
 | 域 | 工具 | 所需 scope |
 | --- | --- | --- |
 | echo | `search_posts` · `get_post` · `list_tags` · `get_today_posts` | `echo:read` |
-| echo | `create_post` · `update_post` · `delete_post` · `like_post` · `delete_tag` | `echo:write` |
+| echo | `create_post` · `update_post` · `like_post` | `echo:write` |
+| echo | `delete_post` · `delete_tag` | `echo:delete` |
 | comment | `list_comments` | `comment:read` |
 | comment | `create_comment` · `create_integration_comment` | `comment:write` |
 | file | `list_files` · `get_file` | `file:read` |
-| file | `create_external_file` · `delete_file` | `file:write` |
+| file | `create_external_file` | `file:write` |
+| file | `delete_file` | `file:delete` |
 | connect | `list_connects` · `get_connects_info` | `connect:read` |
-| connect | `add_connect` · `delete_connect` | `connect:write` |
-| webhook | `list_webhooks` · `create_webhook` · `update_webhook` · `delete_webhook` · `test_webhook` | `admin:settings` |
+| connect | `add_connect` | `connect:write` |
+| connect | `delete_connect` | `connect:delete` |
+| webhook | `list_webhooks` · `create_webhook` · `update_webhook` · `delete_webhook` · `test_webhook` | `admin:webhook` |
 | agent | `get_recent`（AI 近期总结，复用 copilot `SummaryService`） | `echo:read` |
 
 ### 8.3 暴露的 Resources（只读上下文 / 指南，URI 寻址）

@@ -26,6 +26,16 @@ func setupOAuthServerRoutes(r *gin.Engine, groups *AppRouterGroup, h *handler.Bu
 	r.POST(oauthserverModel.RegistrationPath, middleware.NoCache(), middleware.RateLimit(5, 10), h.OAuthServerHandler.Register())
 	r.POST(oauthserverModel.TokenPath, middleware.NoCache(), h.OAuthServerHandler.Token())
 
-	groups.AuthRouterGroup.GET("/consent", middleware.NoCache(), h.OAuthServerHandler.Consent())
-	groups.AuthRouterGroup.POST("/consent/approve", middleware.NoCache(), h.OAuthServerHandler.Approve())
+	groups.AuthRouterGroup.GET(
+		"/consent",
+		middleware.NoCache(),
+		middleware.RequireSession(),
+		h.OAuthServerHandler.Consent(),
+	)
+	groups.AuthRouterGroup.POST(
+		"/consent/approve",
+		middleware.NoCache(),
+		middleware.RequireSession(),
+		h.OAuthServerHandler.Approve(),
+	)
 }

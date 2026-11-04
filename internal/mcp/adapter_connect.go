@@ -60,7 +60,7 @@ func (a *Adapter) registerConnectTools(reg *Registry) {
 			},
 		},
 		Annotations: destructiveHints(),
-	}, a.deleteConnect, authz.ScopeConnectWrite)
+	}, a.deleteConnect, authz.ScopeConnectDelete)
 }
 
 func (a *Adapter) registerConnectResources(reg *Registry) {

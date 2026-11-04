@@ -6,21 +6,50 @@
 // authorization server all decide access through this package.
 package authz
 
+import "strings"
+
 const (
-	ScopeEchoRead       = "echo:read"
-	ScopeEchoWrite      = "echo:write"
-	ScopeCommentRead    = "comment:read"
-	ScopeCommentWrite   = "comment:write"
-	ScopeCommentMod     = "comment:moderate"
-	ScopeFileRead       = "file:read"
-	ScopeFileWrite      = "file:write"
-	ScopeConnectRead    = "connect:read"
-	ScopeConnectWrite   = "connect:write"
-	ScopeProfileRead    = "profile:read"
-	ScopeProfileWrite   = "profile:write"
-	ScopeAdminSettings  = "admin:settings"
-	ScopeAdminUser      = "admin:user"
-	ScopeAdminToken     = "admin:token"
+	// Content scopes. Write covers create/update; delete is a separate,
+	// irreversible capability. echo:private is additive to echo:read.
+	ScopeEchoRead    = "echo:read"
+	ScopeEchoWrite   = "echo:write"
+	ScopeEchoDelete  = "echo:delete"
+	ScopeEchoPrivate = "echo:private"
+
+	ScopeCommentRead     = "comment:read"
+	ScopeCommentWrite    = "comment:write"
+	ScopeCommentReview   = "comment:review"
+	ScopeCommentDelete   = "comment:delete"
+	ScopeCommentSettings = "comment:settings"
+
+	ScopeFileRead   = "file:read"
+	ScopeFileWrite  = "file:write"
+	ScopeFileDelete = "file:delete"
+
+	ScopeConnectRead   = "connect:read"
+	ScopeConnectWrite  = "connect:write"
+	ScopeConnectDelete = "connect:delete"
+
+	// Profile scopes cover the public profile only. Passkey and OAuth identity
+	// binding are browser-session operations, never delegated to tokens.
+	ScopeProfileRead  = "profile:read"
+	ScopeProfileWrite = "profile:write"
+
+	// Administrative scopes are split by blast radius. A token that can manage
+	// webhooks must not be able to change S3 credentials, SSO or migration data.
+	ScopeAdminSite    = "admin:site"
+	ScopeAdminStorage = "admin:storage"
+	ScopeAdminAuth    = "admin:auth"
+	ScopeAdminWebhook = "admin:webhook"
+	ScopeAdminAgent   = "admin:agent"
+	ScopeAdminData    = "admin:data"
+	ScopeAdminOps     = "admin:ops"
+	ScopeAdminUser    = "admin:user"
+
+	// ScopeMCPRead only grants discovery of the MCP manifest; invoking a tool
+	// still requires that tool's own scope.
+	ScopeMCPRead = "mcp:read"
+
 	AudiencePublic      = "public-client"
 	AudienceCLI         = "cli"
 	AudienceIntegration = "integration"
@@ -28,20 +57,32 @@ const (
 )
 
 var validScopes = map[string]struct{}{
-	ScopeEchoRead:      {},
-	ScopeEchoWrite:     {},
-	ScopeCommentRead:   {},
-	ScopeCommentWrite:  {},
-	ScopeCommentMod:    {},
-	ScopeFileRead:      {},
-	ScopeFileWrite:     {},
-	ScopeConnectRead:   {},
-	ScopeConnectWrite:  {},
-	ScopeProfileRead:   {},
-	ScopeProfileWrite:  {},
-	ScopeAdminSettings: {},
-	ScopeAdminUser:     {},
-	ScopeAdminToken:    {},
+	ScopeEchoRead:        {},
+	ScopeEchoWrite:       {},
+	ScopeEchoDelete:      {},
+	ScopeEchoPrivate:     {},
+	ScopeCommentRead:     {},
+	ScopeCommentWrite:    {},
+	ScopeCommentReview:   {},
+	ScopeCommentDelete:   {},
+	ScopeCommentSettings: {},
+	ScopeFileRead:        {},
+	ScopeFileWrite:       {},
+	ScopeFileDelete:      {},
+	ScopeConnectRead:     {},
+	ScopeConnectWrite:    {},
+	ScopeConnectDelete:   {},
+	ScopeProfileRead:     {},
+	ScopeProfileWrite:    {},
+	ScopeAdminSite:       {},
+	ScopeAdminStorage:    {},
+	ScopeAdminAuth:       {},
+	ScopeAdminWebhook:    {},
+	ScopeAdminAgent:      {},
+	ScopeAdminData:       {},
+	ScopeAdminOps:        {},
+	ScopeAdminUser:       {},
+	ScopeMCPRead:         {},
 }
 
 // scopeOrder fixes the advertisement order of AllScopes so discovery metadata
@@ -49,18 +90,30 @@ var validScopes = map[string]struct{}{
 var scopeOrder = []string{
 	ScopeEchoRead,
 	ScopeEchoWrite,
+	ScopeEchoDelete,
+	ScopeEchoPrivate,
 	ScopeCommentRead,
 	ScopeCommentWrite,
-	ScopeCommentMod,
+	ScopeCommentReview,
+	ScopeCommentDelete,
+	ScopeCommentSettings,
 	ScopeFileRead,
 	ScopeFileWrite,
+	ScopeFileDelete,
 	ScopeConnectRead,
 	ScopeConnectWrite,
+	ScopeConnectDelete,
 	ScopeProfileRead,
 	ScopeProfileWrite,
-	ScopeAdminSettings,
+	ScopeAdminSite,
+	ScopeAdminStorage,
+	ScopeAdminAuth,
+	ScopeAdminWebhook,
+	ScopeAdminAgent,
+	ScopeAdminData,
+	ScopeAdminOps,
 	ScopeAdminUser,
-	ScopeAdminToken,
+	ScopeMCPRead,
 }
 
 // AllScopes returns every scope in the fixed vocabulary order.
@@ -85,10 +138,23 @@ func IsValidAudience(audience string) bool {
 	return ok
 }
 
+// HasAdminScope reports whether the set contains any administrative
+// capability. Admin scopes share the `admin:` prefix by construction; using
+// the prefix keeps this check correct when a new admin domain is added.
 func HasAdminScope(scopes []string) bool {
 	for _, scope := range scopes {
-		switch scope {
-		case ScopeAdminSettings, ScopeAdminUser, ScopeAdminToken:
+		if strings.HasPrefix(scope, "admin:") {
+			return true
+		}
+	}
+	return false
+}
+
+// Has reports whether held contains scope. It is the single-scope fast path
+// for hot readers such as private-echo visibility.
+func Has(held []string, scope string) bool {
+	for _, have := range held {
+		if have == scope {
 			return true
 		}
 	}

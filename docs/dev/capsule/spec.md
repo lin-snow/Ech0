@@ -186,7 +186,7 @@ ech0 build            [<path>=./capsule] [-o ./dist] [--base-url /]
 
 `export capsule` 与 `import capsule` 另有一条等价的 HTTP 路径，供面板使用；两条路复用同一批
 `internal/capsule/*` 入口，语义完全一致。`check` 与 `build` **只有** CLI。全部端点沿用既有导出
-/迁移域的 `admin:settings` 权限。
+/迁移域的 `admin:data` 权限。
 
 | 端点 | 胶囊相关增量 |
 |---|---|

@@ -93,7 +93,7 @@ func TestRequireAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	claims := jwtUtil.CreateAccessClaimsWithExpiry(
 		user,
 		int64(time.Hour),
-		[]string{authz.ScopeAdminSettings},
+		[]string{authz.ScopeAdminSite},
 		authz.AudiencePublic,
 		"jti-admin-query",
 	)
@@ -125,7 +125,7 @@ func TestOptionalAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	claims := jwtUtil.CreateAccessClaimsWithExpiry(
 		user,
 		int64(time.Hour),
-		[]string{authz.ScopeAdminSettings},
+		[]string{authz.ScopeAdminSite},
 		authz.AudiencePublic,
 		"jti-admin-query-optional",
 	)

@@ -18,20 +18,22 @@ import { setCookieValue } from "../session.ts";
 import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
-// Every scope the exposed command surface needs: Echo CRUD, the file surface,
-// comment/connect writes and webhook management. Webhooks only have the broad
-// `admin:settings` scope today (there is no finer webhook scope), so the default
-// admin CLI token includes it. Comment moderation and Connect health are
-// deliberately not exposed, so `comment:moderate` and `connect:read` stay out.
+// Every scope the exposed command surface needs: Echo CRUD (delete included),
+// the file surface, comment writes, Connect add/delete and webhook management.
+// The delete scopes mirror the CLI's destructive commands. Comment moderation,
+// comment settings and Connect health are deliberately not exposed, so their
+// scopes stay out.
 export const DEFAULT_CLI_SCOPES = [
   "echo:read",
   "echo:write",
+  "echo:delete",
   "profile:read",
   "file:read",
   "file:write",
   "comment:write",
   "connect:write",
-  "admin:settings",
+  "connect:delete",
+  "admin:webhook",
 ];
 const DEVICE_CLIENT_NAME = "ech0-cli";
 

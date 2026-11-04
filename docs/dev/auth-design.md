@@ -274,7 +274,7 @@ Set-Cookie: ech0_refresh_token=<jwt>;
 
 - `typ: access`（区别于浏览器会话的 `typ: session`）
 - 不走 Cookie，走 `Authorization: Bearer` header
-- 有独立的 scope（`echo:read`, `admin:settings` 等）和 audience（`cli`, `integration`, `mcp-remote`）
+- 有独立的 scope（`echo:read`, `admin:webhook` 等）和 audience（`cli`, `integration`, `mcp-remote`）
 - 详见 [access-token-scope-design.md](./access-token-scope-design.md)
 
 ## 9. 文件索引

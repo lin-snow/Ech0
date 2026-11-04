@@ -74,7 +74,7 @@ MCP-compatible client / Host
 | `adapter_connect.go` | Connect 域：list/add/delete connects tools，connect self resource |
 | `adapter_agent.go` | Agent 域：get_recent tool（AI 近况摘要） |
 | `adapter_webhook.go` | Webhook 域：list/create/update/delete/test webhook tools |
-| `adapter_dashboard.go` | Dashboard 域：`ech0://stats/visitors` resource（近 7 天 PV/UV，需 admin scope） |
+| `adapter_dashboard.go` | Dashboard 域：`ech0://stats/visitors` resource（近 7 天 PV/UV，需 `admin:ops`） |
 | `mrtr.go` | MRTR：`input_required` 结果、elicitation 确认请求、HMAC `requestState`（绑定 principal / 工具 / 参数摘要 / TTL） |
 | `server.go` | MCP Server 核心：era 判定、传输校验、方法分发、scope 校验、超时控制、审计日志、按 scope 过滤 list |
 | `handler.go` | Gin 桥接层：组装 Registry → Adapter → Server，暴露 `ServeEndpoint()` |

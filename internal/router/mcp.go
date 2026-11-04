@@ -28,7 +28,7 @@ func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
 }
 
 func registerMCP(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authz.ScopeAdminToken), huma.Operation{
+	route(api, secured(revoker, authz.ScopeMCPRead), huma.Operation{
 		OperationID: "mcp-manifest",
 		Method:      http.MethodGet,
 		Path:        mcp.MCPEndpointPath + "/manifest",

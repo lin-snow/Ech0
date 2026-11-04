@@ -68,8 +68,8 @@ func TestManifestCarriesScopesAndHints(t *testing.T) {
 	if writeTool.ReadOnly || !writeTool.Destructive {
 		t.Errorf("write_tool hints = (readOnly %v, destructive %v), want (false, true)", writeTool.ReadOnly, writeTool.Destructive)
 	}
-	if len(writeTool.Scopes) != 1 || writeTool.Scopes[0] != authz.ScopeAdminSettings {
-		t.Errorf("write_tool scopes = %v, want [%s]", writeTool.Scopes, authz.ScopeAdminSettings)
+	if len(writeTool.Scopes) != 1 || writeTool.Scopes[0] != authz.ScopeAdminSite {
+		t.Errorf("write_tool scopes = %v, want [%s]", writeTool.Scopes, authz.ScopeAdminSite)
 	}
 
 	if len(manifest.ResourceTemplates) != 1 || manifest.ResourceTemplates[0].URITemplate != "ech0://items/{id}" {

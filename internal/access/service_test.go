@@ -58,7 +58,7 @@ func TestCreateAccessToken_RejectsAdminScopeForNonAdminUser(t *testing.T) {
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-admin-scope",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
-		Scopes:   []string{authz.ScopeAdminSettings},
+		Scopes:   []string{authz.ScopeAdminSite},
 		Audience: authz.AudiencePublic,
 	}
 	if err := validateRequest(user, dto); err == nil {
@@ -84,6 +84,34 @@ func TestAccessTokenExpirySeconds(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEnsureDelegatedScopes(t *testing.T) {
+	dto := func(scopes ...string) *model.AccessTokenSettingDto {
+		return &model.AccessTokenSettingDto{Scopes: scopes}
+	}
+
+	t.Run("subset allowed", func(t *testing.T) {
+		require.NoError(t, ensureDelegatedScopes(
+			[]string{authz.ScopeEchoRead, authz.ScopeEchoWrite},
+			dto(authz.ScopeEchoRead),
+		))
+	})
+	t.Run("equal set allowed", func(t *testing.T) {
+		require.NoError(t, ensureDelegatedScopes(
+			[]string{authz.ScopeEchoRead},
+			dto(authz.ScopeEchoRead),
+		))
+	})
+	t.Run("broader set rejected", func(t *testing.T) {
+		require.Error(t, ensureDelegatedScopes(
+			[]string{authz.ScopeEchoRead},
+			dto(authz.ScopeEchoRead, authz.ScopeEchoDelete),
+		))
+	})
+	t.Run("nil dto rejected", func(t *testing.T) {
+		require.Error(t, ensureDelegatedScopes([]string{authz.ScopeEchoRead}, nil))
+	})
 }
 
 func TestNormalizeScopes(t *testing.T) {
@@ -130,7 +158,7 @@ func TestValidateRequest_EdgeCases(t *testing.T) {
 		{
 			"valid admin scope for admin accepted",
 			admin,
-			&model.AccessTokenSettingDto{Name: "tok", Scopes: []string{authz.ScopeAdminSettings}, Audience: authz.AudiencePublic},
+			&model.AccessTokenSettingDto{Name: "tok", Scopes: []string{authz.ScopeAdminSite}, Audience: authz.AudiencePublic},
 			"",
 		},
 		{

@@ -21,7 +21,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "获取所有 Webhook",
       method: "GET",
       path: "/webhook",
-      scopes: ["admin:settings"],
+      scopes: ["admin:webhook"],
       effect: "read",
       kind: "json",
       input: { type: "object", properties: {} },
@@ -32,7 +32,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "创建 Webhook",
       method: "POST",
       path: "/webhook",
-      scopes: ["admin:settings"],
+      scopes: ["admin:webhook"],
       effect: "write",
       kind: "json",
       input: {
@@ -47,7 +47,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "更新 Webhook",
       method: "PUT",
       path: "/webhook/{id}",
-      scopes: ["admin:settings"],
+      scopes: ["admin:webhook"],
       effect: "write",
       kind: "json",
       input: {
@@ -65,7 +65,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "删除 Webhook",
       method: "DELETE",
       path: "/webhook/{id}",
-      scopes: ["admin:settings"],
+      scopes: ["admin:webhook"],
       effect: "destructive",
       kind: "json",
       input: {
@@ -80,7 +80,7 @@ const CATALOG: { ops: Record<string, unknown> } = {
       summary: "测试 Webhook",
       method: "POST",
       path: "/webhook/{id}/test",
-      scopes: ["admin:settings"],
+      scopes: ["admin:webhook"],
       effect: "write",
       kind: "json",
       input: {

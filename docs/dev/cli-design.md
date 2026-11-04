@@ -260,9 +260,9 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 - 标签由 `echo create` / `echo update` 的 `--tag` 自动创建并复用（`ProcessEchoTags`），单独的 `tag.create` 是冗余命令。
 - `tag.list` 提供 `id / name / usage_count`，`echo list --tag-ids <id,...>` 才有可用的输入；`echo.by.tag` 已弃用，不再暴露。
-- `tag.delete` 会同时删除 `echo_tags` 关联；服务层还要求 admin，危险操作走 `--yes`。
+- `tag.delete` 会同时删除 `echo_tags` 关联；服务层还要求 admin，危险操作走 `--yes`，scope 为 `echo:delete`。
 
-Webhook 面镜像 MCP 的 `list/create/update/delete/test`。所有 webhook 操作目前只有 `admin:settings` scope（没有更细的 `webhook:*`），所以默认 CLI token 会带上 `admin:settings`；CLI v1 的目标用户是实例 owner/admin。`WebhookDto` 的 `name` / `url` 标了 Huma `required` 与 `doc`，CLI 的必填校验和 help 直接来自 schema。`webhook.update` 是整体覆盖，省略 `--is-active` 会把 webhook 停用、省略 `--secret` 会清空签名密钥，help 里要显式提示。
+Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin:webhook`，不再需要 `admin:settings`。CLI v1 的目标用户是实例 owner/admin。`WebhookDto` 的 `name` / `url` 标了 Huma `required` 与 `doc`，CLI 的必填校验和 help 直接来自 schema。`webhook.update` 是整体覆盖，省略 `--is-active` 会把 webhook 停用、省略 `--secret` 会清空签名密钥，help 里要显式提示。
 
 ## 5. 认证与凭据
 
@@ -327,7 +327,7 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`。所有 webhook 操�
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
-登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`、`admin:settings`。Webhook 目前没有更细的 scope，`admin:settings` 是唯一的授权方式；它在默认集合里只为了让 `ech0 webhook` 开箱可用，代价是 token 也能调用其他设置接口。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除和 Webhook 不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
 
 ## 6. 命令树与 help
 
@@ -349,7 +349,7 @@ ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Ech
 ech0 echo list --page 1 --page-size 20
 ech0 echo update --id <id> --content "edited"        # 同样返回更新后的 Echo
 ech0 echo get --id <uuid>
-ech0 echo delete --id <uuid>                         # 交互确认；脚本加 --yes
+ech0 echo delete --id <uuid>                         # 交互确认，需 echo:delete；脚本加 --yes
 
 ech0 echo hot --limit 10                             # 热门（公开；管理员含私密）
 ech0 echo today                                      # 今天
@@ -369,10 +369,10 @@ ech0 comment list --echo-id <id>                     # GET /comments，只返回
 ech0 connect list                                    # GET /connect/list，{id, connect_url}
 ech0 connect info                                    # GET /connects/info，对端公开卡片
 ech0 connect add --connect-url https://peer.example  # POST /connects，需 connect:write
-ech0 connect delete --id <uuid> --yes                # DELETE /connects/{id}，需 connect:write
+ech0 connect delete --id <uuid> --yes                # DELETE /connects/{id}，需 connect:delete
 
 ech0 tag list                                        # GET /tags，返回 id / name / usage_count
-ech0 tag delete --id <uuid> --yes                    # DELETE /tag/{id}；同时移除所有 Echo 上的该标签
+ech0 tag delete --id <uuid> --yes                    # DELETE /tag/{id}，需 echo:delete；同时移除所有 Echo 上的该标签
 
 ech0 webhook list                                    # GET /webhook
 ech0 webhook create --name ci --url https://example.com/hook --is-active

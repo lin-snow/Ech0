@@ -16,6 +16,38 @@ import (
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
+// RequireSession rejects access tokens for operations that are inherently
+// bound to an interactive browser session (account security, token
+// administration). Session tokens carry no scopes, so this guard is the only
+// authorization boundary those routes need.
+func RequireSession() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		v := viewer.MustFromContext(ctx.Request.Context())
+		if v.TokenType() == authModel.TokenTypeSession {
+			ctx.Next()
+			return
+		}
+		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+	}
+}
+
+// abortAuth writes the shared localized auth error and stops the chain.
+func abortAuth(ctx *gin.Context, status int, code, messageKey, message string) {
+	ctx.JSON(
+		status,
+		commonModel.FailWithLocalized[any](
+			i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), messageKey, errUtil.HandleError(&commonModel.ServerError{
+				Msg: message,
+				Err: nil,
+			}), nil),
+			code,
+			messageKey,
+			nil,
+		),
+	)
+	ctx.Abort()
+}
+
 func RequireScopes(scopes ...string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
@@ -24,51 +56,15 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 			return
 		}
 		if v.TokenType() != authModel.TokenTypeAccess {
-			ctx.JSON(
-				http.StatusUnauthorized,
-				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
-						Msg: commonModel.TOKEN_NOT_VALID,
-						Err: nil,
-					}), nil),
-					commonModel.ErrCodeTokenInvalid,
-					commonModel.MsgKeyAuthTokenInvalid,
-					nil,
-				),
-			)
-			ctx.Abort()
+			abortAuth(ctx, http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID)
 			return
 		}
 		if !containsValidAudience(v.Audience()) {
-			ctx.JSON(
-				http.StatusForbidden,
-				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthAudienceForbidden, errUtil.HandleError(&commonModel.ServerError{
-						Msg: commonModel.NO_PERMISSION_DENIED,
-						Err: nil,
-					}), nil),
-					commonModel.ErrCodeAudienceForbidden,
-					commonModel.MsgKeyAuthAudienceForbidden,
-					nil,
-				),
-			)
-			ctx.Abort()
+			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
 			return
 		}
 		if !authz.Allows(v.Scopes(), scopes) {
-			ctx.JSON(
-				http.StatusForbidden,
-				commonModel.FailWithLocalized[any](
-					i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthScopeForbidden, errUtil.HandleError(&commonModel.ServerError{
-						Msg: commonModel.NO_PERMISSION_DENIED,
-						Err: nil,
-					}), nil),
-					commonModel.ErrCodeScopeForbidden,
-					commonModel.MsgKeyAuthScopeForbidden,
-					nil,
-				),
-			)
-			ctx.Abort()
+			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
 			return
 		}
 		ctx.Next()
@@ -92,19 +88,7 @@ func RequireAudience(allowed ...string) gin.HandlerFunc {
 				return
 			}
 		}
-		ctx.JSON(
-			http.StatusForbidden,
-			commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), commonModel.MsgKeyAuthAudienceForbidden, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.NO_PERMISSION_DENIED,
-					Err: nil,
-				}), nil),
-				commonModel.ErrCodeAudienceForbidden,
-				commonModel.MsgKeyAuthAudienceForbidden,
-				nil,
-			),
-		)
-		ctx.Abort()
+		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
 	}
 }
 

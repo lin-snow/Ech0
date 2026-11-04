@@ -32,7 +32,7 @@ func TestRequireScopes_ReturnsScopeForbiddenCode(t *testing.T) {
 		)
 		c.Next()
 	})
-	r.GET("/protected", RequireScopes(authz.ScopeAdminSettings), func(c *gin.Context) {
+	r.GET("/protected", RequireScopes(authz.ScopeAdminSite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -56,14 +56,14 @@ func TestRequireScopes_ReturnsAudienceForbiddenCode(t *testing.T) {
 			viewer.NewUserViewerWithToken(
 				"user-1",
 				authModel.TokenTypeAccess,
-				[]string{authz.ScopeAdminSettings},
+				[]string{authz.ScopeAdminSite},
 				[]string{"unknown-audience"},
 				"jti-audience-test",
 			),
 		)
 		c.Next()
 	})
-	r.GET("/protected", RequireScopes(authz.ScopeAdminSettings), func(c *gin.Context) {
+	r.GET("/protected", RequireScopes(authz.ScopeAdminSite), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -130,6 +130,65 @@ func TestRequireScopes_ProfileWriteAllowsAccess(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodPut, "/user", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestRequireSession_RejectsAccessToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeAdminSite},
+				[]string{authz.AudienceCLI},
+				"jti-session-test",
+			),
+		)
+		c.Next()
+	})
+	r.POST("/passkey", RequireSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/passkey", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseErrorCode(rec.Body.Bytes()); got != commonModel.ErrCodeScopeForbidden {
+		t.Fatalf("expected error code %s, got %s", commonModel.ErrCodeScopeForbidden, got)
+	}
+}
+
+func TestRequireSession_AllowsSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		viewer.AttachToRequest(
+			&c.Request,
+			viewer.NewUserViewerWithToken(
+				"user-1",
+				authModel.TokenTypeSession,
+				nil,
+				nil,
+				"jti-session-ok",
+			),
+		)
+		c.Next()
+	})
+	r.POST("/passkey", RequireSession(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/passkey", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
