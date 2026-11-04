@@ -82,7 +82,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
    - 文档 `client_id` 与 URL 完全一致；
    - `redirect_uris` 非空，且 https 或 loopback http；
    - 只接受 public client（`token_endpoint_auth_method` 为空或 `none`）。
-   使用 `pkg/egress` 的 Guard 客户端：抓取前 `egress.Validate`，拨号后检查远端 IP（防 DNS rebinding），重定向逐跳复验；64 KiB 响应上限，按 `Cache-Control: max-age` 缓存（1 分钟–1 小时）。CodeQL 的 `go/request-forgery` 对这条受控外呼做行级抑制，理由写在 `cimd.go`。
+   使用 `pkg/egress` 的 Guard 客户端：抓取前 `egress.Validate`，拨号后检查远端 IP（防 DNS rebinding），重定向逐跳复验；64 KiB 响应上限，按 `Cache-Control: max-age` 缓存（1 分钟–1 小时）。
 2. **DCR**（`POST /oauth/register`）：生成 `ech0-…` client_id，落库 `oauth_clients`；仅支持 `authorization_code` + `code` + `none`，上限 200 个，接口单独限流。规范已标记 deprecated，文档中明确说明仅为兼容。
 3. **预注册**：暂不提供 UI；需要时可直接在 DCR 表插入一行，或后续补管理页。
 
