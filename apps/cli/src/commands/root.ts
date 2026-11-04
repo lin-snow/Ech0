@@ -35,6 +35,7 @@ import * as catalogCommands from "./catalog.ts";
 import * as config from "./config.ts";
 import { registerCatalogCommands } from "./dynamic.ts";
 import { createHelpCommand } from "./help.ts";
+import { info } from "./info.ts";
 import { invokeOperation } from "./operation.ts";
 import type { CommandOutput } from "./types.ts";
 import { CLI_VERSION } from "../version-info.ts";
@@ -220,6 +221,15 @@ function versionCommand(): Command {
     });
 }
 
+function infoCommand(): Command {
+  return new Command("info")
+    .description("查看当前连接的实例：站点、版本、规模、凭据与 catalog")
+    .action(async (_options, command: Command) => {
+      const flags = readGlobalFlags(command);
+      emit(await info(loadContext(flags)), flags);
+    });
+}
+
 interface CatalogBootstrap {
   catalog?: LoadedCatalog;
   server?: string;
@@ -272,6 +282,7 @@ function localExamples(program: Command): void {
       ],
     ],
     [["auth", "status"], ["ech0 auth status --verify"]],
+    [["info"], ["ech0 info", "ech0 info --json", "ech0 info --server https://example.com"]],
     [["config", "use"], ["ech0 config use memo"]],
     [["config", "list"], ["ech0 config list"]],
     [["catalog", "refresh"], ["ech0 catalog refresh"]],
@@ -316,6 +327,7 @@ export async function createRootCommand(): Promise<Command> {
   program.addCommand(configCommand());
   program.addCommand(catalogCommand(refresh));
   program.addCommand(versionCommand());
+  program.addCommand(infoCommand());
   program.addCommand(installCommand());
   program.addCommand(createHelpCommand());
 
@@ -366,6 +378,7 @@ export async function createRootCommand(): Promise<Command> {
   );
   setCommandExamples(program, [
     "ech0 auth login --server https://example.com --device",
+    "ech0 info",
     "ech0 help",
     ...(serverGroup === undefined ? [] : [`ech0 help ${serverGroup.name()}`]),
     "ech0 catalog refresh",

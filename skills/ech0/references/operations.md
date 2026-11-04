@@ -28,7 +28,8 @@ large integers can lose precision).
 - Objects take JSON: `--extension '{"type":"weather","payload":{}}'`.
 - Uploads take a path, or `-` for stdin; add `--file-name <name>` so the
   extension (and therefore the file category) is known.
-- Allowed values (`可选：…`) are listed in help but not enforced locally.
+- Enum values are enforced before the request: an unknown value exits 2 and the
+  error names the allowed set; `--help` lists them too.
 
 `echo create` and `echo update` also accept `--from <file>`, `--edit`,
 `--tag <name>` and `--file-id <id>`; see [`echo.md`](echo.md).

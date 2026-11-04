@@ -25,7 +25,7 @@ export interface FormPart {
 }
 
 export interface RequestSpec {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   query?: Record<string, QueryValue>;
   body?: unknown;

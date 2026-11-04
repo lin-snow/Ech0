@@ -1,14 +1,14 @@
 # Ech0 CLI 设计
 
 日期：2026-10-30  
-状态：草案；M1/M2 已落地（目录骨架、catalog 驱动的命令发现、token 登录）  
+状态：M1–M5 已落地；2026-11-04 增补 `ech0 info`、评论审核三连、`connect health`，并修正 PATCH 透传  
 范围：`apps/cli`（Bun + TypeScript 客户端）与配套后端改动（operation catalog、device authorization）
 
 ## 1. 定位与范围
 
 一句话：**登录到一台指定的 Ech0 实例，在终端完成 Echo 的增删改查，以及评论与互联管理**。
 
-范围的取舍：登录之后暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`）、标签面（列出 `tag.list`、删除 `tag.delete`）、评论面（经集成端点创建评论 `comment.create.integration`、按 Echo 列出评论 `comment.list.by.echo`）与互联面（已添加连接 `connect.list`、对端信息 `connect.info`、添加连接 `connect.add`、删除连接 `connect.delete`）、Webhook 面（`webhook.list` / `webhook.create` / `webhook.update` / `webhook.delete` / `webhook.test`）。评论、互联与 Webhook 的命令面**对齐 MCP 的 tool 面**：只做发布/读取评论、列出/查看/添加/删除连接，以及 Webhook 的增删改查与测试；不做评论审核，也不做实例自述卡与健康探测；因此默认登录不需要 `comment:moderate` 或 `connect:read`；Webhook 目前只有 `admin:settings` scope，默认登录会带上它（CLI v1 的目标用户是实例 owner/admin）。其余接口（迁移、系统日志、Copilot、访客评论入口 / 评论表单元信息 / 面板操作 / `connect.health` / 标签 create（Echo 写入时按名自动创建）等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`，`comment.create.integration` → `ech0 comment create`，`comment.list.by.echo` → `ech0 comment list`）。
+范围的取舍：登录之后暴露 Echo CRUD（`echo.create` / `echo.list` / `echo.get` / `echo.update` / `echo.delete`）、文件面（上传 `file.upload`、外链登记 `file.external`、浏览 `file.list` / `file.get` / `file.tree`、下载 `file.stream.by_id`）、标签面（列出 `tag.list`、删除 `tag.delete`）、评论面（经集成端点创建评论 `comment.create.integration`、按 Echo 列出评论 `comment.list.by.echo`、审核闭环 `comment.panel.list` / `comment.panel.status` / `comment.panel.delete`）与互联面（已添加连接 `connect.list`、对端信息 `connect.info`、健康探测 `connect.health`、添加连接 `connect.add`、删除连接 `connect.delete`）、Webhook 面（`webhook.list` / `webhook.create` / `webhook.update` / `webhook.delete` / `webhook.test`）。评论、互联与 Webhook 的命令面**对齐 MCP 的 tool 面并补上审核闭环**：发布 / 读取 / 审核评论、列出 / 查看 / 探测 / 添加 / 删除连接，以及 Webhook 的增删改查与测试。默认登录因此需要 `comment:review`、`comment:delete` 与 `connect:read`；`--scopes` 仍可收窄成只读或 CI profile。实例自述不占用动态命令：`ech0 info` 由本地命令聚合公开端点（见 4.9），`connect.self` 留在 catalog 供程序调用。其余接口（迁移、系统日志、Copilot、访客评论入口 / 评论表单元信息 / 面板其余操作 / 标签 create（Echo 写入时按名自动创建）等）暂不进命令树。`apps/cli/src/catalog/scope.ts` 的 `CLI_OPERATIONS` 是唯一开关，加一个 id 即可放开一项能力，命令生成无需改动；`COMMAND_NAMES` 只用来把读起来别扭的 catalog id 映射成更像动词的命令名（`file.stream.by_id` → `ech0 file download`，`comment.create.integration` → `ech0 comment create`，`comment.list.by.echo` → `ech0 comment list`）。
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
@@ -27,7 +27,7 @@ v1 目标用户：实例 owner（admin）。非目标：
 | 命令框架 | `commander` 15 | 动态子命令树、`--help`、必填选项校验 |
 | 校验 | `zod` v4 | catalog 文档校验（v4 API，如 `z.record(k, v)`） |
 | 类型/schema 生成 | `@hey-api/openapi-ts` 0.99（`@hey-api/typescript` + `zod`） | 单工具同时产出 `types.gen.ts` 与 `zod.gen.ts`；`orval` 8.45 因 Huma 的 `ResultInterface {}` schema 名失败 |
-| 测试 | `bun test` | 28 用例：envelope、catalog 缓存、动态命令、412 重试、退出码 |
+| 测试 | `bun test` | 133 用例：envelope、catalog 缓存、动态命令、412 重试、退出码、审核与 info |
 | 包名 | `@useech0/cli`，bin `ech0` | npm `ech0` 已被空占位包占用 |
 
 ## 3. 目录结构
@@ -59,6 +59,7 @@ apps/cli/
       config.ts           # profile 管理
       catalog.ts          # refresh/path
       dynamic.ts          # catalog op → commander 命令
+      info.ts             # 实例自述：公开端点聚合 + 本地凭据/catalog 状态
       operation.ts        # 构建请求、412 重试、结果渲染
       version.ts          # 本地版本
     config/               # XDG 路径、profile 存储、凭据（keychain/文件）
@@ -126,7 +127,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 - 数组字段两种写法：`--tags a,b`（逗号）或 `--tags '[{"name":"a"}]'`（以 `[` 开头按 JSON 解析）；重复给出时逐次累加（`--tag-ids a --tag-ids b`）。
 - 与 CLI 保留 flag 重名（`json/profile/server/token/lang/color/help/version`）的字段改名为 `--input-<name>`。
 - 必填字段在 action 里校验（缺失 → 退出码 2 + `缺少必填参数 --x`），不用 `requiredOption`：可调用 id 一旦有子命令，父命令的必填项会连子命令一起拦下。
-- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 只读视图四条（hot / today / random / onthisday）+ 文件面六条 + 标签两条 + 评论两条 + 互联四条 + Webhook 五条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
+- 命令树只注册 `CLI_OPERATIONS` 里的 id（当前为 Echo CRUD 五条 + 只读视图四条（hot / today / random / onthisday）+ 文件面六条 + 标签两条 + 评论五条（发布 / 按 Echo 读取 / 审核三连）+ 互联五条（list / info / health / add / delete）+ Webhook 五条），其余操作即使出现在 catalog 里也不会生成命令；`ech0 help <关键词>` 里也搜不到。
 - help 末尾附 `METHOD /path · scopes: ...`，便于确认权限与效果。
 
 ### 4.5 传输层：流式、上传与下载（后端 + CLI 已实现）
@@ -143,7 +144,7 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 | `file.stream.by_id` | `GET /api/file/{id}/stream` | binary |
 | `migration.export.download` | `GET /api/migration/export/download` | binary（zip） |
 
-> CLI 开放了上表的 `file.upload` 与 `file.stream.by_id`（命令名 `ech0 file download`），以及 Huma 的 `file.external` / `file.list` / `file.get` / `file.tree`。SSE 与 WebSocket 的客户端实现与单测都在，但未开放命令，把对应 id 加进白名单即可。Copilot（`POST /api/chat`）按产品决定暂不支持，也不在 catalog 里。
+> CLI 开放了上表的 `file.upload` 与 `file.stream.by_id`（命令名 `ech0 file download`），以及 Huma 的 `file.external` / `file.list` / `file.get` / `file.tree`。SSE 与 WebSocket 的客户端实现与单测都在，但**两条日志流现在是 session-only**（`RequireSession` + `RequireAdminSession`，见 `internal/router/dashboard.go`），access token 永远拿不到，因此不能靠加白名单开放；程序化读取日志走 `dashboard-system-logs`（`admin:ops`）。Copilot（`POST /api/chat`）按产品决定暂不支持，也不在 catalog 里。
 
 `transport` 形状（Huma 操作仅在非纯 JSON 时才带）：
 
@@ -265,6 +266,27 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 
 Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin:webhook`，不再需要 `admin:settings`。CLI v1 的目标用户是实例 owner/admin。`WebhookDto` 的 `name` / `url` 标了 Huma `required` 与 `doc`，CLI 的必填校验和 help 直接来自 schema。`webhook.update` 是整体覆盖，省略 `--is-active` 会把 webhook 停用、省略 `--secret` 会清空签名密钥，help 里要显式提示。
 
+### 4.9 `ech0 info`：实例自述（本地命令，无 scope）
+
+`ech0 info` 是唯一一条手写的实例读取命令，其余业务命令仍由 catalog 生成。它聚合四个公开端点，未登录即可用，不需要任何 scope：
+
+| 字段 | 来源 |
+| --- | --- |
+| site_title / server_name / server_url / allow_register / default_locale | `settings-get` `GET /api/settings`（public） |
+| version / commit / build_time / license / repo_url | `common-hello` `GET /api/hello`（public） |
+| server_name / server_url / logo / total_echos / today_echos | `connect-self` `GET /api/connect`（public；实例未初始化时该项跳过，因为 self card 需要 owner） |
+| initialized / owner_exists | `init-status` `GET /api/init/status`（public） |
+| user / is_admin / valid | `user-info` `GET /api/user`，仅在本地有 token 时请求 |
+| token_source / refresh_cookie / profile | 本地 profile 与凭据存储（keychain/file） |
+| catalog 指纹 / op 数 / 缓存年龄 | catalog 缓存文件；并与响应头 `X-Ech0-Catalog` 比对，不一致时提示 `ech0 catalog refresh` |
+
+设计要点：
+
+- **诊断命令不因失败而失败**：探针并行、各自 5s 超时；任一失败只输出一行 `! label: ...`，其余字段照常显示；没有配置实例时打印本地状态与提示，而不是整体报错。
+- **不重复 `auth status`**：`auth status` 回答「我是谁、凭据从哪来」；`info` 回答「对面是哪台实例、规模、版本、命令树是否落后」。
+- **`--json` 给脚本**：完整对象含 `instance` / `auth` / `catalog` / `errors`，缺失字段显式为 `null`。
+- 不新增后端端点：若要让 MCP/agent 也拿到聚合视图，再考虑加 `instance-get`；否则一份重复 DTO 不划算。
+
 ## 5. 认证与凭据
 
 ### 5.1 三种登录方式
@@ -328,7 +350,7 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
-登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:private`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:private` 让管理员 CLI 能读到私密 echo（`--private` 过滤与私密创建后的回读），`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除和 Webhook 不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:private`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`comment:review`、`comment:delete`、`connect:read`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:private` 让管理员 CLI 能读到私密 echo（`--private` 过滤与私密创建后的回读），`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`comment:review` 只覆盖审核列表 / 状态 / 批量，`comment:delete` 只覆盖评论删除，`connect:read` 只覆盖 `connect health`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除与审核不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
 
 ## 6. 命令树与 help
 
@@ -338,12 +360,13 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin
 ech0 auth login|status|logout
 ech0 config list|use|unset|path
 ech0 catalog refresh|path
+ech0 info [--json]
 ech0 install skills <dir> [--from <folder>]
 ech0 version
 ech0 help [words...] [--full] [--json]
 ```
 
-服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 只读视图四条 + 文件面六条 + 标签两条 + 评论两条 + 互联四条 + Webhook 五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
+服务端命令来自 catalog，命令树只装配 `catalog/scope.ts` 允许的操作（Echo CRUD 五条 + 只读视图四条 + 文件面六条 + 标签两条 + 评论五条 + 互联五条 + Webhook 五条），其余操作留在 catalog 缓存里但不生成命令。命令名按 `catalog` id 分段，与本地命令保留名冲突的字段改走 `--input-<name>`：
 
 ```
 ech0 echo create --content "hi" --private --tag dev   # data 直接返回新 Echo（含 id）
@@ -366,9 +389,13 @@ ech0 file download --id <file_id> --output ./a.png   # binary；非 TTY 默认 s
 
 ech0 comment create --echo-id <id> --content "写得好"   # POST /comments/integration，需 comment:write
 ech0 comment list --echo-id <id>                     # GET /comments，只返回 approved
+ech0 comment panel list --status pending             # GET /panel/comments，需 comment:review
+ech0 comment panel status --id <id> --status approved # PATCH /panel/comments/{id}/status，需 comment:review
+ech0 comment panel delete --id <id> --yes            # DELETE /panel/comments/{id}，需 comment:delete
 
 ech0 connect list                                    # GET /connect/list，{id, connect_url}
 ech0 connect info                                    # GET /connects/info，对端公开卡片
+ech0 connect health                                  # GET /connects/health，需 connect:read
 ech0 connect add --connect-url https://peer.example  # POST /connects，需 connect:write
 ech0 connect delete --id <uuid> --yes                # DELETE /connects/{id}，需 connect:delete
 
@@ -463,7 +490,7 @@ ech0 install skills ./skills --from ./my-skill   # 用本地文件夹替代内�
   - `@useech0/cli`：启动器（`bin/ech0.cjs`，Node ≥18），按 `process.platform` / `process.arch` 找到平台包并 exec 二进制；
   - `@useech0/cli-<os>-<arch>`：只含编译产物，用 `os` / `cpu` 字段限制安装平台；四个平台包作为 `optionalDependencies`，npm 只安装匹配的那一个；
   - 没有 postinstall 下载，安装后离线可用。
-- **版本**：`apps/cli/package.json` 是开发版本来源，发布时 workflow 校验 `cli-vX.Y.Z` tag 后，用 `--define process.env.ECH0_CLI_VERSION="<version>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本仍用 `ech0 common hello`（catalog 命令）。
+- **版本**：`apps/cli/package.json` 是开发版本来源，发布时 workflow 校验 `cli-vX.Y.Z` tag 后，用 `--define process.env.ECH0_CLI_VERSION="<version>"` 内联（`src/version-info.ts`），不修改源码树；`--version` / `ech0 version` 报发布版本，服务端版本用 `ech0 info`（公开端点聚合，未登录可用）。
 - **本地复现**：`just cli dist 0.1.0` → `apps/cli/dist/release/`（四个二进制、tar.gz、`SHA256SUMS` 与可直接 `npm publish` 的目录）。
 - macOS 从浏览器下载 release 资产会被打上 quarantine 标记；二进制未签名，首次运行前需 `xattr -d com.apple.quarantine ech0`（走 npm 无此问题）。
 - npm 发布用 trusted publishing（OIDC，`id-token: write`），不读 `NPM_TOKEN`：五个包各自在 npm 上配置 trusted publisher（`lin-snow/Ech0` + `release-cli.yml`，并允许 `npm publish`），provenance 自动生成。首次发布的目标包必须已存在，且 trust 配置 2 天内要有一次成功发布才生效。已发布的版本会跳过，重跑 workflow 不报错。
@@ -483,7 +510,8 @@ go test ./internal/openapi/... ./internal/router/...
 
 - Go：catalog 派生单测（bind/effect/kind/scopes/$ref 内联/指纹稳定性）+ 路由测试（`/api/_catalog` 指纹与 body 哈希一致、过期指纹 412 且 `error_code=catalog_stale`）。
 - CLI：`bun test` 覆盖 envelope 映射、catalog 缓存、动态命令 flag 解析、412 重试、CLI 退出码。
-- 端到端实测（真实 Go 服务端 + CLI）：init owner → login → 铸造 `audience=cli` token → `auth login` → `catalog refresh`（104 ops）→ `echo create` → `echo list`；把缓存文件改脏后 `echo create` 收到 412，CLI 自动刷新并重试成功。
+- 端到端实测（真实 Go 服务端 + CLI）：init owner → login → 铸造 `audience=cli` token → `auth login` → `catalog refresh`（111 ops）→ `echo create` → `echo list`；把缓存文件改脏后 `echo create` 收到 412，CLI 自动刷新并重试成功。
+- 审核与自述实测：`ech0 info` 在未登录与已登录两种状态下均成功（后者显示 `user admin（admin）· token file · 有效`）；`comment create` 返回 `pending` → `comment panel list --status pending` → `comment panel status --status approved`（PATCH）→ `comment list` 可见 → `comment panel delete --yes` 成功；`connect health` 在无连接时返回 `[]`。
 - 密码登录：`printf 'pw' | ech0 auth login -u owner --password-stdin` → 自动铸造 CLI 令牌 → `echo create` 成功；device 登录：CLI 打印设备码 → 浏览器/curl 批准 → CLI 拿到令牌 → `echo create` 成功；轮询的 pending / slow_down / unknown 三个 `error_code` 在真实服务端复核。
 
 ## 11. 里程碑
@@ -495,10 +523,11 @@ go test ./internal/openapi/... ./internal/router/...
 | M3 | 密码登录（admin 铸 cli token；非 admin cookie 刷新） | 已完成 |
 | M4 | device authorization：后端端点 + Web `/device` 批准页 + CLI 轮询 | 已完成 |
 | M5 | Release 编译产物（`ech0-cli-*.tar.gz` + `SHA256SUMS`）与 npm 包（`@useech0/cli` + 平台包），由 `release-cli.yml` 在 `cli-v*` tag 上独立发版 | 已完成 |
+| M7 | `ech0 info`（公开端点聚合、catalog 漂移提示）、评论审核三连、`connect health`；补 `PATCH` 透传（此前 PATCH 会被降级成 GET） | 已完成 |
 | M6 | shell completion、旧服务端 `/api/openapi.json` 兜底、`curl \| sh` 安装脚本 | 待做 |
 
 ## 12. 未决
 
 - 无 `/api/_catalog` 的旧服务端：当前明确报错并提示升级；是否用 `/api/openapi.json` 现场推导 catalog 作为兜底。
 - catalog 是否需要声明兼容区间（server 版本 ↔ CLI 版本），用于提示「你的 CLI 太旧」。
-- 文件面尚未开放 `file.delete` / `file.update-meta`（写入类操作），需要时加入 `CLI_OPERATIONS` 即可。
+- 文件面不开放 `file.delete`：文件与 Echo 存在引用关系（`echo_files`），在终端直接删文件比在面板删更难判断影响面，因此不加入 `CLI_OPERATIONS`。`file.update-meta` 属于存储元信息维护，需要时再加。

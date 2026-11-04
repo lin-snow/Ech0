@@ -3,7 +3,7 @@
 
 import type { CommandOutput } from "./types.ts";
 
-/** Local CLI version. Server version is `ech0 common hello`. */
+/** Local CLI version. Server version and instance identity are `ech0 info`. */
 export function version(localVersion: string): CommandOutput {
   return {
     human: `ech0 cli ${localVersion}`,

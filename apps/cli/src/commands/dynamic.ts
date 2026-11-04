@@ -222,8 +222,9 @@ function fileHints(id: string): string[] {
 }
 
 /**
- * Comment commands mirror the MCP comment tools: create through the trusted
- * integration route and read approved comments. There is no moderation command.
+ * Comment commands cover the full lifecycle: publish through the trusted
+ * integration route, read approved comments, and review (list / status /
+ * delete) through the panel endpoints.
  */
 function commentExamples(id: string): string[] | undefined {
   if (id === "comment.create.integration") {
@@ -233,6 +234,19 @@ function commentExamples(id: string): string[] | undefined {
     ];
   }
   if (id === "comment.list.by.echo") return ["ech0 comment list --echo-id <echo_id>"];
+  if (id === "comment.panel.list") {
+    return [
+      "ech0 comment panel list --status pending",
+      "ech0 comment panel list --keyword 广告 --page 1 --page-size 20",
+    ];
+  }
+  if (id === "comment.panel.status") {
+    return [
+      "ech0 comment panel status --id <comment_id> --status approved",
+      "ech0 comment panel status --id <comment_id> --status rejected",
+    ];
+  }
+  if (id === "comment.panel.delete") return ["ech0 comment panel delete --id <comment_id> --yes"];
   return undefined;
 }
 
@@ -241,19 +255,38 @@ function commentHints(id: string): string[] {
     return [
       "走可信集成入口 /comments/integration：不需要 form token 或验证码，评论标记为 source=integration",
       "默认昵称是 Integration；人类评论建议显式传 --nickname",
-      "实例开启审核时返回 pending；CLI 不提供审核命令，请到 web 面板处理",
+      "实例开启审核时返回 pending；用 ech0 comment panel list --status pending 处理",
     ];
   }
   if (id === "comment.list.by.echo") {
-    return ["只返回 approved 评论；pending / rejected 请在 web 面板查看"];
+    return ["只返回 approved 评论；pending / rejected 用 ech0 comment panel list 查看"];
+  }
+  if (id === "comment.panel.list") {
+    return [
+      "--status 取 pending / approved / rejected；--echo-id 只看某条 Echo 的评论",
+      "需要 comment:review scope；审核列表与面板 /panel/comments 同一份数据",
+    ];
+  }
+  if (id === "comment.panel.status") {
+    return [
+      "--status 取 pending / approved / rejected；只改状态，不动正文",
+      "需要 comment:review scope；审核前先用 ech0 comment panel list --status pending 拿 id",
+    ];
+  }
+  if (id === "comment.panel.delete") {
+    return [
+      "删除评论本身，不影响所属 Echo；需要 comment:delete scope（与 comment:review 分开授予）",
+      "不可恢复；脚本输出必须显式传 --yes",
+    ];
   }
   return [];
 }
 
-/** Connect commands mirror the MCP connect tools; no self card or health probe. */
+/** Connect commands: peer list/info/add/delete plus the read-only health probe. */
 function connectExamples(id: string): string[] | undefined {
   if (id === "connect.list") return ["ech0 connect list", "ech0 connect list --json"];
   if (id === "connect.info") return ["ech0 connect info --json"];
+  if (id === "connect.health") return ["ech0 connect health", "ech0 connect health --json"];
   if (id === "connect.add") return ["ech0 connect add --connect-url https://peer.example"];
   if (id === "connect.delete") return ["ech0 connect delete --id <uuid> --yes"];
   return undefined;
@@ -265,6 +298,12 @@ function connectHints(id: string): string[] {
   }
   if (id === "connect.info") {
     return ["对端公开卡片（名称 / logo / 帖子统计 / 版本）；服务端缓存 30 分钟，首次可能较慢"];
+  }
+  if (id === "connect.health") {
+    return [
+      "对每个已添加连接请求 <url>/api/connect，返回 status / version",
+      "需要 connect:read scope；只读探测，不会修改连接",
+    ];
   }
   if (id === "connect.add") {
     return [

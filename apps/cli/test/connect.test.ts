@@ -87,18 +87,18 @@ const CATALOG: { ops: Record<string, unknown> } = {
 };
 
 describe("connect commands", () => {
-  test("exposes only add, delete, info and list", () => {
+  test("exposes add, delete, health, info and list", () => {
     const { program } = buildProgram(CATALOG);
     const group = nodeAt(program, ["connect"]);
 
     expect((group?.commands ?? []).map((command) => command.name()).sort()).toEqual([
       "add",
       "delete",
+      "health",
       "info",
       "list",
     ]);
     expect(nodeAt(program, ["connect", "status"])).toBeUndefined();
-    expect(nodeAt(program, ["connect", "health"])).toBeUndefined();
   });
 
   test("connect list, info, add and delete map to their operations", async () => {
@@ -106,12 +106,14 @@ describe("connect commands", () => {
 
     await program.parseAsync(["connect", "list"], { from: "user" });
     await program.parseAsync(["connect", "info"], { from: "user" });
+    await program.parseAsync(["connect", "health"], { from: "user" });
     await program.parseAsync(["connect", "add", "--connect-url", "https://peer.example"], { from: "user" });
     await program.parseAsync(["connect", "delete", "--id", "c-1", "--yes", "--json"], { from: "user" });
 
     expect(invocations).toEqual([
       { request: "GET /connect/list", values: {} },
       { request: "GET /connects/info", values: {} },
+      { request: "GET /connects/health", values: {} },
       { request: "POST /connects", values: { connect_url: "https://peer.example" } },
       { request: "DELETE /connects/{id}", values: { id: "c-1" } },
     ]);

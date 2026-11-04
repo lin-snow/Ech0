@@ -23,7 +23,7 @@ import type { CommandOutput } from "./types.ts";
 
 export type FieldValues = Record<string, unknown>;
 
-const METHODS: Record<string, true> = { GET: true, POST: true, PUT: true, DELETE: true };
+const METHODS: Record<string, true> = { GET: true, POST: true, PUT: true, PATCH: true, DELETE: true };
 
 function requestMethod(method: string): RequestSpec["method"] {
   const upper = method.toUpperCase();

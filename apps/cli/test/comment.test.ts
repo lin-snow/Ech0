@@ -3,6 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 
+import { parseCatalog } from "../src/catalog/types.ts";
+import { buildRequest } from "../src/commands/operation.ts";
 import { nodeAt } from "../src/help/model.ts";
 import { buildProgram, helpText } from "./dynamic-harness.ts";
 
@@ -55,6 +57,42 @@ const CATALOG: { ops: Record<string, unknown> } = {
       bind: { limit: "query" },
       deprecated: false,
     },
+    "comment.panel.list": {
+      summary: "管理面板列出评论",
+      method: "GET",
+      path: "/panel/comments",
+      scopes: ["comment:review"],
+      effect: "read",
+      kind: "json",
+      input: {
+        type: "object",
+        properties: {
+          page: { type: "integer" },
+          page_size: { type: "integer" },
+          status: { type: "string", enum: ["pending", "approved", "rejected"] },
+        },
+      },
+      bind: { page: "query", page_size: "query", status: "query" },
+      deprecated: false,
+    },
+    "comment.panel.status": {
+      summary: "更新评论审核状态",
+      method: "PATCH",
+      path: "/panel/comments/{id}/status",
+      scopes: ["comment:review"],
+      effect: "write",
+      kind: "json",
+      input: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          status: { type: "string", enum: ["pending", "approved", "rejected"] },
+        },
+        required: ["id", "status"],
+      },
+      bind: { id: "path", status: "body" },
+      deprecated: false,
+    },
     "comment.panel.delete": {
       summary: "删除评论",
       method: "DELETE",
@@ -74,13 +112,19 @@ const CATALOG: { ops: Record<string, unknown> } = {
 };
 
 describe("comment commands", () => {
-  test("exposes only create and list", () => {
+  test("exposes publishing, reading and the review lifecycle", () => {
     const { program } = buildProgram(CATALOG);
     const group = nodeAt(program, ["comment"]);
 
-    expect((group?.commands ?? []).map((command) => command.name()).sort()).toEqual(["create", "list"]);
+    expect((group?.commands ?? []).map((command) => command.name()).sort()).toEqual([
+      "create",
+      "list",
+      "panel",
+    ]);
     expect(nodeAt(program, ["comment", "public"])).toBeUndefined();
-    expect(nodeAt(program, ["comment", "panel"])).toBeUndefined();
+    expect(
+      (nodeAt(program, ["comment", "panel"])?.commands ?? []).map((command) => command.name()).sort(),
+    ).toEqual(["delete", "list", "status"]);
   });
 
   test("comment create posts the integration body and takes no form token", async () => {
@@ -136,5 +180,41 @@ describe("comment commands", () => {
 
     await program.parseAsync(["comment", "list", "--echo-id", "e1"], { from: "user" });
     expect(invocations).toEqual([{ request: "GET /comments", values: { echo_id: "e1" } }]);
+  });
+
+  test("comment panel list, status and delete map to the review endpoints", async () => {
+    const { program, invocations } = buildProgram(CATALOG);
+
+    await program.parseAsync(["comment", "panel", "list", "--status", "pending"], { from: "user" });
+    await program.parseAsync(
+      ["comment", "panel", "status", "--id", "c-1", "--status", "approved"],
+      { from: "user" },
+    );
+    await expect(
+      program.parseAsync(["comment", "panel", "delete", "--id", "c-1", "--json"], { from: "user" }),
+    ).rejects.toThrow("--yes");
+    await program.parseAsync(["comment", "panel", "delete", "--id", "c-1", "--yes"], { from: "user" });
+
+    expect(invocations).toEqual([
+      { request: "GET /panel/comments", values: { status: "pending" } },
+      { request: "PATCH /panel/comments/{id}/status", values: { id: "c-1", status: "approved" } },
+      { request: "DELETE /panel/comments/{id}", values: { id: "c-1" } },
+    ]);
+
+    const listHelp = helpText(program, ["comment", "panel", "list"]);
+    expect(listHelp).toContain("--status");
+    expect(listHelp).toContain("comment:review");
+    expect(helpText(program, ["comment", "panel", "status"])).toContain("rejected");
+  });
+
+  test("review status is a PATCH with the id in the path and status in the body", () => {
+    const op = parseCatalog(new TextEncoder().encode(JSON.stringify(CATALOG))).ops["comment.panel.status"];
+    if (op === undefined) throw new Error("fixture op missing");
+
+    const spec = buildRequest(op, { id: "c-1", status: "approved" });
+
+    expect(spec.method).toBe("PATCH");
+    expect(spec.path).toBe("/panel/comments/c-1/status");
+    expect(spec.body).toEqual({ status: "approved" });
   });
 });
