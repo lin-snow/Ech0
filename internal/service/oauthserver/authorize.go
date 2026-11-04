@@ -33,7 +33,7 @@ func (s *OAuthServerService) AuthorizationRequest(
 	if oauthErr != nil {
 		return oauthserverModel.AuthorizationRequest{}, oauthErr
 	}
-	if !contains(meta.RedirectURIs, redirectURI) {
+	if !redirectURIRegistered(meta.RedirectURIs, redirectURI) {
 		return oauthserverModel.AuthorizationRequest{}, oauthserverModel.ErrInvalidRequest(
 			"redirect_uri is not registered for this client")
 	}
@@ -101,8 +101,11 @@ func (s *OAuthServerService) Consent(
 	query url.Values,
 	userID string,
 ) (oauthserverModel.ConsentContext, *oauthserverModel.Error) {
-	request, _, oauthErr := s.consentRequest(ctx, origin, query, userID)
+	request, oauthErr := s.AuthorizationRequest(ctx, origin, query)
 	if oauthErr != nil {
+		return oauthserverModel.ConsentContext{}, oauthErr
+	}
+	if _, oauthErr := s.consentUser(ctx, userID); oauthErr != nil {
 		return oauthserverModel.ConsentContext{}, oauthErr
 	}
 	return oauthserverModel.ConsentContext{
@@ -125,9 +128,15 @@ func (s *OAuthServerService) Approve(
 	query url.Values,
 	userID string,
 ) (string, *oauthserverModel.Error) {
-	request, user, oauthErr := s.consentRequest(ctx, origin, query, userID)
+	request, oauthErr := s.AuthorizationRequest(ctx, origin, query)
 	if oauthErr != nil {
 		return "", oauthErr
+	}
+	user, oauthErr := s.consentUser(ctx, userID)
+	if oauthErr != nil {
+		// The request is fully validated, so RFC 6749 §4.1.2.1 wants the error
+		// delivered to the client's redirect_uri rather than as local JSON.
+		return s.authorizationErrorRedirect(ctx, origin, request, oauthErr), nil
 	}
 	code, oauthErr := s.signCode(ctx, origin, request, user)
 	if oauthErr != nil {
@@ -150,37 +159,43 @@ func (s *OAuthServerService) Deny(
 	if oauthErr != nil {
 		return "", oauthErr
 	}
-	return redirectWithValues(request.RedirectURI, url.Values{
-		"error":             {"access_denied"},
-		"error_description": {"the user declined the authorization request"},
-		"state":             {request.State},
-		"iss":               {s.issuer(ctx, origin)},
-	}), nil
+	return s.authorizationErrorRedirect(ctx, origin, request,
+		oauthserverModel.ErrAccessDenied("the user declined the authorization request")), nil
 }
 
-func (s *OAuthServerService) consentRequest(
+// authorizationErrorRedirect renders a post-validation OAuth error as a
+// redirect to the client, reusing the deny path. It is only called after
+// AuthorizationRequest has trusted client_id and redirect_uri.
+func (s *OAuthServerService) authorizationErrorRedirect(
 	ctx context.Context,
 	origin string,
-	query url.Values,
+	request oauthserverModel.AuthorizationRequest,
+	oauthErr *oauthserverModel.Error,
+) string {
+	return redirectWithValues(request.RedirectURI, url.Values{
+		"error":             {oauthErr.Code},
+		"error_description": {oauthErr.Description},
+		"state":             {request.State},
+		"iss":               {s.issuer(ctx, origin)},
+	})
+}
+
+// consentUser enforces the population allowed to mint MCP tokens: Ech0
+// restricts access-token issuance to administrators, so consent inherits the
+// same rule.
+func (s *OAuthServerService) consentUser(
+	ctx context.Context,
 	userID string,
-) (oauthserverModel.AuthorizationRequest, userModel.User, *oauthserverModel.Error) {
-	request, oauthErr := s.AuthorizationRequest(ctx, origin, query)
-	if oauthErr != nil {
-		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthErr
-	}
+) (userModel.User, *oauthserverModel.Error) {
 	user, err := s.users.GetUserByID(ctx, userID)
 	if err != nil {
-		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthserverModel.ErrAccessDenied("approving user not found")
+		return userModel.User{}, oauthserverModel.ErrAccessDenied("approving user not found")
 	}
 	if !user.IsAdmin {
-		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthserverModel.ErrAccessDenied(
+		return userModel.User{}, oauthserverModel.ErrAccessDenied(
 			"only administrators can authorize MCP clients")
 	}
-	if authz.HasAdminScope(request.Scopes) && !user.IsAdmin {
-		return oauthserverModel.AuthorizationRequest{}, userModel.User{}, oauthserverModel.ErrInvalidScope(
-			"admin scopes require an administrator")
-	}
-	return request, user, nil
+	return user, nil
 }
 
 func parseScopes(raw string, defaults []string) ([]string, *oauthserverModel.Error) {
@@ -204,6 +219,43 @@ func parseScopes(raw string, defaults []string) ([]string, *oauthserverModel.Err
 		scopes = append(scopes, scope)
 	}
 	return scopes, nil
+}
+
+func redirectURIRegistered(registered []string, requested string) bool {
+	for _, candidate := range registered {
+		if redirectURIMatches(candidate, requested) {
+			return true
+		}
+	}
+	return false
+}
+
+// redirectURIMatches normally requires an exact match, but RFC 8252 §7.3 lets
+// a native client pick an ephemeral loopback port at request time: for two
+// http loopback URLs the port is ignored and the path (plus query) must match.
+func redirectURIMatches(registered, requested string) bool {
+	if registered == requested {
+		return true
+	}
+	want, err := url.Parse(registered)
+	if err != nil {
+		return false
+	}
+	got, err := url.Parse(requested)
+	if err != nil {
+		return false
+	}
+	if want.Scheme != "http" || got.Scheme != "http" {
+		return false
+	}
+	if !isLoopbackHost(want.Hostname()) || !isLoopbackHost(got.Hostname()) {
+		return false
+	}
+	if !strings.EqualFold(want.Hostname(), got.Hostname()) {
+		return false
+	}
+	return want.Path == got.Path && want.RawQuery == got.RawQuery &&
+		want.Fragment == "" && got.Fragment == ""
 }
 
 func validateCodeChallenge(challenge string) *oauthserverModel.Error {

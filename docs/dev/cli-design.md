@@ -327,7 +327,7 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
-登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除和 Webhook 不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:private`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:private` 让管理员 CLI 能读到私密 echo（`--private` 过滤与私密创建后的回读），`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除和 Webhook 不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
 
 ## 6. 命令树与 help
 

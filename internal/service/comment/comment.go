@@ -20,11 +20,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	captchaCfg "github.com/lin-snow/ech0/internal/captcha"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/kvstore"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -490,6 +492,9 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		}
 		return nil
 	case "delete":
+		if err := requireCommentDeleteScope(ctx); err != nil {
+			return err
+		}
 		beforeDelete := make([]model.Comment, 0, len(ids))
 		for _, id := range ids {
 			if comment, err := s.repo.GetCommentByID(ctx, id); err == nil && comment.ID != "" {
@@ -875,6 +880,21 @@ func (s *CommentService) requireAdmin(ctx context.Context) error {
 	}
 	if !user.IsAdmin && !user.IsOwner {
 		return commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+	}
+	return nil
+}
+
+// requireCommentDeleteScope keeps the batch endpoint's comment:review gate
+// from widening into deletion: approving and rejecting only need review, while
+// the delete action still requires comment:delete. Browser sessions are
+// unaffected, mirroring middleware.RequireScopes.
+func requireCommentDeleteScope(ctx context.Context) error {
+	v := viewer.MustFromContext(ctx)
+	if v.TokenType() == authModel.TokenTypeSession {
+		return nil
+	}
+	if !authz.Allows(v.Scopes(), []string{authz.ScopeCommentDelete}) {
+		return commonModel.NewBizError(commonModel.ErrCodeScopeForbidden, commonModel.NO_PERMISSION_DENIED)
 	}
 	return nil
 }

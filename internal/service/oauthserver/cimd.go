@@ -6,8 +6,10 @@ package oauthserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -54,6 +56,33 @@ func isMetadataDocumentURL(clientID string) bool {
 	return strings.HasPrefix(strings.ToLower(clientID), "https://")
 }
 
+// cimdClient clones the guarded outbound client and forbids redirects to a
+// non-https URL. egress.Validate itself permits http, which is fine for other
+// outbound callers but would let a metadata fetch downgrade after the initial
+// https validation.
+func (s *OAuthServerService) cimdClient() *http.Client {
+	client := *s.http
+	base := client.CheckRedirect
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if req.URL == nil || req.URL.Scheme != "https" {
+			return errors.New("client metadata redirect must stay on https")
+		}
+		if base != nil {
+			return base(req, via)
+		}
+		return nil
+	}
+	return &client
+}
+
+func isJSONContentType(raw string) bool {
+	mediaType, _, err := mime.ParseMediaType(raw)
+	if err != nil {
+		return false
+	}
+	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+}
+
 // fetchClientMetadata implements the Client ID Metadata Document lookup with
 // SSRF protection, a hard body limit and HTTP cache-awareness.
 func (s *OAuthServerService) fetchClientMetadata(
@@ -82,15 +111,23 @@ func (s *OAuthServerService) fetchClientMetadata(
 	req.Header.Set("User-Agent", "ech0-oauth-client")
 
 	// clientID is validated by validateMetadataDocumentURL (scheme, path,
-	// egress.Validate) and s.http is an egress.NewClient(egress.Guard()): its
-	// dialer rejects private/reserved IPs and its redirect hook re-validates
-	// every hop.
-	resp, err := s.http.Do(req)
+	// egress.Validate) and s.cimdClient is an egress.NewClient(egress.Guard())
+	// clone whose dialer rejects private/reserved IPs and whose redirect hook
+	// re-validates every hop (and forbids a downgrade to http).
+	resp, err := s.cimdClient().Do(req)
 	if err != nil {
 		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient("failed to fetch client metadata")
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.Request == nil || resp.Request.URL == nil || resp.Request.URL.Scheme != "https" {
+		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient(
+			"client metadata endpoint must stay on https")
+	}
+	if !isJSONContentType(resp.Header.Get("Content-Type")) {
+		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient(
+			"client metadata endpoint must return application/json")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return oauthserverModel.ClientMetadata{}, oauthserverModel.ErrInvalidClient(
 			fmt.Sprintf("client metadata endpoint returned %d", resp.StatusCode))
@@ -160,6 +197,11 @@ func validateClientMetadata(meta oauthserverModel.ClientMetadata, clientID strin
 			return err
 		}
 	}
+	if isMetadataDocumentURL(clientID) {
+		if err := validateMetadataRedirectOrigins(clientID, meta.RedirectURIs); err != nil {
+			return err
+		}
+	}
 	switch meta.TokenEndpointAuthMethod {
 	case "", "none":
 	default:
@@ -189,6 +231,54 @@ func validateRedirectURI(raw string) *oauthserverModel.Error {
 		return nil
 	}
 	return oauthserverModel.ErrInvalidRequest("redirect_uri must use https (http is allowed for loopback only)")
+}
+
+// validateMetadataRedirectOrigins keeps a Client ID Metadata Document from
+// claiming a redirect on an unrelated origin. Native clients are the exception:
+// RFC 8252 loopback redirects use an ephemeral local port and carry no
+// authority to mint tokens for a web origin.
+func validateMetadataRedirectOrigins(clientID string, redirectURIs []string) *oauthserverModel.Error {
+	clientURL, err := url.Parse(clientID)
+	if err != nil {
+		return oauthserverModel.ErrInvalidClient("invalid client metadata URL")
+	}
+	for _, raw := range redirectURIs {
+		parsed, err := url.Parse(raw)
+		if err != nil {
+			continue
+		}
+		if parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname()) {
+			continue
+		}
+		if sameHTTPSOrigin(parsed, clientURL) {
+			continue
+		}
+		return oauthserverModel.ErrInvalidClient(
+			"redirect_uri must share the client_id origin")
+	}
+	return nil
+}
+
+// sameHTTPSOrigin compares scheme, host and effective port so an explicit
+// :443 is not treated as a different origin from the default HTTPS port.
+func sameHTTPSOrigin(a, b *url.URL) bool {
+	return a.Scheme == "https" && b.Scheme == "https" &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) &&
+		effectivePort(a) == effectivePort(b)
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch u.Scheme {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	default:
+		return ""
+	}
 }
 
 func isLoopbackHost(host string) bool {

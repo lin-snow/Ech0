@@ -5,6 +5,7 @@ package mcp
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -53,11 +54,14 @@ type elicitationFormParams struct {
 
 // confirmationState is the integrity-protected context echoed back by the
 // client. It binds the confirmation to one principal, one tool and one exact
-// argument set so a retry cannot be replayed against a different target.
+// argument set so a retry cannot be replayed against a different target. The
+// nonce keeps two identical requests issued in the same second distinct, so
+// approving one does not consume the other's state.
 type confirmationState struct {
 	UserID  string `json:"uid"`
 	Tool    string `json:"tool"`
 	ArgsSHA string `json:"args"`
+	Nonce   string `json:"nonce"`
 	Expiry  int64  `json:"exp"`
 }
 
@@ -143,10 +147,15 @@ func truncateRunes(value string, limit int) string {
 }
 
 func signConfirmationState(userID, tool string, args map[string]any) (string, error) {
+	nonce := make([]byte, 16)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
 	payload, err := json.Marshal(confirmationState{
 		UserID:  userID,
 		Tool:    tool,
 		ArgsSHA: argsDigest(args),
+		Nonce:   base64.RawURLEncoding.EncodeToString(nonce),
 		Expiry:  time.Now().UTC().Add(confirmationStateTTL).Unix(),
 	})
 	if err != nil {

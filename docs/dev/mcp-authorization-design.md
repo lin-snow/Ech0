@@ -63,7 +63,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 
 - `uid` / `username`：批准人；
 - `client_id` / `client_name`；
-- `redirect_uri`：精确匹配；
+- `redirect_uri`：精确匹配；loopback http 按 RFC 8252 忽略端口（path/query 仍须一致）；
 - `scope`：批准范围；
 - `resource`：`<issuer>/mcp`；
 - `code_challenge`（S256）；
@@ -80,9 +80,9 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 1. **CIMD**（`client_id` 是 HTTPS URL）：按需抓取 JSON 文档，校验
    - URL 必须 https、带 path、无 fragment/userinfo，并通过 `pkg/egress.Validate`（拒绝 loopback、私网/保留 IP、userinfo）；
    - 文档 `client_id` 与 URL 完全一致；
-   - `redirect_uris` 非空，且 https 或 loopback http；
+   - `redirect_uris` 非空，且 https 或 loopback http；CIMD 客户端的非 loopback redirect 必须与 `client_id` 同源（scheme+host）；
    - 只接受 public client（`token_endpoint_auth_method` 为空或 `none`）。
-   使用 `pkg/egress` 的 Guard 客户端：抓取前 `egress.Validate`，拨号后检查远端 IP（防 DNS rebinding），重定向逐跳复验；64 KiB 响应上限，按 `Cache-Control: max-age` 缓存（1 分钟–1 小时）。
+   使用 `pkg/egress` 的 Guard 客户端：抓取前 `egress.Validate`，拨号后检查远端 IP（防 DNS rebinding），重定向逐跳复验且禁止降级到 http；响应必须是 `application/json`（或 `+json`），最终 URL 必须仍是 https；64 KiB 响应上限，按 `Cache-Control: max-age` 缓存（1 分钟–1 小时）。
 2. **DCR**（`POST /oauth/register`）：生成 `ech0-…` client_id，落库 `oauth_clients`；仅支持 `authorization_code` + `code` + `none`，上限 200 个，接口单独限流。规范已标记 deprecated，文档中明确说明仅为兼容。
 3. **预注册**：暂不提供 UI；需要时可直接在 DCR 表插入一行，或后续补管理页。
 
@@ -105,7 +105,8 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 ## 7. 安全决策
 
 - **管理员专属**：Ech0 的手工令牌签发本来就只允许管理员；OAuth 同意继承同一规则。非管理员看到 `access_denied`。
-- **redirect_uri 精确匹配**：不做前缀/通配匹配；错误重定向也只在 client 与 redirect 均已校验后发生。
+- **redirect_uri 精确匹配**：不做前缀/通配匹配；`client_id` 与 `redirect_uri` 校验通过之后出现的授权错误（非管理员、用户不存在）改为 redirect-with-error，与拒绝路径一致；校验通过前仍返回本地错误，避免向未验证的 redirect 泄漏信息。
+- **MRTR requestState**：HMAC 载荷包含 16 字节 nonce，同一秒内相同 principal/工具/参数的两个确认请求不会互相消费；服务端先读取 `inputResponses`，只有真正的批准才消费状态，未作答的重试不会烧掉批准。
 - **无 refresh token**：v1 只签发 30 天 access token，不实现 refresh/rotation，元数据只声明 `authorization_code`。令牌到期后重新走一次同意；撤销走后台。
 - **无客户端密钥**：只支持 public client + PKCE，避免在自托管场景引入密钥分发。
 - **不信任客户端自述**：同意页展示的 `client_name` 来自 CIMD 文档或注册表，不取 query。

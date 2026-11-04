@@ -220,6 +220,71 @@ func TestConfirmationStateIsSingleUse(t *testing.T) {
 	}
 }
 
+func TestConfirmationStateIncludesNonce(t *testing.T) {
+	args := map[string]any{"id": "abc"}
+	first, err := signConfirmationState("test-user", "delete_thing", args)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+	second, err := signConfirmationState("test-user", "delete_thing", args)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+	if first == second {
+		t.Fatal("identical requests produced the same confirmation state")
+	}
+}
+
+func TestConfirmationStateSurvivesUnansweredRetry(t *testing.T) {
+	calls := 0
+	srv := countingServer(&calls)
+
+	_, first := doModernAs(t, srv, destructiveViewer(), elicitationCaps(), "tools/call", map[string]any{
+		"name":      "delete_thing",
+		"arguments": map[string]any{"id": "abc"},
+	})
+	pending := unmarshalResult[InputRequiredResult](t, first)
+
+	// Retrying the original call with the state but no answer must not consume
+	// the approval; it only asks again.
+	_, retry := doModernAs(t, srv, destructiveViewer(), elicitationCaps(), "tools/call", map[string]any{
+		"name":         "delete_thing",
+		"arguments":    map[string]any{"id": "abc"},
+		"requestState": pending.RequestState,
+	})
+	if retry.Error != nil {
+		t.Fatalf("unanswered retry failed: %v", retry.Error)
+	}
+	reissued := unmarshalResult[InputRequiredResult](t, retry)
+	if reissued.ResultType != resultTypeInputRequired {
+		t.Fatalf("resultType = %q, want %q", reissued.ResultType, resultTypeInputRequired)
+	}
+	if reissued.RequestState == pending.RequestState {
+		t.Error("reissued requestState should be a fresh nonce")
+	}
+	if calls != 0 {
+		t.Fatalf("tool executed without an answer")
+	}
+
+	_, approved := doModernAs(t, srv, destructiveViewer(), elicitationCaps(), "tools/call", map[string]any{
+		"name":         "delete_thing",
+		"arguments":    map[string]any{"id": "abc"},
+		"requestState": pending.RequestState,
+		"inputResponses": map[string]any{
+			confirmationKey: map[string]any{
+				"action":  "accept",
+				"content": map[string]any{confirmationKey: true},
+			},
+		},
+	})
+	if approved.Error != nil {
+		t.Fatalf("answering the original state failed: %v", approved.Error)
+	}
+	if calls != 1 {
+		t.Fatalf("tool calls = %d, want 1", calls)
+	}
+}
+
 func TestDestructiveToolWithoutElicitationExecutes(t *testing.T) {
 	calls := 0
 	srv := countingServer(&calls)

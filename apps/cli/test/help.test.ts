@@ -263,7 +263,7 @@ describe("help", () => {
     expect(result.stdout).toContain("audience=cli");
     // The hint wraps at the terminal width, so compare with whitespace collapsed.
     expect(result.stdout.replace(/\s+/g, " ")).toContain(
-      "默认 echo:read,echo:write,echo:delete,profile:read,file:read,file:write",
+      "默认 echo:read,echo:private,echo:write,echo:delete",
     );
   });
 

@@ -161,16 +161,11 @@ func Has(held []string, scope string) bool {
 	return false
 }
 
-// Allows reports whether held contains every required scope. Scopes are a
+// Allows reports whether held contains every required scope. scopes are a
 // small fixed vocabulary, so the nested scan is cheaper than allocating a set
-// on every request.
+// on every request. No length shortcut: required is a requirement list, not a
+// set, so duplicates must not turn into a spurious denial.
 func Allows(held, required []string) bool {
-	if len(required) == 0 {
-		return true
-	}
-	if len(required) > len(held) {
-		return false
-	}
 	for _, want := range required {
 		found := false
 		for _, have := range held {

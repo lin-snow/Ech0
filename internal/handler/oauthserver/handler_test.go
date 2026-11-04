@@ -137,6 +137,29 @@ func TestConsentRejectsAccessToken(t *testing.T) {
 	}
 }
 
+func TestApproveRejectsUnknownDecision(t *testing.T) {
+	engine := testRouter(fakeService{})
+	request := httptest.NewRequest(http.MethodPost, "/authorize",
+		strings.NewReader(`{"decision":"maybe"}`))
+	request.Header.Set("Content-Type", "application/json")
+	sessionViewer := viewer.NewUserViewerWithToken(
+		"user-1", authModel.TokenTypeSession, nil, nil, "jti")
+	request = request.WithContext(viewer.WithContext(request.Context(), sessionViewer))
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", recorder.Code)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"error_code":"invalid_request"`) {
+		t.Errorf("body is not the consent envelope: %s", body)
+	}
+	if !strings.Contains(body, "decision must be approve or deny") {
+		t.Errorf("body = %s", body)
+	}
+}
+
 func TestConsentReturnsEnvelopeForSession(t *testing.T) {
 	engine := testRouter(fakeService{consent: oauthserverModel.ConsentContext{
 		ClientName: "Test Client", RedirectURI: "http://127.0.0.1:3000/cb",

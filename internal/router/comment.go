@@ -117,7 +117,7 @@ func registerComment(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Comment"},
 	}, h.CommentHandler.DeleteComment)
 
-	route(api, deleteComments, huma.Operation{
+	route(api, review, huma.Operation{
 		OperationID: "comment-panel-batch",
 		Method:      http.MethodPost,
 		Path:        "/panel/comments/batch",

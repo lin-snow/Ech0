@@ -51,7 +51,7 @@ func (h *Handler) Approve() gin.HandlerFunc {
 		}
 		var request approveRequest
 		if err := ctx.ShouldBindJSON(&request); err != nil {
-			writeOAuthError(ctx, oauthserverModel.ErrInvalidRequest("request body must be JSON"))
+			writeConsentError(ctx, oauthserverModel.ErrInvalidRequest("request body must be JSON"))
 			return
 		}
 		query := approveQuery(request)
@@ -60,10 +60,14 @@ func (h *Handler) Approve() gin.HandlerFunc {
 			redirect string
 			oauthErr *oauthserverModel.Error
 		)
-		if request.Decision == "deny" {
-			redirect, oauthErr = h.service.Deny(ctx.Request.Context(), requestOrigin(ctx), query)
-		} else {
+		switch request.Decision {
+		case "approve":
 			redirect, oauthErr = h.service.Approve(ctx.Request.Context(), requestOrigin(ctx), query, userID)
+		case "deny":
+			redirect, oauthErr = h.service.Deny(ctx.Request.Context(), requestOrigin(ctx), query)
+		default:
+			writeConsentError(ctx, oauthserverModel.ErrInvalidRequest("decision must be approve or deny"))
+			return
 		}
 		if oauthErr != nil {
 			writeConsentError(ctx, oauthErr)

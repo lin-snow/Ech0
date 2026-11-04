@@ -38,9 +38,10 @@ automatically.
 ## Scopes
 
 `--scopes a,b,c` applies when a login mints a token. The default is
-`echo:read,echo:write,echo:delete,profile:read,file:read,file:write,comment:write,connect:write,connect:delete,admin:webhook`.
-The delete scopes cover the destructive commands; `admin:webhook` only covers
-the webhook surface. Tokens minted elsewhere keep their own scopes.
+`echo:read,echo:private,echo:write,echo:delete,profile:read,file:read,file:write,comment:write,connect:write,connect:delete,admin:webhook`.
+The delete scopes cover the destructive commands, `echo:private` lets an admin
+read private echoes, and `admin:webhook` only covers the webhook surface.
+Tokens minted elsewhere keep their own scopes.
 
 ## Profiles
 

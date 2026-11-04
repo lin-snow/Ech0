@@ -4273,7 +4273,7 @@ paths:
           description: Error
       security:
         - bearerAuth:
-            - comment:delete
+            - comment:review
       summary: 批量操作评论
       tags:
         - Comment

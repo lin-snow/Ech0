@@ -125,6 +125,7 @@ func TestAllows(t *testing.T) {
 		{"read-does-not-imply-private", []string{ScopeEchoRead}, []string{ScopeEchoPrivate}, false},
 		{"none-held", nil, []string{ScopeEchoRead}, false},
 		{"duplicate-held", []string{ScopeEchoRead, ScopeEchoRead}, []string{ScopeEchoRead}, true},
+		{"duplicate-required", []string{ScopeEchoRead}, []string{ScopeEchoRead, ScopeEchoRead}, true},
 		{"required-longer", []string{ScopeEchoRead}, []string{ScopeEchoRead, ScopeEchoWrite}, false},
 	}
 	for _, tc := range cases {

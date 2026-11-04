@@ -18,13 +18,14 @@ import { setCookieValue } from "../session.ts";
 import { resolveTarget, type CliContext } from "../session.ts";
 import type { CommandOutput } from "./types.ts";
 
-// Every scope the exposed command surface needs: Echo CRUD (delete included),
-// the file surface, comment writes, Connect add/delete and webhook management.
-// The delete scopes mirror the CLI's destructive commands. Comment moderation,
-// comment settings and Connect health are deliberately not exposed, so their
-// scopes stay out.
+// Every scope the exposed command surface needs: Echo CRUD (delete included,
+// private reads included), the file surface, comment writes, Connect add/delete
+// and webhook management. The delete scopes mirror the CLI's destructive
+// commands. Comment moderation, comment settings and Connect health are
+// deliberately not exposed, so their scopes stay out.
 export const DEFAULT_CLI_SCOPES = [
   "echo:read",
+  "echo:private",
   "echo:write",
   "echo:delete",
   "profile:read",

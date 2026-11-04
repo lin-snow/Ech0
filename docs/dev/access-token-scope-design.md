@@ -85,7 +85,7 @@ MCP：
 
 - `echo:private` 是 `echo:read` 的附加能力；`echo:read` 默认只返回公开内容。
 - `echo:write` / `file:write` / `connect:write` **不包含**对应的 `:delete`。
-- `comment:review` 只覆盖审核面板的读取与状态/置顶；删除和批量操作需要 `comment:delete`，评论设置与测试邮件需要 `comment:settings`。
+- `comment:review` 覆盖审核面板的读取、状态/置顶与批量审核（approve/reject）；批量删除在 `comment:review` 之外还要求 `comment:delete`（服务内按 action 二次校验）。评论设置与测试邮件需要 `comment:settings`。
 - Passkey 注册/删除、OAuth 绑定、访问令牌 CRUD 是 **session-only**，不进入 scope 词表；任何 `typ=access` token 即使持有全部 scope 也不能调用。
 - 用 access token 铸造新 token 时，新 token 的 scopes 必须是调用者 scopes 的子集；该检查是纵深防御，正常入口已被 session-only 限制。
 - 服务端始终以 scope 判定 access token 是否允许调用，即便用户角色是 admin。

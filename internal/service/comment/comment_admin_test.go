@@ -8,6 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/authz"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/test/helpers"
@@ -288,6 +290,34 @@ func TestBatchAction(t *testing.T) {
 			Return(nil).
 			Once()
 		err := d.service().BatchAction(helpers.CtxAsUser("admin-1"), "delete", ids)
+		require.NoError(t, err)
+	})
+
+	t.Run("review-only token cannot batch delete", func(t *testing.T) {
+		d := newDeps(t)
+		expectAdmin(t, d, "admin-1")
+		ctx := helpers.CtxAsToken("admin-1", authModel.TokenTypeAccess,
+			[]string{authz.ScopeCommentReview}, []string{authz.AudienceCLI}, "jti")
+		err := d.service().BatchAction(ctx, "delete", []string{"c-1"})
+		assertBiz(t, err, commonModel.ErrCodeScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+	})
+
+	t.Run("delete-scoped token can batch delete", func(t *testing.T) {
+		d := newDeps(t)
+		ids := []string{"c-1"}
+		expectAdmin(t, d, "admin-1")
+		d.repo.EXPECT().
+			GetCommentByID(mock.Anything, "c-1").
+			Return(commentModel.Comment{ID: "c-1"}, nil).
+			Once()
+		d.repo.EXPECT().
+			BatchDelete(mock.Anything, ids).
+			Return(nil).
+			Once()
+		ctx := helpers.CtxAsToken("admin-1", authModel.TokenTypeAccess,
+			[]string{authz.ScopeCommentReview, authz.ScopeCommentDelete},
+			[]string{authz.AudienceCLI}, "jti")
+		err := d.service().BatchAction(ctx, "delete", ids)
 		require.NoError(t, err)
 	})
 

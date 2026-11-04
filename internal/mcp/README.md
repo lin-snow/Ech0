@@ -75,7 +75,7 @@ MCP-compatible client / Host
 | `adapter_agent.go` | Agent 域：get_recent tool（AI 近况摘要） |
 | `adapter_webhook.go` | Webhook 域：list/create/update/delete/test webhook tools |
 | `adapter_dashboard.go` | Dashboard 域：`ech0://stats/visitors` resource（近 7 天 PV/UV，需 `admin:ops`） |
-| `mrtr.go` | MRTR：`input_required` 结果、elicitation 确认请求、HMAC `requestState`（绑定 principal / 工具 / 参数摘要 / TTL） |
+| `mrtr.go` | MRTR：`input_required` 结果、elicitation 确认请求、HMAC `requestState`（绑定 principal / 工具 / 参数摘要 / nonce / TTL） |
 | `server.go` | MCP Server 核心：era 判定、传输校验、方法分发、scope 校验、超时控制、审计日志、按 scope 过滤 list |
 | `handler.go` | Gin 桥接层：组装 Registry → Adapter → Server，暴露 `ServeEndpoint()` |
 | `server_test.go` | 单元测试：两个时代的完整流程、版本协商、传输头校验、scope 拒绝、模板列举、缓存策略、错误映射 |
@@ -98,7 +98,7 @@ MCP-compatible client / Host
 
 - **认证与发现**：`/mcp` 的 401 带 `WWW-Authenticate: Bearer resource_metadata="…/oauth-protected-resource/mcp"`；PRM / AS 元数据 / 授权码 + PKCE 由 `internal/service/oauthserver` 提供（见 `docs/dev/mcp-authorization-design.md`）。
 - **最小暴露**：list 只返回 token 可调用的 primitive，避免模型选择注定 403 的工具；因列表随授权上下文变化，`ttlMs` + `cacheScope=private`。
-- **危险操作**：破坏性工具（`annotations.destructiveHint=true`）在支持 MRTR 的客户端上强制二次确认；`requestState` 用 HMAC 绑定用户、工具与参数，拒绝篡改/换目标/过期重放，并在批准后一次性消费（同一状态不能再次授权执行）；客户端未声明 `elicitation` 时退回 Host 侧注解确认。
+- **危险操作**：破坏性工具（`annotations.destructiveHint=true`）在支持 MRTR 的客户端上强制二次确认；`requestState` 用 HMAC 绑定用户、工具、参数与 16 字节 nonce，拒绝篡改/换目标/过期重放；服务端先读取确认结果，只有批准才一次性消费状态（未作答的重试不会烧掉状态）；客户端未声明 `elicitation` 时退回 Host 侧注解确认。
 - **可观测性**：审计日志记录 era、tool、client（`_meta.clientInfo.name`）、token jti 与耗时。
 - **无会话/无 SSE**：不发放 `Mcp-Session-Id`，不支持 `subscriptions/listen`、`Last-Event-ID`；能力声明为 `listChanged:false`、`subscribe:false`。
 

@@ -336,6 +336,58 @@ func TestDenyRedirectsWithAccessDenied(t *testing.T) {
 	}
 }
 
+func TestApproveNonAdminRedirectsWithError(t *testing.T) {
+	clients := newFakeClients()
+	user := userModel.User{ID: "user-2", Username: "member", IsAdmin: false}
+	issuer := &fakeIssuer{}
+	service := NewOAuthServerService(clients, fakeUsers{user: user}, issuer)
+	client := registerTestClient(t, service)
+	_, challenge := pkcePair()
+	query := authorizeQuery(client.ClientID, "http://127.0.0.1:3000/callback", challenge)
+
+	redirect, oauthErr := service.Approve(context.Background(), "https://ech0.test", query, user.ID)
+	if oauthErr != nil {
+		t.Fatalf("approve returned a local error instead of redirecting: %v", oauthErr)
+	}
+	parsed, err := url.Parse(redirect)
+	if err != nil {
+		t.Fatalf("parse redirect: %v", err)
+	}
+	if got := parsed.Query().Get("error"); got != "access_denied" {
+		t.Errorf("error = %q, want access_denied", got)
+	}
+	if got := parsed.Query().Get("state"); got != "xyz" {
+		t.Errorf("state = %q, want xyz", got)
+	}
+	if parsed.Query().Get("code") != "" {
+		t.Error("a denied approval must not carry an authorization code")
+	}
+	if issuer.calls != 0 {
+		t.Errorf("issuer called %d times, want 0", issuer.calls)
+	}
+}
+
+func TestLoopbackRedirectIgnoresEphemeralPort(t *testing.T) {
+	service, _, _, _ := testService()
+	client := registerTestClient(t, service)
+	_, challenge := pkcePair()
+
+	query := authorizeQuery(client.ClientID, "http://127.0.0.1:41000/callback", challenge)
+	if _, oauthErr := service.AuthorizationRequest(context.Background(), "https://ech0.test", query); oauthErr != nil {
+		t.Fatalf("loopback redirect with a different port was rejected: %v", oauthErr)
+	}
+
+	query.Set("redirect_uri", "http://127.0.0.1:41000/other")
+	if _, oauthErr := service.AuthorizationRequest(context.Background(), "https://ech0.test", query); oauthErr == nil {
+		t.Fatal("loopback redirect with a different path was accepted")
+	}
+
+	query.Set("redirect_uri", "http://localhost:41000/callback")
+	if _, oauthErr := service.AuthorizationRequest(context.Background(), "https://ech0.test", query); oauthErr == nil {
+		t.Fatal("loopback redirect with a different host was accepted")
+	}
+}
+
 func TestClientIDMetadataDocument(t *testing.T) {
 	service, _, _, user := testService()
 	_, challenge := pkcePair()
@@ -353,7 +405,7 @@ func TestClientIDMetadataDocument(t *testing.T) {
 		})
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Header:     make(http.Header),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
 			Body:       io.NopCloser(bytes.NewReader(body)),
 			Request:    req,
 		}, nil

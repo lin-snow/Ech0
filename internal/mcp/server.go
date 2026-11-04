@@ -435,10 +435,10 @@ func (s *Server) confirmDestructive(
 	if err := verifyConfirmationState(params.RequestState, userID, tool, args); err != nil {
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: err.Error()}
 	}
-	if !s.consumeConfirmation(params.RequestState) {
-		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "confirmation state has already been used"}
-	}
 
+	// Read the answer before touching the ledger: echoing requestState without
+	// an inputResponses entry is a retry of the original request, not an
+	// approval, and must not burn the state.
 	responded, approved, err := readConfirmation(params)
 	if err != nil {
 		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "invalid confirm response"}
@@ -448,6 +448,9 @@ func (s *Server) confirmDestructive(
 	}
 	if !approved {
 		return cancelledResult(), nil
+	}
+	if !s.consumeConfirmation(params.RequestState) {
+		return nil, &RPCError{Code: ErrCodeInvalidParams, Message: "confirmation state has already been used"}
 	}
 	return nil, nil
 }

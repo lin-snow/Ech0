@@ -24,7 +24,9 @@ func setupOAuthServerRoutes(r *gin.Engine, groups *AppRouterGroup, h *handler.Bu
 	// Rate limiting registration keeps an open DCR endpoint from being used to
 	// fill the client table.
 	r.POST(oauthserverModel.RegistrationPath, middleware.NoCache(), middleware.RateLimit(5, 10), h.OAuthServerHandler.Register())
-	r.POST(oauthserverModel.TokenPath, middleware.NoCache(), h.OAuthServerHandler.Token())
+	// The token endpoint is unauthenticated apart from the code and PKCE
+	// verifier, so cap guessing attempts per client IP as well.
+	r.POST(oauthserverModel.TokenPath, middleware.NoCache(), middleware.RateLimit(10, 20), h.OAuthServerHandler.Token())
 
 	groups.AuthRouterGroup.GET(
 		"/consent",
