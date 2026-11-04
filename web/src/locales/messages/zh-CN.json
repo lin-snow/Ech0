@@ -1206,8 +1206,8 @@
     "exportPhaseCompleted": "完成"
   },
   "oauthConsent": {
-    "title": "授权 MCP 客户端",
-    "subtitle": "一个 MCP 客户端请求访问你的 Ech0 实例。",
+    "title": "授权应用访问",
+    "subtitle": "一个应用请求访问你的 Ech0 实例。",
     "client": "客户端",
     "scopes": "请求的权限",
     "resource": "资源",
@@ -1215,11 +1215,11 @@
     "deny": "拒绝",
     "approving": "处理中…",
     "loading": "正在读取授权请求…",
-    "adminRequired": "只有管理员可以授权 MCP 客户端。",
+    "adminRequired": "只有管理员可以授权应用。",
     "invalidRequest": "授权请求不完整或参数无效。",
     "loadFailed": "无法读取授权请求，请回到客户端重试。",
     "failed": "授权处理失败，请回到客户端重试。",
-    "securityHint": "仅在你信任该客户端时授权。授权会签发一个 MCP 访问令牌，可随时在「设置 → 访问令牌」中撤销。"
+    "securityHint": "仅在你信任该客户端时授权。授权会签发一个访问令牌，可随时在「设置 → 访问令牌」中撤销。"
   },
   "devicePage": {
     "codeLabel": "设备码",

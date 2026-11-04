@@ -16,11 +16,11 @@ func (s *OAuthServerService) ProtectedResourceMetadata(
 ) oauthserverModel.ProtectedResourceMetadata {
 	issuer := s.issuer(ctx, origin)
 	return oauthserverModel.ProtectedResourceMetadata{
-		Resource:               issuer + oauthserverModel.MCPResourcePath,
+		Resource:               s.resourceURI(ctx, origin),
 		AuthorizationServers:   []string{issuer},
 		ScopesSupported:        scopesSupported(),
 		BearerMethodsSupported: []string{"header"},
-		ResourceName:           "Ech0 MCP",
+		ResourceName:           s.resource().Name,
 	}
 }
 

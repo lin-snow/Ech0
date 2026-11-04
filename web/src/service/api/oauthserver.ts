@@ -10,6 +10,7 @@ export interface OAuthConsentContext {
   redirect_uri: string
   scopes: string[]
   resource: string
+  resource_name?: string
   state?: string
 }
 

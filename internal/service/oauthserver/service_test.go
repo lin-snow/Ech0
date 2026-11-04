@@ -359,6 +359,9 @@ func TestClientIDMetadataDocument(t *testing.T) {
 	if consent.ClientName != "CIMD Client" {
 		t.Errorf("client name = %q", consent.ClientName)
 	}
+	if consent.ResourceName != "Ech0 MCP" {
+		t.Errorf("resource name = %q", consent.ResourceName)
+	}
 
 	redirect, oauthErr := service.Approve(context.Background(), "https://ech0.test", query, user.ID)
 	if oauthErr != nil {
@@ -410,7 +413,7 @@ func TestCacheLifetimeHonorsNoStore(t *testing.T) {
 }
 
 func TestTokenNameIsRuneSafe(t *testing.T) {
-	name := tokenName(strings.Repeat("世", 200))
+	name := tokenName("mcp", strings.Repeat("世", 200))
 	if len([]rune(name)) != 120 {
 		t.Fatalf("rune length = %d, want 120", len([]rune(name)))
 	}

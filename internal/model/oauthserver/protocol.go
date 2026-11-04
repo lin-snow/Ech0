@@ -122,12 +122,13 @@ type AuthorizationRequest struct {
 
 // ConsentContext is what the SPA needs to render the approval screen.
 type ConsentContext struct {
-	ClientName  string   `json:"client_name"`
-	ClientURI   string   `json:"client_uri,omitempty"`
-	RedirectURI string   `json:"redirect_uri"`
-	Scopes      []string `json:"scopes"`
-	Resource    string   `json:"resource"`
-	State       string   `json:"state,omitempty"`
+	ClientName   string   `json:"client_name"`
+	ClientURI    string   `json:"client_uri,omitempty"`
+	RedirectURI  string   `json:"redirect_uri"`
+	Scopes       []string `json:"scopes"`
+	Resource     string   `json:"resource"`
+	ResourceName string   `json:"resource_name,omitempty"`
+	State        string   `json:"state,omitempty"`
 }
 
 // CodeClaims is the signed, stateless authorization code. It carries

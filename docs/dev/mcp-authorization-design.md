@@ -40,7 +40,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 
 - **资源服务器**是原有 `/mcp`，不改协议实现；只在 401 上补 `resource_metadata` 挑战，并接受 OAuth 签发的同款 JWT。
 - **授权服务器**与资源服务器同进程，issuer 取请求 origin（含 `X-Forwarded-Proto`）。RFC 8414 要求 metadata 的 `issuer` 与构造 well-known URL 的标识完全一致，因此不用后台 `server_url` 覆盖；反代场景要保证 `Host` / `X-Forwarded-Proto` 正确透传。
-- **同意页**是 SPA 路由，复用浏览器会话（`typ=session`）；consent API 拒绝任何 `typ=access` 令牌——否则一个令牌可以铸出另一个更宽的令牌。
+- **同意页**是 SPA 路由，复用浏览器会话（`typ=session`）；consent API 拒绝任何 `typ=access` 令牌——否则一个令牌可以铸出另一个更宽的令牌。`GET /api/consent` 同时返回 `resource_name`，前端据此渲染资源名，不硬编码 MCP 文案；将来注册第二个资源时页面无需改动。
 
 ## 3. 令牌模型
 

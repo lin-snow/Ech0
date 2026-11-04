@@ -130,7 +130,11 @@ onMounted(load)
         </div>
 
         <p class="text-xs text-[var(--color-text-muted)] break-all">
-          {{ t('oauthConsent.resource') }}: {{ consent.resource }}
+          {{ t('oauthConsent.resource') }}:
+          <span class="font-medium text-[var(--color-text-primary)]">
+            {{ consent.resource_name || consent.resource }}
+          </span>
+          <span v-if="consent.resource_name" class="mt-0.5 block">{{ consent.resource }}</span>
         </p>
 
         <div class="flex gap-2">

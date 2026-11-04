@@ -1206,8 +1206,8 @@
     "exportPhaseCompleted": "Fertig"
   },
   "oauthConsent": {
-    "title": "MCP-Client autorisieren",
-    "subtitle": "Ein MCP-Client möchte auf deine Ech0-Instanz zugreifen.",
+    "title": "Anwendung autorisieren",
+    "subtitle": "Eine Anwendung möchte auf deine Ech0-Instanz zugreifen.",
     "client": "Client",
     "scopes": "Angeforderte Berechtigungen",
     "resource": "Ressource",
@@ -1215,11 +1215,11 @@
     "deny": "Ablehnen",
     "approving": "Wird verarbeitet…",
     "loading": "Autorisierungsanfrage wird gelesen…",
-    "adminRequired": "Nur Administratoren können MCP-Clients autorisieren.",
+    "adminRequired": "Nur Administratoren können Anwendungen autorisieren.",
     "invalidRequest": "Die Autorisierungsanfrage ist unvollständig oder ungültig.",
     "loadFailed": "Die Autorisierungsanfrage konnte nicht gelesen werden. Kehre zum Client zurück und versuche es erneut.",
     "failed": "Autorisierung fehlgeschlagen. Kehre zum Client zurück und versuche es erneut.",
-    "securityHint": "Erlaube nur Clients, denen du vertraust. Die Freigabe stellt ein MCP-Zugriffstoken aus, das du jederzeit unter Einstellungen → Zugriffstokens widerrufen kannst."
+    "securityHint": "Erlaube nur Clients, denen du vertraust. Die Freigabe stellt ein Zugriffstoken aus, das du jederzeit unter Einstellungen → Zugriffstokens widerrufen kannst."
   },
   "devicePage": {
     "codeLabel": "Gerätecode",

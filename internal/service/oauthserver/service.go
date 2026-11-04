@@ -68,7 +68,7 @@ func (s *OAuthServerService) issuer(_ context.Context, origin string) string {
 }
 
 func (s *OAuthServerService) resourceURI(ctx context.Context, origin string) string {
-	return s.issuer(ctx, origin) + oauthserverModel.MCPResourcePath
+	return s.issuer(ctx, origin) + s.resource().Path
 }
 
 func scopesSupported() []string {

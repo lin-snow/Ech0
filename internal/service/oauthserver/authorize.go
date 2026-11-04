@@ -54,7 +54,7 @@ func (s *OAuthServerService) AuthorizationRequest(
 			"code_challenge_method must be S256")
 	}
 
-	scopes, err := parseScopes(query.Get("scope"))
+	scopes, err := parseScopes(query.Get("scope"), s.resource().DefaultScopes)
 	if err != nil {
 		return oauthserverModel.AuthorizationRequest{}, err
 	}
@@ -106,12 +106,13 @@ func (s *OAuthServerService) Consent(
 		return oauthserverModel.ConsentContext{}, oauthErr
 	}
 	return oauthserverModel.ConsentContext{
-		ClientName:  request.ClientName,
-		ClientURI:   request.ClientURI,
-		RedirectURI: request.RedirectURI,
-		Scopes:      request.Scopes,
-		Resource:    request.Resource,
-		State:       request.State,
+		ClientName:   request.ClientName,
+		ClientURI:    request.ClientURI,
+		RedirectURI:  request.RedirectURI,
+		Scopes:       request.Scopes,
+		Resource:     request.Resource,
+		ResourceName: s.resource().Name,
+		State:        request.State,
 	}, nil
 }
 
@@ -182,10 +183,10 @@ func (s *OAuthServerService) consentRequest(
 	return request, user, nil
 }
 
-func parseScopes(raw string) ([]string, *oauthserverModel.Error) {
+func parseScopes(raw string, defaults []string) ([]string, *oauthserverModel.Error) {
 	fields := strings.Fields(raw)
 	if len(fields) == 0 {
-		return append([]string(nil), oauthserverModel.DefaultScopes...), nil
+		return append([]string(nil), defaults...), nil
 	}
 	if len(fields) > 20 {
 		return nil, oauthserverModel.ErrInvalidScope("too many scopes requested")

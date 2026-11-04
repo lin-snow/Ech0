@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/lin-snow/ech0/internal/authz"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
@@ -71,10 +70,10 @@ func (s *OAuthServerService) Exchange(
 	}
 
 	token, err := s.tokens.IssueForUser(ctx, claims.UserID, &settingModel.AccessTokenSettingDto{
-		Name:     tokenName(claims.ClientName),
+		Name:     tokenName(s.resource().TokenPrefix, claims.ClientName),
 		Expiry:   settingModel.ONE_MONTH_EXPIRY,
 		Scopes:   claims.Scopes,
-		Audience: authz.AudienceMCPRemote,
+		Audience: s.resource().Audience,
 	})
 	if err != nil {
 		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("failed to issue access token")
@@ -106,10 +105,10 @@ func verifyPKCE(verifier, challenge string) bool {
 	return subtle.ConstantTimeCompare([]byte(computed), []byte(challenge)) == 1
 }
 
-func tokenName(clientName string) string {
-	name := "mcp:" + strings.TrimSpace(clientName)
-	if name == "mcp:" {
-		name = "mcp:client"
+func tokenName(prefix, clientName string) string {
+	name := prefix + ":" + strings.TrimSpace(clientName)
+	if name == prefix+":" {
+		name = prefix + ":client"
 	}
 	if runes := []rune(name); len(runes) > 120 {
 		name = string(runes[:120])
