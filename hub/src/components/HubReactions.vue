@@ -15,6 +15,7 @@ const CATALOG: App.Api.Ech0.ReactionCatalogItem[] = [
   { key: 'haha', emoji: '😂' },
   { key: 'wow', emoji: '😮' },
   { key: 'sad', emoji: '😢' },
+  { key: 'cry', emoji: '😭' },
   { key: 'party', emoji: '🎉' },
 ]
 

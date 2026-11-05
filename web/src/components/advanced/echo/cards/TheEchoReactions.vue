@@ -70,6 +70,7 @@ const FALLBACK_CATALOG: App.Api.Ech0.ReactionCatalogItem[] = [
   { key: 'haha', emoji: '😂' },
   { key: 'wow', emoji: '😮' },
   { key: 'sad', emoji: '😢' },
+  { key: 'cry', emoji: '😭' },
   { key: 'party', emoji: '🎉' },
 ]
 
@@ -123,6 +124,7 @@ const REACTION_LABELS: { key: ReactionKey; labelKey: string }[] = [
   { key: 'haha', labelKey: 'reaction.haha' },
   { key: 'wow', labelKey: 'reaction.wow' },
   { key: 'sad', labelKey: 'reaction.sad' },
+  { key: 'cry', labelKey: 'reaction.cry' },
   { key: 'party', labelKey: 'reaction.party' },
 ]
 

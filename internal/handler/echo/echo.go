@@ -62,7 +62,7 @@ type (
 	}
 	ReactionInput struct {
 		ID    string `path:"id"    format:"uuid" doc:"Echo ID"`
-		Emoji string `path:"emoji" doc:"Reaction key" enum:"like,heart,haha,wow,sad,party"`
+		Emoji string `path:"emoji" doc:"Reaction key" enum:"like,heart,haha,wow,sad,cry,party"`
 	}
 	ReactionCatalogInput struct{}
 )

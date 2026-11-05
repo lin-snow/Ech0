@@ -46,6 +46,7 @@ var ReactionEmojis = []ReactionEmoji{
 	{Key: "haha", Char: "😂"},
 	{Key: "wow", Char: "😮"},
 	{Key: "sad", Char: "😢"},
+	{Key: "cry", Char: "😭"},
 	{Key: "party", Char: "🎉"},
 }
 

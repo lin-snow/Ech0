@@ -1458,6 +1458,7 @@ export const zReactionRemovePath = z.object({
         'haha',
         'wow',
         'sad',
+        'cry',
         'party'
     ])
 });
@@ -1475,6 +1476,7 @@ export const zReactionAddPath = z.object({
         'haha',
         'wow',
         'sad',
+        'cry',
         'party'
     ])
 });

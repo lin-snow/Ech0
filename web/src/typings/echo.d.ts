@@ -27,7 +27,7 @@ declare namespace App {
 
       type EchoVisibilityFilter = 'all' | 'public' | 'private'
 
-      type ReactionKey = 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'party'
+      type ReactionKey = 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'cry' | 'party'
 
       type ReactionCatalogItem = {
         key: ReactionKey

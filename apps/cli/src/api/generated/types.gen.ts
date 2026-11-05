@@ -2557,7 +2557,7 @@ export type ReactionRemoveData = {
         /**
          * Reaction key
          */
-        emoji: 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'party';
+        emoji: 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'cry' | 'party';
     };
     query?: never;
     url: '/echo/{id}/reactions/{emoji}';
@@ -2591,7 +2591,7 @@ export type ReactionAddData = {
         /**
          * Reaction key
          */
-        emoji: 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'party';
+        emoji: 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'cry' | 'party';
     };
     query?: never;
     url: '/echo/{id}/reactions/{emoji}';

@@ -164,7 +164,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			"required": []string{"id", "emoji"},
 			"properties": map[string]any{
 				"id":     map[string]any{"type": "string", "format": "uuid", "description": "Post UUID"},
-				"emoji":  map[string]any{"type": "string", "enum": []string{"like", "heart", "haha", "wow", "sad", "party"}, "description": "Reaction key"},
+				"emoji":  map[string]any{"type": "string", "enum": []string{"like", "heart", "haha", "wow", "sad", "cry", "party"}, "description": "Reaction key"},
 				"remove": map[string]any{"type": "boolean", "description": "Remove the reaction instead of adding it", "default": false},
 			},
 		},
