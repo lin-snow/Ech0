@@ -19,6 +19,7 @@
 |------|------|
 | [usage/configuration.md](usage/configuration.md) | 环境变量与 `.env`：加载顺序、全部变量与默认值、env 与后台设置的边界 |
 | [usage/mcp-usage.md](usage/mcp-usage.md) | MCP 接入：OAuth 2.1 授权 / Bearer Token、scope / audience、Host 配置、工具与资源清单 |
+| [usage/agent-discovery.md](usage/agent-discovery.md) | 智能体发现：`/llms.txt`、ARD / AI catalog、MCP server card 的内容边界与开关 |
 | [usage/webhook-usage.md](usage/webhook-usage.md) | Webhook：事件、签名、管理接口与故障处理 |
 | [usage/storage-migration.md](usage/storage-migration.md) | 存储迁移：更换 S3 服务商、本地 ⇄ 对象存储双向互迁 |
 | [usage/capsule.md](usage/capsule.md) | 胶囊（Capsule）：导出/导入/校验、编译静态站，以及与快照的分工 |

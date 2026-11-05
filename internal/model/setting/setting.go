@@ -27,6 +27,9 @@ type SystemSetting struct {
 	MetingAPI     string `json:"meting_api"`
 	CustomCSS     string `json:"custom_css"`
 	CustomJS      string `json:"custom_js"`
+	// DisableAgentDiscovery opts out of the discovery documents; stored inverted,
+	// so a settings blob written before the field existed keeps them enabled.
+	DisableAgentDiscovery bool `json:"disable_agent_discovery"`
 }
 
 type S3Setting struct {

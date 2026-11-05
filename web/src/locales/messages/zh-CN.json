@@ -593,6 +593,8 @@
     "customJs": "自定义 JS",
     "customJsPlaceholder": "请输入自定义 Script",
     "allowRegister": "允许注册",
+    "agentDiscovery": "智能体发现",
+    "agentDiscoveryHint": "向 AI 智能体公开 /llms.txt、AI catalog 与 MCP server card，使其能自动发现本实例的订阅源、API 与 MCP 端点",
     "defaultLocale": "默认语言",
     "logoUploading": "服务器 Logo 上传中...",
     "logoUploadSuccess": "服务器 Logo 上传成功！",

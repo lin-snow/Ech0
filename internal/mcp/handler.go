@@ -5,6 +5,7 @@ package mcp
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
@@ -17,7 +18,8 @@ import (
 )
 
 type Handler struct {
-	server *Server
+	server    *Server
+	durableKV kvstore.Store
 }
 
 func NewHandler(
@@ -30,11 +32,12 @@ func NewHandler(
 	agentSvc copilotService.SummaryService,
 	settingSvc settingService.Service,
 	dashboardSvc dashboardService.Service,
+	durableKV kvstore.Store,
 ) *Handler {
 	registry := NewRegistry()
 	adapter := NewAdapter(echoSvc, userSvc, commentSvc, fileSvc, commonSvc, connectSvc, agentSvc, settingSvc, dashboardSvc)
 	adapter.RegisterAll(registry)
-	return &Handler{server: NewServer(registry)}
+	return &Handler{server: NewServer(registry), durableKV: durableKV}
 }
 
 func (h *Handler) ServeEndpoint() gin.HandlerFunc {

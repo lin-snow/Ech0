@@ -64,6 +64,11 @@ func TestSetupRouter_RegistersKeyRoutes(t *testing.T) {
 		{method: http.MethodGet, path: "/api/connects/health"},
 		{method: http.MethodGet, path: "/api/system/logs"},
 		{method: http.MethodGet, path: "/api/system/logs/stream"},
+		{method: http.MethodGet, path: "/robots.txt"},
+		{method: http.MethodGet, path: "/llms.txt"},
+		{method: http.MethodGet, path: "/.well-known/ard.json"},
+		{method: http.MethodGet, path: "/.well-known/ai-catalog.json"},
+		{method: http.MethodGet, path: "/mcp/server-card"},
 		{method: http.MethodGet, path: "/ws/system/logs"},
 	}
 
@@ -439,14 +444,14 @@ func buildTestHandlers() *handler.Bundle {
 		fileHandler.NewFileHandler(nil),
 		commentHandler.NewCommentHandler(nil),
 		initHandler.NewInitHandler(nil),
-		commonHandler.NewCommonHandler(nil),
+		commonHandler.NewCommonHandler(nil, nil),
 		settingHandler.NewSettingHandler(nil),
 		connectHandler.NewConnectHandler(nil),
 		migratorHandler.NewMigrationHandler(nil),
 		dashboardHandler.NewDashboardHandler(nil),
 		copilotHandler.NewCopilotHandler(nil, nil),
 		embeddingHandler.NewEmbeddingHandler(nil),
-		mcp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		mcp.NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
 		nil,
 	)
 }
