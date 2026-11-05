@@ -74,16 +74,18 @@ sitemap 通过 `CommonService.ListSitemapEntries` 只查询 `id, created_at`，�
 
 ## 6. 素材
 
-- `web/public/og-cover.jpg`：1200×630，JPEG（约 35 KB，避免 WhatsApp 300 KB 上限）。
-- 提供 `og:image:width/height/alt`；echo 使用自有图片时移除尺寸声明（未知）。
+- `web/public/og-cover.jpg`：1200×630（1.91:1），JPEG q≈84，约 73 KB（低于 WhatsApp 建议的 300 KB）。
+- 版式由纸感底纹、同心「回声」弧线、品牌字标与 logo 组成；渲染时用 2× 画布再降采样，保证文字抗锯齿。
+- 提供 `og:image:width/height/type/alt`；echo 使用自有图片时移除尺寸声明（未知）。
 - `Ech0.png` 仍作为 JSON-LD 的 publisher logo；`Ech0.svg` 供 RSS 使用。
 
-重新生成（macOS；SVG 只是临时版式文件，不入库）：
+重新生成（版式源文件只是临时 HTML，不入库）：
 
 ```bash
-# 1200×630 版式：品牌底色 #f4f1ec + 居中字标与 logo
-sips -s format png og-cover.svg --out /tmp/og-cover.png
-sips -s format jpeg -s formatOptions 82 /tmp/og-cover.png --out web/public/og-cover.jpg
+# 1) Chromium 以 1200×630、deviceScaleFactor=2 截图 -> 2400×1260
+# 2) 降采样并转 JPEG
+sips -z 630 1200 cover@2x.png --out cover-1x.png
+sips -s format jpeg -s formatOptions 84 cover-1x.png --out web/public/og-cover.jpg
 ```
 
 ## 7. 验证
