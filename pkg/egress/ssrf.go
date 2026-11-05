@@ -55,6 +55,9 @@ func isPrivateOrReservedIP(ip net.IP) bool {
 	if ip == nil {
 		return true
 	}
+	if allowPrivate.Load() {
+		return false
+	}
 	for _, ipNet := range blockedCIDRs {
 		if ipNet.Contains(ip) {
 			return true
@@ -64,6 +67,9 @@ func isPrivateOrReservedIP(ip net.IP) bool {
 }
 
 func isBlockedHostname(hostname string) bool {
+	if allowPrivate.Load() {
+		return false
+	}
 	hostname = strings.ToLower(strings.TrimSpace(hostname))
 	return hostname == "localhost" ||
 		strings.HasSuffix(hostname, ".localhost") ||

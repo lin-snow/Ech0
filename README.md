@@ -133,7 +133,7 @@ Or download `ech0-cli-<os>-<arch>.tar.gz` from [Releases](https://github.com/lin
 ### Social & Interaction
 
 - 💬 **Built-in Comment System**: Supports comments and moderation configuration.
-- 🃏 **Content Interaction**: Supports social interactions such as likes and sharing.
+- 🃏 **Content Interaction**: Supports social interactions such as emoji reactions and sharing.
 
 ### Auth & Security
 

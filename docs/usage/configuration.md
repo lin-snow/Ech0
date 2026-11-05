@@ -55,6 +55,12 @@ ECH0_DB_PATH=data/ech0.db
 | `ECH0_SERVER_HOST` | `0.0.0.0` | 监听地址；空、`0.0.0.0`、`::` 均表示所有网卡（保持双栈）。设为 `127.0.0.1` 等可限制来源 |
 | `ECH0_SERVER_MODE` | `release` | `debug` 时开启 Gin 请求日志、控制台彩色日志 |
 | `ECH0_OPENAPI_DOCS_RENDERER` | `stoplight` | `/api/docs` 渲染器：`stoplight`（CDN）或 `scalar`（离线内置） |
+| `ECH0_EGRESS_ALLOW_PRIVATE` | `false` | 关闭出站 SSRF 守卫：放行 `localhost`、私网/CGNAT（含 Tailscale `100.64/10`）、保留地址。**仅本地开发**；`just run` / `just dev` 已注入 `true` |
+
+> `ECH0_EGRESS_ALLOW_PRIVATE=true` 对所有出站调用生效（connect、webhook、OAuth CIMD、站点抓取），
+> 等于把 SSRF 面重新打开。只在不可被外部访问的开发实例上使用；生产环境保持 `false`，
+> 需要连通内网 peer 时优先走公网/隧道域名。
+
 
 ### 数据库
 

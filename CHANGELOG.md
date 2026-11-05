@@ -9,6 +9,45 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Added
+
+- **`ECH0_EGRESS_ALLOW_PRIVATE` for local development.** Set it to `true` to let the outbound SSRF guard reach `localhost`, private, CGNAT (including Tailscale `100.64.0.0/10`) and reserved addresses — enough to add the instance itself as a Connect peer or probe LAN/VPN peers. It defaults to `false`, is applied once at bootstrap, and keeps scheme/userinfo validation; the guard logs a startup warning while disabled. `just run` and `just dev` inject it for local work. Never enable it on an internet-reachable instance: it re-opens SSRF targets for every egress caller (Connect, webhooks, OAuth CIMD, site scraping).
+
+- **Instances can advertise themselves to agents without a credential.** `GET /llms.txt` lists the site, feed, API docs and MCP card; `GET /.well-known/ard.json` (plus the legacy `/.well-known/ai-catalog.json` alias) serves an ARD 1.0 catalog whose entries point at `GET /mcp/server-card`, an MCP SEP-2127 card carrying transport, protocol version and auth header. All four are public and content-free — no posts, comments or users, so private and invite-only instances can leave them on — and every URL is absolute, built from the request's forwarded origin the same way `/robots.txt` and `/sitemap.xml` already are. `robots.txt` gains an `Agentmap:` line, unknown `/.well-known/*` paths now answer `404` instead of the SPA shell, and a new **Preferences → System settings → Agent discovery** switch (`disable_agent_discovery`, stored inverted so settings blobs written before the field keep discovery on) makes the four endpoints answer `404` and drops the `Agentmap:` line without changing crawl permission.
+
+- **Crawlers and share cards get a server-rendered head.** Each HTML request now rewrites the embedded SPA shell instead of shipping a blank `<head>`: routes get title, description, canonical, OG and JSON-LD from a server-side table; `/echo/{id}` renders as an article with `og:type=article`, `article:published_time`, a `BlogPosting` graph, the post's first image (else the new 1200×630 `og-cover.jpg`) and a `<noscript>` body. Client-side routing syncs the same values after hydration and never overwrites the article meta the server already emitted. Unknown paths, unknown or private Echo ids and missing assets answer `404` (a private id is indistinguishable from a missing one), every noindex route also sends `X-Robots-Tag`, `robots.txt` disallows those paths, and `sitemap.xml` lists public Echoes with `<lastmod>`. Canonical and OG URLs use the request origin, never the `server_url` placeholder, and `internal/handler/web/seo.go`'s route table must be kept in sync with `web/src/router` (contract in `docs/dev/seo-sharing.md`).
+
+- **The documentation site is bilingual.** English is the default at `/docs` and `/privacy`, Chinese moves to `/zh/docs` and `/zh/privacy`, and each page carries a language switch that keeps the current slug plus per-locale title, description and OG locale. New English translations cover the whole guide set — installation, update, getting started, FAQ, community, overview, editor, embedding, federation, MCP, preferences, S3, SSO, webhook, data control, access tokens, agent, capsule and chat — and the legacy doc redirects now resolve inside the active locale.
+
+### Changed
+
+- **Likes become emoji reactions.** `PUT /api/echo/like/:id` and the `fav_count` counter are gone. Posts now carry `reactions: [{key, emoji, count, reacted}]`, backed by a per-actor table (`echo_id`, `emoji`, `actor`) with a unique index, so adding is idempotent, removing works, and one person cannot inflate a count by double-clicking. Seven keys ship — `like`, `heart`, `haha`, `wow`, `sad`, `cry`, `party` — and `GET /api/reactions` returns the catalog for web and hub clients. Reactions are written with `PUT`/`DELETE /api/echo/:id/reactions/:emoji`; both return the post's fresh aggregate and neither invalidates the shared echo cache, because reaction summaries are hydrated per request instead of being cached with the post.
+
+- **The actor is a logged-in user first, then a per-browser visitor id.** Browser clients send `X-Ech0-Visitor` (a random UUID kept in localStorage); without it the server falls back to the hashed client IP. This keeps anonymous reactions separate without cookies or accounts.
+
+- **Sorting and hot ranking use reaction totals.** `POST /api/echo/query` now accepts `sort_by=reactions` (it was `fav_count`), and the hot list scores by total reactions plus approved comments.
+
+- **MCP tool `like_post` is replaced by `react_to_post`** (`id`, `emoji`, optional `remove`). It returns `{id, reactions}` and stays `echo:write`.
+
+- **The reaction control is a pill bar, not a like button.** The trigger shows up to three of the most-used emoji plus the total on one line — at `360px` and below the word count and its separator drop out so the pill and the share action still fit — and opens a pill bar above it with a spring pop, staggered items and a tail. The bar is teleported to `body` with fixed coordinates, so the hub feed's multi-column masonry can no longer clip it, and it re-places on scroll, resize and `visualViewport` changes while clamping against the visible width (a desktop scrollbar is not counted). Pressing the trigger and dragging onto an emoji picks it, arrow keys walk the bar, adding launches five drifting emoji copies while removing stays quiet, the bar stays open with counts updating in place, and `prefers-reduced-motion` disables the burst. Web and hub share the same interaction.
+
+- **The copilot transcript reads as one flow instead of stacked status rows.** Trace labels animate to the measured width of the next label, so the clock slides aside at the same pace instead of jumping, and the current query sits beside the label. The retrieval pill carries a coverage ring that fills from the real returned/total range — or asymptotically from the source count until coverage arrives — a stack of up to three numbered source tiles plus a `+n` overflow that spreads on hover, and a drawn check once the run ends. `ask` prompts become the transcript's only card: a status glyph, a question that swaps in the direction of the round, a mark per option, auto-advance on single choice, a spinner while sending, and a settled summary card with an animated check and wrapping (never truncating) answer rows. Streamed markdown now keeps leading spaces inside list items.
+
+- **Device approval takes the code in eight cells.** `BaseOtpInput` gives every character its own slot with per-cell focus, full-code paste and autofill, gap-preserving backspace, a "Character n of 8" label per cell, and success/error states; approving draws the rings before the receipt panel replaces the form, and a failed lookup marks the code in error. The old text field, its placeholder string and the `ABCD-EFGH` hint are gone.
+
+### Removed
+
+- **Historical like counts are discarded.** A one-time migration drops `echos.fav_count`; every instance starts from zero reactions. The column is not exported, and capsules still parse `fav_count` for backward compatibility but ignore it on import. Reactions themselves are instance-local social state and are not part of the capsule interchange format, so static archives show no reaction bar. Reaction *totals* do survive snapshot export/import, since snapshots copy the database.
+
+### Fixed
+
+- **Onboarding cards stay hidden while the timeline is filtered.** Zero-result searches, tag/date/visibility filters and tag mode all narrowed `echoStore.total` without marking the view as filtered, so the setup checklist judged "publish" undone and the first-Echo share card could appear on an instance with hundreds of Echoes; both now gate on a single `hasActiveQuery` covering every narrowing input.
+
+### Internal
+
+- **The web shell tests no longer need a built frontend.** CI stubs `template/dist/index.html`, so asserting on the real shell made the suite depend on an artifact that is not checked in; the tests now cover marker replacement and fallback injection directly and assert only the injected 404 head on unknown routes.
+
+
 ## [5.9.4] - 2026-11-05
 
 ### Changed

@@ -4,7 +4,7 @@
   <div class="px-3 pb-4 py-2 mt-4 sm:mt-6 mb-10 mx-auto flex justify-center items-center">
     <div class="w-full sm:max-w-lg mx-auto">
       <div v-if="echo" class="w-full sm:mt-1 mx-auto">
-        <TheEchoDetail :echo="echo" @update-like-count="handleUpdateLikeCount" />
+        <TheEchoDetail :echo="echo" />
         <TheEchoInteractions />
       </div>
       <div v-else class="w-full sm:mt-1 text-[var(--color-text-muted)]">
@@ -40,12 +40,6 @@ const getEchoFromStore = (echoId: string): App.Api.Ech0.Echo | null => {
     return echoStore.echoList[idx] ?? null
   }
   return null
-}
-
-const handleUpdateLikeCount = () => {
-  if (echo.value) {
-    echo.value.fav_count += 1
-  }
 }
 
 const currentEchoId = () => String(route.params.echoId ?? '').trim()

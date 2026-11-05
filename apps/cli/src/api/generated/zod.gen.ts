@@ -196,7 +196,7 @@ export const zEchoQueryDto = z.object({
     pageSize: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     private: z.boolean().optional(),
     search: z.string().optional(),
-    sortBy: z.enum(['created_at', 'fav_count']).optional(),
+    sortBy: z.enum(['created_at', 'reactions']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional(),
     tagIds: z.array(z.string()).nullish()
 });
@@ -360,6 +360,14 @@ export const zHelloResponse = z.object({
     license: z.string().optional(),
     repo_url: z.string().optional(),
     version: z.string().optional()
+});
+
+export const zInitOwnerDto = z.object({
+    email: z.string().optional(),
+    locale: z.string().optional(),
+    password: z.string().optional(),
+    site_title: z.string().optional(),
+    username: z.string().optional()
 });
 
 export const zLogEntry = z.object({
@@ -534,6 +542,18 @@ export const zPublicComment = z.object({
     status: z.string().optional(),
     updated_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     website: z.string().optional()
+});
+
+export const zReactionCount = z.object({
+    count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    emoji: z.string().optional(),
+    key: z.string().optional(),
+    reacted: z.boolean().optional()
+});
+
+export const zReactionEmoji = z.object({
+    emoji: z.string().optional(),
+    key: z.string().optional()
 });
 
 export const zRegisterDto = z.object({
@@ -759,6 +779,24 @@ export const zResultListPublicComment = z.object({
     msg: z.string().optional()
 });
 
+export const zResultListReactionCount = z.object({
+    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    data: z.array(zReactionCount).nullish(),
+    error_code: z.string().optional(),
+    message_key: z.string().optional(),
+    message_params: z.record(z.string(), z.unknown()).optional(),
+    msg: z.string().optional()
+});
+
+export const zResultListReactionEmoji = z.object({
+    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    data: z.array(zReactionEmoji).nullish(),
+    error_code: z.string().optional(),
+    message_key: z.string().optional(),
+    message_params: z.record(z.string(), z.unknown()).optional(),
+    msg: z.string().optional()
+});
+
 export const zResultManifest = z.object({
     code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     data: zManifest.optional(),
@@ -965,6 +1003,7 @@ export const zSystemSetting = z.object({
     custom_css: z.string().optional(),
     custom_js: z.string().optional(),
     default_locale: z.string().optional(),
+    disable_agent_discovery: z.boolean().optional(),
     footer_content: z.string().optional(),
     footer_link: z.string().optional(),
     meting_api: z.string().optional(),
@@ -989,6 +1028,7 @@ export const zSystemSettingDto = z.object({
     custom_css: z.string().optional(),
     custom_js: z.string().optional(),
     default_locale: z.string().optional(),
+    disable_agent_discovery: z.boolean().optional(),
     footer_content: z.string().optional(),
     footer_link: z.string().optional(),
     meting_api: z.string().optional(),
@@ -1011,10 +1051,10 @@ export const zEcho = z.object({
     created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     echo_files: z.array(zEchoFile).nullish(),
     extension: zEchoExtension.optional(),
-    fav_count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     id: z.string().optional(),
     layout: z.string().optional(),
     private: z.boolean().optional(),
+    reactions: z.array(zReactionCount).nullish(),
     tags: z.array(zTag).nullish(),
     user_id: z.string().optional(),
     username: z.string().optional()
@@ -1329,15 +1369,6 @@ export const zEchoHotQuery = z.object({
  */
 export const zEchoHotResponse = zResultListEcho;
 
-export const zEchoLikePath = z.object({
-    id: z.uuid()
-});
-
-/**
- * OK
- */
-export const zEchoLikeResponse = zResultInterface;
-
 export const zEchoOnthisdayHeaders = z.object({
     'X-Timezone': z.string().optional()
 });
@@ -1418,6 +1449,42 @@ export const zEchoGetPath = z.object({
  * OK
  */
 export const zEchoGetResponse = zResultEcho;
+
+export const zReactionRemovePath = z.object({
+    id: z.uuid(),
+    emoji: z.enum([
+        'like',
+        'heart',
+        'haha',
+        'wow',
+        'sad',
+        'cry',
+        'party'
+    ])
+});
+
+/**
+ * OK
+ */
+export const zReactionRemoveResponse = zResultListReactionCount;
+
+export const zReactionAddPath = z.object({
+    id: z.uuid(),
+    emoji: z.enum([
+        'like',
+        'heart',
+        'haha',
+        'wow',
+        'sad',
+        'cry',
+        'party'
+    ])
+});
+
+/**
+ * OK
+ */
+export const zReactionAddResponse = zResultListReactionCount;
 
 /**
  * OK
@@ -1525,7 +1592,7 @@ export const zCommonHeatmapResponse = zResultListHeatmap;
  */
 export const zCommonHelloResponse = zResultHelloResponse;
 
-export const zInitOwnerBody = zRegisterDto;
+export const zInitOwnerBody = zInitOwnerDto;
 
 /**
  * OK
@@ -1739,6 +1806,11 @@ export const zPasskeyUpdateNamePath = z.object({
  * OK
  */
 export const zPasskeyUpdateNameResponse = zResultInterface;
+
+/**
+ * OK
+ */
+export const zReactionCatalogResponse = zResultListReactionEmoji;
 
 export const zUserRegisterBody = zRegisterDto;
 

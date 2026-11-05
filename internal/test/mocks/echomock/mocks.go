@@ -692,6 +692,52 @@ func (_c *MockService_GetRandomEcho_Call) RunAndReturn(run func(ctx context.Cont
 	return _c
 }
 
+// GetReactionCatalog provides a mock function for the type MockService
+func (_mock *MockService) GetReactionCatalog() []model.ReactionEmoji {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetReactionCatalog")
+	}
+
+	var r0 []model.ReactionEmoji
+	if returnFunc, ok := ret.Get(0).(func() []model.ReactionEmoji); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.ReactionEmoji)
+		}
+	}
+	return r0
+}
+
+// MockService_GetReactionCatalog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetReactionCatalog'
+type MockService_GetReactionCatalog_Call struct {
+	*mock.Call
+}
+
+// GetReactionCatalog is a helper method to define mock.On call
+func (_e *MockService_Expecter) GetReactionCatalog() *MockService_GetReactionCatalog_Call {
+	return &MockService_GetReactionCatalog_Call{Call: _e.mock.On("GetReactionCatalog")}
+}
+
+func (_c *MockService_GetReactionCatalog_Call) Run(run func()) *MockService_GetReactionCatalog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockService_GetReactionCatalog_Call) Return(reactionEmojis []model.ReactionEmoji) *MockService_GetReactionCatalog_Call {
+	_c.Call.Return(reactionEmojis)
+	return _c
+}
+
+func (_c *MockService_GetReactionCatalog_Call) RunAndReturn(run func() []model.ReactionEmoji) *MockService_GetReactionCatalog_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTodayEchos provides a mock function for the type MockService
 func (_mock *MockService) GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
 	ret := _mock.Called(ctx, timezone)
@@ -756,63 +802,6 @@ func (_c *MockService_GetTodayEchos_Call) Return(echos []model.Echo, err error) 
 }
 
 func (_c *MockService_GetTodayEchos_Call) RunAndReturn(run func(ctx context.Context, timezone string) ([]model.Echo, error)) *MockService_GetTodayEchos_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// LikeEcho provides a mock function for the type MockService
-func (_mock *MockService) LikeEcho(ctx context.Context, id string) error {
-	ret := _mock.Called(ctx, id)
-
-	if len(ret) == 0 {
-		panic("no return value specified for LikeEcho")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, id)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockService_LikeEcho_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LikeEcho'
-type MockService_LikeEcho_Call struct {
-	*mock.Call
-}
-
-// LikeEcho is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id string
-func (_e *MockService_Expecter) LikeEcho(ctx any, id any) *MockService_LikeEcho_Call {
-	return &MockService_LikeEcho_Call{Call: _e.mock.On("LikeEcho", ctx, id)}
-}
-
-func (_c *MockService_LikeEcho_Call) Run(run func(ctx context.Context, id string)) *MockService_LikeEcho_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockService_LikeEcho_Call) Return(err error) *MockService_LikeEcho_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockService_LikeEcho_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockService_LikeEcho_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -951,6 +940,154 @@ func (_c *MockService_QueryEchos_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// ReactToEcho provides a mock function for the type MockService
+func (_mock *MockService) ReactToEcho(ctx context.Context, id string, emoji string) ([]model.ReactionCount, error) {
+	ret := _mock.Called(ctx, id, emoji)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReactToEcho")
+	}
+
+	var r0 []model.ReactionCount
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) ([]model.ReactionCount, error)); ok {
+		return returnFunc(ctx, id, emoji)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) []model.ReactionCount); ok {
+		r0 = returnFunc(ctx, id, emoji)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.ReactionCount)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, id, emoji)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_ReactToEcho_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReactToEcho'
+type MockService_ReactToEcho_Call struct {
+	*mock.Call
+}
+
+// ReactToEcho is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - emoji string
+func (_e *MockService_Expecter) ReactToEcho(ctx any, id any, emoji any) *MockService_ReactToEcho_Call {
+	return &MockService_ReactToEcho_Call{Call: _e.mock.On("ReactToEcho", ctx, id, emoji)}
+}
+
+func (_c *MockService_ReactToEcho_Call) Run(run func(ctx context.Context, id string, emoji string)) *MockService_ReactToEcho_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ReactToEcho_Call) Return(reactionCounts []model.ReactionCount, err error) *MockService_ReactToEcho_Call {
+	_c.Call.Return(reactionCounts, err)
+	return _c
+}
+
+func (_c *MockService_ReactToEcho_Call) RunAndReturn(run func(ctx context.Context, id string, emoji string) ([]model.ReactionCount, error)) *MockService_ReactToEcho_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnreactEcho provides a mock function for the type MockService
+func (_mock *MockService) UnreactEcho(ctx context.Context, id string, emoji string) ([]model.ReactionCount, error) {
+	ret := _mock.Called(ctx, id, emoji)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnreactEcho")
+	}
+
+	var r0 []model.ReactionCount
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) ([]model.ReactionCount, error)); ok {
+		return returnFunc(ctx, id, emoji)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) []model.ReactionCount); ok {
+		r0 = returnFunc(ctx, id, emoji)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.ReactionCount)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, id, emoji)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_UnreactEcho_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnreactEcho'
+type MockService_UnreactEcho_Call struct {
+	*mock.Call
+}
+
+// UnreactEcho is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - emoji string
+func (_e *MockService_Expecter) UnreactEcho(ctx any, id any, emoji any) *MockService_UnreactEcho_Call {
+	return &MockService_UnreactEcho_Call{Call: _e.mock.On("UnreactEcho", ctx, id, emoji)}
+}
+
+func (_c *MockService_UnreactEcho_Call) Run(run func(ctx context.Context, id string, emoji string)) *MockService_UnreactEcho_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_UnreactEcho_Call) Return(reactionCounts []model.ReactionCount, err error) *MockService_UnreactEcho_Call {
+	_c.Call.Return(reactionCounts, err)
+	return _c
+}
+
+func (_c *MockService_UnreactEcho_Call) RunAndReturn(run func(ctx context.Context, id string, emoji string) ([]model.ReactionCount, error)) *MockService_UnreactEcho_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateEcho provides a mock function for the type MockService
 func (_mock *MockService) UpdateEcho(ctx context.Context, echo *model.Echo) (*model.Echo, error) {
 	ret := _mock.Called(ctx, echo)
@@ -1053,6 +1190,75 @@ type MockRepository_Expecter struct {
 
 func (_m *MockRepository) EXPECT() *MockRepository_Expecter {
 	return &MockRepository_Expecter{mock: &_m.Mock}
+}
+
+// AddReaction provides a mock function for the type MockRepository
+func (_mock *MockRepository) AddReaction(ctx context.Context, echoID string, emoji string, actor string) error {
+	ret := _mock.Called(ctx, echoID, emoji, actor)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddReaction")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = returnFunc(ctx, echoID, emoji, actor)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_AddReaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddReaction'
+type MockRepository_AddReaction_Call struct {
+	*mock.Call
+}
+
+// AddReaction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - echoID string
+//   - emoji string
+//   - actor string
+func (_e *MockRepository_Expecter) AddReaction(ctx any, echoID any, emoji any, actor any) *MockRepository_AddReaction_Call {
+	return &MockRepository_AddReaction_Call{Call: _e.mock.On("AddReaction", ctx, echoID, emoji, actor)}
+}
+
+func (_c *MockRepository_AddReaction_Call) Run(run func(ctx context.Context, echoID string, emoji string, actor string)) *MockRepository_AddReaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_AddReaction_Call) Return(err error) *MockRepository_AddReaction_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_AddReaction_Call) RunAndReturn(run func(ctx context.Context, echoID string, emoji string, actor string) error) *MockRepository_AddReaction_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CreateEcho provides a mock function for the type MockRepository
@@ -2003,59 +2209,76 @@ func (_c *MockRepository_InvalidateEchoCaches_Call) RunAndReturn(run func(echoID
 	return _c
 }
 
-// LikeEcho provides a mock function for the type MockRepository
-func (_mock *MockRepository) LikeEcho(ctx context.Context, id string) error {
-	ret := _mock.Called(ctx, id)
+// ListReactions provides a mock function for the type MockRepository
+func (_mock *MockRepository) ListReactions(ctx context.Context, echoIDs []string, actor string) (map[string][]model.ReactionCount, error) {
+	ret := _mock.Called(ctx, echoIDs, actor)
 
 	if len(ret) == 0 {
-		panic("no return value specified for LikeEcho")
+		panic("no return value specified for ListReactions")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, id)
-	} else {
-		r0 = ret.Error(0)
+	var r0 map[string][]model.ReactionCount
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) (map[string][]model.ReactionCount, error)); ok {
+		return returnFunc(ctx, echoIDs, actor)
 	}
-	return r0
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string, string) map[string][]model.ReactionCount); ok {
+		r0 = returnFunc(ctx, echoIDs, actor)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string][]model.ReactionCount)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []string, string) error); ok {
+		r1 = returnFunc(ctx, echoIDs, actor)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
-// MockRepository_LikeEcho_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LikeEcho'
-type MockRepository_LikeEcho_Call struct {
+// MockRepository_ListReactions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListReactions'
+type MockRepository_ListReactions_Call struct {
 	*mock.Call
 }
 
-// LikeEcho is a helper method to define mock.On call
+// ListReactions is a helper method to define mock.On call
 //   - ctx context.Context
-//   - id string
-func (_e *MockRepository_Expecter) LikeEcho(ctx any, id any) *MockRepository_LikeEcho_Call {
-	return &MockRepository_LikeEcho_Call{Call: _e.mock.On("LikeEcho", ctx, id)}
+//   - echoIDs []string
+//   - actor string
+func (_e *MockRepository_Expecter) ListReactions(ctx any, echoIDs any, actor any) *MockRepository_ListReactions_Call {
+	return &MockRepository_ListReactions_Call{Call: _e.mock.On("ListReactions", ctx, echoIDs, actor)}
 }
 
-func (_c *MockRepository_LikeEcho_Call) Run(run func(ctx context.Context, id string)) *MockRepository_LikeEcho_Call {
+func (_c *MockRepository_ListReactions_Call) Run(run func(ctx context.Context, echoIDs []string, actor string)) *MockRepository_ListReactions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 string
+		var arg1 []string
 		if args[1] != nil {
-			arg1 = args[1].(string)
+			arg1 = args[1].([]string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockRepository_LikeEcho_Call) Return(err error) *MockRepository_LikeEcho_Call {
-	_c.Call.Return(err)
+func (_c *MockRepository_ListReactions_Call) Return(stringToReactionCounts map[string][]model.ReactionCount, err error) *MockRepository_ListReactions_Call {
+	_c.Call.Return(stringToReactionCounts, err)
 	return _c
 }
 
-func (_c *MockRepository_LikeEcho_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockRepository_LikeEcho_Call {
+func (_c *MockRepository_ListReactions_Call) RunAndReturn(run func(ctx context.Context, echoIDs []string, actor string) (map[string][]model.ReactionCount, error)) *MockRepository_ListReactions_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2130,6 +2353,75 @@ func (_c *MockRepository_QueryEchos_Call) Return(echos []model.Echo, n int64, er
 }
 
 func (_c *MockRepository_QueryEchos_Call) RunAndReturn(run func(queryDto model0.EchoQueryDto, showPrivate bool) ([]model.Echo, int64, error)) *MockRepository_QueryEchos_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RemoveReaction provides a mock function for the type MockRepository
+func (_mock *MockRepository) RemoveReaction(ctx context.Context, echoID string, emoji string, actor string) error {
+	ret := _mock.Called(ctx, echoID, emoji, actor)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveReaction")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = returnFunc(ctx, echoID, emoji, actor)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_RemoveReaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveReaction'
+type MockRepository_RemoveReaction_Call struct {
+	*mock.Call
+}
+
+// RemoveReaction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - echoID string
+//   - emoji string
+//   - actor string
+func (_e *MockRepository_Expecter) RemoveReaction(ctx any, echoID any, emoji any, actor any) *MockRepository_RemoveReaction_Call {
+	return &MockRepository_RemoveReaction_Call{Call: _e.mock.On("RemoveReaction", ctx, echoID, emoji, actor)}
+}
+
+func (_c *MockRepository_RemoveReaction_Call) Run(run func(ctx context.Context, echoID string, emoji string, actor string)) *MockRepository_RemoveReaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_RemoveReaction_Call) Return(err error) *MockRepository_RemoveReaction_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_RemoveReaction_Call) RunAndReturn(run func(ctx context.Context, echoID string, emoji string, actor string) error) *MockRepository_RemoveReaction_Call {
 	_c.Call.Return(run)
 	return _c
 }

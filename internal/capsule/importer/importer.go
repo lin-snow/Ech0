@@ -264,7 +264,6 @@ func (s *session) importEcho(ctx context.Context, path string, doc *capsule.Echo
 		Layout:    layout,
 		Private:   doc.Private,
 		UserID:    userID,
-		FavCount:  doc.FavCount,
 		CreatedAt: createdAt,
 	}
 	if err := s.db.Omit(clause.Associations).Create(&echo).Error; err != nil {

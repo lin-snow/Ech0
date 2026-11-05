@@ -117,7 +117,7 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
 	}
 
-	return savedEcho, nil
+	return echoService.hydrateEchoReactions(ctx, savedEcho)
 }
 
 func (echoService *EchoService) GetEchosByPage(
@@ -218,7 +218,7 @@ func (echoService *EchoService) GetTodayEchos(ctx context.Context, timezone stri
 	if err != nil {
 		return nil, err
 	}
-	return echoService.echoRepository.GetTodayEchos(showPrivate, timezone), nil
+	return echoService.hydrateReactions(ctx, echoService.echoRepository.GetTodayEchos(showPrivate, timezone))
 }
 
 func (echoService *EchoService) GetHotEchos(ctx context.Context, limit int) ([]model.Echo, error) {
@@ -226,7 +226,11 @@ func (echoService *EchoService) GetHotEchos(ctx context.Context, limit int) ([]m
 	if err != nil {
 		return nil, err
 	}
-	return echoService.echoRepository.GetHotEchos(limit, showPrivate)
+	echos, err := echoService.echoRepository.GetHotEchos(limit, showPrivate)
+	if err != nil {
+		return nil, err
+	}
+	return echoService.hydrateReactions(ctx, echos)
 }
 
 func (echoService *EchoService) GetRandomEcho(ctx context.Context) (*model.Echo, error) {
@@ -234,7 +238,11 @@ func (echoService *EchoService) GetRandomEcho(ctx context.Context) (*model.Echo,
 	if err != nil {
 		return nil, err
 	}
-	return echoService.echoRepository.GetRandomEcho(showPrivate)
+	echo, err := echoService.echoRepository.GetRandomEcho(showPrivate)
+	if err != nil {
+		return nil, err
+	}
+	return echoService.hydrateEchoReactions(ctx, echo)
 }
 
 func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
@@ -242,7 +250,7 @@ func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone 
 	if err != nil {
 		return nil, err
 	}
-	return echoService.echoRepository.GetOnThisDayEchos(showPrivate, timezone), nil
+	return echoService.hydrateReactions(ctx, echoService.echoRepository.GetOnThisDayEchos(showPrivate, timezone))
 }
 
 // UpdateEcho persists the edit and returns the stored record, mirroring PostEcho.
@@ -307,34 +315,7 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
 	}
 
-	return saved, nil
-}
-
-func (echoService *EchoService) LikeEcho(ctx context.Context, id string) error {
-	echo, err := echoService.echoRepository.GetEchosById(ctx, id)
-	if err != nil {
-		return err
-	}
-	if echo == nil {
-		return errors.New(commonModel.ECHO_NOT_FOUND)
-	}
-	if echo.Private {
-		allowed, err := echoService.canReadPrivate(ctx)
-		if err != nil {
-			return err
-		}
-		if !allowed {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
-		}
-	}
-
-	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
-		return echoService.echoRepository.LikeEcho(txCtx, id)
-	}); err != nil {
-		return err
-	}
-	echoService.echoRepository.InvalidateEchoCaches(id)
-	return nil
+	return echoService.hydrateEchoReactions(ctx, saved)
 }
 
 func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*model.Echo, error) {
@@ -354,7 +335,7 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 			return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 	}
-	return echo, nil
+	return echoService.hydrateEchoReactions(ctx, echo)
 }
 
 func (echoService *EchoService) GetAllTags() ([]model.Tag, error) {
@@ -498,6 +479,10 @@ func (echoService *EchoService) QueryEchos(
 	}
 
 	echos, total, err := echoService.echoRepository.QueryEchos(queryDto, showPrivate)
+	if err != nil {
+		return commonModel.PageQueryResult[[]model.Echo]{}, err
+	}
+	echos, err = echoService.hydrateReactions(ctx, echos)
 	if err != nil {
 		return commonModel.PageQueryResult[[]model.Echo]{}, err
 	}

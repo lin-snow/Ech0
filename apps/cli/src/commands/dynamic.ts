@@ -182,7 +182,7 @@ function echoQueryExamples(id: string): string[] | undefined {
       return [
         "ech0 echo list --page 1 --page-size 20",
         "ech0 echo list --search daily --tag-ids <tag_id>",
-        "ech0 echo list --sort-by fav_count --json",
+        "ech0 echo list --sort-by reactions --json",
       ];
     case "echo.get":
       return ["ech0 echo get --id <echo_id>", "ech0 echo get --id <echo_id> --json"];

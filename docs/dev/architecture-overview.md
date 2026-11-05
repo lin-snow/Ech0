@@ -364,7 +364,7 @@ mcp_request 审计日志（method/tool/resource、era、client、token jti、lat
 | 域 | 工具 | 所需 scope |
 | --- | --- | --- |
 | echo | `search_posts` · `get_post` · `list_tags` · `get_today_posts` | `echo:read` |
-| echo | `create_post` · `update_post` · `like_post` | `echo:write` |
+| echo | `create_post` · `update_post` · `react_to_post` | `echo:write` |
 | echo | `delete_post` · `delete_tag` | `echo:delete` |
 | comment | `list_comments` | `comment:read` |
 | comment | `create_comment` · `create_integration_comment` | `comment:write` |

@@ -42,10 +42,25 @@ export function fetchUpdateEcho(echo: App.Api.Ech0.EchoToUpdate) {
   })
 }
 
-export function fetchLikeEcho(echoId: string) {
-  return request({
-    url: `/echo/like/${echoId}`,
+export function fetchReactionCatalog() {
+  return request<App.Api.Ech0.ReactionCatalogItem[]>({
+    url: `/reactions`,
+    method: 'GET',
+    silentError: true,
+  })
+}
+
+export function fetchReactEcho(echoId: string, emoji: string) {
+  return request<App.Api.Ech0.ReactionCount[]>({
+    url: `/echo/${echoId}/reactions/${encodeURIComponent(emoji)}`,
     method: 'PUT',
+  })
+}
+
+export function fetchUnreactEcho(echoId: string, emoji: string) {
+  return request<App.Api.Ech0.ReactionCount[]>({
+    url: `/echo/${echoId}/reactions/${encodeURIComponent(emoji)}`,
+    method: 'DELETE',
   })
 }
 

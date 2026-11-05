@@ -34,6 +34,15 @@ type AppConfig struct {
 	Security SecurityConfig
 	Web      WebConfig
 	Agent    AgentConfig
+	Egress   EgressConfig
+}
+
+// EgressConfig controls the outbound HTTP SSRF guard. AllowPrivate exists for
+// local development (self-connect, LAN/Tailscale peers) and must stay false in
+// production: it disables the private/reserved-address and localhost blocks for
+// every egress caller (connect, webhook, OAuth CIMD, site scraping).
+type EgressConfig struct {
+	AllowPrivate bool `env:"ECH0_EGRESS_ALLOW_PRIVATE"`
 }
 
 type StorageConfig struct {

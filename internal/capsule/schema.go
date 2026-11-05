@@ -46,12 +46,14 @@ type Connect struct {
 }
 
 type EchoDoc struct {
-	ID        string     `yaml:"id"`
-	CreatedAt string     `yaml:"created_at"`
-	Username  string     `yaml:"username,omitempty"`
-	Tags      []string   `yaml:"tags,omitempty"`
-	Layout    string     `yaml:"layout,omitempty"`
-	Private   bool       `yaml:"private,omitempty"`
+	ID        string   `yaml:"id"`
+	CreatedAt string   `yaml:"created_at"`
+	Username  string   `yaml:"username,omitempty"`
+	Tags      []string `yaml:"tags,omitempty"`
+	Layout    string   `yaml:"layout,omitempty"`
+	Private   bool     `yaml:"private,omitempty"`
+	// FavCount is accepted for reading capsules written before reactions; it
+	// is ignored on import and never exported.
 	FavCount  int        `yaml:"fav_count,omitempty"`
 	Files     []FileRef  `yaml:"files,omitempty"`
 	Extension *Extension `yaml:"extension,omitempty"`

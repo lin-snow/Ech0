@@ -69,7 +69,7 @@ func TestEchoRepository_GetTagsByNames(t *testing.T) {
 func TestEchoRepository_DeleteTagById(t *testing.T) {
 	t.Run("deletes tag and its echo_tags join rows", func(t *testing.T) {
 		repo, db := newEchoRepo(t)
-		seedEcho(t, db, "e1", "tagged", false, 0, 100)
+		seedEcho(t, db, "e1", "tagged", false, 100)
 		seedTag(t, db, "t1", "alpha")
 		linkTag(t, db, "e1", "t1")
 

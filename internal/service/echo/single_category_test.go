@@ -13,7 +13,6 @@ import (
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
-	echomock "github.com/lin-snow/ech0/internal/test/mocks/echomock"
 	filemock "github.com/lin-snow/ech0/internal/test/mocks/filemock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
 	"github.com/lin-snow/ech0/pkg/busen"
@@ -64,7 +63,7 @@ func TestValidateSingleFileCategory_Reject(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := echomock.NewMockRepository(t)
+			repo := newEchoRepoMock(t)
 			common := commonmock.NewMockService(t)
 			file := filemock.NewMockService(t)
 			common.EXPECT().
@@ -89,7 +88,7 @@ func TestValidateSingleFileCategory_Reject(t *testing.T) {
 }
 
 func TestValidateSingleFileCategory_MultipleImagesAllowed(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
@@ -126,7 +125,7 @@ func TestValidateSingleFileCategory_MultipleImagesAllowed(t *testing.T) {
 }
 
 func TestUpdateEcho_MixedFileCategoriesRejected(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 

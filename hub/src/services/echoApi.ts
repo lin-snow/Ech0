@@ -4,6 +4,7 @@
 import type { ApiResult, EchoPost, EchoQueryPage } from '../types/echo'
 import { timeoutSignal } from '../utils/fetchTimeout'
 import { timeValueToUnixSeconds } from '../utils/timeValue'
+import { getVisitorId } from '../utils/visitor'
 
 const ECHO_QUERY_TIMEOUT_MS = 8000
 
@@ -46,7 +47,12 @@ export async function queryInstancePage(
   const merged: EchoQueryBody = { ...DEFAULT_QUERY, ...body }
   const res = await fetch(`${instanceUrl}/api/echo/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // Remote instances hydrate `reacted` per caller; without the visitor id
+      // they fall back to the IP actor and never match the reaction writes.
+      'X-Ech0-Visitor': getVisitorId(),
+    },
     body: JSON.stringify({
       page: merged.page,
       pageSize: merged.pageSize,

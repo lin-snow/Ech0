@@ -160,7 +160,6 @@ func bakeEchos(loaded *capsule.Loaded, baseURL string) ([]echo, error) {
 			Layout:    layout,
 			Private:   false,
 			UserID:    "",
-			FavCount:  doc.FavCount,
 			CreatedAt: createdAt,
 			EchoFiles: bakeFiles(doc, createdAt, baseURL),
 			Tags:      nil,

@@ -113,7 +113,7 @@ func TestReadEchos_ShowPrivateResolution(t *testing.T) {
 		t.Run(m.name, func(t *testing.T) {
 			for _, vc := range viewerCases {
 				t.Run(vc.name, func(t *testing.T) {
-					repo := echomock.NewMockRepository(t)
+					repo := newEchoRepoMock(t)
 					common := commonmock.NewMockService(t)
 					vc.setupCommon(common)
 					m.expectRepo(repo, vc.showPrivate)
@@ -130,7 +130,7 @@ func TestReadEchos_UserLookupError(t *testing.T) {
 	boom := errors.New("user lookup failed")
 	for _, m := range readMethods() {
 		t.Run(m.name, func(t *testing.T) {
-			repo := echomock.NewMockRepository(t)
+			repo := newEchoRepoMock(t)
 			common := commonmock.NewMockService(t)
 			common.EXPECT().
 				CommonGetUserByUserId(mock.Anything, adminID).
@@ -147,7 +147,7 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 	boom := errors.New("db down")
 
 	t.Run("GetHotEchos", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().GetHotEchos(3, false).Return(nil, boom).Once()
 
@@ -157,7 +157,7 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 	})
 
 	t.Run("GetRandomEcho", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().GetRandomEcho(false).Return(nil, boom).Once()
 
@@ -169,7 +169,7 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 
 func TestQueryEchos_ViewerResolution(t *testing.T) {
 	t.Run("admin queries with showPrivate true", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, adminID).
@@ -187,7 +187,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 	})
 
 	t.Run("echo:read token queries public-only", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().
 			QueryEchos(mock.Anything, false).
@@ -207,7 +207,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 	})
 
 	t.Run("echo:private token queries private-visible", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, adminID).
@@ -231,7 +231,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("lookup failed")
 		common.EXPECT().
@@ -245,7 +245,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 	})
 
 	t.Run("repository error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("query failed")
 		repo.EXPECT().QueryEchos(mock.Anything, false).Return(nil, int64(0), boom).Once()
@@ -257,7 +257,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 }
 
 func TestGetEchosByPage_DelegatesToQuery(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 
 	var captured commonModel.EchoQueryDto
@@ -281,7 +281,7 @@ func TestGetEchosByPage_DelegatesToQuery(t *testing.T) {
 }
 
 func TestGetEchosByTagId_DelegatesToQuery(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 
 	var captured commonModel.EchoQueryDto
@@ -301,7 +301,7 @@ func TestGetEchosByTagId_DelegatesToQuery(t *testing.T) {
 
 func TestGetAllTags(t *testing.T) {
 	t.Run("returns repository tags", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		repo.EXPECT().GetAllTags().Return([]echoModel.Tag{{ID: "t1", Name: "go"}}, nil).Once()
 
 		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
@@ -312,7 +312,7 @@ func TestGetAllTags(t *testing.T) {
 	})
 
 	t.Run("propagates repository error", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		boom := errors.New("tags failed")
 		repo.EXPECT().GetAllTags().Return(nil, boom).Once()
 

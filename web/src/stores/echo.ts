@@ -169,15 +169,12 @@ export const useEchoStore = defineStore('echoStore', () => {
     }
   }
 
-  const updateLikeCount = (echoId: string, delta: number = 1) => {
+  const setEchoReactions = (echoId: string, reactions: App.Api.Ech0.ReactionCount[]) => {
     const idx = echoIndexMap.value.get(echoId)
-    if (idx !== undefined) {
-      const targetEcho = echoList.value[idx]
-      if (targetEcho) {
-        targetEcho.fav_count = (targetEcho.fav_count || 0) + delta
-        echoList.value[idx] = { ...targetEcho }
-      }
-    }
+    if (idx === undefined) return
+    const targetEcho = echoList.value[idx]
+    if (!targetEcho) return
+    echoList.value[idx] = { ...targetEcho, reactions }
   }
 
   const pendingEchoMap = new Map<string, Promise<App.Api.Ech0.Echo | null>>()
@@ -274,7 +271,7 @@ export const useEchoStore = defineStore('echoStore', () => {
     resetVisibilityFilter,
     removeSelectedTag,
     updateEcho,
-    updateLikeCount,
+    setEchoReactions,
     prefetchEcho,
     getTags,
     ensureTagsLoaded,

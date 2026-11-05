@@ -151,6 +151,7 @@ func InitDatabase() {
 			dbMigration.NewUserLocalAuthBackfillMigrator(),
 			dbMigration.NewUsersPasswordDropMigrator(),
 			dbMigration.NewEchoExtensionOrphansMigrator(),
+			dbMigration.NewEchosFavCountDropMigrator(),
 		),
 	)
 }
@@ -163,6 +164,7 @@ func MigrateDB() error {
 		&userModel.WebAuthnCredential{},
 		&echoModel.Echo{},
 		&echoModel.EchoExtension{},
+		&echoModel.Reaction{},
 		&embeddingModel.EchoEmbedding{},
 		&fileModel.File{},
 		&fileModel.EchoFile{},

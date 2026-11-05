@@ -4,11 +4,13 @@
 import { localStg } from '@/utils/storage'
 import { useAuthStore } from '@/stores/auth'
 import { i18n } from '@/locales'
+import { getVisitorId } from '@/utils/visitor'
 
 export function buildCommonHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     'X-Locale': i18n.global.locale.value,
+    'X-Ech0-Visitor': getVisitorId(),
   }
   const authHeader = useAuthStore().authHeader
   if (authHeader) {

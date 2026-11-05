@@ -13,7 +13,6 @@ import (
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
-	echomock "github.com/lin-snow/ech0/internal/test/mocks/echomock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,7 +21,7 @@ import (
 
 func TestCreateTag(t *testing.T) {
 	t.Run("non-admin is denied", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, userID).
@@ -37,7 +36,7 @@ func TestCreateTag(t *testing.T) {
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("user lookup failed")
 		common.EXPECT().
@@ -56,7 +55,7 @@ func TestCreateTag(t *testing.T) {
 		cases := []string{"", "   ", "#"}
 		for _, name := range cases {
 			t.Run("name="+name, func(t *testing.T) {
-				repo := echomock.NewMockRepository(t)
+				repo := newEchoRepoMock(t)
 				common := commonmock.NewMockService(t)
 				common.EXPECT().
 					CommonGetUserByUserId(mock.Anything, adminID).
@@ -73,7 +72,7 @@ func TestCreateTag(t *testing.T) {
 	})
 
 	t.Run("unsafe name is invalid", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, adminID).
@@ -88,7 +87,7 @@ func TestCreateTag(t *testing.T) {
 	})
 
 	t.Run("returns existing tag without creating", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, adminID).
@@ -109,7 +108,7 @@ func TestCreateTag(t *testing.T) {
 	})
 
 	t.Run("creates new tag in transaction", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
 		common.EXPECT().
@@ -140,7 +139,7 @@ func TestCreateTag(t *testing.T) {
 	})
 
 	t.Run("GetTagsByNames error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("query failed")
 		common.EXPECT().
@@ -157,7 +156,7 @@ func TestCreateTag(t *testing.T) {
 	})
 
 	t.Run("CreateTag error inside transaction propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
 		boom := errors.New("insert failed")
@@ -181,7 +180,7 @@ func TestDeleteTag(t *testing.T) {
 	const tagID = "tag-to-delete"
 
 	t.Run("non-admin is denied", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, userID).
@@ -195,7 +194,7 @@ func TestDeleteTag(t *testing.T) {
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("user lookup failed")
 		common.EXPECT().
@@ -210,7 +209,7 @@ func TestDeleteTag(t *testing.T) {
 	})
 
 	t.Run("admin deletes in transaction", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
 		common.EXPECT().
@@ -225,7 +224,7 @@ func TestDeleteTag(t *testing.T) {
 	})
 
 	t.Run("DeleteTagById error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
 		boom := errors.New("delete failed")

@@ -1,4 +1,17 @@
 {
+  "reaction": {
+    "add": "添加表情反应",
+    "close": "关闭表情选择",
+    "unavailable": "当前为静态归档站点，无法使用表情反应。",
+    "failed": "表情反应失败，请重试。",
+    "like": "赞",
+    "heart": "喜欢",
+    "haha": "哈哈",
+    "wow": "惊讶",
+    "sad": "难过",
+    "cry": "大哭",
+    "party": "庆祝"
+  },
   "common": {
     "requestFailed": "请求失败",
     "save": "保存",
@@ -253,9 +266,6 @@
     "downloadFailed": "下载失败",
     "downloadFailedResponse": "下载失败：服务端返回异常内容"
   },
-  "staticSite": {
-    "likeUnavailable": "当前为静态归档站点，无法点赞。"
-  },
   "auth": {
     "loginSuccess": "登录成功,欢迎回来！🎉",
     "signupSuccess": "注册成功,请登录！"
@@ -476,9 +486,6 @@
   },
   "echoDetail": {
     "share": "分享",
-    "like": "点赞",
-    "alreadyLiked": "你已经点赞过了，感谢你的喜欢！",
-    "likeSuccess": "点赞成功！",
     "copied": "链接已复制到剪贴板！",
     "shareSuffix": "来自 Ech0 分享",
     "sharePanelTitle": "分享这条 Ech0",
@@ -1065,11 +1072,7 @@
     "pageNotFound": "页面不存在"
   },
   "hubEcho": {
-    "jumpToEcho": "跳转至该 Echo",
-    "like": "点赞",
-    "alreadyLiked": "你已经点赞过",
-    "likeFailed": "点赞失败",
-    "likeSuccess": "点赞成功"
+    "jumpToEcho": "跳转至该 Echo"
   },
   "imageGallery": {
     "previewImage": "预览图片{index}",

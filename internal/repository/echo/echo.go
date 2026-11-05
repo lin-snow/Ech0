@@ -164,6 +164,12 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id str
 		return err
 	}
 
+	// Reactions reference the echo by id only; without this they would linger
+	// as unreachable rows forever.
+	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&model.Reaction{}).Error; err != nil {
+		return err
+	}
+
 	result := echoRepository.getDB(ctx).Where("id = ?", id).Delete(&echo)
 	if result.Error != nil {
 		return result.Error
@@ -275,29 +281,6 @@ func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *mode
 	return nil
 }
 
-func (echoRepository *EchoRepository) LikeEcho(ctx context.Context, id string) error {
-	var exists bool
-	if err := echoRepository.getDB(ctx).
-		Model(&model.Echo{}).
-		Select("count(*) > 0").
-		Where("id = ?", id).
-		Find(&exists).Error; err != nil {
-		return err
-	}
-	if !exists {
-		return errors.New(commonModel.ECHO_NOT_FOUND)
-	}
-
-	if err := echoRepository.getDB(ctx).
-		Model(&model.Echo{}).
-		Where("id = ?", id).
-		UpdateColumn("fav_count", gorm.Expr("fav_count + ?", 1)).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (echoRepository *EchoRepository) GetAllTags() ([]model.Tag, error) {
 	var tags []model.Tag
 	result := echoRepository.db().Order("usage_count DESC, created_at DESC").Find(&tags)
@@ -381,14 +364,23 @@ func (echoRepository *EchoRepository) QueryEchos(
 	hasTagFilter := len(queryDto.TagIDs) > 0
 
 	sortColumn := "echos.created_at"
-	if queryDto.SortBy == "fav_count" {
-		sortColumn = "echos.fav_count"
+	if queryDto.SortBy == "reactions" {
+		sortColumn = "COALESCE(reaction_stats.total, 0)"
 	}
 	sortDir := "DESC"
 	if queryDto.SortOrder == "asc" {
 		sortDir = "ASC"
 	}
 	orderClause := sortColumn + " " + sortDir
+
+	// Reaction totals are derived, so ordering by them needs the aggregate
+	// joined in. The join is added only when it is actually used.
+	withReactionStats := func(db *gorm.DB) *gorm.DB {
+		if queryDto.SortBy != "reactions" {
+			return db
+		}
+		return db.Joins("LEFT JOIN (SELECT echo_id, COUNT(*) AS total FROM echo_reactions GROUP BY echo_id) reaction_stats ON reaction_stats.echo_id = echos.id")
+	}
 
 	applyFilters := func(db *gorm.DB) *gorm.DB {
 		if hasTagFilter {
@@ -430,7 +422,7 @@ func (echoRepository *EchoRepository) QueryEchos(
 
 	if hasTagFilter {
 		var echoIDs []string
-		idsQuery := applyFilters(echoRepository.db().Model(&model.Echo{}))
+		idsQuery := withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{})))
 		if err := idsQuery.
 			Distinct("echos.id").
 			Order(orderClause).
@@ -442,8 +434,8 @@ func (echoRepository *EchoRepository) QueryEchos(
 		if len(echoIDs) == 0 {
 			return []model.Echo{}, total, nil
 		}
-		if err := echoRepository.db().
-			Where("id IN ?", echoIDs).
+		if err := withReactionStats(echoRepository.db().Model(&model.Echo{})).
+			Where("echos.id IN ?", echoIDs).
 			Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
 				return db.Order("echo_files.sort_order ASC")
 			}).
@@ -455,7 +447,7 @@ func (echoRepository *EchoRepository) QueryEchos(
 			return nil, 0, err
 		}
 	} else {
-		query := applyFilters(echoRepository.db().Model(&model.Echo{}))
+		query := withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{})))
 		if err := query.
 			Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
 				return db.Order("echo_files.sort_order ASC")
@@ -562,8 +554,9 @@ func (echoRepository *EchoRepository) GetHotEchos(limit int, showPrivate bool) (
 	}
 
 	hotQuery := echoRepository.db().Table("(?) AS recent", recentQuery).
-		Select("recent.id, echos.fav_count + COUNT(comments.id) * 2 AS hot_score").
+		Select("recent.id, COALESCE(reaction_stats.total, 0) + COUNT(comments.id) * 2 AS hot_score").
 		Joins("JOIN echos ON echos.id = recent.id").
+		Joins("LEFT JOIN (SELECT echo_id, COUNT(*) AS total FROM echo_reactions GROUP BY echo_id) reaction_stats ON reaction_stats.echo_id = recent.id").
 		Joins("LEFT JOIN comments ON comments.echo_id = recent.id AND comments.status = 'approved'").
 		Group("recent.id").
 		Order("hot_score DESC").

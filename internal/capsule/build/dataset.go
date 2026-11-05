@@ -72,7 +72,6 @@ type echo struct {
 	Layout    string     `json:"layout"`
 	Private   bool       `json:"private"`
 	UserID    string     `json:"user_id"`
-	FavCount  int        `json:"fav_count"`
 	CreatedAt int64      `json:"created_at"`
 	EchoFiles []echoFile `json:"echo_files"`
 	Tags      []tag      `json:"tags"`

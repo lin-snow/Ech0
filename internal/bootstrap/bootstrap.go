@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/pkg/egress"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
@@ -44,7 +45,12 @@ func initConfig() {
 	config.Config()
 }
 
+func initEgress() {
+	egress.SetAllowPrivate(config.Config().Egress.AllowPrivate)
+}
+
 func Bootstrap() {
 	initConfig()
 	initLogger()
+	initEgress()
 }

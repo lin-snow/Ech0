@@ -1,4 +1,17 @@
 {
+  "reaction": {
+    "add": "Reaktion hinzufügen",
+    "close": "Reaktionen schließen",
+    "unavailable": "Dies ist ein statisches Archiv; Reaktionen sind nicht verfügbar.",
+    "failed": "Reaktion fehlgeschlagen, bitte erneut versuchen.",
+    "like": "Gefällt mir",
+    "heart": "Herz",
+    "haha": "Haha",
+    "wow": "Wow",
+    "sad": "Traurig",
+    "cry": "Weinen",
+    "party": "Feiern"
+  },
   "common": {
     "requestFailed": "Anfrage fehlgeschlagen",
     "save": "Speichern",
@@ -253,9 +266,6 @@
     "downloadFailed": "Download fehlgeschlagen",
     "downloadFailedResponse": "Download fehlgeschlagen: unerwartete Serverantwort"
   },
-  "staticSite": {
-    "likeUnavailable": "Dies ist ein statisches Archiv; Liken ist nicht möglich."
-  },
   "auth": {
     "loginSuccess": "Anmeldung erfolgreich – willkommen zurück! 🎉",
     "signupSuccess": "Registrierung erfolgreich, bitte anmelden."
@@ -476,9 +486,6 @@
   },
   "echoDetail": {
     "share": "Teilen",
-    "like": "Gefällt mir",
-    "alreadyLiked": "Du hast bereits reagiert – danke!",
-    "likeSuccess": "Gefällt mir!",
     "copied": "Link in die Zwischenablage kopiert!",
     "shareSuffix": "Geteilt über Ech0",
     "sharePanelTitle": "Dieses Ech0 teilen",
@@ -1065,11 +1072,7 @@
     "pageNotFound": "Seite nicht gefunden"
   },
   "hubEcho": {
-    "jumpToEcho": "Dieses Echo öffnen",
-    "like": "Gefällt mir",
-    "alreadyLiked": "Du hast bereits reagiert",
-    "likeFailed": "Gefällt-mir fehlgeschlagen",
-    "likeSuccess": "Gefällt mir!"
+    "jumpToEcho": "Dieses Echo öffnen"
   },
   "imageGallery": {
     "previewImage": "Bild {index} anzeigen",

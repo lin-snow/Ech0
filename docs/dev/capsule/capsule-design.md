@@ -106,7 +106,6 @@ username: l1nsn0w                          # 多用户实例区分作者
 tags: [生活, 摄影]
 layout: grid                               # waterfall|grid|horizontal|carousel|stack|none
 private: false
-fav_count: 12
 files:
   - key: a1b2c3d4_1735689600_deadbeef.png  # File.Key 原样；字节位于 files/ + Resolve(key)
     category: image                        # File.Category 原样
@@ -127,7 +126,7 @@ extension:                                 # 可选；对应 EchoExtension
 | `Echo.ID` | frontmatter `id` | UUIDv7 原样保留，导入按此幂等 |
 | `Echo.Content` | 正文 | 逐字，不做任何转换 |
 | `Echo.CreatedAt` (int64) | `created_at` (RFC3339) | 人类可读优先，导入时转回 Unix 秒 |
-| `Echo.Layout` / `Private` / `Username` / `FavCount` | 同名 frontmatter | `fav_count` 随往返保留 |
+| `Echo.Layout` / `Private` / `Username` | 同名 frontmatter | 原样保留；旧胶囊的 `fav_count` 仍可解析但导入时忽略 |
 | `EchoFiles` → `files` 表 | `files[].key`（托管，`File.Key` 原样，字节位于 `files/ + Resolve(key)`）或 `files[].url`（外链透传）；`id/category/name/content_type/size/width/height` 可选原样携带 | 字段名与值对齐 `File` 列，import 1:1 入库零转换；**数组顺序即 `SortOrder`**；`storage_type`/`provider`/`bucket`/托管 `url` 不入胶囊（运行时拓扑，导入按目标配置重建）。权威定义见 `spec.md` §4.2 |
 | `EchoExtension.Type/Payload` | `extension` | payload 原样 YAML 化 |
 | `Tags` (many2many) | `tags` 名称数组 | Tag 的 `UsageCount` 导入后重新统计，不导出 |
@@ -184,7 +183,8 @@ comments:
 
 | 数据 | 往返行为 |
 |---|---|
-| Echo（正文/标签/布局/扩展/私密标记/fav_count/创建时间/id） | ✅ 完整往返 |
+| Echo（正文/标签/布局/扩展/私密标记/创建时间/id） | ✅ 完整往返 |
+| 表情反应（逐 actor） | ❌ 不导出（实例内匿名身份） |
 | 媒体文件字节 | ✅ 完整往返（落地到目标实例**当前**存储后端） |
 | 站点公开设置、connects | ✅ 往返（`ech0.yaml` 的 `site` 子集） |
 | 评论 | ⚠️ 有损往返（Public 投影，无 Email/IPHash/UserID 关联） |
@@ -243,7 +243,7 @@ ech0 import capsule [路径，默认 ./capsule] [--dry-run] [--include-private]
 内容级往返的落地端，语义如下：
 
 - **幂等按 `id`**：目标库已存在同 `id` 的 Echo 时**跳过并报告**，不覆盖不合并，无 `--overwrite`。重复执行安全。（原 Q12 已裁决）
-- **Echo**：frontmatter + 正文 → `Echo` 行；`created_at` 转回 Unix 秒；`fav_count` 原样恢复；Tag 按名称 find-or-create，`UsageCount` 重新统计。
+- **Echo**：frontmatter + 正文 → `Echo` 行；`created_at` 转回 Unix 秒；Tag 按名称 find-or-create，`UsageCount` 重新统计。
 - **媒体**：字节写入目标实例**当前配置的存储后端**（本地或 S3），生成新的 `files` 行与新的 `url` 快照。胶囊内相对路径只是交换表示，落地后回归运行时表示——跨存储后端迁移（本地 → S3）因此自然成立，不再需要 `docs/usage/storage-migration.md` 里的手工脚本流程。
 - **原样导入**（原 Q12 已裁决）：胶囊字段值 1:1 入库，禁止数值转换——`username` 逐字保留不改写；唯一例外是补全内部必填外键 `Echo.UserID`（同名用户挂接，否则挂执行导入的 owner），展示归属始终以 `username` 为准。
 - **评论**：按 Public 投影字段导入，`status` 保留，Email/IPHash 为空（§4.4 的有意取舍）。
@@ -299,7 +299,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 
 | 功能 | 静态站行为 |
 |---|---|
-| 点赞（`PUT /echo/like/:id`） | **冻结展示**（原 Q4 已裁决）：展示导出时的 `fav_count`，操作不可用 |
+| 表情反应（`PUT/DELETE /echo/:id/reactions/:emoji`） | **不可用**：胶囊不携带反应聚合，静态站不显示反应条 |
 | 评论 | **冻结展示**（原 Q4 已裁决）：只读快照展示，发表入口隐藏 |
 | 登录 / panel / init | 入口隐藏，路由不可达 |
 | 搜索 / 标签过滤 / 分页 | 正常工作（客户端执行） |
@@ -327,7 +327,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 
 ## 9. 开放问题（讨论议程）
 
-**已全部裁决，议程清零。** Q1–Q15 完整裁决清单见 §10 决策记录：Q1（sidecar/保真度）、Q2（private 默认排除）、Q3（评论独立单文件）、Q4（冻结展示）、Q5（文件命名）、Q6（UTC）、Q7（site 子集）、Q8（与 zip 快照关系）、Q9（fav_count 位置）、Q10（产出 api/connect）、Q11（CLI 语法）、Q12（原样导入）、Q13（导入不发事件）、Q14（命名）、Q15（内嵌 URL 不改写+警告）。
+**已全部裁决，议程清零。** Q1–Q15 完整裁决清单见 §10 决策记录：Q1（sidecar/保真度）、Q2（private 默认排除）、Q3（评论独立单文件）、Q4（冻结展示）、Q5（文件命名）、Q6（UTC）、Q7（site 子集）、Q8（与 zip 快照关系）、Q9（旧点赞字段位置；现已被 emoji 反应取代，仅保留兼容解析）、Q10（产出 api/connect）、Q11（CLI 语法）、Q12（原样导入）、Q13（导入不发事件）、Q14（命名）、Q15（内嵌 URL 不改写+警告）。
 
 ## 10. 决策记录
 
@@ -336,7 +336,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 - **目标定位**：数据长期主义优先，静态站与导入是 schema 的第一方消费者（防 schema 腐烂），产品形态不变。
 - **格式**：frontmatter-markdown 每 Echo 一文件，而非单一大 YAML。
 - **命名**：格式名 **Capsule（胶囊）**（原 Q14，已终确认；候选 Bundle 因与 SPA bundle 项目内撞名、Artifact 因 CI 副产物语义反向而否决）；相关文档集中在 `docs/dev/capsule/`。
-- **往返承诺 = 内容级**（原 Q1/Q8/Q9）：不做 sidecar，靠「忽略未知字段」留演进后门；`fav_count` 入可读层随往返保留；字节级恢复永久归 zip 快照，两者并存。
+- **往返承诺 = 内容级**（原 Q1/Q8/Q9）：不做 sidecar，靠「忽略未知字段」留演进后门；旧 `fav_count` 仅保留兼容解析；字节级恢复永久归 zip 快照，两者并存。
 - **前端**：复用 `web/` SPA，单 bundle + 运行时开关 + 请求层 adapter；`ech0 build` 纯 Go。
 - **隐私**：评论快照复用 `PublicComment` 投影，接受评论有损往返（胶囊会被公开分享，Email/IPHash 绝不入内）；凭据与运维配置永不入胶囊。
 - **自包含**：托管媒体字节全部入胶囊，胶囊内只用相对路径，不携带运行时 URL；外链文件（`external`）例外，URL 原样透传；导入时按目标实例存储配置重建 `files` 行。

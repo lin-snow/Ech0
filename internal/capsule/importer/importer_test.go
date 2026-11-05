@@ -223,7 +223,6 @@ func TestRun_LandsCapsuleVerbatim(t *testing.T) {
 	require.NoError(t, f.db.Where("id = ?", echoIDPublic).First(&echo).Error)
 	require.Equal(t, publicCreatedTS, echo.CreatedAt)
 	require.Equal(t, "alice", echo.Username)
-	require.Equal(t, 42, echo.FavCount)
 	require.Equal(t, "hello **capsule**\n", echo.Content)
 	require.Equal(t, echoModel.LayoutGrid, echo.Layout)
 	require.False(t, echo.Private)

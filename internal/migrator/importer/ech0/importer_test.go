@@ -107,6 +107,7 @@ func TestImporterMigrate_SuccessAndIdempotent(t *testing.T) {
 	assertCount(t, targetDB, "files", 1)
 	assertCount(t, targetDB, "echo_files", 1)
 	assertCount(t, targetDB, "comments", 1)
+	assertCount(t, targetDB, "echo_reactions", 1)
 	if _, err := os.Stat(filepath.Join("data", "files", "images", "source.png")); err != nil {
 		t.Fatalf("expected migrated source image exists: %v", err)
 	}
@@ -121,6 +122,7 @@ func migrateBaseTables(db *gorm.DB) error {
 		&fileModel.File{},
 		&fileModel.EchoFile{},
 		&commentModel.Comment{},
+		&echoModel.Reaction{},
 		&commonModel.KeyValue{},
 	)
 }
@@ -134,10 +136,14 @@ func seedSourceDB(db *gorm.DB) error {
 		Layout:    echoModel.LayoutWaterfall,
 		Private:   false,
 		UserID:    "user-source-1",
-		FavCount:  3,
 		CreatedAt: now,
 	}
 	if err := db.Create(&echo).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&echoModel.Reaction{
+		ID: "reaction-source-1", EchoID: echo.ID, Emoji: "like", Actor: "v:source",
+	}).Error; err != nil {
 		return err
 	}
 	ext := echoModel.EchoExtension{

@@ -413,15 +413,18 @@ components:
             - "null"
         extension:
           $ref: "#/components/schemas/EchoExtension"
-        fav_count:
-          format: int64
-          type: integer
         id:
           type: string
         layout:
           type: string
         private:
           type: boolean
+        reactions:
+          items:
+            $ref: "#/components/schemas/ReactionCount"
+          type:
+            - array
+            - "null"
         tags:
           items:
             $ref: "#/components/schemas/Tag"
@@ -512,7 +515,7 @@ components:
           description: Sort field (default created_at)
           enum:
             - created_at
-            - fav_count
+            - reactions
           type: string
         sortOrder:
           description: Sort direction (default desc)
@@ -1291,6 +1294,27 @@ components:
         website:
           type: string
       type: object
+    ReactionCount:
+      additionalProperties: true
+      properties:
+        count:
+          format: int64
+          type: integer
+        emoji:
+          type: string
+        key:
+          type: string
+        reacted:
+          type: boolean
+      type: object
+    ReactionEmoji:
+      additionalProperties: true
+      properties:
+        emoji:
+          type: string
+        key:
+          type: string
+      type: object
     RegisterDto:
       additionalProperties: true
       properties:
@@ -1826,6 +1850,50 @@ components:
         data:
           items:
             $ref: "#/components/schemas/PublicComment"
+          type:
+            - array
+            - "null"
+        error_code:
+          type: string
+        message_key:
+          type: string
+        message_params:
+          additionalProperties: {}
+          type: object
+        msg:
+          type: string
+      type: object
+    ResultListReactionCount:
+      additionalProperties: true
+      properties:
+        code:
+          format: int64
+          type: integer
+        data:
+          items:
+            $ref: "#/components/schemas/ReactionCount"
+          type:
+            - array
+            - "null"
+        error_code:
+          type: string
+        message_key:
+          type: string
+        message_params:
+          additionalProperties: {}
+          type: object
+        msg:
+          type: string
+      type: object
+    ResultListReactionEmoji:
+      additionalProperties: true
+      properties:
+        code:
+          format: int64
+          type: integer
+        data:
+          items:
+            $ref: "#/components/schemas/ReactionEmoji"
           type:
             - array
             - "null"
@@ -3148,34 +3216,6 @@ paths:
       summary: 获取热门 Echo
       tags:
         - Echo
-  /echo/like/{id}:
-    put:
-      operationId: echo-like
-      parameters:
-        - description: Echo ID
-          in: path
-          name: id
-          required: true
-          schema:
-            description: Echo ID
-            format: uuid
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          description: Error
-      summary: 点赞 Echo
-      tags:
-        - Echo
   /echo/onthisday:
     get:
       operationId: echo-onthisday
@@ -3436,6 +3476,91 @@ paths:
       summary: 获取指定 ID 的 Echo
       tags:
         - Echo
+  /echo/{id}/reactions/{emoji}:
+    delete:
+      operationId: reaction-remove
+      parameters:
+        - description: Echo ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Echo ID
+            format: uuid
+            type: string
+        - description: Reaction key
+          in: path
+          name: emoji
+          required: true
+          schema:
+            description: Reaction key
+            enum:
+              - like
+              - heart
+              - haha
+              - wow
+              - sad
+              - cry
+              - party
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultListReactionCount"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          description: Error
+      summary: 取消 Echo 的表情反应（幂等）
+      tags:
+        - Reaction
+    put:
+      operationId: reaction-add
+      parameters:
+        - description: Echo ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Echo ID
+            format: uuid
+            type: string
+        - description: Reaction key
+          in: path
+          name: emoji
+          required: true
+          schema:
+            description: Reaction key
+            enum:
+              - like
+              - heart
+              - haha
+              - wow
+              - sad
+              - cry
+              - party
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultListReactionCount"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          description: Error
+      summary: 为 Echo 添加表情反应（幂等）
+      tags:
+        - Reaction
   /embedding/reindex:
     post:
       description: 提交一次全量向量索引回填作业，起即返回（异步）。
@@ -4658,6 +4783,25 @@ paths:
       summary: 更新 Passkey 设备名称
       tags:
         - Auth
+  /reactions:
+    get:
+      operationId: reaction-catalog
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultListReactionEmoji"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          description: Error
+      summary: 获取可用的表情反应
+      tags:
+        - Reaction
   /register:
     post:
       operationId: user-register

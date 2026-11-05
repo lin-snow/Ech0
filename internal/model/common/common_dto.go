@@ -14,7 +14,7 @@ type EchoQueryDto struct {
 	PageSize  int      `json:"pageSize"  doc:"Items per page, 1-100 (default 10)"`
 	Search    string   `json:"search"    doc:"Substring match on Echo content"`
 	TagIDs    []string `json:"tagIds"    doc:"Tag IDs to match; an Echo qualifies if it carries any listed tag"`
-	SortBy    string   `json:"sortBy"    doc:"Sort field (default created_at)"              enum:"created_at,fav_count"`
+	SortBy    string   `json:"sortBy"    doc:"Sort field (default created_at)"              enum:"created_at,reactions"`
 	SortOrder string   `json:"sortOrder" doc:"Sort direction (default desc)"                enum:"asc,desc"`
 	DateFrom  int64    `json:"dateFrom"  doc:"Only Echoes created at or after this Unix time (seconds)"`
 	DateTo    int64    `json:"dateTo"    doc:"Only Echoes created at or before this Unix time (seconds)"`

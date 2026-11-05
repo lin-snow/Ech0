@@ -39,7 +39,7 @@ function toHubEcho(
     username: post.username ?? '',
     private: post.private ?? false,
     user_id: post.user_id ?? '',
-    fav_count: post.fav_count ?? 0,
+    reactions: post.reactions ?? [],
     tags: post.tags ?? [],
     createdTs: timeValueToMs(post.created_at),
     server_name: inst.id,

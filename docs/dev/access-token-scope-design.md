@@ -173,7 +173,7 @@ claim 来源统一策略：
 
 - 业务角色（`user.IsAdmin`）继续保留，用于业务规则本身。
 - API 调用授权以 scope 为先：token scope 不足时必须拒绝，即使用户是 admin。
-- 私密 Echo 的可见性在服务层统一判定：session 沿用 admin 规则；access token 必须同时具备 `echo:read` 场景和 `echo:private`。`QueryEchos`、`GetEchoById`、`LikeEcho`、今日/热门/随机/历史上的今天共用同一 helper，避免各入口漂移。
+- 私密 Echo 的可见性在服务层统一判定：session 沿用 admin 规则；access token 必须同时具备 `echo:read` 场景和 `echo:private`。`QueryEchos`、`GetEchoById`、`ReactToEcho`/`UnreactEcho`、今日/热门/随机/历史上的今天共用同一 helper，避免各入口漂移。
 
 viewer 扩展约定：
 

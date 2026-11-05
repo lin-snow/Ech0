@@ -26,7 +26,7 @@ default:
 
 
 run:
-    ECH0_SERVER_MODE=debug go run -ldflags "{{LDFLAGS}}" ./cmd/ech0 serve
+    ECH0_SERVER_MODE=debug ECH0_EGRESS_ALLOW_PRIVATE=true go run -ldflags "{{LDFLAGS}}" ./cmd/ech0 serve
 
 build:
     go build -ldflags "{{LDFLAGS}}" -o ./bin/ech0 ./cmd/ech0
@@ -40,7 +40,7 @@ dev:
         just air-install
         AIR_BIN="$(go env GOPATH)/bin/air"
     fi
-    ECH0_SERVER_MODE=debug "$AIR_BIN" -c .air.toml
+    ECH0_SERVER_MODE=debug ECH0_EGRESS_ALLOW_PRIVATE=true "$AIR_BIN" -c .air.toml
 
 air-install:
     go install github.com/air-verse/air@latest
