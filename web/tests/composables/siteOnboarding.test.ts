@@ -102,7 +102,13 @@ describe('shouldShowSiteChecklist', () => {
 })
 
 describe('shouldShowFirstEchoCard', () => {
-  const base = { isOwner: true, echoTotal: 1, firstEchoPrivate: false, dismissed: false }
+  const base = {
+    isOwner: true,
+    filtering: false,
+    echoTotal: 1,
+    firstEchoPrivate: false,
+    dismissed: false,
+  }
 
   it('shows only for the single public first echo, once', () => {
     expect(shouldShowFirstEchoCard(base)).toBe(true)
@@ -114,5 +120,9 @@ describe('shouldShowFirstEchoCard', () => {
     expect(shouldShowFirstEchoCard({ ...base, dismissed: true })).toBe(false)
     expect(shouldShowFirstEchoCard({ ...base, echoTotal: 2 })).toBe(false)
     expect(shouldShowFirstEchoCard({ ...base, echoTotal: 0 })).toBe(false)
+  })
+
+  it('hides while a query narrows the timeline to one echo', () => {
+    expect(shouldShowFirstEchoCard({ ...base, filtering: true })).toBe(false)
   })
 })

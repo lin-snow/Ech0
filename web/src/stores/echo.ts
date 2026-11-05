@@ -37,6 +37,20 @@ export const useEchoStore = defineStore('echoStore', () => {
   const visibilityFilter = ref<App.Api.Ech0.EchoVisibilityFilter>('all')
   const isVisibilityFilterActive = computed(() => visibilityFilter.value !== 'all')
 
+  /**
+   * True whenever the timeline is showing a narrowed result set. `total` and
+   * `echoList` then describe the query, not the instance, so site-level UI
+   * (onboarding) must not read them while this is true.
+   */
+  const hasActiveQuery = computed(
+    () =>
+      searchingMode.value ||
+      isFilteringMode.value ||
+      isDateRangeActive.value ||
+      isTagSelectionActive.value ||
+      isVisibilityFilterActive.value,
+  )
+
   watch(searchingMode, (newValue, oldValue) => {
     if (newValue === false && oldValue === true) {
       refreshEchos()
@@ -248,6 +262,7 @@ export const useEchoStore = defineStore('echoStore', () => {
 
     visibilityFilter,
     isVisibilityFilterActive,
+    hasActiveQuery,
 
     fetchCurrentPage,
     goToPage,

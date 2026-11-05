@@ -103,7 +103,7 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const { SystemSetting } = storeToRefs(settingStore)
-const { isFilteringMode } = storeToRefs(echoStore)
+const { isFilteringMode, hasActiveQuery } = storeToRefs(echoStore)
 const { isLogin } = storeToRefs(userStore)
 
 const firstEchoSeen = ref(localStg.getItem<boolean>(FIRST_ECHO_CARD_SEEN_KEY) === true)
@@ -115,6 +115,7 @@ const showFirstEchoCard = computed(() => {
   if (!echo) return false
   return shouldShowFirstEchoCard({
     isOwner: isLogin.value,
+    filtering: hasActiveQuery.value,
     echoTotal: echoStore.total,
     firstEchoPrivate: echo.private === true,
     dismissed: firstEchoSeen.value,

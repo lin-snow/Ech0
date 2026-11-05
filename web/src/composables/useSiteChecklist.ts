@@ -22,7 +22,7 @@ export function useSiteChecklist() {
     shouldShowSiteChecklist({
       isOwner: isLogin.value,
       loading: echoStore.isLoading,
-      filtering: echoStore.isFilteringMode,
+      filtering: echoStore.hasActiveQuery,
       dismissed: dismissed.value,
       echoTotal: echoStore.total,
       siteTitle: SystemSetting.value.site_title ?? '',
