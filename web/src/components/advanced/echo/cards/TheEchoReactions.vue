@@ -2,9 +2,15 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div ref="rootRef" class="echo-reactions">
-    <div class="echo-reactions-anchor" ref="anchorRef">
+    <Teleport to="body">
       <Transition name="reaction-pop">
-        <div v-if="open" class="reaction-pop" :style="popStyle" @keydown="onMenuKeydown">
+        <div
+          v-if="open"
+          ref="popRef"
+          class="reaction-pop"
+          :style="popStyle"
+          @keydown="onMenuKeydown"
+        >
           <div
             ref="barRef"
             class="reaction-bar"
@@ -54,7 +60,9 @@
           </div>
         </div>
       </Transition>
+    </Teleport>
 
+    <div class="echo-reactions-anchor">
       <button
         ref="triggerRef"
         type="button"
@@ -182,7 +190,7 @@ const items = ref<ReactionCount[]>((props.echo.reactions ?? []).map((item) => ({
 const open = ref(false)
 const activeIndex = ref(0)
 const rootRef = ref<HTMLElement | null>(null)
-const anchorRef = ref<HTMLElement | null>(null)
+const popRef = ref<HTMLElement | null>(null)
 const barRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const itemRefs: HTMLElement[] = []
@@ -190,7 +198,7 @@ const particles = ref<Particle[]>([])
 let particleSeq = 0
 let justOpened = false
 
-const placement = ref({ side: 'top' as 'top' | 'bottom', shift: 0, tailX: 0 })
+const placement = ref({ side: 'top' as 'top' | 'bottom', left: 0, top: 0, tailX: 0 })
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -218,8 +226,8 @@ const topEmojis = computed<ReactionCount[]>(() => {
 })
 
 const popStyle = computed(() => ({
-  [placement.value.side === 'top' ? 'bottom' : 'top']: 'calc(100% + 16px)',
-  marginLeft: `${placement.value.shift}px`,
+  left: `${placement.value.left}px`,
+  top: `${placement.value.top}px`,
 }))
 
 watch(
@@ -231,6 +239,7 @@ watch(
 )
 
 onClickOutside(rootRef, () => close())
+onClickOutside(popRef, () => close())
 
 const REACTION_LABELS: { key: ReactionKey; labelKey: string }[] = [
   { key: 'like', labelKey: 'reaction.like' },
@@ -306,19 +315,26 @@ function placeBar() {
   // placed against its final size instead of a shrunken mid-flight one.
   const barWidth = bar.offsetWidth
   const barHeight = bar.offsetHeight
-  // clientWidth excludes the desktop scrollbar; innerWidth includes it, which
-  // would let the bar slide under the scrollbar on a narrow window.
+  // clientWidth/Height exclude the desktop scrollbar; innerWidth includes it,
+  // which would let the bar slide under the scrollbar on a narrow window.
   const viewportWidth = document.documentElement.clientWidth || window.innerWidth
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight
   const side = trigger.top - barHeight - gap < edge ? 'bottom' : 'top'
   const centered = trigger.left + trigger.width / 2 - barWidth / 2
   const overLeft = edge - centered
   const overRight = centered + barWidth - (viewportWidth - edge)
   const shift = overLeft > 0 ? overLeft : overRight > 0 ? -overRight : 0
+  const left = centered + shift
+  const top =
+    side === 'top'
+      ? trigger.top - barHeight - gap
+      : Math.min(trigger.bottom + gap, viewportHeight - barHeight - edge)
 
   placement.value = {
     side,
-    shift,
-    tailX: trigger.left + trigger.width / 2 - (centered + shift),
+    left,
+    top,
+    tailX: trigger.left + trigger.width / 2 - left,
   }
 }
 
@@ -328,11 +344,13 @@ const syncPlacement = () => {
 
 onMounted(() => {
   window.addEventListener('resize', syncPlacement)
+  window.addEventListener('scroll', syncPlacement, true)
   window.visualViewport?.addEventListener('resize', syncPlacement)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncPlacement)
+  window.removeEventListener('scroll', syncPlacement, true)
   window.visualViewport?.removeEventListener('resize', syncPlacement)
 })
 
@@ -596,10 +614,8 @@ void (async () => {
 }
 
 .reaction-pop {
-  position: absolute;
-  left: 50%;
-  z-index: 40;
-  transform: translateX(-50%);
+  position: fixed;
+  z-index: 1000;
   transform-origin: bottom center;
 }
 
@@ -614,24 +630,24 @@ void (async () => {
 @keyframes reaction-pop {
   from {
     opacity: 0;
-    transform: translate(-50%, 8px) scale(0.85);
+    transform: translateY(8px) scale(0.85);
   }
 
   to {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes reaction-pop-out {
   from {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
 
   to {
     opacity: 0;
-    transform: translate(-50%, 5px) scale(0.9);
+    transform: translateY(5px) scale(0.9);
   }
 }
 
