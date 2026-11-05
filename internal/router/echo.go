@@ -23,7 +23,7 @@ func registerEcho(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"Reaction"},
 	}, h.EchoHandler.GetReactionCatalog)
 
-	route(api, public(), huma.Operation{
+	route(api, optional(revoker), huma.Operation{
 		OperationID: "reaction-add",
 		Method:      http.MethodPut,
 		Path:        "/echo/{id}/reactions/{emoji}",
@@ -32,7 +32,7 @@ func registerEcho(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimit(10, 20))},
 	}, h.EchoHandler.AddReaction)
 
-	route(api, public(), huma.Operation{
+	route(api, optional(revoker), huma.Operation{
 		OperationID: "reaction-remove",
 		Method:      http.MethodDelete,
 		Path:        "/echo/{id}/reactions/{emoji}",
