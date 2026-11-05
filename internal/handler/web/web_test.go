@@ -88,7 +88,6 @@ func TestTemplates_HomeRendersAbsoluteSocialMeta(t *testing.T) {
 		`<meta property="og:locale" content="en_US" />`,
 		`<meta property="og:type" content="website" />`,
 		`<meta name="robots" content="index,follow,max-image-preview:large" />`,
-		`<html lang="en-US"`,
 		`"@type":"WebSite"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -187,8 +186,46 @@ func TestTemplates_UnknownRouteIsNotFound(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected %d, got %d", http.StatusNotFound, rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), `<div id="app">`) {
-		t.Fatalf("expected the shell so the client router can render its 404 view")
+	if got := rec.Header().Get("X-Robots-Tag"); got != robotsNoIndex {
+		t.Fatalf("expected X-Robots-Tag %q, got %q", robotsNoIndex, got)
+	}
+	if !strings.Contains(rec.Body.String(), `<title>404 | Ech0</title>`) {
+		t.Fatalf("expected the not-found head so the client router can render its 404 view")
+	}
+}
+
+func TestSPAShell_RenderReplacesMarkers(t *testing.T) {
+	doc := []byte(`<!doctype html><html lang="zh-CN"><head>` +
+		`<!--ECH0_SEO_START--><title>old</title><!--ECH0_SEO_END-->` +
+		`<link rel="manifest" href="/app.webmanifest" /></head>` +
+		`<body><div id="app"><!--ECH0_NOSCRIPT_START--><!--ECH0_NOSCRIPT_END--></div></body></html>`)
+
+	body := string(newSPAShell(doc).render(`<title>new</title>`, `<noscript>post</noscript>`, "en-US"))
+
+	for _, want := range []string{
+		`<html lang="en-US">`,
+		`<title>new</title>`,
+		`<link rel="manifest" href="/app.webmanifest" />`,
+		`<div id="app"><noscript>post</noscript></div>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected %q in rendered shell, got:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "<title>old</title>") {
+		t.Fatalf("stale shell head was not replaced:\n%s", body)
+	}
+}
+
+func TestSPAShell_FallsBackWithoutMarkers(t *testing.T) {
+	shell := newSPAShell([]byte(
+		`<!doctype html><html lang="zh-CN"><head></head><body><div id="app"></div></body></html>`,
+	))
+
+	body := string(shell.render(`<title>fallback</title>`, "", "zh-CN"))
+
+	if !strings.Contains(body, `<title>fallback</title></head>`) {
+		t.Fatalf("head fallback must inject before </head>, got:\n%s", body)
 	}
 }
 
