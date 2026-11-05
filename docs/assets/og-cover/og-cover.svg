@@ -4,30 +4,37 @@
     <stop offset="0" stop-color="#FFFFFF"/>
     <stop offset="1" stop-color="#FFFBF4"/>
   </radialGradient>
-  <radialGradient id="orb" gradientUnits="userSpaceOnUse" cx="1000" cy="310" r="300">
-    <stop offset="0" stop-color="#FFFDF7"/>
-    <stop offset="0.50" stop-color="#FFF4E2"/>
-    <stop offset="0.72" stop-color="#FFE0B9"/>
-    <stop offset="0.86" stop-color="#FCAE77"/>
-    <stop offset="0.95" stop-color="#F26A30"/>
-    <stop offset="0.985" stop-color="#F26A30" stop-opacity="0.35"/>
-    <stop offset="1" stop-color="#F26A30" stop-opacity="0"/>
+  <radialGradient id="orb" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#FFE3C2"/>
+    <stop offset="0.40" stop-color="#FFB57C"/>
+    <stop offset="0.68" stop-color="#FB7F45"/>
+    <stop offset="0.86" stop-color="#F1571B" stop-opacity="0.92"/>
+    <stop offset="0.96" stop-color="#F1571B" stop-opacity="0.35"/>
+    <stop offset="1" stop-color="#F1571B" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="blush" cx="0.78" cy="0.16" r="0.46">
+    <stop offset="0" stop-color="#9DB2FF" stop-opacity="0.55"/>
+    <stop offset="0.55" stop-color="#9DB2FF" stop-opacity="0.18"/>
+    <stop offset="1" stop-color="#9DB2FF" stop-opacity="0"/>
   </radialGradient>
   <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-    <stop offset="0" stop-color="#FCAE77" stop-opacity="0.30"/>
-    <stop offset="0.6" stop-color="#FCAE77" stop-opacity="0.10"/>
-    <stop offset="1" stop-color="#FCAE77" stop-opacity="0"/>
+    <stop offset="0" stop-color="#FFB57C" stop-opacity="0.35"/>
+    <stop offset="0.6" stop-color="#FFB57C" stop-opacity="0.12"/>
+    <stop offset="1" stop-color="#FFB57C" stop-opacity="0"/>
   </radialGradient>
+  <linearGradient id="eye" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/>
+    <stop offset="1" stop-color="#FFF6EA"/>
+  </linearGradient>
 </defs>
 
 <rect width="1200" height="630" fill="url(#bg)"/>
-<circle cx="1040" cy="315" r="440" fill="url(#glow)"/>
-<circle cx="1040" cy="315" r="300" fill="url(#orb)"/>
+<circle cx="1072" cy="312" r="470" fill="url(#glow)"/>
+<circle cx="1072" cy="312" r="330" fill="url(#orb)"/>
+<circle cx="1072" cy="312" r="330" fill="url(#blush)"/>
 
-<circle cx="952" cy="300" r="27" fill="#F54A00"/>
-<g transform="rotate(-14 1088 300)">
-  <rect x="1036" y="275" width="104" height="50" rx="25" fill="#141210"/>
-</g>
+<g transform="rotate(-14 991 267)"><rect x="966" y="212" width="50" height="110" rx="25" fill="url(#eye)"/></g>
+<g transform="rotate(-18 1101 249)"><rect x="1076" y="194" width="50" height="110" rx="25" fill="url(#eye)"/></g>
 
 <g transform="translate(88 84)">
   <svg width="44" height="44" viewBox="100 68 228 260" xmlns="http://www.w3.org/2000/svg">
