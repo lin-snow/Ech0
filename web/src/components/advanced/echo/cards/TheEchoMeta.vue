@@ -20,11 +20,10 @@
         {{ t('echoDetail.metaPrivate') }}
       </span>
       <div class="echo-meta-actions">
+        <TheEchoReactions :echo="props.echo" />
         <TheShareEchoPanel :echo-id="props.echo.id" :echo-content="props.echo.content" />
       </div>
     </div>
-
-    <TheEchoReactions :echo="props.echo" />
   </div>
 </template>
 
@@ -57,9 +56,10 @@ const tags = computed(() => props.echo.tags ?? [])
 
 .echo-meta-line {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
   color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: 0.72rem;
@@ -70,6 +70,7 @@ const tags = computed(() => props.echo.tags ?? [])
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  white-space: nowrap;
 }
 
 .echo-meta-item--lock {
@@ -100,7 +101,8 @@ const tags = computed(() => props.echo.tags ?? [])
 .echo-meta-actions {
   margin-left: auto;
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 </style>

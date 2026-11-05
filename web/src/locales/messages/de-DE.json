@@ -1,6 +1,7 @@
 {
   "reaction": {
     "add": "Reaktion hinzufügen",
+    "close": "Reaktionen schließen",
     "unavailable": "Dies ist ein statisches Archiv; Reaktionen sind nicht verfügbar.",
     "failed": "Reaktion fehlgeschlagen, bitte erneut versuchen.",
     "like": "Gefällt mir",

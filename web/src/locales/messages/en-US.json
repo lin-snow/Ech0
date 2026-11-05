@@ -1,6 +1,7 @@
 {
   "reaction": {
     "add": "Add reaction",
+    "close": "Close reactions",
     "unavailable": "This is a static archive; reactions are unavailable.",
     "failed": "Reaction failed, please try again.",
     "like": "Like",
