@@ -7,7 +7,7 @@
 1. **`docs/` 只放 `.md`**。截图、视频、PDF、可构建工程一律进 `docs/assets/`。唯一例外是 `docs/imgs/` 下的 4 个对外契约文件（见下）。
 2. **新增/删除文档必须同步本页**。本页是唯一入口：读者从这里进入，孤儿文档等于不存在。
 3. **冻结路径（外部 URL 契约，禁止改名或移动）**：
-   - `docs/usage/*.md`、`docs/dev/capsule/spec.md` — 已被发布站 `site/docs/**` 用绝对 GitHub blob 链接引用；
+   - `docs/usage/*.md`、`docs/dev/capsule/spec.md` — 已被发布站 `site/docs/{en,zh}/**` 用绝对 GitHub blob 链接引用；
    - `docs/imgs/{logo.svg,screenshot.png,pay.jpeg,qq.png}` — 被 `charts/ech0/Chart.yaml` 的 `icon`、`.github/FUNDING.yml`、4 个 README 引用（Helm 仓库与 ArtifactHub 会长期缓存）。
 4. **命名**：`dev/` 下只有设计记录/待定稿用 `*-design.md` 后缀；流程与规约用平铺名词（`testing.md`、`logging.md`）。
 

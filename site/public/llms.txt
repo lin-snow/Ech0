@@ -2,42 +2,42 @@
 
 > Ech0 is a self-hosted personal microblog (timeline) platform shipped as a single Go binary that serves both the REST API and the embedded Vue 3 SPA. AGPL-3.0, ad-free, platform-free.
 
-Ech0 uses SQLite by default and optionally a S3-compatible object store for attachments. The server exposes a REST API (Swagger at `/swagger/index.html` on every instance), an outbound Webhook bus, and a Streamable-HTTP MCP (Model Context Protocol) endpoint so AI clients can read/write through tools. Documentation is primarily in Simplified Chinese; `README.md` is English.
+Ech0 uses SQLite by default and optionally a S3-compatible object store for attachments. The server exposes a REST API (Swagger at `/swagger/index.html` on every instance), an outbound Webhook bus, and a Streamable-HTTP MCP (Model Context Protocol) endpoint so AI clients can read/write through tools. Documentation is bilingual: English is the default (`/docs`), Simplified Chinese is at `/zh/docs`; `README.md` is English.
 
 - Primary source: https://github.com/lin-snow/Ech0
-- Official site & docs: https://www.ech0.app
+- Official site & docs: https://www.ech0.app (Chinese docs: https://www.ech0.app/zh/docs)
 - Federated multi-instance timeline (Hub): https://hub.ech0.app — separate agent guide at https://hub.ech0.app/llms.txt
 - Release archive: https://lin-snow.github.io/Ech0/
 - Canonical sitemap: https://www.ech0.app/sitemap.xml
 
 ## Start here
 
-- [Product overview](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/overview.md): What Ech0 is, who it is for, what it does
-- [Getting started](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/start/getting-started.md): Deploy-to-first-post path in ~10 minutes
-- [Installation](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/start/installation.md): Docker / Compose / binary / Helm; ports, data, security
-- [Update](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/start/update.md): Upgrade paths; backup-first; v3→v4 snapshot migration
-- [FAQ](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/start/faq.md): Kept in sync with the repo README FAQ
+- [Product overview](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/overview.md): What Ech0 is, who it is for, what it does
+- [Getting started](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/start/getting-started.md): Deploy-to-first-post path in ~10 minutes
+- [Installation](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/start/installation.md): Docker / Compose / binary / Helm; ports, data, security
+- [Update](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/start/update.md): Upgrade paths; backup-first; v3→v4 snapshot migration
+- [FAQ](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/start/faq.md): Kept in sync with the repo README FAQ
 
 ## Guides
 
-- [Editor](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/editor.md): Composing an Echo; drafts, images, extension cards
-- [Preferences & profile](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/preferences.md): Site identity vs. user identity
-- [Federation & Hub](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/federation.md): Connect between instances + Hub unified timeline
-- [SSO](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/sso.md): OAuth2/OIDC and Passkey login
-- [Comments](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/comment.md): Built-in comments, moderation, captcha, form-token
-- [Agent (LLM summary)](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/agent.md): Recent-posts summary powered by an LLM
-- [Webhooks](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/webhook.md): Outbound event push, signing, retries
-- [Access tokens](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/accesstoken.md): Bearer tokens; audience + scope model
-- [MCP](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/mcp.md): Streamable-HTTP MCP endpoint; tools / resources; audience `mcp-remote`
-- [S3 / object storage](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/s3.md): S3-compatible backend configuration
-- [Data control](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/guide/datacontrol.md): Snapshots, migration, backup, restore
+- [Editor](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/editor.md): Composing an Echo; drafts, images, extension cards
+- [Preferences & profile](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/preferences.md): Site identity vs. user identity
+- [Federation & Hub](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/federation.md): Connect between instances + Hub unified timeline
+- [SSO](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/sso.md): OAuth2/OIDC and Passkey login
+- [Comments](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/comment.md): Built-in comments, moderation, captcha, form-token
+- [Agent (LLM summary)](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/agent.md): Recent-posts summary powered by an LLM
+- [Webhooks](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/webhook.md): Outbound event push, signing, retries
+- [Access tokens](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/accesstoken.md): Bearer tokens; audience + scope model
+- [MCP](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/mcp.md): Streamable-HTTP MCP endpoint; tools / resources; audience `mcp-remote`
+- [S3 / object storage](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/s3.md): S3-compatible backend configuration
+- [Data control](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/guide/datacontrol.md): Snapshots, migration, backup, restore
 
 ## Developer reference
 
 - [Repository README (English)](https://raw.githubusercontent.com/lin-snow/Ech0/main/README.md): Stack, quickstart, event-runtime env vars
 - [Repository README (中文)](https://raw.githubusercontent.com/lin-snow/Ech0/main/README.zh.md)
 - [CONTRIBUTING](https://raw.githubusercontent.com/lin-snow/Ech0/main/CONTRIBUTING.md): PR workflow and mandatory `make check`
-- [Develop from source](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/dev/guide.md): Run backend + frontend locally
+- [Develop from source](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/dev/guide.md): Run backend + frontend locally
 - [Auth design](https://raw.githubusercontent.com/lin-snow/Ech0/main/docs/dev/auth-design.md): Session + token model
 - [Access-token scope design](https://raw.githubusercontent.com/lin-snow/Ech0/main/docs/dev/access-token-scope-design.md): Authoritative scope / audience / `typ` spec
 - [i18n contract](https://raw.githubusercontent.com/lin-snow/Ech0/main/docs/dev/i18n-contract.md): Locale header, error field shape, key naming
@@ -51,9 +51,9 @@ Ech0 uses SQLite by default and optionally a S3-compatible object store for atta
 
 ## Optional
 
-- [Community](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/start/community.md): Feedback channels, contributors, sponsors
+- [Community](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/docs/en/start/community.md): Feedback channels, contributors, sponsors
 - [Security policy](https://raw.githubusercontent.com/lin-snow/Ech0/main/SECURITY.md)
 - [Code of conduct](https://raw.githubusercontent.com/lin-snow/Ech0/main/CODE_OF_CONDUCT.md)
 - [License (AGPL-3.0)](https://raw.githubusercontent.com/lin-snow/Ech0/main/LICENSE)
-- [Privacy policy](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/content/privacy.md)
+- [Privacy policy](https://raw.githubusercontent.com/lin-snow/Ech0/main/site/content/privacy/en.md)
 - [Helm release validation](https://raw.githubusercontent.com/lin-snow/Ech0/main/docs/dev/helm-release-validation.md)

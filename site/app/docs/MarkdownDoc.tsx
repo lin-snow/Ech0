@@ -5,14 +5,17 @@ import "highlight.js/styles/github.css";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
+import { DEFAULT_LOCALE, docPath, type DocLocale } from "./locale";
 import type { TocItem } from "./toc";
 
 function DocLink({
   href,
   children,
+  locale,
 }: {
   href?: string;
   children?: React.ReactNode;
+  locale: DocLocale;
 }) {
   if (!href) return <span>{children}</span>;
   if (/^https?:\/\//i.test(href)) {
@@ -27,7 +30,17 @@ function DocLink({
       </a>
     );
   }
-  if (href.startsWith("/docs")) {
+  if (href === "/docs" || href.startsWith("/docs/")) {
+    return (
+      <Link
+        to={href}
+        className="text-sand-12 underline decoration-sand-11/45 underline-offset-2"
+      >
+        {children}
+      </Link>
+    );
+  }
+  if (href === "/zh/docs" || href.startsWith("/zh/docs/")) {
     return (
       <Link
         to={href}
@@ -40,7 +53,7 @@ function DocLink({
   if (href.endsWith(".md")) {
     let path = href.replace(/\.md$/, "").replace(/^\.\//, "");
     while (path.startsWith("../")) path = path.slice(3);
-    const to = path === "" || path === "README" ? "/docs" : `/docs/${path}`;
+    const to = docPath(locale, path === "README" ? "" : path);
     return (
       <Link
         to={to}
@@ -66,9 +79,11 @@ const markdownClass =
 export function MarkdownDoc({
   content,
   tocItems,
+  locale = DEFAULT_LOCALE,
 }: {
   content: string;
   tocItems?: TocItem[];
+  locale?: DocLocale;
 }) {
   const tocPtr = useRef(0);
   tocPtr.current = 0;
@@ -77,7 +92,9 @@ export function MarkdownDoc({
   const components = useMemo(() => {
     const toc = tocItems ?? [];
     const base: Record<string, React.ComponentType<unknown>> = {
-      a: DocLink as React.ComponentType<unknown>,
+      a: ((props: { href?: string; children?: React.ReactNode }) => (
+        <DocLink {...props} locale={locale} />
+      )) as React.ComponentType<unknown>,
     };
 
     if (toc.length === 0) {
@@ -115,7 +132,7 @@ export function MarkdownDoc({
       h2: H2,
       h3: H3,
     };
-  }, [tocItems]);
+  }, [tocItems, locale]);
 
   return (
     <div className={markdownClass}>
