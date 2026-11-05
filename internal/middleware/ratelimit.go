@@ -78,38 +78,6 @@ func RateLimit(rps, burst int) gin.HandlerFunc {
 	}
 }
 
-func RateLimitWithIdempotency(
-	rps, burst int,
-	dedupTTL time.Duration,
-	resourceParam string,
-	onIdempotent gin.HandlerFunc,
-) gin.HandlerFunc {
-	limiter := newRateLimiter(rps, burst)
-	dedup := newIdempotencyStore(dedupTTL)
-
-	gcInterval := max(dedupTTL, time.Minute)
-	startBucketGC(limiter, gcInterval, 10*time.Minute)
-	startIdempotencyGC(dedup, gcInterval)
-
-	return func(c *gin.Context) {
-		ip := c.ClientIP()
-		if !limiter.allow(ip) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
-			c.Abort()
-			return
-		}
-
-		resourceID := c.Param(resourceParam)
-		if ip != "" && resourceID != "" && !dedup.acquire(ip+"|"+resourceID, time.Now()) {
-			onIdempotent(c)
-			c.Abort()
-			return
-		}
-
-		c.Next()
-	}
-}
-
 func startBucketGC(rl *rateLimiter, interval, idle time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -123,49 +91,6 @@ func startBucketGC(rl *rateLimiter, interval, idle time.Duration) {
 				}
 			}
 			rl.mu.Unlock()
-		}
-	}()
-}
-
-type idempotencyStore struct {
-	mu   sync.Mutex
-	seen map[string]time.Time
-	ttl  time.Duration
-}
-
-func newIdempotencyStore(ttl time.Duration) *idempotencyStore {
-	return &idempotencyStore{
-		seen: make(map[string]time.Time),
-		ttl:  ttl,
-	}
-}
-
-func (s *idempotencyStore) acquire(key string, now time.Time) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if t, ok := s.seen[key]; ok && now.Sub(t) < s.ttl {
-		return false
-	}
-	s.seen[key] = now
-	return true
-}
-
-func (s *idempotencyStore) gc(now time.Time) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for k, t := range s.seen {
-		if now.Sub(t) >= s.ttl {
-			delete(s.seen, k)
-		}
-	}
-}
-
-func startIdempotencyGC(s *idempotencyStore, interval time.Duration) {
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for range ticker.C {
-			s.gc(time.Now())
 		}
 	}()
 }
