@@ -4,12 +4,14 @@ This package is the **official** landing page and **documentation site** for [Ec
 
 ## What lives here
 
-| Path          | Purpose                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------- |
-| `app/routes/` | Pages: home (`/`), docs catalog (`/docs`), doc article (`/docs/`*), privacy                         |
-| `app/docs/`   | Doc registry (`registry.ts`), Markdown rendering (`MarkdownDoc.tsx`), table of contents helpers     |
-| `docs/`       | Markdown sources (`**/*.md`), images under `docs/imgs/` (copied into `public/docs-assets` on build) |
-| `public/`     | Static assets (`logo.svg`, `screenshot.png`, `_redirects` for SPA fallback on static hosts)         |
+Documentation is bilingual: English is the default locale and Simplified Chinese is served under `/zh`. The landing page is English-only.
+
+| Path          | Purpose                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `app/routes/` | Pages: home (`/`), docs catalog (`/docs`, `/zh/docs`), doc article (`/docs/`_, `/zh/docs/`_), privacy |
+| `app/docs/`   | Locale vocabulary (`locale.ts`), doc registry (`registry.ts`), Markdown rendering, table of contents  |
+| `docs/`       | Markdown sources per locale (`en/**/*.md` default, `zh/**/*.md`), images under `docs/imgs/`           |
+| `public/`     | Static assets (`logo.svg`, `screenshot.png`, `_redirects` for SPA fallback on static hosts)           |
 
 The doc catalog order and featured cards are controlled in `app/docs/registry.ts` (`DOC_ORDER`, optional `DOC_HERO_SLUGS`).
 
@@ -48,9 +50,11 @@ When deploying to a custom domain, align `VITE_SITE_URL` and update `public/site
 
 ## Editing documentation
 
-1. Add or change Markdown under `docs/` (e.g. `docs/guide/foo.md` → URL `/docs/guide/foo`).
-2. Register the slug in `app/docs/registry.ts` `DOC_ORDER` if you care about sidebar order; unlisted files still appear but sort after known entries.
-3. Use `![](imgs/...)` in Markdown; paths are rewritten to `/docs-assets/imgs/...` at render time.
+1. Add or change Markdown under a locale directory: `docs/en/<slug>.md` (default) and `docs/zh/<slug>.md` (Chinese). A missing translation falls back to English.
+2. English pages are served at `/docs/<slug>`, Chinese at `/zh/docs/<slug>`; the language switch keeps the current slug.
+3. Register the slug in `app/docs/registry.ts` `DOC_ORDER` if you care about sidebar order; unlisted files still appear but sort after known entries.
+4. Use `![](imgs/...)` in Markdown; paths are rewritten to `/docs-assets/imgs/...` at render time.
+5. Link between docs with absolute paths in the current locale (`/docs/...` in English, `/zh/docs/...` in Chinese).
 
 ## License
 

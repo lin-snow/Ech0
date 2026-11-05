@@ -1,25 +1,26 @@
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import type { Route } from "./+types/index";
 import { listDocCards, partitionDocCards } from "../../docs/registry";
-import { absoluteUrl } from "../../site";
+import { LocaleSwitch } from "../../docs/LocaleSwitch";
+import { docPath, localeFromPathname, OG_LOCALE } from "../../docs/locale";
+import { DOCS_UI } from "../../docs/ui";
 
-export function meta(_args: Route.MetaArgs) {
+export function meta({ loaderData, location }: Route.MetaArgs) {
+  const locale = loaderData?.locale ?? localeFromPathname(location.pathname);
   return [
-    { title: "Documentation — Ech0" },
+    { title: DOCS_UI[locale].docsTitle },
     {
       name: "description",
-      content: "Ech0 documentation: deployment, features, and policies.",
+      content: DOCS_UI[locale].docsDescription,
     },
+    { property: "og:locale", content: OG_LOCALE[locale] },
   ];
 }
 
-export async function clientLoader() {
-  return partitionDocCards(listDocCards());
+export async function clientLoader({ request }: Route.ClientLoaderArgs) {
+  const locale = localeFromPathname(new URL(request.url).pathname);
+  return { locale, ...partitionDocCards(listDocCards(locale)) };
 }
-
-export const links: Route.LinksFunction = () => [
-  { rel: "canonical", href: absoluteUrl("/docs") },
-];
 
 function DocHeroIcon({ slug }: { slug: string }) {
   if (slug === "guide/overview") {
@@ -120,7 +121,9 @@ function DocHeroIcon({ slug }: { slug: string }) {
 }
 
 export default function DocsIndex({ loaderData }: Route.ComponentProps) {
-  const { featured, rest } = loaderData;
+  const { pathname } = useLocation();
+  const { featured, rest, locale } = loaderData;
+  const ui = DOCS_UI[locale];
 
   return (
     <div className="mx-auto w-full max-w-[min(100%,30rem)]">
@@ -129,15 +132,16 @@ export default function DocsIndex({ loaderData }: Route.ComponentProps) {
           to="/"
           className="text-xs font-medium text-sand-11 transition-colors hover:text-sand-12"
         >
-          ← Home
+          ← {ui.home}
         </Link>
+        <LocaleSwitch locale={locale} pathname={pathname} />
       </header>
 
       <h1 className="mt-8 font-serif text-xl font-normal leading-snug text-sand-12">
-        Documentation
+        {ui.documentation}
       </h1>
       <p className="mt-2 max-w-[42ch] text-[0.8125rem] leading-relaxed text-sand-11">
-        Start with the essentials, then explore features and reference.
+        {ui.intro}
       </p>
 
       {featured.length > 0 ? (
@@ -146,13 +150,13 @@ export default function DocsIndex({ loaderData }: Route.ComponentProps) {
             id="docs-start-here"
             className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-sand-11"
           >
-            Start here
+            {ui.startHere}
           </h2>
           <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {featured.map((card) => (
               <li key={card.slug} className="flex min-h-0">
                 <Link
-                  to={`/docs/${card.slug}`}
+                  to={docPath(locale, card.slug)}
                   className="group flex h-full min-h-[6.75rem] w-full gap-3.5 rounded-xl border border-sand-6 bg-gradient-to-br from-sand-2 via-sand-2 to-sand-2/70 px-4 py-3.5 text-left shadow-[0_1px_2px_rgba(33,32,28,0.04)] ring-1 ring-sand-6/35 transition hover:border-sand-11/25 hover:ring-sand-11/10"
                 >
                   <span
@@ -186,13 +190,13 @@ export default function DocsIndex({ loaderData }: Route.ComponentProps) {
           id="docs-more"
           className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-sand-11"
         >
-          {featured.length > 0 ? "All guides" : "Browse"}
+          {featured.length > 0 ? ui.allGuides : ui.browse}
         </h2>
         <ul className="mt-4 grid grid-cols-2 gap-2">
           {rest.map((card) => (
             <li key={card.slug}>
               <Link
-                to={`/docs/${card.slug}`}
+                to={docPath(locale, card.slug)}
                 className="flex min-h-[3.25rem] flex-col justify-center gap-0.5 rounded-lg border border-sand-6/90 bg-sand-2/40 px-2 py-1.5 text-left shadow-[0_1px_2px_rgba(33,32,28,0.03)] transition-colors hover:border-sand-11/25 hover:bg-sand-2/80"
               >
                 <span className="font-serif text-[0.6875rem] font-semibold leading-tight text-sand-12 line-clamp-2">

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+import { DEFAULT_LOCALE, type DocLocale } from "./locale";
+
 const raw = import.meta.glob<string>("../../docs/**/*.md", {
   query: "?raw",
   import: "default",
@@ -10,6 +12,23 @@ const raw = import.meta.glob<string>("../../docs/**/*.md", {
 function normalizePath(p: string): string {
   return p.replace(/\\/g, "/");
 }
+
+const LOCALE_DOC = /\/docs\/(en|zh)\/(.+)\.md$/;
+
+function buildDocIndex(): Record<DocLocale, Map<string, string>> {
+  const index: Record<DocLocale, Map<string, string>> = {
+    en: new Map(),
+    zh: new Map(),
+  };
+  for (const [key, value] of Object.entries(raw)) {
+    const match = normalizePath(key).match(LOCALE_DOC);
+    if (!match) continue;
+    index[match[1] as DocLocale].set(match[2], value);
+  }
+  return index;
+}
+
+const DOCS = buildDocIndex();
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
 
@@ -64,13 +83,22 @@ export function parseDocFile(
   return { title, description, body };
 }
 
-export function listDocCards(): DocCard[] {
+function rawDoc(slug: string, locale: DocLocale): string | undefined {
+  return DOCS[locale].get(slug) ?? DOCS[DEFAULT_LOCALE].get(slug);
+}
+
+export function listDocCards(locale: DocLocale = DEFAULT_LOCALE): DocCard[] {
+  const slugs = new Set<string>([
+    ...DOCS[locale].keys(),
+    ...DOCS[DEFAULT_LOCALE].keys(),
+  ]);
   const cards: DocCard[] = [];
-  for (const key of Object.keys(raw)) {
-    const nk = normalizePath(key);
-    const slug = nk.replace(/^.*\/docs\//, "").replace(/\.md$/, "");
+  const collator = new Intl.Collator(locale === "zh" ? "zh-Hans-CN" : "en");
+  for (const slug of slugs) {
     if (!slug || slug === "README") continue;
-    const parsed = parseDocFile(raw[key] as string, slug);
+    const source = rawDoc(slug, locale);
+    if (!source) continue;
+    const parsed = parseDocFile(source, slug);
     cards.push({
       slug,
       title: parsed.title,
@@ -79,8 +107,7 @@ export function listDocCards(): DocCard[] {
   }
   cards.sort(
     (a, b) =>
-      docOrder(a.slug) - docOrder(b.slug) ||
-      a.title.localeCompare(b.title, "zh-Hans-CN"),
+      docOrder(a.slug) - docOrder(b.slug) || collator.compare(a.title, b.title),
   );
   return cards;
 }
@@ -141,15 +168,13 @@ function docOrder(slug: string): number {
 
 export function getDoc(
   slug: string,
+  locale: DocLocale = DEFAULT_LOCALE,
 ): { title: string; description: string; body: string } | null {
   const normalized = slug.replace(/^\/+|\/+$/g, "");
   if (normalized === "") return null;
-  const key = Object.keys(raw).find((k) => {
-    const nk = normalizePath(k);
-    return nk.endsWith(`/${normalized}.md`) || nk.endsWith(`${normalized}.md`);
-  });
-  if (!key) return null;
-  return parseDocFile(raw[key] as string, normalized);
+  const source = rawDoc(normalized, locale);
+  if (!source) return null;
+  return parseDocFile(source, normalized);
 }
 
 export function prepareMarkdownContent(md: string): string {
