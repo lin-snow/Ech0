@@ -81,8 +81,14 @@
             stroke-linecap="round"
           />
         </svg>
-        <template v-else-if="lead">
-          <span class="reaction-trigger-emoji" aria-hidden="true">{{ lead.emoji }}</span>
+        <template v-else-if="topEmojis.length > 0">
+          <span
+            v-for="entry in topEmojis"
+            :key="entry.key"
+            class="reaction-trigger-emoji"
+            aria-hidden="true"
+            >{{ entry.emoji }}</span
+          >
           <span class="reaction-trigger-count">{{ totalCount > 99 ? '99+' : totalCount }}</span>
         </template>
         <svg
@@ -199,14 +205,16 @@ const catalogOrder = computed(
 
 const totalCount = computed(() => items.value.reduce((sum, item) => sum + item.count, 0))
 
-// The trigger mirrors the old like button: one emoji plus the total, always
-// the same width, so a busy post can never push the meta row onto a new line.
-const lead = computed<ReactionCount | null>(() => {
-  const [first] = [...items.value].sort((a, b) => {
-    if (b.count !== a.count) return b.count - a.count
-    return (catalogOrder.value.get(a.key) ?? 0) - (catalogOrder.value.get(b.key) ?? 0)
-  })
-  return first ?? null
+// The trigger shows up to three emoji plus the total, in a fixed-width pill,
+// so a busy post can never push the meta row onto a new line while still
+// saying at a glance that several reaction kinds are supported.
+const topEmojis = computed<ReactionCount[]>(() => {
+  return [...items.value]
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      return (catalogOrder.value.get(a.key) ?? 0) - (catalogOrder.value.get(b.key) ?? 0)
+    })
+    .slice(0, 3)
 })
 
 const popStyle = computed(() => ({
@@ -536,6 +544,7 @@ void (async () => {
 }
 
 .reaction-trigger--with-count {
+  gap: 0.06rem;
   padding: 0 0.42rem;
 }
 
@@ -559,7 +568,7 @@ void (async () => {
 }
 
 .reaction-trigger-emoji {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   line-height: 1;
 }
 

@@ -68,12 +68,15 @@ const catalogOrder = computed(
 
 const totalCount = computed(() => items.value.reduce((sum, item) => sum + item.count, 0))
 
-const lead = computed<ReactionCount | null>(() => {
-  const [first] = [...items.value].sort((a, b) => {
-    if (b.count !== a.count) return b.count - a.count
-    return (catalogOrder.value.get(a.key) ?? 0) - (catalogOrder.value.get(b.key) ?? 0)
-  })
-  return first ?? null
+// Up to three emoji plus the total, in a fixed-width pill: the meta row keeps
+// one line while still advertising that several reaction kinds exist.
+const topEmojis = computed<ReactionCount[]>(() => {
+  return [...items.value]
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      return (catalogOrder.value.get(a.key) ?? 0) - (catalogOrder.value.get(b.key) ?? 0)
+    })
+    .slice(0, 3)
 })
 
 const popStyle = computed(() => ({
@@ -418,8 +421,13 @@ void (async () => {
             stroke-linecap="round"
           />
         </svg>
-        <template v-else-if="lead">
-          <span class="hub-reaction-trigger-emoji" aria-hidden="true">{{ lead.emoji }}</span>
+        <template v-else-if="topEmojis.length > 0">
+          <span
+            v-for="entry in topEmojis"
+            :key="entry.key"
+            class="hub-reaction-trigger-emoji"
+            aria-hidden="true"
+          >{{ entry.emoji }}</span>
           <span class="hub-reaction-trigger-count">{{ totalCount > 99 ? '99+' : totalCount }}</span>
         </template>
         <svg
@@ -487,6 +495,7 @@ void (async () => {
 }
 
 .hub-reaction-trigger--with-count {
+  gap: 0.06rem;
   padding: 0 0.42rem;
 }
 
@@ -505,7 +514,7 @@ void (async () => {
 }
 
 .hub-reaction-trigger-emoji {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   line-height: 1;
 }
 
