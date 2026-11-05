@@ -89,30 +89,44 @@ func buildLLMsTxt(baseURL string, system settingModel.SystemSetting) string {
 
 	var doc strings.Builder
 	fmt.Fprintf(&doc, "# %s\n\n", title)
-	fmt.Fprintf(&doc, "> %s — a self-hosted Ech0 microblog instance.\n\n", siteDescription(system))
-	doc.WriteString("Ech0 serves its timeline over HTTP and the Model Context Protocol. " +
-		"The links below are the entry points for automated clients; every URL is absolute, " +
-		"so a crawler can follow it without further context.\n\n")
+	if description := singleLine(system.ServerName); description != "" && !strings.EqualFold(description, title) {
+		fmt.Fprintf(&doc, "> %s — a self-hosted microblogging platform powered by Ech0.\n\n", description)
+	} else {
+		doc.WriteString("> A self-hosted microblogging platform powered by Ech0.\n\n")
+	}
+	doc.WriteString("Ech0 is a personal publishing platform that provides content feeds, REST APIs, and " +
+		"Model Context Protocol (MCP) integration. Use the following resources to discover and " +
+		"interact with this instance.\n\n")
 
-	doc.WriteString("## Pages and feeds\n\n")
-	fmt.Fprintf(&doc, "- [Home timeline](%s/)\n", base)
-	fmt.Fprintf(&doc, "- [Federated hub](%s/hub)\n", base)
-	fmt.Fprintf(&doc, "- [RSS feed](%s/rss)\n", base)
-	fmt.Fprintf(&doc, "- [Sitemap](%s/sitemap.xml)\n\n", base)
+	doc.WriteString("## Content & Feeds\n\n")
+	fmt.Fprintf(&doc, "- [Home](%s/): Browse the public timeline.\n", base)
+	fmt.Fprintf(&doc, "- [Federated Hub](%s/hub): Explore the federated community.\n", base)
+	fmt.Fprintf(&doc, "- [RSS Feed](%s/rss): Subscribe to public updates.\n", base)
+	fmt.Fprintf(&doc, "- [Sitemap](%s/sitemap.xml): Discover public pages.\n\n", base)
 
-	doc.WriteString("## Agent surface\n\n")
-	fmt.Fprintf(&doc, "- [AI catalog](%s%s): machine-readable index of this instance's agentic resources, "+
-		"also served at `%s`\n", base, AgentCatalogPath, AgentCatalogLegacyPath)
-	fmt.Fprintf(&doc, "- [MCP server card](%s%s): transport, protocol versions and authentication for the MCP endpoint\n",
-		base, mcp.ServerCardPath)
-	fmt.Fprintf(&doc, "- [OpenAPI document](%s/api/openapi.json): full REST API schema\n", base)
-	fmt.Fprintf(&doc, "- [API reference UI](%s/api/docs): browsable version of the same schema\n\n", base)
+	doc.WriteString("## Developer & Agent Resources\n\n")
+	fmt.Fprintf(&doc, "- [Agent Catalog](%s%s): Machine-readable catalog of available agent services.\n",
+		base, AgentCatalogPath)
+	fmt.Fprintf(&doc, "- [MCP Server Card](%s%s): MCP endpoint, transport, protocol capabilities, "+
+		"and authentication information.\n", base, mcp.ServerCardPath)
+	fmt.Fprintf(&doc, "- [OpenAPI Specification](%s/api/openapi.json): Complete REST API specification.\n", base)
+	fmt.Fprintf(&doc, "- [API Documentation](%s/api/docs): Interactive API reference.\n\n", base)
 
-	doc.WriteString("## Endpoints worth knowing\n\n")
-	doc.WriteString("- `GET /api/echo/query` — public timeline; a token with the `echo:private` scope also returns private posts\n")
-	doc.WriteString("- `POST /mcp` — Streamable HTTP MCP endpoint, requires an access token with the `mcp-remote` audience\n")
-	doc.WriteString("- Discovery documents describe the instance, never its content; post text is available " +
-		"only through the feeds and APIs above.\n")
+	doc.WriteString("## API & Integration\n\n")
+	doc.WriteString("- `POST /api/echo/query`: Query public posts. Access to private posts requires " +
+		"an Access Token with the `echo:private` scope.\n")
+	doc.WriteString("- `POST /mcp`: Streamable HTTP MCP endpoint for AI agent integration. Supports " +
+		"Bearer Access Token authentication and OAuth 2.1 authorization.\n\n")
+
+	doc.WriteString("## Integration Guide\n\n")
+	doc.WriteString("- **RSS**: Passive content consumption and timeline subscriptions.\n")
+	doc.WriteString("- **REST API**: Direct programmatic access to posts and other resources.\n")
+	doc.WriteString("- **MCP**: AI agent integration for interacting with this instance.\n\n")
+
+	doc.WriteString("MCP clients can authenticate using either a pre-issued Access Token or an OAuth 2.1 " +
+		"authorization flow, depending on their integration requirements.\n\n")
+	doc.WriteString("Refer to the corresponding API specifications and MCP Server Card for detailed " +
+		"capabilities, authentication requirements, and usage instructions.\n")
 
 	return doc.String()
 }
@@ -173,14 +187,6 @@ func siteTitle(system settingModel.SystemSetting) string {
 	}
 
 	return defaultSiteTitle
-}
-
-func siteDescription(system settingModel.SystemSetting) string {
-	if description := singleLine(system.ServerName); description != "" {
-		return description
-	}
-
-	return siteTitle(system)
 }
 
 func singleLine(value string) string {
