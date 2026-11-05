@@ -27,6 +27,20 @@ declare namespace App {
 
       type EchoVisibilityFilter = 'all' | 'public' | 'private'
 
+      type ReactionKey = 'like' | 'heart' | 'haha' | 'wow' | 'sad' | 'party'
+
+      type ReactionCatalogItem = {
+        key: ReactionKey
+        emoji: string
+      }
+
+      type ReactionCount = {
+        key: ReactionKey
+        emoji: string
+        count: number
+        reacted: boolean
+      }
+
       type EchoQueryParams = {
         page: number
         pageSize: number
@@ -49,7 +63,7 @@ declare namespace App {
         user_id: string
         extension?: EchoExtension | null
         tags?: Tag[]
-        fav_count: number
+        reactions?: ReactionCount[]
         created_at: number | string
       }
 

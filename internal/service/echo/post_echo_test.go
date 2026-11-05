@@ -14,7 +14,6 @@ import (
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
-	echomock "github.com/lin-snow/ech0/internal/test/mocks/echomock"
 	filemock "github.com/lin-snow/ech0/internal/test/mocks/filemock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
 	"github.com/lin-snow/ech0/pkg/busen"
@@ -25,7 +24,7 @@ import (
 
 func TestPostEcho_Guards(t *testing.T) {
 	t.Run("non-admin is denied", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, userID).
@@ -39,7 +38,7 @@ func TestPostEcho_Guards(t *testing.T) {
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("user lookup failed")
 		common.EXPECT().
@@ -54,7 +53,7 @@ func TestPostEcho_Guards(t *testing.T) {
 	})
 
 	t.Run("invalid extension is rejected before transaction", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, adminID).
@@ -72,7 +71,7 @@ func TestPostEcho_Guards(t *testing.T) {
 	})
 
 	t.Run("empty echo is rejected", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, adminID).
@@ -87,7 +86,7 @@ func TestPostEcho_Guards(t *testing.T) {
 }
 
 func TestPostEcho_Success(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
@@ -141,7 +140,7 @@ func TestPostEcho_Success(t *testing.T) {
 }
 
 func TestPostEcho_ValidLayoutPreserved(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
@@ -176,7 +175,7 @@ func TestPostEcho_ValidLayoutPreserved(t *testing.T) {
 }
 
 func TestPostEcho_TransactionError(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
 	boom := errors.New("create echo failed")
@@ -196,7 +195,7 @@ func TestPostEcho_TransactionError(t *testing.T) {
 }
 
 func TestPostEcho_SavedEchoNilSkipsEvent(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
@@ -229,7 +228,7 @@ func TestPostEcho_SavedEchoNilSkipsEvent(t *testing.T) {
 }
 
 func TestPostEcho_RefetchError(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
 	bus := helpers.NewTestBus(t)
@@ -252,7 +251,7 @@ func TestPostEcho_RefetchError(t *testing.T) {
 }
 
 func TestPostEcho_LayoutNonePreserved(t *testing.T) {
-	repo := echomock.NewMockRepository(t)
+	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)

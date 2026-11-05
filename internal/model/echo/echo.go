@@ -21,8 +21,12 @@ type Echo struct {
 	UserID    string         `gorm:"type:char(36);not null;index"                  json:"user_id"`
 	Extension *EchoExtension `gorm:"foreignKey:EchoID;constraint:OnDelete:CASCADE" json:"extension,omitempty"`
 	Tags      []Tag          `gorm:"many2many:echo_tags;"                          json:"tags,omitempty"`
-	FavCount  int            `gorm:"default:0"                                     json:"fav_count"`
 	CreatedAt int64          `gorm:"autoCreateTime;index:idx_echos_private_created,priority:2" json:"created_at"`
+
+	// Reactions is a request-scoped projection hydrated by the service from
+	// echo_reactions; it is never persisted with the echo row and therefore
+	// never enters the shared echo cache.
+	Reactions []ReactionCount `gorm:"-" json:"reactions,omitempty"`
 }
 
 // EchoRef is the minimal projection of an echo used by machine-readable

@@ -12,7 +12,6 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
-	echomock "github.com/lin-snow/ech0/internal/test/mocks/echomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -28,7 +27,7 @@ func tagNames(tags []echoModel.Tag) []string {
 
 func TestProcessEchoTags(t *testing.T) {
 	t.Run("trims whitespace strips hash and routes existing vs new", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 
 		repo.EXPECT().
 			GetTagsByNames(mock.Anything, []string{"golang", "vue"}).
@@ -54,7 +53,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("skips empty and hash-only names", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 
 		repo.EXPECT().
 			GetTagsByNames(mock.Anything, []string{"kept"}).
@@ -70,7 +69,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("rejects unsafe tag name before touching repo", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 
 		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 		echo := &echoModel.Echo{Tags: []echoModel.Tag{{Name: "<script>"}}}
@@ -80,7 +79,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("all existing increments only", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		repo.EXPECT().
 			GetTagsByNames(mock.Anything, []string{"a", "b"}).
 			Return([]*echoModel.Tag{{ID: "ta", Name: "a"}, {ID: "tb", Name: "b"}}, nil).
@@ -96,7 +95,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("GetTagsByNames error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		boom := errors.New("db down")
 		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return(nil, boom).Once()
 
@@ -107,7 +106,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("IncrementTagUsageCount error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		boom := errors.New("increment failed")
 		repo.EXPECT().
 			GetTagsByNames(mock.Anything, mock.Anything).
@@ -122,7 +121,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("CreateTag error propagates", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		boom := errors.New("create failed")
 		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
 		repo.EXPECT().CreateTag(mock.Anything, mock.Anything).Return(boom).Once()
@@ -134,7 +133,7 @@ func TestProcessEchoTags(t *testing.T) {
 	})
 
 	t.Run("no tags is a no-op create-wise", func(t *testing.T) {
-		repo := echomock.NewMockRepository(t)
+		repo := newEchoRepoMock(t)
 		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
 
 		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)

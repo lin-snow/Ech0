@@ -78,7 +78,7 @@
 | `tags` | string[] | 可选 | 标签名数组；消费者按名称 find-or-create |
 | `layout` | enum | 可选，默认 `waterfall` | `waterfall\|grid\|horizontal\|carousel\|stack\|none` |
 | `private` | bool | 可选，默认 `false` | 私密标记；export/import 默认排除 `private: true` 条目，`--include-private` 显式包含 |
-| `fav_count` | int ≥ 0 | 可选，默认 `0` | 点赞数，随往返保留 |
+| `fav_count` | int ≥ 0 | 可选；**仅兼容读取** | 旧版点赞数。导出不再写入，导入忽略；互动数据改为实例内 emoji 反应，不进入胶囊 |
 | `files` | list | 可选 | 媒体引用，见下；**数组顺序即展示顺序**（对应 `EchoFile.SortOrder`） |
 | `extension` | object | 可选 | `{type, payload}`，见下 |
 
@@ -226,8 +226,9 @@ DB ↔ 胶囊字段映射（权威表见 design §4.3）；往返保真度：
 
 | 数据 | 往返 |
 |---|---|
-| Echo 全量（正文/tags/layout/extension/private/fav_count/created_at/id）、托管媒体字节与文件行（含未挂 Echo 的）、site 公开子集、connects | ✅ 完整 |
+| Echo 全量（正文/tags/layout/extension/private/created_at/id）、托管媒体字节与文件行（含未挂 Echo 的）、site 公开子集、connects | ✅ 完整 |
 | 评论 | ⚠️ 有损（Public 投影，无 email/ip_hash/user_id） |
+| 表情反应 | ❌ 不往返（actor 是实例内匿名身份，跨实例无意义；旧 `fav_count` 亦不保留） |
 | 外链文件 | ⚠️ URL 透传，字节不随胶囊 |
 | 账号/凭据/运维配置/embeddings/访客统计/日志 | ❌ 不往返 |
 
@@ -248,7 +249,7 @@ DB ↔ 胶囊字段映射（权威表见 design §4.3）；往返保真度：
 ### 11.3 import 落地语义（其余）
 
 - **幂等按 `id`**：目标库已存在同 `id` 的 Echo → 跳过并报告，不覆盖不合并；无 `--overwrite`（重复执行安全）。
-- **原样导入原则**：胶囊字段值 1:1 写入对应 DB 列，**禁止**数值转换——`username` 逐字入库不改写、`fav_count`/`status`/正文原样。唯一例外是补全胶囊不携带的**内部必填外键** `Echo.UserID`：同名用户存在则挂接，否则挂到执行导入的 owner（权限归属）；展示归属始终以原样保留的 `username` 为准。
+- **原样导入原则**：胶囊字段值 1:1 写入对应 DB 列，**禁止**数值转换——`username` 逐字入库不改写、`status`/正文原样。唯一例外是补全胶囊不携带的**内部必填外键** `Echo.UserID`：同名用户存在则挂接，否则挂到执行导入的 owner（权限归属）；展示归属始终以原样保留的 `username` 为准。
 - **站点设置**：`site` 子集仅填「未配置项」，**禁止**覆盖已配置项。「未配置」= 当前值为空串**或**逐字等于 `setting.System.Default()`（config 派生）的对应值——不能只判空串：全新实例的 `site_title`/`server_logo`/`server_url` 等在 KV 缺键时本就返回非空默认值，只判空串会让站点身份在「搬站到新实例」这个头号用例里永远导不进去。
 - **评论归属**：以「落库后目标 `echo_id` 在 `echos` 表中是否存在」为准——本轮新建的与此前已导入的同等对待。往既有 Echo 追加评论不构成对该 Echo 的修改，故不受「幂等跳过」牵连；幂等由评论自身 `id` 保证。宿主不存在（含因 `private` 被排除）→ 记为孤儿并跳过。
 - **不发布事件**：导入不触发事件总线（webhook/embedding/agent 订阅者不响应）；报告末尾提示可在后台触发索引重建覆盖导入内容。

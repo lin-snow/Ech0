@@ -9,6 +9,17 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Changed
+
+- **Likes become emoji reactions.** `PUT /api/echo/like/:id` and the `fav_count` counter are gone. Posts now carry `reactions: [{key, emoji, count, reacted}]`, backed by a per-actor table (`echo_id`, `emoji`, `actor`) with a unique index, so adding is idempotent, removing works, and one person cannot inflate a count by double-clicking. Six keys ship — `like`, `heart`, `haha`, `wow`, `sad`, `party` — and `GET /api/reactions` returns the catalog for web and hub clients. Reactions are written with `PUT`/`DELETE /api/echo/:id/reactions/:emoji`; both return the post's fresh aggregate and neither invalidates the shared echo cache, because reaction summaries are hydrated per request instead of being cached with the post.
+- **The actor is a logged-in user first, then a per-browser visitor id.** Browser clients send `X-Ech0-Visitor` (a random UUID kept in localStorage); without it the server falls back to the hashed client IP. This keeps anonymous reactions separate without cookies or accounts.
+- **Sorting and hot ranking use reaction totals.** `POST /api/echo/query` now accepts `sort_by=reactions` (it was `fav_count`), and the hot list scores by total reactions plus approved comments.
+- **MCP tool `like_post` is replaced by `react_to_post`** (`id`, `emoji`, optional `remove`). It returns `{id, reactions}` and stays `echo:write`.
+
+### Removed
+
+- **Historical like counts are discarded.** A one-time migration drops `echos.fav_count`; every instance starts from zero reactions. The column is not exported, and capsules still parse `fav_count` for backward compatibility but ignore it on import. Reactions themselves are instance-local social state and are not part of the capsule interchange format, so static archives show no reaction bar. Reaction *totals* do survive snapshot export/import, since snapshots copy the database.
+
 ## [5.9.4] - 2026-11-05
 
 ### Changed

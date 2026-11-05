@@ -106,7 +106,7 @@ func newFixture(t *testing.T) (Deps, string) {
 
 	require.NoError(t, db.Create(&echoModel.Echo{
 		ID: publicEchoID, Content: publicBody, Username: "linsnow", Layout: "grid",
-		Private: false, UserID: "u-owner", FavCount: 3, CreatedAt: publicEchoAt,
+		Private: false, UserID: "u-owner", CreatedAt: publicEchoAt,
 		Tags: []echoModel.Tag{{ID: "t-1", Name: "生活"}, {ID: "t-2", Name: "tech"}},
 	}).Error)
 	require.NoError(t, db.Create(&echoModel.EchoExtension{
@@ -223,7 +223,7 @@ func TestRun_EchoDocument(t *testing.T) {
 	assert.Equal(t, []string{"生活", "tech"}, doc.Tags)
 	assert.Equal(t, "grid", doc.Layout)
 	assert.False(t, doc.Private)
-	assert.Equal(t, 3, doc.FavCount)
+	assert.Zero(t, doc.FavCount)
 	assert.Equal(t, publicBody, doc.Content)
 	require.NotNil(t, doc.Extension)
 	assert.Equal(t, echoModel.Extension_WEBSITE, doc.Extension.Type)

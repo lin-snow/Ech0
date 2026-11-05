@@ -4,6 +4,7 @@
 package repository
 
 import (
+	"fmt"
 	"testing"
 
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -25,7 +26,6 @@ func seedEcho(
 	db *gorm.DB,
 	id, content string,
 	private bool,
-	favCount int,
 	createdAt int64,
 ) echoModel.Echo {
 	t.Helper()
@@ -34,11 +34,25 @@ func seedEcho(
 		Content:   content,
 		UserID:    "u1",
 		Private:   private,
-		FavCount:  favCount,
 		CreatedAt: createdAt,
 	}
 	require.NoError(t, db.Create(&e).Error)
 	return e
+}
+
+// seedReactions inserts n distinct actors reacting with the same emoji, which
+// is how reaction totals are derived now.
+func seedReactions(t *testing.T, db *gorm.DB, echoID string, n int) {
+	t.Helper()
+	for i := range n {
+		reaction := echoModel.Reaction{
+			ID:     fmt.Sprintf("%s-r%d", echoID, i),
+			EchoID: echoID,
+			Emoji:  "like",
+			Actor:  fmt.Sprintf("v:actor-%d", i),
+		}
+		require.NoError(t, db.Create(&reaction).Error)
+	}
 }
 
 func seedTag(t *testing.T, db *gorm.DB, id, name string) {
@@ -61,8 +75,8 @@ func echoIDs(echos []echoModel.Echo) []string {
 
 func TestEchoRepository_QueryEchos_PrivateFilter(t *testing.T) {
 	repo, db := newEchoRepo(t)
-	seedEcho(t, db, "e-pub", "public one", false, 0, 100)
-	seedEcho(t, db, "e-prv", "private one", true, 0, 200)
+	seedEcho(t, db, "e-pub", "public one", false, 100)
+	seedEcho(t, db, "e-prv", "private one", true, 200)
 
 	t.Run("showPrivate=false excludes private", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 10}, false)
@@ -117,8 +131,8 @@ func TestEchoRepository_QueryEchos_PrivateFilter(t *testing.T) {
 
 func TestEchoRepository_QueryEchos_TagJoinDistinctCount(t *testing.T) {
 	repo, db := newEchoRepo(t)
-	seedEcho(t, db, "e1", "tagged twice", false, 0, 100)
-	seedEcho(t, db, "e2", "untagged", false, 0, 200)
+	seedEcho(t, db, "e1", "tagged twice", false, 100)
+	seedEcho(t, db, "e2", "untagged", false, 200)
 	seedTag(t, db, "t1", "alpha")
 	seedTag(t, db, "t2", "beta")
 	linkTag(t, db, "e1", "t1")
@@ -137,8 +151,8 @@ func TestEchoRepository_QueryEchos_TagJoinDistinctCount(t *testing.T) {
 
 func TestEchoRepository_QueryEchos_SearchLike(t *testing.T) {
 	repo, db := newEchoRepo(t)
-	seedEcho(t, db, "e1", "golang is great", false, 0, 100)
-	seedEcho(t, db, "e2", "vue is nice", false, 0, 200)
+	seedEcho(t, db, "e1", "golang is great", false, 100)
+	seedEcho(t, db, "e2", "vue is nice", false, 200)
 
 	echos, total, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{Page: 1, PageSize: 10, Search: "golang"},
@@ -152,9 +166,9 @@ func TestEchoRepository_QueryEchos_SearchLike(t *testing.T) {
 
 func TestEchoRepository_QueryEchos_DateRange(t *testing.T) {
 	repo, db := newEchoRepo(t)
-	seedEcho(t, db, "e-old", "old", false, 0, 1000)
-	seedEcho(t, db, "e-mid", "mid", false, 0, 2000)
-	seedEcho(t, db, "e-new", "new", false, 0, 3000)
+	seedEcho(t, db, "e-old", "old", false, 1000)
+	seedEcho(t, db, "e-mid", "mid", false, 2000)
+	seedEcho(t, db, "e-new", "new", false, 3000)
 
 	t.Run("DateFrom inclusive lower bound", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
@@ -191,7 +205,7 @@ func TestEchoRepository_QueryEchos_DateRange(t *testing.T) {
 func TestEchoRepository_QueryEchos_Pagination(t *testing.T) {
 	repo, db := newEchoRepo(t)
 	for i := 1; i <= 5; i++ {
-		seedEcho(t, db, "e"+string(rune('0'+i)), "c", false, 0, int64(i*100))
+		seedEcho(t, db, "e"+string(rune('0'+i)), "c", false, int64(i*100))
 	}
 
 	t.Run("page 1 size 2", func(t *testing.T) {
@@ -220,9 +234,12 @@ func TestEchoRepository_QueryEchos_Pagination(t *testing.T) {
 
 func TestEchoRepository_QueryEchos_SortWhitelist(t *testing.T) {
 	repo, db := newEchoRepo(t)
-	seedEcho(t, db, "e-low-fav-new", "a", false, 1, 300)
-	seedEcho(t, db, "e-mid-fav-mid", "b", false, 5, 200)
-	seedEcho(t, db, "e-high-fav-old", "c", false, 9, 100)
+	seedEcho(t, db, "e-low-fav-new", "a", false, 300)
+	seedEcho(t, db, "e-mid-fav-mid", "b", false, 200)
+	seedEcho(t, db, "e-high-fav-old", "c", false, 100)
+	seedReactions(t, db, "e-low-fav-new", 1)
+	seedReactions(t, db, "e-mid-fav-mid", 5)
+	seedReactions(t, db, "e-high-fav-old", 9)
 
 	cases := []struct {
 		name      string
@@ -232,10 +249,10 @@ func TestEchoRepository_QueryEchos_SortWhitelist(t *testing.T) {
 	}{
 		{"created_at desc (default)", "", "", []string{"e-low-fav-new", "e-mid-fav-mid", "e-high-fav-old"}},
 		{"created_at asc", "created_at", "asc", []string{"e-high-fav-old", "e-mid-fav-mid", "e-low-fav-new"}},
-		{"fav_count desc", "fav_count", "desc", []string{"e-high-fav-old", "e-mid-fav-mid", "e-low-fav-new"}},
-		{"fav_count asc", "fav_count", "asc", []string{"e-low-fav-new", "e-mid-fav-mid", "e-high-fav-old"}},
+		{"reactions desc", "reactions", "desc", []string{"e-high-fav-old", "e-mid-fav-mid", "e-low-fav-new"}},
+		{"reactions asc", "reactions", "asc", []string{"e-low-fav-new", "e-mid-fav-mid", "e-high-fav-old"}},
 		{"unknown sortBy falls back to created_at", "bogus_column", "desc", []string{"e-low-fav-new", "e-mid-fav-mid", "e-high-fav-old"}},
-		{"unknown sortOrder falls back to desc", "fav_count", "sideways", []string{"e-high-fav-old", "e-mid-fav-mid", "e-low-fav-new"}},
+		{"unknown sortOrder falls back to desc", "reactions", "sideways", []string{"e-high-fav-old", "e-mid-fav-mid", "e-low-fav-new"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -251,7 +268,7 @@ func TestEchoRepository_QueryEchos_SortWhitelist(t *testing.T) {
 
 func TestEchoRepository_QueryEchos_EmptyTagShortCircuit(t *testing.T) {
 	repo, db := newEchoRepo(t)
-	seedEcho(t, db, "e1", "no tags here", false, 0, 100)
+	seedEcho(t, db, "e1", "no tags here", false, 100)
 	seedTag(t, db, "t-real", "real")
 
 	t.Run("tag filter with zero matches returns empty non-nil slice", func(t *testing.T) {
@@ -266,7 +283,7 @@ func TestEchoRepository_QueryEchos_EmptyTagShortCircuit(t *testing.T) {
 	})
 
 	t.Run("tag filter with offset past results short-circuits to empty with real total", func(t *testing.T) {
-		seedEcho(t, db, "e2", "tagged", false, 0, 200)
+		seedEcho(t, db, "e2", "tagged", false, 200)
 		linkTag(t, db, "e2", "t-real")
 
 		echos, total, err := repo.QueryEchos(

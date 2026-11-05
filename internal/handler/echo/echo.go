@@ -60,9 +60,11 @@ type (
 	TagIDInput struct {
 		ID string `path:"id" format:"uuid" doc:"Tag ID"`
 	}
-	LikeEchoInput struct {
-		ID string `path:"id" format:"uuid" doc:"Echo ID"`
+	ReactionInput struct {
+		ID    string `path:"id"    format:"uuid" doc:"Echo ID"`
+		Emoji string `path:"emoji" doc:"Reaction key" enum:"like,heart,haha,wow,sad,party"`
 	}
+	ReactionCatalogInput struct{}
 )
 
 type (
@@ -72,6 +74,9 @@ type (
 	TagOutput      = commonModel.Result[*model.Tag]
 	TagListOutput  = commonModel.Result[[]model.Tag]
 	EmptyOutput    = commonModel.Result[any]
+
+	ReactionListOutput    = commonModel.Result[[]model.ReactionCount]
+	ReactionCatalogOutput = commonModel.Result[[]model.ReactionEmoji]
 )
 
 func (echoHandler *EchoHandler) PostEcho(ctx context.Context, in *EchoUpsertInput) (EchoOutput, error) {
@@ -97,11 +102,24 @@ func (echoHandler *EchoHandler) DeleteEcho(ctx context.Context, in *EchoIDInput)
 	return commonModel.OK[any](nil, commonModel.DELETE_ECHO_SUCCESS), nil
 }
 
-func (echoHandler *EchoHandler) LikeEcho(ctx context.Context, in *LikeEchoInput) (EmptyOutput, error) {
-	if err := echoHandler.echoService.LikeEcho(ctx, in.ID); err != nil {
-		return EmptyOutput{}, err
+func (echoHandler *EchoHandler) AddReaction(ctx context.Context, in *ReactionInput) (ReactionListOutput, error) {
+	reactions, err := echoHandler.echoService.ReactToEcho(ctx, in.ID, in.Emoji)
+	if err != nil {
+		return ReactionListOutput{}, err
 	}
-	return commonModel.OK[any](nil, commonModel.LIKE_ECHO_SUCCESS), nil
+	return commonModel.OK(reactions, commonModel.REACT_ECHO_SUCCESS), nil
+}
+
+func (echoHandler *EchoHandler) RemoveReaction(ctx context.Context, in *ReactionInput) (ReactionListOutput, error) {
+	reactions, err := echoHandler.echoService.UnreactEcho(ctx, in.ID, in.Emoji)
+	if err != nil {
+		return ReactionListOutput{}, err
+	}
+	return commonModel.OK(reactions, commonModel.UNREACT_ECHO_SUCCESS), nil
+}
+
+func (echoHandler *EchoHandler) GetReactionCatalog(_ context.Context, _ *ReactionCatalogInput) (ReactionCatalogOutput, error) {
+	return commonModel.OK(echoHandler.echoService.GetReactionCatalog(), commonModel.GET_REACTIONS_SUCCESS), nil
 }
 
 func (echoHandler *EchoHandler) GetEchoById(ctx context.Context, in *EchoIDInput) (EchoOutput, error) {

@@ -28,11 +28,12 @@ func seedComment(t *testing.T, db *gorm.DB, id, echoID string, status commentMod
 }
 
 func TestEchoRepository_GetHotEchos(t *testing.T) {
-	t.Run("ranks by fav_count plus approved-comment weight", func(t *testing.T) {
+	t.Run("ranks by reaction total plus approved-comment weight", func(t *testing.T) {
 		repo, db := newEchoRepo(t)
-		seedEcho(t, db, "e-cold", "cold", false, 0, 100)
-		seedEcho(t, db, "e-fav", "favored", false, 5, 200)
-		seedEcho(t, db, "e-cmt", "discussed", false, 0, 300)
+		seedEcho(t, db, "e-cold", "cold", false, 100)
+		seedEcho(t, db, "e-fav", "favored", false, 200)
+		seedEcho(t, db, "e-cmt", "discussed", false, 300)
+		seedReactions(t, db, "e-fav", 5)
 		seedComment(t, db, "c1", "e-cmt", commentModel.StatusApproved)
 		seedComment(t, db, "c2", "e-cmt", commentModel.StatusApproved)
 		seedComment(t, db, "c3", "e-cmt", commentModel.StatusPending)
@@ -46,7 +47,9 @@ func TestEchoRepository_GetHotEchos(t *testing.T) {
 	t.Run("non-positive limit defaults to 5", func(t *testing.T) {
 		repo, db := newEchoRepo(t)
 		for i := 1; i <= 6; i++ {
-			seedEcho(t, db, "e"+string(rune('0'+i)), "c", false, i, int64(i*100))
+			id := "e" + string(rune('0'+i))
+			seedEcho(t, db, id, "c", false, int64(i*100))
+			seedReactions(t, db, id, i)
 		}
 
 		echos, err := repo.GetHotEchos(0, true)
@@ -57,8 +60,10 @@ func TestEchoRepository_GetHotEchos(t *testing.T) {
 
 	t.Run("excessive limit does not error", func(t *testing.T) {
 		repo, db := newEchoRepo(t)
-		seedEcho(t, db, "e1", "a", false, 1, 100)
-		seedEcho(t, db, "e2", "b", false, 2, 200)
+		seedEcho(t, db, "e1", "a", false, 100)
+		seedEcho(t, db, "e2", "b", false, 200)
+		seedReactions(t, db, "e1", 1)
+		seedReactions(t, db, "e2", 2)
 
 		echos, err := repo.GetHotEchos(1000, true)
 		require.NoError(t, err)
@@ -67,8 +72,10 @@ func TestEchoRepository_GetHotEchos(t *testing.T) {
 
 	t.Run("private filter hides private echos when showPrivate=false", func(t *testing.T) {
 		repo, db := newEchoRepo(t)
-		seedEcho(t, db, "e-pub", "public", false, 1, 100)
-		seedEcho(t, db, "e-prv", "secret", true, 99, 200)
+		seedEcho(t, db, "e-pub", "public", false, 100)
+		seedEcho(t, db, "e-prv", "secret", true, 200)
+		seedReactions(t, db, "e-pub", 1)
+		seedReactions(t, db, "e-prv", 99)
 
 		hidden, err := repo.GetHotEchos(5, false)
 		require.NoError(t, err)
@@ -91,9 +98,9 @@ func TestEchoRepository_GetEchosByTagId(t *testing.T) {
 	setup := func(t *testing.T) (*EchoRepository, *gorm.DB) {
 		t.Helper()
 		repo, db := newEchoRepo(t)
-		seedEcho(t, db, "e-pub", "public golang post", false, 0, 100)
-		seedEcho(t, db, "e-prv", "private golang post", true, 0, 200)
-		seedEcho(t, db, "e-other", "untagged", false, 0, 300)
+		seedEcho(t, db, "e-pub", "public golang post", false, 100)
+		seedEcho(t, db, "e-prv", "private golang post", true, 200)
+		seedEcho(t, db, "e-other", "untagged", false, 300)
 		seedTag(t, db, "t1", "golang")
 		linkTag(t, db, "e-pub", "t1")
 		linkTag(t, db, "e-prv", "t1")
@@ -153,9 +160,9 @@ func TestEchoRepository_GetTodayEchos(t *testing.T) {
 	todayTs := startOfDay.Add(time.Second).Unix()
 	yesterdayTs := startOfDay.Add(-time.Second).Unix()
 
-	seedEcho(t, db, "e-today-pub", "today public", false, 0, todayTs)
-	seedEcho(t, db, "e-today-prv", "today private", true, 0, todayTs)
-	seedEcho(t, db, "e-yesterday", "yesterday public", false, 0, yesterdayTs)
+	seedEcho(t, db, "e-today-pub", "today public", false, todayTs)
+	seedEcho(t, db, "e-today-prv", "today private", true, todayTs)
+	seedEcho(t, db, "e-yesterday", "yesterday public", false, yesterdayTs)
 
 	t.Run("showPrivate=false returns only today's public echos", func(t *testing.T) {
 		echos := repo.GetTodayEchos(false, "UTC")
@@ -181,10 +188,10 @@ func TestEchoRepository_GetOnThisDayEchos(t *testing.T) {
 	thisYearSame := time.Date(year, now.Month(), now.Day(), 12, 0, 0, 0, loc).Unix()
 	lastYearOther := time.Date(year-1, now.Month(), now.Day(), 12, 0, 0, 0, loc).AddDate(0, 0, 1).Unix()
 
-	seedEcho(t, db, "e-match", "那年今日", false, 0, lastYearSame)
-	seedEcho(t, db, "e-this-year", "今年今日（应排除）", false, 0, thisYearSame)
-	seedEcho(t, db, "e-other-day", "去年隔天（应排除）", false, 0, lastYearOther)
-	seedEcho(t, db, "e-match-prv", "那年今日私密", true, 0, lastYearSame+1)
+	seedEcho(t, db, "e-match", "那年今日", false, lastYearSame)
+	seedEcho(t, db, "e-this-year", "今年今日（应排除）", false, thisYearSame)
+	seedEcho(t, db, "e-other-day", "去年隔天（应排除）", false, lastYearOther)
+	seedEcho(t, db, "e-match-prv", "那年今日私密", true, lastYearSame+1)
 
 	t.Run("showPrivate=false matches only past-year same month-day public echos", func(t *testing.T) {
 		echos := repo.GetOnThisDayEchos(false, "UTC")

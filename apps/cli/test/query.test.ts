@@ -33,7 +33,7 @@ const CATALOG = {
           pageSize: { type: "integer", description: "Items per page, 1-100 (default 10)" },
           search: { type: "string" },
           tagIds: { type: ["array", "null"], items: { type: "string" } },
-          sortBy: { type: "string", enum: ["created_at", "fav_count"], description: "Sort field" },
+          sortBy: { type: "string", enum: ["created_at", "reactions"], description: "Sort field" },
           sortOrder: { type: "string", enum: ["asc", "desc"] },
           private: { type: "boolean", description: "Visibility filter" },
         },
@@ -100,7 +100,7 @@ describe("echo query flags", () => {
   });
 
   test("accepts only the documented sort values", async () => {
-    expect(await valuesFor(["echo", "list", "--sort-by", "fav_count"])).toEqual({ sortBy: "fav_count" });
+    expect(await valuesFor(["echo", "list", "--sort-by", "reactions"])).toEqual({ sortBy: "reactions" });
     await expect(valuesFor(["echo", "list", "--sort-by", "favorites"])).rejects.toBeInstanceOf(UsageError);
   });
 

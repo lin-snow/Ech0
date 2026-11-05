@@ -195,6 +195,9 @@ func migrateEchos(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB, sourceRoo
 	if err := migrateComments(ctx, tx, sourceDB); err != nil {
 		return err
 	}
+	if err := migrateReactions(ctx, tx, sourceDB); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -413,6 +416,30 @@ func migrateComments(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB) error 
 		slog.String("module", "migration"),
 		slog.String("phase", "comments"),
 		slog.Int("count", len(sourceComments)),
+	)
+	return nil
+}
+
+// migrateReactions copies reaction rows when the source snapshot has them.
+// Older snapshots predate the table, so its absence is not an error.
+func migrateReactions(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB) error {
+	if !sourceDB.Migrator().HasTable("echo_reactions") {
+		return nil
+	}
+	sourceReactions, err := loadRows[echoModel.Reaction](ctx, sourceDB, "echo_reactions")
+	if err != nil {
+		return fmt.Errorf("load source reactions: %w", err)
+	}
+	if len(sourceReactions) == 0 {
+		return nil
+	}
+	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(sourceReactions, dbBatchSize).Error; err != nil {
+		return fmt.Errorf("migrate reactions: %w", err)
+	}
+	logUtil.GetLogger().Info("migration ech0 phase completed",
+		slog.String("module", "migration"),
+		slog.String("phase", "echo_reactions"),
+		slog.Int("count", len(sourceReactions)),
 	)
 	return nil
 }

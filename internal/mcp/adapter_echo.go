@@ -27,7 +27,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 				"tag_ids":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Filter by one or more tag UUIDs (AND logic)"},
 				"page":       map[string]any{"type": "integer", "description": "Page number, 1-based", "default": 1},
 				"page_size":  map[string]any{"type": "integer", "description": "Results per page (1–100)", "default": 20},
-				"sort_by":    map[string]any{"type": "string", "enum": []string{"created_at", "fav_count"}, "description": "Field to sort by", "default": "created_at"},
+				"sort_by":    map[string]any{"type": "string", "enum": []string{"created_at", "reactions"}, "description": "Field to sort by", "default": "created_at"},
 				"sort_order": map[string]any{"type": "string", "enum": []string{"desc", "asc"}, "description": "Sort direction", "default": "desc"},
 			},
 		},
@@ -37,7 +37,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_post",
 		Title:       "Get Post",
-		Description: "Retrieve a single post by UUID. Returns the full post object including content, tags, like count, and timestamps.",
+		Description: "Retrieve a single post by UUID. Returns the full post object including content, tags, reaction summary, and timestamps.",
 		InputSchema: map[string]any{
 			"type":     "object",
 			"required": []string{"id"},
@@ -155,18 +155,21 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 	}, a.getTodayPosts, authz.ScopeEchoRead)
 
 	reg.RegisterTool(ToolDefinition{
-		Name:        "like_post",
-		Title:       "Like Post",
-		Description: "Increment the like (favourite) count of a post by one. Returns {id, message}.",
+		Name:  "react_to_post",
+		Title: "React to Post",
+		Description: "Add or remove an emoji reaction on a post. Reactions are idempotent: adding an existing reaction or removing a missing one is a no-op. " +
+			"Returns {id, reactions} where reactions is the post's fresh aggregate.",
 		InputSchema: map[string]any{
 			"type":     "object",
-			"required": []string{"id"},
+			"required": []string{"id", "emoji"},
 			"properties": map[string]any{
-				"id": map[string]any{"type": "string", "format": "uuid", "description": "Post UUID"},
+				"id":     map[string]any{"type": "string", "format": "uuid", "description": "Post UUID"},
+				"emoji":  map[string]any{"type": "string", "enum": []string{"like", "heart", "haha", "wow", "sad", "party"}, "description": "Reaction key"},
+				"remove": map[string]any{"type": "boolean", "description": "Remove the reaction instead of adding it", "default": false},
 			},
 		},
 		Annotations: createHints(),
-	}, a.likePost, authz.ScopeEchoWrite)
+	}, a.reactToPost, authz.ScopeEchoWrite)
 
 	reg.RegisterTool(ToolDefinition{
 		Name:        "delete_tag",
@@ -185,7 +188,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 	reg.RegisterTool(ToolDefinition{
 		Name:        "get_hot_posts",
 		Title:       "Get Hot Posts",
-		Description: "Return the most popular posts, ranked by a weighted score of likes and comment count. Returns an array of post objects.",
+		Description: "Return the most popular posts, ranked by a weighted score of reactions and comment count. Returns an array of post objects.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -243,7 +246,7 @@ func (a *Adapter) registerEchoResources(reg *Registry) {
 		URITemplate: "ech0://posts/{id}",
 		Name:        "post",
 		Title:       "Post by ID",
-		Description: "Full post object (content, tags, timestamps, like count) for a given UUID. Replace {id} with the post UUID.",
+		Description: "Full post object (content, tags, timestamps, reaction summary) for a given UUID. Replace {id} with the post UUID.",
 		MimeType:    "application/json",
 		Cache:       privateCache(liveTTLMs),
 	}, a.resourcePostByID, authz.ScopeEchoRead)
@@ -372,15 +375,29 @@ func (a *Adapter) getTodayPosts(ctx context.Context, args map[string]any) (*Tool
 	return jsonResult(posts)
 }
 
-func (a *Adapter) likePost(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
+func (a *Adapter) reactToPost(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
 	id := stringArg(args, "id")
 	if id == "" {
 		return textError("id is required"), nil
 	}
-	if err := a.echoSvc.LikeEcho(ctx, id); err != nil {
+	emoji := stringArg(args, "emoji")
+	if emoji == "" {
+		return textError("emoji is required"), nil
+	}
+
+	var (
+		reactions []echoModel.ReactionCount
+		err       error
+	)
+	if boolArg(args, "remove") {
+		reactions, err = a.echoSvc.UnreactEcho(ctx, id, emoji)
+	} else {
+		reactions, err = a.echoSvc.ReactToEcho(ctx, id, emoji)
+	}
+	if err != nil {
 		return nil, err
 	}
-	return jsonResult(map[string]string{"id": id, "message": "post liked successfully"})
+	return jsonResult(map[string]any{"id": id, "reactions": reactions})
 }
 
 func (a *Adapter) deleteTag(ctx context.Context, args map[string]any) (*ToolCallResult, error) {

@@ -5,29 +5,41 @@ package router
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
 	"github.com/lin-snow/ech0/internal/middleware"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func registerEcho(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
 	route(api, public(), huma.Operation{
-		OperationID: "echo-like",
+		OperationID: "reaction-catalog",
+		Method:      http.MethodGet,
+		Path:        "/reactions",
+		Summary:     "获取可用的表情反应",
+		Tags:        []string{"Reaction"},
+	}, h.EchoHandler.GetReactionCatalog)
+
+	route(api, public(), huma.Operation{
+		OperationID: "reaction-add",
 		Method:      http.MethodPut,
-		Path:        "/echo/like/{id}",
-		Summary:     "点赞 Echo",
-		Tags:        []string{"Echo"},
-		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimitWithIdempotency(2, 5, time.Hour, "id", func(c *gin.Context) {
-			c.JSON(http.StatusOK, commonModel.OK[any](nil, commonModel.LIKE_ECHO_SUCCESS))
-		}))},
-	}, h.EchoHandler.LikeEcho)
+		Path:        "/echo/{id}/reactions/{emoji}",
+		Summary:     "为 Echo 添加表情反应（幂等）",
+		Tags:        []string{"Reaction"},
+		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimit(10, 20))},
+	}, h.EchoHandler.AddReaction)
+
+	route(api, public(), huma.Operation{
+		OperationID: "reaction-remove",
+		Method:      http.MethodDelete,
+		Path:        "/echo/{id}/reactions/{emoji}",
+		Summary:     "取消 Echo 的表情反应（幂等）",
+		Tags:        []string{"Reaction"},
+		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimit(10, 20))},
+	}, h.EchoHandler.RemoveReaction)
 
 	route(api, public(), huma.Operation{
 		OperationID: "tag-list",

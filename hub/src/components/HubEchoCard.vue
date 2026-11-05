@@ -2,15 +2,13 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <script setup lang="ts">
 import Verified from '@/components/icons/verified.vue'
-import GrayLike from '@/components/icons/graylike.vue'
+import HubReactions from './HubReactions.vue'
 import LinkTo from '@/components/icons/linkto.vue'
 import BaseAvatar from '@/components/common/BaseAvatar.vue'
 import TheMdPreview from '@/components/advanced/md/TheMdPreview.vue'
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { ImageLayout } from '@/enums/enums'
-import { useFetch } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { localStg } from '../utils/storage'
 import { formatHubDate } from '../utils/formatHubDate'
 
 const TheMediaPlayer = defineAsyncComponent({
@@ -36,55 +34,13 @@ const props = withDefaults(
 
 const { t } = useI18n()
 
-const fav_count = ref<number>(props.echo.fav_count)
 const server_url = computed(() => props.echo.server_url)
 const echo_id = computed(() => props.echo.id)
-const isLikeAnimating = ref(false)
-const LIKE_LIST_KEY = computed(() => `${server_url.value}_liked_echo_ids`)
-
-watch(
-  () => props.echo.fav_count,
-  (next) => {
-    fav_count.value = next
-  },
-)
-
 const logoUrl = computed(() => props.echo.logo?.trim() ?? '')
 const avatarFailed = ref(false)
 const avatarSeed = computed(
   () => `${props.echo.server_url}-${props.echo.username}-${props.echo.id}`,
 )
-
-watch(
-  () => props.echo.logo,
-  () => {
-    avatarFailed.value = false
-  },
-)
-
-const handleLikeEcho = async () => {
-  isLikeAnimating.value = true
-  setTimeout(() => {
-    isLikeAnimating.value = false
-  }, 250)
-
-  const likedEchoIds: string[] = localStg.getItem(LIKE_LIST_KEY.value) || []
-  if (likedEchoIds.includes(echo_id.value)) {
-    return
-  }
-
-  const { error, data } = await useFetch<App.Api.Response<null>>(
-    `${server_url.value}/api/echo/like/${echo_id.value}`,
-  )
-    .put()
-    .json()
-
-  if (!error.value && data.value?.code === 1) {
-    fav_count.value += 1
-    likedEchoIds.push(echo_id.value)
-    localStg.setItem(LIKE_LIST_KEY.value, likedEchoIds)
-  }
-}
 </script>
 
 <template>
@@ -186,23 +142,7 @@ const handleLikeEcho = async () => {
           <LinkTo class="w-4 h-4" />
         </a>
 
-        <div class="flex items-center justify-end" v-tooltip="t('hubEcho.like')">
-          <div class="flex items-center gap-1">
-            <button
-              type="button"
-              @click="handleLikeEcho()"
-              :class="[
-                'transform transition-transform duration-150',
-                isLikeAnimating ? 'scale-160' : 'scale-100',
-              ]"
-            >
-              <GrayLike class="w-4 h-4" />
-            </button>
-            <span class="text-sm text-[var(--color-text-muted)]">
-              {{ fav_count > 99 ? '99+' : fav_count }}
-            </span>
-          </div>
-        </div>
+        <HubReactions :echo="props.echo" />
       </div>
     </div>
   </div>

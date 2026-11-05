@@ -7,14 +7,22 @@ import type { Mock } from 'vitest'
 import { handleStaticRequest } from '@/service/request/static-adapter'
 import type { StaticDataset } from '@/service/request/static-adapter'
 
-const echo = (id: string, content: string, createdAt: number, favCount = 0): App.Api.Ech0.Echo => ({
+const echo = (
+  id: string,
+  content: string,
+  createdAt: number,
+  reactionCount = 0,
+): App.Api.Ech0.Echo => ({
   id,
   content,
   username: 'owner',
   layout: 'waterfall',
   private: false,
   user_id: 'u1',
-  fav_count: favCount,
+  reactions:
+    reactionCount > 0
+      ? [{ key: 'like', emoji: '👍', count: reactionCount, reacted: false }]
+      : [],
   created_at: createdAt,
   echo_files: [],
   tags: [],
@@ -129,8 +137,8 @@ describe('handleStaticRequest', () => {
     expect(res.data.map((item) => item.id)).toEqual(['c1', 'c3'])
   })
 
-  it('PUT /api/echo/like/{id} 返回 code 0（冻结展示）', async () => {
-    const res = await handleStaticRequest('/api/echo/like/e1', 'PUT', undefined)
+  it('PUT /api/echo/{id}/reactions/{emoji} 返回 code 0（冻结展示）', async () => {
+    const res = await handleStaticRequest('/api/echo/e1/reactions/like', 'PUT', undefined)
 
     expect(res.code).toBe(0)
     expect(res.data).toBeNull()

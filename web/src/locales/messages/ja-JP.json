@@ -1,4 +1,15 @@
 {
+  "reaction": {
+    "add": "リアクションを追加",
+    "unavailable": "これは静的アーカイブのため、リアクションは利用できません。",
+    "failed": "リアクションに失敗しました。もう一度お試しください。",
+    "like": "いいね",
+    "heart": "ハート",
+    "haha": "笑い",
+    "wow": "びっくり",
+    "sad": "悲しい",
+    "party": "お祝い"
+  },
   "common": {
     "requestFailed": "リクエストに失敗しました",
     "save": "保存",
@@ -253,9 +264,6 @@
     "downloadFailed": "ダウンロードに失敗しました",
     "downloadFailedResponse": "ダウンロード失敗：サーバーから不正な応答が返されました"
   },
-  "staticSite": {
-    "likeUnavailable": "これは静的アーカイブのため、いいねはできません。"
-  },
   "auth": {
     "loginSuccess": "ログインしました。おかえりなさい！🎉",
     "signupSuccess": "登録が完了しました。ログインしてください！"
@@ -476,9 +484,6 @@
   },
   "echoDetail": {
     "share": "シェア",
-    "like": "いいね",
-    "alreadyLiked": "既にいいね済みです。ありがとうございます！",
-    "likeSuccess": "いいねしました！",
     "copied": "リンクをクリップボードにコピーしました！",
     "shareSuffix": "Ech0 からのシェア",
     "sharePanelTitle": "この Ech0 をシェア",
@@ -1065,11 +1070,7 @@
     "pageNotFound": "ページが存在しません"
   },
   "hubEcho": {
-    "jumpToEcho": "この Echo へ移動",
-    "like": "いいね",
-    "alreadyLiked": "既にいいね済みです",
-    "likeFailed": "いいねに失敗しました",
-    "likeSuccess": "いいねしました"
+    "jumpToEcho": "この Echo へ移動"
   },
   "imageGallery": {
     "previewImage": "画像 {index} をプレビュー",

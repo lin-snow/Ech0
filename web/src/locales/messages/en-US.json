@@ -1,4 +1,15 @@
 {
+  "reaction": {
+    "add": "Add reaction",
+    "unavailable": "This is a static archive; reactions are unavailable.",
+    "failed": "Reaction failed, please try again.",
+    "like": "Like",
+    "heart": "Love",
+    "haha": "Haha",
+    "wow": "Wow",
+    "sad": "Sad",
+    "party": "Celebrate"
+  },
   "common": {
     "requestFailed": "Request failed",
     "save": "Save",
@@ -253,9 +264,6 @@
     "downloadFailed": "Download failed",
     "downloadFailedResponse": "Download failed: server returned unexpected content"
   },
-  "staticSite": {
-    "likeUnavailable": "This is a static archive; liking is unavailable."
-  },
   "auth": {
     "loginSuccess": "Signed in successfully, welcome back! 🎉",
     "signupSuccess": "Sign up successful, please sign in."
@@ -476,9 +484,6 @@
   },
   "echoDetail": {
     "share": "Share",
-    "like": "Like",
-    "alreadyLiked": "You already liked this, thanks for the support!",
-    "likeSuccess": "Liked successfully!",
     "copied": "Link copied to clipboard!",
     "shareSuffix": "Shared via Ech0",
     "sharePanelTitle": "Share this Ech0",
@@ -1065,11 +1070,7 @@
     "pageNotFound": "Page not found"
   },
   "hubEcho": {
-    "jumpToEcho": "Open this Echo",
-    "like": "Like",
-    "alreadyLiked": "You have already liked this",
-    "likeFailed": "Like failed",
-    "likeSuccess": "Liked successfully"
+    "jumpToEcho": "Open this Echo"
   },
   "imageGallery": {
     "previewImage": "Preview image {index}",

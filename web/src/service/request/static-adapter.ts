@@ -137,11 +137,11 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
     return true
   })
 
-  const byFavCount = body.sortBy === 'fav_count'
+  const byReactions = body.sortBy === 'reactions'
   const ascending = String(body.sortOrder ?? '').toLowerCase() === 'asc'
   const sorted = filtered.slice().sort((a, b) => {
-    const delta = byFavCount
-      ? (a.fav_count ?? 0) - (b.fav_count ?? 0)
+    const delta = byReactions
+      ? reactionTotal(a) - reactionTotal(b)
       : toUnixSeconds(a.created_at) - toUnixSeconds(b.created_at)
     return ascending ? delta : -delta
   })
@@ -159,6 +159,10 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
   const start = (page - 1) * pageSize
 
   return { items: sorted.slice(start, start + pageSize), total: sorted.length }
+}
+
+function reactionTotal(echo: App.Api.Ech0.Echo): number {
+  return (echo.reactions ?? []).reduce((sum, reaction) => sum + reaction.count, 0)
 }
 
 function echosOnThisDay(dataset: StaticDataset, sameYear: boolean): App.Api.Ech0.Echo[] {
@@ -205,7 +209,7 @@ function route<T>(
       return ok<T>(
         publicEchos(dataset)
           .slice()
-          .sort((a, b) => (b.fav_count ?? 0) - (a.fav_count ?? 0))
+          .sort((a, b) => reactionTotal(b) - reactionTotal(a))
           .slice(0, readLimit(query, 5)),
       )
     case 'GET /echo/random': {

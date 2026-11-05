@@ -19,7 +19,7 @@ declare namespace App {
         private: boolean
         user_id: string
         extension?: Ech0.EchoExtension | null
-        fav_count: number
+        reactions?: Ech0.ReactionCount[]
         created_at: number | string
         createdTs: number
         virtual_key: string
