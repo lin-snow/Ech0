@@ -72,20 +72,33 @@ sitemap 通过 `CommonService.ListSitemapEntries` 只查询 `id, created_at`，�
 
 客户端首屏**不覆盖**服务端已渲染的 article meta（`useSeoHead` 检测 `og:type=article` 后等待 `useSeoOverride`），echo 加载完成后写入同一份数据；离开页面时清除覆盖并恢复 `WebSite` JSON-LD。
 
-## 6. 素材
+## 6. 品牌视觉与封面
 
-- `web/public/og-cover.jpg`：1200×630（1.91:1），JPEG q≈84，约 73 KB（低于 WhatsApp 建议的 300 KB）。
-- 版式由纸感底纹、同心「回声」弧线、品牌字标与 logo 组成；渲染时用 2× 画布再降采样，保证文字抗锯齿。
+分享卡片共用一套固定语言，避免每张图各画各的：
+
+| 元素 | 值 |
+| --- | --- |
+| 纸底 | `#FFFBF3 → #F8F2E7 → #F2E8D8` 斜向渐变 + 左上暖光、右下投影 |
+| 墨色 | `#1c1713`（标记）/ `#5f3f27`（字标） |
+| 赭石 / 陶土 | `#6f4a2f` / `#9a7a5e` |
+| 强调 | `#f54a00`（只用于品牌圆点与稀疏像素） |
+| 字体 | 显示用 Iowan Old Style / Palatino 系衬线；信息用 Avenir Next / 系统无衬线，大写 + 0.3em 字距 |
+| 图形母题 | Square Pixel Halftone：以标记为圆心的同心「回声」像素环，方块尺寸与透明度由距离驱动 |
+
+- `web/public/og-cover.jpg`：1200×630（1.91:1），JPEG q≈86，约 105 KB（低于 WhatsApp 建议的 300 KB）。
+- 版式：左侧字标 + 一句话定位，右侧程序化 halftone 场；标记周围留出纸色「清空区」，不压纹理。
+- 生成器与源文件：`docs/assets/og-cover/{generate.mjs,og-cover.svg}`（纯 Bun、无依赖、确定性输出）。
 - 提供 `og:image:width/height/type/alt`；echo 使用自有图片时移除尺寸声明（未知）。
 - `Ech0.png` 仍作为 JSON-LD 的 publisher logo；`Ech0.svg` 供 RSS 使用。
+- `docs/assets/social-preview/` 是 GitHub 仓库预览（1280×640），用途不同，勿混用。
 
-重新生成（版式源文件只是临时 HTML，不入库）：
+重新生成：
 
 ```bash
-# 1) Chromium 以 1200×630、deviceScaleFactor=2 截图 -> 2400×1260
-# 2) 降采样并转 JPEG
-sips -z 630 1200 cover@2x.png --out cover-1x.png
-sips -s format jpeg -s formatOptions 84 cover-1x.png --out web/public/og-cover.jpg
+bun docs/assets/og-cover/generate.mjs
+sips -s format png docs/assets/og-cover/og-cover.svg --out /tmp/og@2x.png
+sips -z 630 1200 /tmp/og@2x.png --out /tmp/og.png
+sips -s format jpeg -s formatOptions 86 /tmp/og.png --out web/public/og-cover.jpg
 ```
 
 ## 7. 验证
