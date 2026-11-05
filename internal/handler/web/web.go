@@ -27,16 +27,32 @@ var spaBypassPrefixes = []string{
 
 type WebHandler struct {
 	visitorTracker *visitor.Tracker
+	settings       SettingsReader
+	echoes         EchoReader
+	files          http.FileSystem
+	shell          spaShell
 }
 
-func NewWebHandler(visitorTracker *visitor.Tracker) *WebHandler {
-	return &WebHandler{visitorTracker: visitorTracker}
-}
-
-func (webHandler *WebHandler) Templates() gin.HandlerFunc {
+func NewWebHandler(
+	visitorTracker *visitor.Tracker,
+	settings SettingsReader,
+	echoes EchoReader,
+) *WebHandler {
 	subFS, _ := fs.Sub(template.WebFS, "dist")
-	fileServer := http.FS(subFS)
 
+	return &WebHandler{
+		visitorTracker: visitorTracker,
+		settings:       settings,
+		echoes:         echoes,
+		files:          http.FS(subFS),
+		shell:          loadSPAShell(subFS),
+	}
+}
+
+// Templates serves the built SPA. The HTML shell is rendered per request so
+// crawlers and link unfurlers — which do not run JavaScript — still receive a
+// route-specific title, description, canonical URL and social-card image.
+func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		requestPath := ctx.Request.URL.Path
 		if shouldBypassSPAFallback(requestPath) {
@@ -44,63 +60,56 @@ func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 			return
 		}
 
-		if requestPath == "/" {
-			requestPath = "/index.html"
-		}
-
 		if strings.Contains(requestPath, "..") {
 			ctx.Status(http.StatusForbidden)
 			return
 		}
 
-		fullPath := path.Clean("." + requestPath)
-		f, err := fileServer.Open(fullPath)
-		if err != nil {
-			fallback, err := fileServer.Open("index.html")
-			if err != nil {
-				ctx.Status(http.StatusNotFound)
-				return
-			}
-			defer func() { _ = fallback.Close() }()
-			fallbackStat, _ := fallback.Stat()
+		if requestPath == "/" || requestPath == "/index.html" {
 			webHandler.visitorTracker.Record(ctx.Request, ctx.ClientIP())
-			ctx.Header("Content-Type", "text/html; charset=utf-8")
-			setCacheControlHeader(ctx, "/index.html")
-			http.ServeContent(
-				ctx.Writer,
-				ctx.Request,
-				"index.html",
-				fallbackStat.ModTime(),
-				fallback,
-			)
+			webHandler.serveRoute(ctx, "/")
+			return
+		}
+
+		fullPath := path.Clean("." + requestPath)
+		f, err := webHandler.files.Open(fullPath)
+		if err != nil {
+			webHandler.visitorTracker.Record(ctx.Request, ctx.ClientIP())
+			webHandler.serveRoute(ctx, normalizeRoutePath(requestPath))
 			return
 		}
 		defer func() { _ = f.Close() }()
 
-		stat, _ := f.Stat()
-
-		encoding := ctx.GetHeader("Accept-Encoding")
-		if strings.Contains(encoding, "gzip") {
-			gzPath := fullPath + ".gz"
-			gzFile, err := fileServer.Open(gzPath)
-			if err == nil {
-				defer func() { _ = gzFile.Close() }()
-				stat, _ := gzFile.Stat()
-				ctx.Header("Content-Encoding", "gzip")
-				ctx.Header("Content-Type", getMimeType(fullPath))
-				setCacheControlHeader(ctx, requestPath)
-				http.ServeContent(ctx.Writer, ctx.Request, gzPath, stat.ModTime(), gzFile)
-				return
-			}
-		}
-
-		ctx.Header("Content-Type", getMimeType(fullPath))
-		setCacheControlHeader(ctx, requestPath)
-		if requestPath == "/index.html" {
-			webHandler.visitorTracker.Record(ctx.Request, ctx.ClientIP())
-		}
-		http.ServeContent(ctx.Writer, ctx.Request, fullPath, stat.ModTime(), f)
+		webHandler.serveAsset(ctx, fullPath, requestPath, f)
 	}
+}
+
+func (webHandler *WebHandler) serveAsset(
+	ctx *gin.Context,
+	fullPath string,
+	requestPath string,
+	file http.File,
+) {
+	stat, _ := file.Stat()
+
+	encoding := ctx.GetHeader("Accept-Encoding")
+	if strings.Contains(encoding, "gzip") {
+		gzPath := fullPath + ".gz"
+		gzFile, err := webHandler.files.Open(gzPath)
+		if err == nil {
+			defer func() { _ = gzFile.Close() }()
+			gzStat, _ := gzFile.Stat()
+			ctx.Header("Content-Encoding", "gzip")
+			ctx.Header("Content-Type", getMimeType(fullPath))
+			setCacheControlHeader(ctx, requestPath)
+			http.ServeContent(ctx.Writer, ctx.Request, gzPath, gzStat.ModTime(), gzFile)
+			return
+		}
+	}
+
+	ctx.Header("Content-Type", getMimeType(fullPath))
+	setCacheControlHeader(ctx, requestPath)
+	http.ServeContent(ctx.Writer, ctx.Request, fullPath, stat.ModTime(), file)
 }
 
 func setCacheControlHeader(ctx *gin.Context, requestPath string) {

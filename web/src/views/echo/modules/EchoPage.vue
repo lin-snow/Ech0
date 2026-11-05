@@ -15,23 +15,26 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ref } from 'vue'
 import TheEchoDetail from '@/components/advanced/echo/cards/TheEchoDetail.vue'
 import TheEchoInteractions from '@/components/advanced/echo/cards/TheEchoInteractions.vue'
+import { clearSeoOverride, setSeoOverride } from '@/composables/useSeoOverride'
+import { DEFAULT_SEO_DESCRIPTION } from '@/composables/useSeoHead'
+import { DEFAULT_SITE_TITLE } from '@/constants/site'
 import { useEchoStore } from '@/stores'
+import { getEchoImages } from '@/utils/echo'
+import { absoluteSeoUrl, seoPlainText, seoTruncate } from '@/utils/seo'
 import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
-const { t } = useI18n()
-const echoId = route.params.echoId as string
+const { t, locale } = useI18n()
 
 const echoStore = useEchoStore()
 const isLoading = ref(true)
 const echo = ref<App.Api.Ech0.Echo | null>(null)
 
-const getEchoFromStore = (): App.Api.Ech0.Echo | null => {
+const getEchoFromStore = (echoId: string): App.Api.Ech0.Echo | null => {
   const idx = echoStore.echoIndexMap.get(echoId)
   if (idx !== undefined) {
     return echoStore.echoList[idx] ?? null
@@ -45,12 +48,72 @@ const handleUpdateLikeCount = () => {
   }
 }
 
-onMounted(async () => {
-  echo.value = getEchoFromStore()
+const currentEchoId = () => String(route.params.echoId ?? '').trim()
+
+const loadEcho = async () => {
+  const echoId = currentEchoId()
+  if (!echoId) {
+    isLoading.value = false
+    return
+  }
+
+  isLoading.value = true
+  echo.value = getEchoFromStore(echoId)
 
   if (!echo.value) {
     echo.value = await echoStore.prefetchEcho(echoId)
   }
   isLoading.value = false
-})
+}
+
+// Mirrors the server-rendered head so client navigation and the crawlable
+// document agree on the card, canonical URL and BlogPosting payload.
+const applyEchoSeo = () => {
+  const value = echo.value
+  if (!value) return
+
+  const text = seoPlainText(value.content)
+  const title = seoTruncate(text.split('\n')[0] || 'Echo', 60)
+  const description = seoTruncate(text.replace(/\n/g, ' ') || DEFAULT_SEO_DESCRIPTION, 160)
+  const image = absoluteSeoUrl(getEchoImages(value)[0]?.url)
+  const createdAt = Number(value.created_at)
+  const publishedAt =
+    Number.isFinite(createdAt) && createdAt > 0
+      ? new Date(createdAt * 1000).toISOString()
+      : undefined
+
+  setSeoOverride({
+    path: route.path,
+    title,
+    description,
+    type: 'article',
+    image,
+    publishedAt,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: title,
+      description,
+      datePublished: publishedAt,
+      dateModified: publishedAt,
+      inLanguage: locale.value,
+      image,
+      author: { '@type': 'Person', name: value.username || DEFAULT_SITE_TITLE },
+    },
+  })
+}
+
+watch(echo, applyEchoSeo)
+
+watch(
+  () => route.params.echoId,
+  () => {
+    clearSeoOverride()
+    loadEcho()
+  },
+)
+
+onMounted(loadEcho)
+
+onBeforeUnmount(() => clearSeoOverride(route.path))
 </script>

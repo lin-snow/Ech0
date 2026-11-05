@@ -234,7 +234,7 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 | **dashboard** | 管理观测：访客统计（7 日热力）、系统日志（WS 流式）、运行指标 | 聚合 visitor / echo / user |
 | **migrator** | 数据导入导出：上传快照、job 异步处理、状态轮询、产物下载 | 跨 echo/user/comment/file 批量读写；引擎在 `internal/migrator` |
 | **common** | 共享件：全局错误/成功 DTO、分页、KeyValue 仓储、热力图工具、枚举常量 | 被各域复用 |
-| **web** | SPA 托管：服务内嵌 Vue 前端、SPA fallback（避开 /api、/ws、/mcp、/swagger）、访客记录 | — |
+| **web** | SPA 托管：服务内嵌 Vue 前端、按路由渲染 `<head>`（绝对 canonical / OG / JSON-LD，供不执行 JS 的抓取器）、`<noscript>` 正文、404 语义、SPA fallback（避开 /api、/ws、/mcp、/.well-known）、访客记录 | 读 setting 与公开 echo（`SettingsReader` / `EchoReader`）；规则见 `docs/dev/seo-sharing.md` |
 
 > 注：`copilot` / `migrator` / `mcp` 的 service 层是"薄层"——真正的能力沉在专门的核心包里：copilot → `internal/agent`（§7），mcp → `internal/mcp`（§8），migrator → `internal/migrator`（导入导出引擎）。`agent` / `embedding` / `webhook` 这些核心包**不属于分层四件套**，是独立的能力/基础设施包。
 
@@ -498,6 +498,8 @@ mcp_request 审计日志（method/tool/resource、era、client、token jti、lat
 ## 12. 前端（web/）
 
 Vue 3 SPA，生产时由后端 `internal/handler/web` 内嵌 `template/dist` 提供；开发时 Vite 跑 `:5173` 并把 `/api` 代理到后端 `:6277`。
+
+HTML 外壳不直接下发：后端按请求在 `<!--ECH0_SEO_START-->` / `<!--ECH0_NOSCRIPT_START-->` 区间注入标题、描述、canonical、OG、JSON-LD 与无 JS 正文，客户端只在路由切换时同步。规则与同步义务见 [seo-sharing.md](seo-sharing.md)。
 
 ```
 web/src/

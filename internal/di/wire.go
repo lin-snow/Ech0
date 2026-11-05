@@ -16,6 +16,7 @@ import (
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
 	"github.com/lin-snow/ech0/internal/handler"
+	webHandler "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/job"
 	jobRunner "github.com/lin-snow/ech0/internal/job/runner"
 	"github.com/lin-snow/ech0/internal/kvstore"
@@ -27,6 +28,8 @@ import (
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/service"
 	copilotService "github.com/lin-snow/ech0/internal/service/copilot"
+	echoService "github.com/lin-snow/ech0/internal/service/echo"
+	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	"github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/storage"
@@ -196,6 +199,10 @@ var HandlerSet = wire.NewSet(
 	repository.OAuthServerSet,
 	service.OAuthServerSet,
 	handler.OAuthServerSet,
+
+	// The shell renderer reads site settings and shareable echos directly.
+	wire.Bind(new(webHandler.SettingsReader), new(*settingService.SettingService)),
+	wire.Bind(new(webHandler.EchoReader), new(*echoService.EchoService)),
 
 	handler.NewBundle,
 )

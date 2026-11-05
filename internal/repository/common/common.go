@@ -81,6 +81,24 @@ func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, showP
 	return echos, nil
 }
 
+func (commonRepository *CommonRepository) ListPublicEchoRefs(
+	ctx context.Context,
+) ([]echoModel.EchoRef, error) {
+	var refs []echoModel.EchoRef
+
+	err := commonRepository.getDB(ctx).
+		Model(&echoModel.Echo{}).
+		Select("id", "created_at").
+		Where("private = ?", false).
+		Order("created_at DESC").
+		Find(&refs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return refs, nil
+}
+
 func (commonRepository *CommonRepository) GetHeatMap(
 	ctx context.Context,
 	startUTC, endUTC int64,

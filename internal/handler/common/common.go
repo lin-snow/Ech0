@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	res "github.com/lin-snow/ech0/internal/handler/response"
@@ -49,6 +50,9 @@ type CommonHandler struct {
 	durableKV     kvstore.Store
 }
 
+// maxSitemapURLs is the sitemap protocol cap for a single urlset document.
+const maxSitemapURLs = 50000
+
 type siteMapURLSet struct {
 	XMLName xml.Name     `xml:"urlset"`
 	XMLNS   string       `xml:"xmlns,attr"`
@@ -56,9 +60,8 @@ type siteMapURLSet struct {
 }
 
 type siteMapURL struct {
-	Loc        string `xml:"loc"`
-	ChangeFreq string `xml:"changefreq,omitempty"`
-	Priority   string `xml:"priority,omitempty"`
+	Loc     string `xml:"loc"`
+	LastMod string `xml:"lastmod,omitempty"`
 }
 
 func NewCommonHandler(commonService service.Service, durableKV kvstore.Store) *CommonHandler {
@@ -144,6 +147,11 @@ func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {
 		"Disallow: /auth",
 		"Disallow: /panel",
 		"Disallow: /init",
+		"Disallow: /device",
+		"Disallow: /oauth/",
+		"Disallow: /widget",
+		"Disallow: /chat",
+		"Disallow: /zen",
 		"Disallow: /healthz",
 	}
 	// Agentmap advertises the catalog; it goes away with the discovery surface.
@@ -158,13 +166,40 @@ func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {
 
 func (commonHandler *CommonHandler) GetSitemap(ctx *gin.Context) {
 	baseURL := strings.TrimRight(resolveBaseURL(ctx), "/")
+	urls := []siteMapURL{
+		{Loc: baseURL + "/"},
+		{Loc: baseURL + "/hub"},
+		{Loc: baseURL + "/about"},
+		{Loc: baseURL + "/rss"},
+	}
+
+	refs, err := commonHandler.commonService.ListSitemapEntries(ctx.Request.Context())
+	if err != nil {
+		ctx.JSON(
+			http.StatusInternalServerError,
+			commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
+				Msg: "",
+				Err: err,
+			})),
+		)
+		return
+	}
+
+	// The sitemap protocol caps one file at 50,000 URLs; beyond that the file is
+	// truncated rather than emitting an invalid document.
+	for _, ref := range refs {
+		if len(urls) >= maxSitemapURLs {
+			break
+		}
+		urls = append(urls, siteMapURL{
+			Loc:     baseURL + "/echo/" + ref.ID,
+			LastMod: time.Unix(ref.CreatedAt, 0).UTC().Format(time.RFC3339),
+		})
+	}
+
 	urlSet := siteMapURLSet{
 		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
-		URLs: []siteMapURL{
-			{Loc: baseURL + "/", ChangeFreq: "daily", Priority: "1.0"},
-			{Loc: baseURL + "/hub", ChangeFreq: "daily", Priority: "0.8"},
-			{Loc: baseURL + "/rss", ChangeFreq: "hourly", Priority: "0.6"},
-		},
+		URLs:  urls,
 	}
 
 	var buf bytes.Buffer
@@ -173,7 +208,7 @@ func (commonHandler *CommonHandler) GetSitemap(ctx *gin.Context) {
 	encoder.Indent("", "  ")
 	if err := encoder.Encode(urlSet); err != nil {
 		ctx.JSON(
-			http.StatusOK,
+			http.StatusInternalServerError,
 			commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
 				Msg: "",
 				Err: err,
