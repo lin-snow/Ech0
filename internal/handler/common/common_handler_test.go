@@ -193,7 +193,18 @@ func TestGetRobotsTxt(t *testing.T) {
 				assert.Contains(t, body, "Disallow: "+privatePath)
 			}
 			assert.Contains(t, body, tc.wantSitemap)
-			assert.Contains(t, body, "Agentmap: ")
+
+			// Crawlers reject unknown fields (Google flags them in Search Console),
+			// so every line must stay inside the RFC 9309 grammar.
+			for _, line := range strings.Split(strings.TrimSpace(body), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				field, _, ok := strings.Cut(line, ":")
+				require.True(t, ok, "line is not a directive: %q", line)
+				assert.Contains(t, []string{"User-agent", "Allow", "Disallow", "Sitemap"}, field, line)
+			}
 		})
 	}
 }

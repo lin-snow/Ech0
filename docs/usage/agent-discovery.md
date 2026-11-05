@@ -15,12 +15,14 @@
 三者关系：
 
 ```text
-robots.txt  --Agentmap-->  /.well-known/ard.json  --entries[].url-->  /mcp/server-card
-                                  |                                          |
-                                  +----------- 同一个 MCP 端点 /mcp ----------+
+/.well-known/ard.json  --entries[].url-->  /mcp/server-card
+        |                                        |
+        +----------- 同一个 MCP 端点 /mcp --------+
 ```
 
 `/llms.txt` 只是把这些绝对 URL 连同订阅源、OpenAPI 文档一起列出来。
+
+> ARD 另有一个可选的 `Agentmap:` robots.txt 指令，本实例**不输出**：RFC 9309 只定义 `user-agent` / `allow` / `disallow` / `sitemap` 四类字段，Google 会把其余行当作无效内容写进 Search Console 的 robots.txt 报告，让站长误以为抓取配置坏了；而合规的 ARD 消费者本来就必须直接取 `/.well-known/ard.json`，不依赖 robots.txt 广告。
 
 ## 2. 内容边界
 
@@ -37,7 +39,7 @@ robots.txt  --Agentmap-->  /.well-known/ard.json  --entries[].url-->  /mcp/serve
 关闭后：
 
 - `/llms.txt`、`/.well-known/ard.json`、`/.well-known/ai-catalog.json`、`/mcp/server-card` 一律返回 `404`；
-- `/robots.txt` 去掉 `Agentmap:` 行（`Sitemap:` 保留）。
+- `/robots.txt` 保持不变（`Sitemap:` 保留；它本来就不声明 catalog）。
 
 存储字段是 `disable_agent_discovery`（**语义取反**）：写入该字段之前的设置 JSON 里没有这个键，反序列化得到 `false`，即「开启」——升级不会悄悄关掉这个能力。需要整站拒绝 AI 抓取时，仍应在反向代理或 CDN 层拦截，而不是只靠这个开关：它只撤销发现入口，不改 `robots.txt` 的抓取许可。
 
@@ -48,7 +50,7 @@ robots.txt  --Agentmap-->  /.well-known/ard.json  --entries[].url-->  /mcp/serve
 ```bash
 curl -sS https://your.instance/llms.txt | head -5          # 应为 "# <站点标题>"
 curl -sSI https://your.instance/.well-known/ard.json       # 200 + application/ai-catalog+json + ETag
-curl -sS https://your.instance/robots.txt | grep Agentmap  # 应为 "Agentmap: https://your.instance/.well-known/ard.json"
+curl -sS https://your.instance/robots.txt                      # 只含 User-agent / Allow / Disallow / Sitemap
 curl -sS https://your.instance/mcp/server-card | jq .remotes  # type=streamable-http, url=<origin>/mcp
 ```
 

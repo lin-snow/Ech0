@@ -187,7 +187,6 @@ func TestAgentDiscovery_Disabled(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
 	require.Equal(t, http.StatusOK, rec.Code)
-	assert.NotContains(t, rec.Body.String(), "Agentmap:")
 	assert.Contains(t, rec.Body.String(), "Sitemap: ")
 }
 

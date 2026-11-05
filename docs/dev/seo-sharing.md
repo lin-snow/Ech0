@@ -52,7 +52,7 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `/robots.txt` | `Disallow` 覆盖所有 noindex 路由 + `Sitemap:` + `Agentmap:` |
+| `/robots.txt` | `Disallow` 覆盖所有 noindex 路由 + `Sitemap:`；只写 RFC 9309 字段，不写 `Agentmap:`（Google 会判为无效行） |
 | `/sitemap.xml` | 固定页（`/`、`/hub`、`/about`、`/rss`）+ 全部公开 echo（`<lastmod>` 取创建时间，单文件上限 50,000） |
 | `/rss` | Atom；浏览器 `Accept: text/html` 时返回落地页 |
 | `/llms.txt`、`/.well-known/ard.json` | 智能体发现（可在设置中关闭） |

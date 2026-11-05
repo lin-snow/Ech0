@@ -154,10 +154,10 @@ func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {
 		"Disallow: /zen",
 		"Disallow: /healthz",
 	}
-	// Agentmap advertises the catalog; it goes away with the discovery surface.
-	if system, err := commonHandler.agentDiscoverySetting(ctx); err == nil && !system.DisableAgentDiscovery {
-		lines = append(lines, fmt.Sprintf("Agentmap: %s%s", baseURL, AgentCatalogPath))
-	}
+	// Stay inside the RFC 9309 grammar (user-agent / allow / disallow / sitemap):
+	// Google reports any other field — e.g. ARD's `Agentmap:` — as an invalid
+	// line in Search Console. ARD consumers fetch /.well-known/ard.json directly,
+	// so the catalog needs no robots.txt advertisement.
 	lines = append(lines, fmt.Sprintf("Sitemap: %s/sitemap.xml", baseURL), "")
 	content := strings.Join(lines, "\n")
 

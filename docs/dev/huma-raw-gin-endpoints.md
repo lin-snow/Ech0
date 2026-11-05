@@ -117,7 +117,7 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | GET | `/.well-known/ai-catalog.json` | `CommonHandler.GetAgentCatalog` | Resource（公开） | 同上（前身路径，同一文档） |
 | GET | `/mcp/server-card` | `MCPHandler.GetServerCard` | Resource（公开） | `application/mcp-server-card+json`（MCP SEP-2127） |
 
-这四份文档是给机器读的资源，不是业务 envelope：必须保原文类型、带 `ETag` 与 `Cache-Control`，并且 `/mcp/server-card` 不能挂在 `/mcp` 组的鉴权之后（卡片本身是连接前置元数据）。开关为 `SystemSetting.DisableAgentDiscovery`（偏好设置 → 系统设置，默认开启），关闭时四个路径一律 404 且 `robots.txt` 去掉 `Agentmap`。
+这四份文档是给机器读的资源，不是业务 envelope：必须保原文类型、带 `ETag` 与 `Cache-Control`，并且 `/mcp/server-card` 不能挂在 `/mcp` 组的鉴权之后（卡片本身是连接前置元数据）。开关为 `SystemSetting.DisableAgentDiscovery`（偏好设置 → 系统设置，默认开启），关闭时四个路径一律 404；`/robots.txt` 不随开关变化，也不声明 catalog。
 
 ### I. MCP 授权服务器（7）
 
