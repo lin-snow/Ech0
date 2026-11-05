@@ -78,15 +78,15 @@ sitemap 通过 `CommonService.ListSitemapEntries` 只查询 `id, created_at`，�
 
 | 元素 | 值 |
 | --- | --- |
-| 纸底 | `#FFFBF3 → #F8F2E7 → #F2E8D8` 斜向渐变 + 左上暖光、右下投影 |
-| 墨色 | `#1c1713`（标记）/ `#5f3f27`（字标） |
-| 赭石 / 陶土 | `#6f4a2f` / `#9a7a5e` |
-| 强调 | `#f54a00`（只用于品牌圆点与稀疏像素） |
-| 字体 | 显示用 Iowan Old Style / Palatino 系衬线；信息用 Avenir Next / 系统无衬线，大写 + 0.3em 字距 |
-| 图形母题 | Square Pixel Halftone：以标记为圆心的同心「回声」像素环，方块尺寸与透明度由距离驱动 |
+| 纸底 | `#FFFFFF → #FFFBF4` 轻暖白，左上微亮 |
+| 墨色 | `#141210`（标题）/ `#6f6154`（说明）/ `#a3947f`（页脚） |
+| 强调 | `#f54a00`（唯一品牌色，用于句点与标记圆点） |
+| 冷调点 | `#9db2ff`（只在球体右上做一层极淡的腮红，避免橙色发闷） |
+| 字体 | 标题 Avenir Next / SF Pro Display Bold，负字距；信息行同族 Regular |
+| 图形母题 | 柔边渐变「球体」+ 两枚白色胶囊眼睛：把品牌标记的脸做成可复用的社交形象 |
 
-- `web/public/og-cover.jpg`：1200×630（1.91:1），JPEG q≈86，约 105 KB（低于 WhatsApp 建议的 300 KB）。
-- 版式：左侧字标 + 一句话定位，右侧程序化 halftone 场；标记周围留出纸色「清空区」，不压纹理。
+- `web/public/og-cover.jpg`：1200×630（1.91:1），JPEG q≈88，约 73 KB（低于 WhatsApp 建议的 300 KB）。
+- 版式：左侧 `Ech0` 字标 + 两行主张 + 说明 + 域名；右侧球体出血到右下角，视觉重心偏右。
 - 生成器与源文件：`docs/assets/og-cover/{generate.mjs,og-cover.svg}`（纯 Bun、无依赖、确定性输出）。
 - 提供 `og:image:width/height/type/alt`；echo 使用自有图片时移除尺寸声明（未知）。
 - `Ech0.png` 仍作为 JSON-LD 的 publisher logo；`Ech0.svg` 供 RSS 使用。
@@ -98,7 +98,7 @@ sitemap 通过 `CommonService.ListSitemapEntries` 只查询 `id, created_at`，�
 bun docs/assets/og-cover/generate.mjs
 sips -s format png docs/assets/og-cover/og-cover.svg --out /tmp/og@2x.png
 sips -z 630 1200 /tmp/og@2x.png --out /tmp/og.png
-sips -s format jpeg -s formatOptions 86 /tmp/og.png --out web/public/og-cover.jpg
+sips -s format jpeg -s formatOptions 88 /tmp/og.png --out web/public/og-cover.jpg
 ```
 
 ## 7. 验证
