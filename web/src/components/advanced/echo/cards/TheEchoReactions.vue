@@ -533,7 +533,7 @@ void (async () => {
   padding: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: 999px;
-  background: var(--color-bg-surface);
+  background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
   transition:
@@ -550,6 +550,7 @@ void (async () => {
 
 .reaction-trigger:hover:not(:disabled) {
   border-color: var(--color-border-strong);
+  background: var(--color-bg-muted);
   color: var(--color-text-primary);
 }
 

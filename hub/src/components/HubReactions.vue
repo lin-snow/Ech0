@@ -485,12 +485,13 @@ void (async () => {
   padding: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: 999px;
-  background: var(--color-bg-surface);
+  background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
   transition:
     border-color 150ms ease,
     color 150ms ease,
+    background-color 150ms ease,
     transform 120ms ease;
 }
 
@@ -501,6 +502,7 @@ void (async () => {
 
 .hub-reaction-trigger:hover {
   border-color: var(--color-border-strong);
+  background: var(--color-bg-muted);
   color: var(--color-text-primary);
 }
 
