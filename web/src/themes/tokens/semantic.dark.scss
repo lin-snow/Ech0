@@ -14,6 +14,7 @@
   --color-accent: #e7b063;
   --color-accent-soft: #493e30;
   --color-danger: #fd6664;
+  --color-success: #6fcf8a;
   --color-focus-ring: rgb(199 155 95 / 38%);
 
   --color-nav-active-bg: var(--color-accent-soft);
@@ -47,6 +48,7 @@
     --color-accent: oklch(79.2% 0.114 74.3deg);
     --color-accent-soft: oklch(37.2% 0.028 73.1deg);
     --color-danger: oklch(70.2% 0.185 23.9deg);
+    --color-success: oklch(79% 0.13 152deg);
     --color-focus-ring: oklch(71.8% 0.094 74.8deg / 38%);
     --color-overlay-strong: oklch(0% 0 0deg / 50%);
     --color-gallery-scrollbar: oklch(93.8% 0.015 77.2deg / 22%);

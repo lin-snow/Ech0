@@ -5,7 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import BaseInput from '@/components/common/BaseInput.vue'
+import BaseOtpInput from '@/components/common/BaseOtpInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import ScopeAccordion from '@/components/common/ScopeAccordion.vue'
 import { fetchDeviceApprove, fetchDevicePending } from '@/service/api/device'
@@ -22,15 +22,14 @@ const { user } = storeToRefs(userStore)
 const { SystemSetting } = storeToRefs(settingStore)
 
 /** Codes are 8 letters/digits; the hyphen is decoration the server strips anyway. */
-function formatCode(raw: string) {
-  const chars = raw
+function sanitizeCode(raw: string) {
+  return raw
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 8)
-  return chars.length > 4 ? `${chars.slice(0, 4)}-${chars.slice(4)}` : chars
 }
 
-const userCode = ref(formatCode(typeof route.query.code === 'string' ? route.query.code : ''))
+const userCode = ref(sanitizeCode(typeof route.query.code === 'string' ? route.query.code : ''))
 const pending = ref<App.Api.Device.PendingInfo | null>(null)
 const approved = ref(false)
 const approving = ref(false)
@@ -46,16 +45,24 @@ const username = computed(() => user.value?.username || '')
 /** Approving mints an access token, which the backend restricts to admins. */
 const canApprove = computed(() => user.value?.is_admin === true)
 
-const normalizedCode = computed(() => userCode.value.replace(/[^A-Z0-9]/g, ''))
-const codeReady = computed(() => normalizedCode.value.length === 8)
+const codeReady = computed(() => userCode.value.length === 8)
 const formattedCode = computed(() =>
-  codeReady.value ? `${normalizedCode.value.slice(0, 4)}-${normalizedCode.value.slice(4)}` : '',
+  codeReady.value ? `${userCode.value.slice(0, 4)}-${userCode.value.slice(4)}` : '',
 )
+/** Drives the OTP ring burst / shake; the success state is set by `approve`. */
+const approveSucceeded = ref(false)
+const codeStatus = computed<'idle' | 'success' | 'error'>(() => {
+  if (approveSucceeded.value) return 'success'
+  return lookupFailed.value ? 'error' : 'idle'
+})
+const codeSlotLabel = (index: number, total: number) =>
+  String(t('devicePage.codeSlotLabel', { index: index + 1, total }))
 const remainingText = computed(
   () => `${Math.floor(remaining.value / 60)}:${String(remaining.value % 60).padStart(2, '0')}`,
 )
 
 let debounce: ReturnType<typeof setTimeout> | undefined
+let successTimer: ReturnType<typeof setTimeout> | undefined
 let ticker: ReturnType<typeof setInterval> | undefined
 let deadline = 0
 
@@ -79,10 +86,6 @@ function startTicker(seconds: number) {
   deadline = Date.now() + seconds * 1000
   remaining.value = Math.max(0, seconds)
   if (remaining.value > 0) ticker = setInterval(tick, 1000)
-}
-
-function onCodeInput(value: string) {
-  userCode.value = formatCode(value)
 }
 
 async function lookup(code: string) {
@@ -118,9 +121,13 @@ async function approve() {
   try {
     const res = await fetchDeviceApprove(formattedCode.value)
     if (res.code === 1) {
-      approved.value = true
       pending.value = null
       stopTicker()
+      approveSucceeded.value = true
+      // Let the code rings finish drawing before the panel swaps to the receipt.
+      successTimer = setTimeout(() => {
+        approved.value = true
+      }, 760)
       return
     }
     theToast.error(t('devicePage.approveFailed'))
@@ -137,7 +144,7 @@ async function switchAccount() {
 }
 
 // Typing a complete code is the intent to look it up — there is no separate submit step.
-watch(normalizedCode, scheduleLookup)
+watch(userCode, scheduleLookup)
 
 onMounted(() => {
   if (codeReady.value) void lookup(formattedCode.value)
@@ -145,6 +152,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearTimeout(debounce)
+  clearTimeout(successTimer)
   stopTicker()
 })
 </script>
@@ -190,14 +198,14 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else class="mt-9">
-        <BaseInput
-          :model-value="userCode"
+        <BaseOtpInput
+          v-model="userCode"
           :label="t('devicePage.codeLabel')"
-          :placeholder="t('devicePage.codePlaceholder')"
-          class="text-center font-mono tracking-[0.25em] uppercase"
-          autocomplete="one-time-code"
-          spellcheck="false"
-          @update:model-value="onCodeInput"
+          :length="8"
+          :status="codeStatus"
+          :disabled="approving || approveSucceeded"
+          :slot-label="codeSlotLabel"
+          autofocus
         />
         <p v-if="lookupFailed" class="mt-2 text-xs text-[var(--color-danger)]">
           {{ t('devicePage.lookupFailed') }}

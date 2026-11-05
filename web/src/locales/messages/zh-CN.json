@@ -1278,7 +1278,7 @@
   },
   "devicePage": {
     "codeLabel": "设备码",
-    "codePlaceholder": "ABCD-EFGH",
+    "codeSlotLabel": "第 {index} 个字符，共 {total} 个",
     "codeHelp": "输入终端中显示的 8 位设备码。",
     "approve": "确认授权",
     "approving": "授权中…",

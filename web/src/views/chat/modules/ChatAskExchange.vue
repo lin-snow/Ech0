@@ -2,9 +2,25 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="askdone">
-    <div v-for="(row, ri) in rows" :key="ri" class="askdone__row" :title="row.title">
-      <span class="askdone__question">{{ row.question }}</span>
-      <span class="askdone__answer">{{ row.answer }}</span>
+    <span class="askdone__status" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path
+          class="askdone__check"
+          d="M5 12.5 10 17.5 19 7"
+          pathLength="1"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </span>
+
+    <div class="askdone__rows">
+      <div v-for="(row, ri) in rows" :key="ri" class="askdone__row" :title="row.title">
+        <span class="askdone__question">{{ row.question }}</span>
+        <span class="askdone__answer">{{ row.answer }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -38,18 +54,51 @@ const rows = computed<Row[]>(() => {
 </script>
 
 <style scoped>
-/* The same hanging indent as the pending ask, one weight down: a hairline in
-   the neutral border colour instead of the accent rule. The shape says "this
-   was an ask", the weight says "it is settled". */
+/* The same card surface as the pending ask, one weight down: the check is the
+   only saturated mark, so the pair reads as "this was a decision, and it is
+   closed". */
 .askdone {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  align-items: flex-start;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 30rem;
   min-width: 0;
-  max-width: 100%;
-  margin: 0.4rem 0 0.25rem;
-  padding-left: 0.85rem;
-  border-left: 1px solid var(--color-border-subtle);
+  margin: 0.5rem 0 0.3rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--color-bg-muted) 70%, transparent);
+}
+
+.askdone__status {
+  display: grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.08rem;
+  color: var(--color-accent);
+}
+
+.askdone__check {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: askdone-check 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.06s forwards;
+}
+
+@keyframes askdone-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.askdone__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
 }
 
 /* Wrapping, not truncating. This is the record of a decision someone made —
@@ -80,5 +129,12 @@ const rows = computed<Row[]>(() => {
   background: var(--color-accent-soft);
   color: var(--color-text-secondary);
   overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdone__check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
 </style>

@@ -75,6 +75,8 @@ declare namespace App {
         reasoning?: string
         reasoning_ms?: number
         reasoningActive?: boolean
+        /** Transient, client-only: a tool call is out and nothing has returned. */
+        retrieving?: boolean
         asks?: ChatAskExchange[]
         /** Transient, client-only: the round currently blocking the run. */
         pendingAsk?: ChatAsk

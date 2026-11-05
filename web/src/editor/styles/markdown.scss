@@ -69,7 +69,7 @@
   overflow-wrap: anywhere;
 }
 
-.echo-markdown li :is(strong, em, a, code, span) {
+.echo-markdown li :is(strong, em, a, code, span):not(.am-tok) {
   white-space: normal;
   overflow-wrap: anywhere;
 }

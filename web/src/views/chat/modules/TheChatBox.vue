@@ -38,15 +38,21 @@
               />
 
               <ChatRetrieval
-                v-if="(msg.searches && msg.searches.length > 0) || msg.coverage"
+                v-if="hasRetrieval(msg)"
                 :searches="msg.searches ?? []"
                 :coverage="msg.coverage"
-                :active="isStreaming(idx) && msg.content.length === 0"
+                :sources="msg.sources"
+                :active="isStreaming(idx) && msg.retrieving === true"
               />
             </div>
 
             <ChatWaiting
-              v-if="msg.content.length === 0 && isStreaming(idx) && !msg.reasoningActive"
+              v-if="
+                msg.content.length === 0 &&
+                isStreaming(idx) &&
+                !msg.reasoningActive &&
+                !(msg.retrieving && hasRetrieval(msg))
+              "
             />
             <div v-else-if="msg.content.length > 0" class="answer">
               <AnimatedMarkdown
@@ -461,11 +467,13 @@ const streamInto = (question: string, assistant: App.Api.Chat.ChatMessage) => {
 
   abort = chatStream(question, {
     onSearching: (query) => {
+      assistant.retrieving = true
       if (query && !assistant.searches?.includes(query)) {
         assistant.searches?.push(query)
       }
     },
     onSources: (sources) => {
+      assistant.retrieving = false
       const merged = assistant.sources ? [...assistant.sources] : []
       const seen = new Set(merged.map((s) => s.echo_id))
       for (const src of sources) {
@@ -477,9 +485,11 @@ const streamInto = (question: string, assistant: App.Api.Chat.ChatMessage) => {
       assistant.sources = merged
     },
     onCoverage: (coverage) => {
+      assistant.retrieving = false
       assistant.coverage = coverage
     },
     onReasoning: (text) => {
+      assistant.retrieving = false
       if (assistant.reasoning === undefined) {
         assistant.reasoning = ''
         assistant.reasoningActive = true
@@ -491,6 +501,7 @@ const streamInto = (question: string, assistant: App.Api.Chat.ChatMessage) => {
       assistant.reasoningActive = false
     },
     onDelta: (text) => {
+      assistant.retrieving = false
       assistant.content += text
     },
     onAsk: (ask) => {
@@ -555,11 +566,13 @@ const send = (question: string) => {
   streamInto(q, messages.value[messages.value.length - 1])
 }
 
+/** There is a retrieval row to carry the "searching" state. */
+const hasRetrieval = (msg: App.Api.Chat.ChatMessage): boolean =>
+  (msg.searches !== undefined && msg.searches.length > 0) || msg.coverage !== undefined
+
 /** Anything the run reported about how it worked: a thought, queries, coverage. */
 const hasTrace = (msg: App.Api.Chat.ChatMessage): boolean =>
-  msg.reasoning !== undefined ||
-  (msg.searches !== undefined && msg.searches.length > 0) ||
-  msg.coverage !== undefined
+  msg.reasoning !== undefined || hasRetrieval(msg)
 
 /** Only the newest turn re-runs, because `retryLast` rewrites that turn in place. */
 const canRetry = (idx: number): boolean =>
@@ -596,6 +609,7 @@ const retryLast = () => {
   assistant.reasoning = undefined
   assistant.reasoning_ms = undefined
   assistant.reasoningActive = false
+  assistant.retrieving = false
   assistant.asks = undefined
   // Clears this turn's open round too, along with any draft answer behind it.
   dropAsk()
@@ -621,6 +635,7 @@ watch(loading, (now, prev) => {
   if (!prev || now) return
   const last = messages.value[messages.value.length - 1]
   if (last?.role === 'assistant' && last.reasoningActive) last.reasoningActive = false
+  if (last?.role === 'assistant' && last.retrieving) last.retrieving = false
   if (!jumping) collapseTailIfSafe()
 })
 
