@@ -2345,6 +2345,8 @@ components:
           type: string
         default_locale:
           type: string
+        disable_agent_discovery:
+          type: boolean
         footer_content:
           type: string
         footer_link:
@@ -2373,6 +2375,8 @@ components:
           type: string
         default_locale:
           type: string
+        disable_agent_discovery:
+          type: boolean
         footer_content:
           type: string
         footer_link:

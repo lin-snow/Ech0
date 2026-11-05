@@ -121,6 +121,7 @@ npx -y mcp-remote@0.16.0 http://localhost:6277/mcp 53682 --debug
 - **POST /mcp**：处理 JSON-RPC 请求（唯一入口）
 - **GET / DELETE /mcp**：返回 405（服务端无会话，也不提供独立 SSE 流）
 - **Origin 校验**：带 `Origin` 头的跨源请求会被拒绝（403），用于防御 DNS rebinding。同源请求始终放行；需要额外放行的浏览器来源用 `ECH0_WEB_CORS_ALLOWED_ORIGINS` 配置。原生 MCP Host / CLI 不发送 `Origin`，不受影响。
+- **前置发现（公开，无需 token）**：`/mcp/server-card` 给出传输、协议版本与鉴权头（MCP Server Card，SEP-2127）；AI catalog 与 `/llms.txt` 见 [`agent-discovery.md`](agent-discovery.md)。
 
 ## 能力总览
 

@@ -24,18 +24,19 @@ var (
 		Default: func() settingModel.SystemSetting {
 			c := config.Config().Setting
 			return settingModel.SystemSetting{
-				SiteTitle:     c.SiteTitle,
-				ServerLogo:    c.ServerLogo,
-				ServerName:    c.Servername,
-				ServerURL:     urlUtil.TrimURL(c.Serverurl),
-				AllowRegister: c.AllowRegister,
-				DefaultLocale: string(commonModel.DefaultLocale),
-				ICPNumber:     c.Icpnumber,
-				FooterContent: c.FooterContent,
-				FooterLink:    urlUtil.TrimURL(c.FooterLink),
-				MetingAPI:     urlUtil.TrimURL(c.MetingAPI),
-				CustomCSS:     c.CustomCSS,
-				CustomJS:      c.CustomJS,
+				SiteTitle:             c.SiteTitle,
+				ServerLogo:            c.ServerLogo,
+				ServerName:            c.Servername,
+				ServerURL:             urlUtil.TrimURL(c.Serverurl),
+				AllowRegister:         c.AllowRegister,
+				DefaultLocale:         string(commonModel.DefaultLocale),
+				ICPNumber:             c.Icpnumber,
+				FooterContent:         c.FooterContent,
+				FooterLink:            urlUtil.TrimURL(c.FooterLink),
+				MetingAPI:             urlUtil.TrimURL(c.MetingAPI),
+				CustomCSS:             c.CustomCSS,
+				CustomJS:              c.CustomJS,
+				DisableAgentDiscovery: false,
 			}
 		},
 		Normalize: func(s *settingModel.SystemSetting) {

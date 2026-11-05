@@ -593,6 +593,8 @@
     "customJs": "カスタム JS",
     "customJsPlaceholder": "カスタム Script を入力してください",
     "allowRegister": "登録を許可",
+    "agentDiscovery": "エージェント検出",
+    "agentDiscoveryHint": "/llms.txt、AI カタログ、MCP サーバーカードを公開し、AI エージェントがこのインスタンスのフィード・API・MCP エンドポイントを検出できるようにします",
     "defaultLocale": "既定の言語",
     "logoUploading": "サーバーロゴをアップロード中...",
     "logoUploadSuccess": "サーバーロゴをアップロードしました！",

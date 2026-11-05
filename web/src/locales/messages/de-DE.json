@@ -593,6 +593,8 @@
     "customJs": "Eigenes JS",
     "customJsPlaceholder": "Eigenes Script eingeben",
     "allowRegister": "Registrierung erlauben",
+    "agentDiscovery": "Agent-Erkennung",
+    "agentDiscoveryHint": "Veröffentlicht /llms.txt, den AI-Katalog und die MCP-Server-Card, damit KI-Agenten die Feeds, die API und den MCP-Endpunkt dieser Instanz finden",
     "defaultLocale": "Standardsprache",
     "logoUploading": "Server-Logo wird hochgeladen…",
     "logoUploadSuccess": "Server-Logo hochgeladen!",

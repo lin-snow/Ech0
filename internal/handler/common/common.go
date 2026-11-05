@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	res "github.com/lin-snow/ech0/internal/handler/response"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/common"
 	errorUtil "github.com/lin-snow/ech0/internal/util/err"
@@ -45,6 +46,7 @@ type (
 
 type CommonHandler struct {
 	commonService service.Service
+	durableKV     kvstore.Store
 }
 
 type siteMapURLSet struct {
@@ -59,9 +61,10 @@ type siteMapURL struct {
 	Priority   string `xml:"priority,omitempty"`
 }
 
-func NewCommonHandler(commonService service.Service) *CommonHandler {
+func NewCommonHandler(commonService service.Service, durableKV kvstore.Store) *CommonHandler {
 	return &CommonHandler{
 		commonService: commonService,
+		durableKV:     durableKV,
 	}
 }
 
@@ -133,8 +136,8 @@ func resolveBaseURL(ctx *gin.Context) string {
 }
 
 func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {
-	baseURL := resolveBaseURL(ctx)
-	content := strings.Join([]string{
+	baseURL := strings.TrimRight(resolveBaseURL(ctx), "/")
+	lines := []string{
 		"User-agent: *",
 		"Allow: /",
 		"Disallow: /api/",
@@ -142,9 +145,13 @@ func (commonHandler *CommonHandler) GetRobotsTxt(ctx *gin.Context) {
 		"Disallow: /panel",
 		"Disallow: /init",
 		"Disallow: /healthz",
-		fmt.Sprintf("Sitemap: %s/sitemap.xml", strings.TrimRight(baseURL, "/")),
-		"",
-	}, "\n")
+	}
+	// Agentmap advertises the catalog; it goes away with the discovery surface.
+	if system, err := commonHandler.agentDiscoverySetting(ctx); err == nil && !system.DisableAgentDiscovery {
+		lines = append(lines, fmt.Sprintf("Agentmap: %s%s", baseURL, AgentCatalogPath))
+	}
+	lines = append(lines, fmt.Sprintf("Sitemap: %s/sitemap.xml", baseURL), "")
+	content := strings.Join(lines, "\n")
 
 	ctx.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(content))
 }

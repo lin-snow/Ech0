@@ -34,6 +34,30 @@ func TestTemplates_APIPathReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestTemplates_UnknownWellKnownReturnsNotFound(t *testing.T) {
+	r := newTemplatesRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/.well-known/unknown.json", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected %d, got %d, body: %s", http.StatusNotFound, rec.Code, rec.Body.String())
+	}
+}
+
+func TestTemplates_MachineFilePathsWithoutRouteStillFallBack(t *testing.T) {
+	r := newTemplatesRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/some/deep/link", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
 func TestTemplates_SPAFallbackSetsNoStoreHeaders(t *testing.T) {
 	r := newTemplatesRouter()
 

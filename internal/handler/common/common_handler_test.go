@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	"github.com/lin-snow/ech0/internal/test/helpers"
@@ -26,6 +27,11 @@ import (
 
 func init() {
 	gin.SetMode(gin.TestMode)
+}
+
+// emptySettings reads config defaults, where agent discovery is enabled.
+func emptySettings() kvstore.Store {
+	return kvstore.NewMemory()
 }
 
 func TestGetHeatMap(t *testing.T) {
@@ -44,7 +50,7 @@ func TestGetHeatMap(t *testing.T) {
 			want := []commonModel.Heatmap{{Date: "2026-06-30", Count: 3}}
 			svc.EXPECT().GetHeatMap(tc.wantNormTZ).Return(want, nil).Once()
 
-			h := commonHandler.NewCommonHandler(svc)
+			h := commonHandler.NewCommonHandler(svc, emptySettings())
 			out, err := h.GetHeatMap(context.Background(), &commonHandler.GetHeatMapInput{Timezone: tc.inputTZ})
 
 			require.NoError(t, err)
@@ -60,7 +66,7 @@ func TestGetHeatMap_ServiceError(t *testing.T) {
 	sentinel := errors.New("db down")
 	svc.EXPECT().GetHeatMap(mock.Anything).Return(nil, sentinel).Once()
 
-	h := commonHandler.NewCommonHandler(svc)
+	h := commonHandler.NewCommonHandler(svc, emptySettings())
 	out, err := h.GetHeatMap(context.Background(), &commonHandler.GetHeatMapInput{Timezone: "UTC"})
 
 	require.ErrorIs(t, err, sentinel)
@@ -69,7 +75,7 @@ func TestGetHeatMap_ServiceError(t *testing.T) {
 
 func TestHelloEch0(t *testing.T) {
 	svc := commonmock.NewMockService(t)
-	h := commonHandler.NewCommonHandler(svc)
+	h := commonHandler.NewCommonHandler(svc, emptySettings())
 
 	out, err := h.HelloEch0(context.Background(), &commonHandler.HelloInput{})
 
@@ -88,7 +94,7 @@ func TestGetWebsiteTitle(t *testing.T) {
 		svc := commonmock.NewMockService(t)
 		svc.EXPECT().GetWebsiteTitle("https://example.com").Return("Example Domain", nil).Once()
 
-		h := commonHandler.NewCommonHandler(svc)
+		h := commonHandler.NewCommonHandler(svc, emptySettings())
 		out, err := h.GetWebsiteTitle(context.Background(), &commonHandler.GetWebsiteTitleInput{WebsiteURL: "https://example.com"})
 
 		require.NoError(t, err)
@@ -101,7 +107,7 @@ func TestGetWebsiteTitle(t *testing.T) {
 		sentinel := errors.New("dns failure")
 		svc.EXPECT().GetWebsiteTitle(mock.Anything).Return("", sentinel).Once()
 
-		h := commonHandler.NewCommonHandler(svc)
+		h := commonHandler.NewCommonHandler(svc, emptySettings())
 		out, err := h.GetWebsiteTitle(context.Background(), &commonHandler.GetWebsiteTitleInput{WebsiteURL: "https://bad"})
 
 		require.ErrorIs(t, err, sentinel)
@@ -111,7 +117,7 @@ func TestGetWebsiteTitle(t *testing.T) {
 
 func TestHealthz(t *testing.T) {
 	svc := commonmock.NewMockService(t)
-	h := commonHandler.NewCommonHandler(svc)
+	h := commonHandler.NewCommonHandler(svc, emptySettings())
 	r := gin.New()
 	r.GET("/healthz", h.Healthz())
 
@@ -162,7 +168,7 @@ func TestGetRobotsTxt(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := commonmock.NewMockService(t)
-			h := commonHandler.NewCommonHandler(svc)
+			h := commonHandler.NewCommonHandler(svc, emptySettings())
 			r := gin.New()
 			r.GET("/robots.txt", h.GetRobotsTxt)
 
@@ -183,13 +189,14 @@ func TestGetRobotsTxt(t *testing.T) {
 			assert.Contains(t, body, "User-agent: *")
 			assert.Contains(t, body, "Disallow: /api/")
 			assert.Contains(t, body, tc.wantSitemap)
+			assert.Contains(t, body, "Agentmap: ")
 		})
 	}
 }
 
 func TestGetSitemap(t *testing.T) {
 	svc := commonmock.NewMockService(t)
-	h := commonHandler.NewCommonHandler(svc)
+	h := commonHandler.NewCommonHandler(svc, emptySettings())
 	r := gin.New()
 	r.GET("/sitemap.xml", h.GetSitemap)
 
@@ -226,7 +233,7 @@ func TestGetRss(t *testing.T) {
 			Atom: "<feed/>",
 			HTML: "<html>styled</html>",
 		}, nil).Once()
-		h := commonHandler.NewCommonHandler(svc)
+		h := commonHandler.NewCommonHandler(svc, emptySettings())
 		r := gin.New()
 		r.GET("/rss", h.GetRss)
 
@@ -245,7 +252,7 @@ func TestGetRss(t *testing.T) {
 			Atom: "<feed/>",
 			HTML: "<html>styled</html>",
 		}, nil).Once()
-		h := commonHandler.NewCommonHandler(svc)
+		h := commonHandler.NewCommonHandler(svc, emptySettings())
 		r := gin.New()
 		r.GET("/rss", h.GetRss)
 
@@ -263,7 +270,7 @@ func TestGetRss(t *testing.T) {
 	t.Run("service-error-returns-fail-envelope", func(t *testing.T) {
 		svc := commonmock.NewMockService(t)
 		svc.EXPECT().GenerateRSS(mock.Anything).Return(commonService.RSSDocument{}, errors.New("rss boom")).Once()
-		h := commonHandler.NewCommonHandler(svc)
+		h := commonHandler.NewCommonHandler(svc, emptySettings())
 		r := gin.New()
 		r.GET("/rss", h.GetRss)
 

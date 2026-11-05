@@ -65,6 +65,8 @@ Ech0 的配置分两层，刻意不合并，因为它们的**生命周期**和**
 
 ## 3. `internal/setting` 为什么是「事务透明的裸原语」
 
+> 包内规约（英文速查：读直连 / 写走域 / 新增设置项的默认值陷阱）：[`internal/setting/README.md`](../../internal/setting/README.md)
+
 它是基础设施，不是 service、也不是 repo。它对事务的态度是**透明转发**而非「管理」：
 
 ```go

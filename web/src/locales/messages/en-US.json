@@ -593,6 +593,8 @@
     "customJs": "Custom JS",
     "customJsPlaceholder": "Enter custom script",
     "allowRegister": "Allow registration",
+    "agentDiscovery": "Agent discovery",
+    "agentDiscoveryHint": "Publish /llms.txt, the AI catalog and the MCP server card so AI agents can find this instance’s feeds, API and MCP endpoint",
     "defaultLocale": "Default language",
     "logoUploading": "Uploading server logo...",
     "logoUploadSuccess": "Server logo uploaded successfully!",

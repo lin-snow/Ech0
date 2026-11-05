@@ -20,6 +20,9 @@ var spaBypassPrefixes = []string{
 	"/api",
 	"/ws",
 	"/mcp",
+	// Well-known URIs are protocol endpoints, not app routes: an unknown one
+	// must answer 404 instead of handing a client the SPA shell as 200 HTML.
+	"/.well-known",
 }
 
 type WebHandler struct {

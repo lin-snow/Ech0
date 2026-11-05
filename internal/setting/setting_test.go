@@ -193,3 +193,38 @@ func TestSeed_PasskeyMigratesFromLegacyOAuth2(t *testing.T) {
 }
 
 var _ = []seedable{System, serverURLSeed{}, Spec[settingModel.AgentSetting]{}}
+
+func TestSystem_AgentDiscoveryDefaultsOnForLegacyBlobs(t *testing.T) {
+	cases := []struct {
+		name  string
+		store string
+		want  bool
+	}{
+		{
+			name:  "older-blob-without-key",
+			store: `{"site_title":"Legacy"}`,
+			want:  false,
+		},
+		{
+			name:  "explicit-opt-out",
+			store: `{"site_title":"Legacy","disable_agent_discovery":true}`,
+			want:  true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			kv := kvstore.NewMemory()
+			if err := kv.Set(context.Background(), commonModel.SystemSettingsKey, tc.store); err != nil {
+				t.Fatalf("seed kv: %v", err)
+			}
+
+			got, err := System.Get(context.Background(), kv)
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			if got.DisableAgentDiscovery != tc.want {
+				t.Fatalf("DisableAgentDiscovery = %v, want %v", got.DisableAgentDiscovery, tc.want)
+			}
+		})
+	}
+}

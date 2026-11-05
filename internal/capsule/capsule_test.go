@@ -14,14 +14,18 @@ import (
 )
 
 func TestSiteKeysMatchSystemSetting(t *testing.T) {
-	const behaviourOnly = "allow_register"
+	// Behaviour switches stay out of a capsule: importing content must not flip
+	// how the receiving instance behaves.
+	behaviourOnly := []string{"allow_register", "disable_agent_discovery"}
 
 	want := tagSet(t, reflect.TypeFor[settingModel.SystemSetting](), "json")
-	delete(want, behaviourOnly)
+	for _, key := range behaviourOnly {
+		delete(want, key)
+	}
 	got := tagSet(t, reflect.TypeFor[Site](), "yaml")
 
 	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("capsule.Site 键集合与 SystemSetting 不一致\nSystemSetting(-allow_register): %v\nSite: %v", keys(want), keys(got))
+		t.Fatalf("capsule.Site 键集合与 SystemSetting 不一致\nSystemSetting(-行为开关): %v\nSite: %v", keys(want), keys(got))
 	}
 }
 

@@ -18,6 +18,7 @@ declare namespace App {
         meting_api: string
         custom_css: string
         custom_js: string
+        disable_agent_discovery: boolean
       }
 
       type S3Setting = {
