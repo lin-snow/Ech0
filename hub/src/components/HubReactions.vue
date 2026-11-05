@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onClickOutside, useFetch } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { getVisitorId } from '@/utils/visitor'
@@ -151,10 +151,14 @@ function placeBar() {
   // placed against its final size instead of a shrunken mid-flight one.
   const barWidth = bar.offsetWidth
   const barHeight = bar.offsetHeight
+  // clientWidth excludes the desktop scrollbar; innerWidth includes it, which
+  // would let the bar slide under the scrollbar on a narrow window.
+  const viewportWidth =
+    document.documentElement.clientWidth || window.innerWidth
   const side = trigger.top - barHeight - gap < edge ? 'bottom' : 'top'
   const centered = trigger.left + trigger.width / 2 - barWidth / 2
   const overLeft = edge - centered
-  const overRight = centered + barWidth - (window.innerWidth - edge)
+  const overRight = centered + barWidth - (viewportWidth - edge)
   const shift = overLeft > 0 ? overLeft : overRight > 0 ? -overRight : 0
 
   placement.value = {
@@ -163,6 +167,20 @@ function placeBar() {
     tailX: trigger.left + trigger.width / 2 - (centered + shift),
   }
 }
+
+const syncPlacement = () => {
+  if (open.value) placeBar()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', syncPlacement)
+  window.visualViewport?.addEventListener('resize', syncPlacement)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncPlacement)
+  window.visualViewport?.removeEventListener('resize', syncPlacement)
+})
 
 function onTriggerPointerDown(event: PointerEvent) {
   if (event.button !== 0 || open.value) return
@@ -614,22 +632,22 @@ void (async () => {
   outline: none;
   animation: hub-reaction-item-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   animation-delay: calc(40ms + var(--i) * 35ms);
-  transition:
-    transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 160ms ease;
-}
-
-.hub-reaction-item:hover {
-  background: var(--color-bg-muted);
-  transform: translateY(-4px) scale(1.28);
 }
 
 .hub-reaction-item:active {
-  transform: scale(0.92);
+  opacity: 0.65;
 }
 
-.hub-reaction-item--reacted {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+.hub-reaction-item--reacted::after {
+  content: '';
+  position: absolute;
+  bottom: 0.16rem;
+  left: 50%;
+  width: 0.2rem;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transform: translateX(-50%);
 }
 
 .hub-reaction-item:focus-visible {
