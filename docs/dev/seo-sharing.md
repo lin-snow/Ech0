@@ -79,16 +79,16 @@ sitemap 通过 `CommonService.ListSitemapEntries` 只查询 `id, created_at`，�
 | 元素 | 值 |
 | --- | --- |
 | 纸底 | `#FFFFFF → #FFFBF4` 轻暖白，左上微亮 |
-| 墨色 | `#141210`（标题与面部）/ `#6f6154`（说明）/ `#a3947f`（页脚） |
+| 墨色 | `#141210`（标题与胶囊眼）/ `#6f6154`（说明）/ `#a3947f`（页脚） |
 | 强调 | `#f54a00`（句点、标记圆点、球体光边） |
 | 球体 | 奶油芯 `#FFFDF7 → #FFF4E2`，向外过渡到 `#FFE0B9 → #FCAE77 → #F26A30` 的光边 |
 | 字体 | 标题 Avenir Next / SF Pro Display Bold，负字距；信息行同族 Regular |
-| 图形母题 | 把品牌标记的面部——圆点眼、胶囊眼、竖楔鼻、横杠嘴——按 1.25× 放大，放进柔光球体，成为可复用的社交角色 |
+| 图形母题 | 只保留品牌标记的两只眼睛——橙色圆点与墨色胶囊——放大后放进奶油芯、橙色光边的球体，成为可复用的社交角色 |
 
 - `web/public/og-cover.jpg`：1200×630（1.91:1），JPEG q≈88，约 75 KB（低于 WhatsApp 建议的 300 KB）。
 - 版式：左侧 `Ech0` 字标 + 两行主张 + 说明 + 域名；右侧角色球体出血到右下角。
 - 生成器与源文件：`docs/assets/og-cover/{generate.mjs,og-cover.svg}`（纯 Bun、无依赖、确定性输出）。
-- 面部几何是标记 408 单位坐标的等比放大，改标记时同步 `FACE` 常量即可。
+- 眼部几何取自标记的 408 单位坐标并等比放大；改标记时同步 `EYES` 常量即可。
 - 提供 `og:image:width/height/type/alt`；echo 使用自有图片时移除尺寸声明（未知）。
 - `Ech0.png` 仍作为 JSON-LD 的 publisher logo；`Ech0.svg` 供 RSS 使用。
 - `docs/assets/social-preview/` 是 GitHub 仓库预览（1280×640），用途不同，勿混用。

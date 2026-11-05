@@ -24,10 +24,10 @@
 <circle cx="1040" cy="315" r="440" fill="url(#glow)"/>
 <circle cx="1040" cy="315" r="300" fill="url(#orb)"/>
 
-<circle cx="897.5" cy="187.5" r="17.5" fill="#F54A00"/>
-<rect x="1049.3" y="173.5" width="70" height="29.6" rx="14.8" fill="#141210"/>
-<path d="M982.5 260.6 L1001.3 287.3 L1001.3 353.1 L982.5 321.3 Z" fill="#141210"/>
-<rect x="920" y="423.8" width="155" height="25" fill="#141210"/>
+<circle cx="952" cy="300" r="27" fill="#F54A00"/>
+<g transform="rotate(-14 1088 300)">
+  <rect x="1036" y="275" width="104" height="50" rx="25" fill="#141210"/>
+</g>
 
 <g transform="translate(88 84)">
   <svg width="44" height="44" viewBox="100 68 228 260" xmlns="http://www.w3.org/2000/svg">

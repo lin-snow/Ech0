@@ -3,8 +3,8 @@
 // Copyright (C) 2025-2026 lin-snow
 //
 // Draws the Open Graph cover as a deterministic SVG. The right half is the Ech0
-// mark turned into a character: its four facial shapes (dot eye, capsule eye,
-// nose wedge, mouth bar) scaled up inside a cream-cored, orange-rimmed orb.
+// mark turned into a character: its two eyes — the orange dot and the ink
+// capsule — inside a cream-cored, orange-rimmed orb.
 //
 //   bun docs/assets/og-cover/generate.mjs
 //   sips -s format png docs/assets/og-cover/og-cover.svg --out /tmp/og@2x.png
@@ -18,14 +18,10 @@ const WIDTH = 1200
 const HEIGHT = 630
 const RENDER_SCALE = 2
 
-// The orb and its facial features, in canvas coordinates. The feature geometry
-// is the 408-unit mark scaled by 1.25 and anchored at (880, 170).
 const ORB = { x: 1040, y: 315, radius: 300, coreX: 1000, coreY: 310 }
-const FACE = {
-  dot: { cx: 897.5, cy: 187.5, r: 17.5 },
-  bar: { x: 1049.3, y: 173.5, width: 70, height: 29.6, radius: 14.8 },
-  nose: 'M982.5 260.6 L1001.3 287.3 L1001.3 353.1 L982.5 321.3 Z',
-  mouth: { x: 920, y: 423.8, width: 155, height: 25 },
+const EYES = {
+  dot: { cx: 952, cy: 300, r: 27 },
+  capsule: { x: 1036, y: 275, width: 104, height: 50, radius: 25, rotation: -14 },
 }
 
 const PALETTE = {
@@ -40,6 +36,11 @@ const PALETTE = {
   rimLight: '#FFE0B9',
   rimMid: '#FCAE77',
   rimDeep: '#F26A30',
+}
+
+const capsuleCenter = {
+  x: EYES.capsule.x + EYES.capsule.width / 2,
+  y: EYES.capsule.y + EYES.capsule.height / 2,
 }
 
 const mark = `<g transform="translate(88 84)">
@@ -77,10 +78,10 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH * RENDER_SCA
 <circle cx="${ORB.x}" cy="${ORB.y}" r="${ORB.radius + 140}" fill="url(#glow)"/>
 <circle cx="${ORB.x}" cy="${ORB.y}" r="${ORB.radius}" fill="url(#orb)"/>
 
-<circle cx="${FACE.dot.cx}" cy="${FACE.dot.cy}" r="${FACE.dot.r}" fill="${PALETTE.accent}"/>
-<rect x="${FACE.bar.x}" y="${FACE.bar.y}" width="${FACE.bar.width}" height="${FACE.bar.height}" rx="${FACE.bar.radius}" fill="${PALETTE.ink}"/>
-<path d="${FACE.nose}" fill="${PALETTE.ink}"/>
-<rect x="${FACE.mouth.x}" y="${FACE.mouth.y}" width="${FACE.mouth.width}" height="${FACE.mouth.height}" fill="${PALETTE.ink}"/>
+<circle cx="${EYES.dot.cx}" cy="${EYES.dot.cy}" r="${EYES.dot.r}" fill="${PALETTE.accent}"/>
+<g transform="rotate(${EYES.capsule.rotation} ${capsuleCenter.x} ${capsuleCenter.y})">
+  <rect x="${EYES.capsule.x}" y="${EYES.capsule.y}" width="${EYES.capsule.width}" height="${EYES.capsule.height}" rx="${EYES.capsule.radius}" fill="${PALETTE.ink}"/>
+</g>
 
 ${mark}
 <text x="148" y="117" font-family="'Avenir Next','SF Pro Display',Helvetica,Arial,sans-serif" font-size="32" font-weight="700" letter-spacing="-0.6" fill="${PALETTE.ink}">Ech0</text>
