@@ -10,8 +10,8 @@
       <time class="echo-meta-item" :datetime="String(props.echo.created_at)">
         {{ formatDateTime(props.echo.created_at) }}
       </time>
-      <span class="echo-meta-dot" aria-hidden="true">·</span>
-      <span class="echo-meta-item">
+      <span class="echo-meta-dot echo-meta-dot--word" aria-hidden="true">·</span>
+      <span class="echo-meta-item echo-meta-word">
         {{ t('echoDetail.metaWordCountValue', { count: wordCount }) }}
       </span>
       <span v-if="props.echo.private" class="echo-meta-dot" aria-hidden="true">·</span>
@@ -85,6 +85,15 @@ const tags = computed(() => props.echo.tags ?? [])
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+}
+
+@media (max-width: 360px) {
+  /* The reaction pill can grow to three emoji plus a capped total; drop the
+     least useful fact so the row and its actions still fit on small phones. */
+  .echo-meta-word,
+  .echo-meta-dot--word {
+    display: none;
+  }
 }
 
 .echo-meta-chip {
