@@ -2,7 +2,6 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <script setup lang="ts">
 import Verified from '@/components/icons/verified.vue'
-import HubReactions from './HubReactions.vue'
 import LinkTo from '@/components/icons/linkto.vue'
 import BaseAvatar from '@/components/common/BaseAvatar.vue'
 import TheMdPreview from '@/components/advanced/md/TheMdPreview.vue'
@@ -141,8 +140,6 @@ const avatarSeed = computed(
         >
           <LinkTo class="w-4 h-4" />
         </a>
-
-        <HubReactions :echo="props.echo" />
       </div>
     </div>
   </div>

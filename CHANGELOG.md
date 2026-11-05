@@ -9,6 +9,14 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Changed
+
+- **The hub is read-only.** The explore feed no longer renders a reaction bar: the hub does not write to instances it does not own, so it never depends on their CORS allowlist knowing about `X-Ech0-Visitor`. Reacting happens on the post's own instance, which the card already links to.
+
+### Fixed
+
+- **The hub feed loads from every listed instance again.** Its cross-origin `POST /api/echo/query` carried `X-Ech0-Visitor` and an empty `sortBy`: instances whose CORS allowlist predates the header (everything below 5.9.5) rejected the preflight outright, and 5.9.x answered `422` for the empty sort field, so most of the directory rendered "nothing here yet". The request is now a plain JSON POST — no identity, no custom headers — with `sortBy` omitted when it means the default.
+
 ## [5.9.5] - 2026-11-05
 
 ### Added

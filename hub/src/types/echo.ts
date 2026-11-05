@@ -13,7 +13,6 @@ export interface EchoPost {
   content: string
   username?: string
   created_at: number | string
-  reactions?: App.Api.Ech0.ReactionCount[]
   tags?: EchoTag[]
   echo_files?: App.Api.Ech0.EchoFile[]
   layout?: string
