@@ -279,8 +279,10 @@ function onMenuKeydown(event: KeyboardEvent) {
 }
 
 function react(key: ReactionKey, from: DOMRect | null) {
-  emitBurst(key, from)
-  void request(key, !isReacted(key))
+  const add = !isReacted(key)
+  // Removing a reaction needs no launch; only adding one celebrates.
+  if (add) emitBurst(key, from)
+  void request(key, add)
 }
 
 function emitBurst(key: ReactionKey, from: DOMRect | null) {
@@ -420,7 +422,6 @@ void (async () => {
               type="button"
               role="menuitem"
               class="hub-reaction-item"
-              :class="{ 'hub-reaction-item--reacted': isReacted(emoji.key) }"
               :data-emoji="emoji.key"
               :tabindex="index === activeIndex ? 0 : -1"
               :title="label(emoji.key)"
@@ -669,18 +670,6 @@ void (async () => {
 
 .hub-reaction-item:active {
   opacity: 0.65;
-}
-
-.hub-reaction-item--reacted::after {
-  content: '';
-  position: absolute;
-  bottom: 0.16rem;
-  left: 50%;
-  width: 0.2rem;
-  height: 0.2rem;
-  border-radius: 999px;
-  background: var(--color-accent);
-  transform: translateX(-50%);
 }
 
 .hub-reaction-item:focus-visible {
