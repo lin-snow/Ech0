@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.5] - 2026-11-05
+
 ### Added
 
 - **`ECH0_EGRESS_ALLOW_PRIVATE` for local development.** Set it to `true` to let the outbound SSRF guard reach `localhost`, private, CGNAT (including Tailscale `100.64.0.0/10`) and reserved addresses — enough to add the instance itself as a Connect peer or probe LAN/VPN peers. It defaults to `false`, is applied once at bootstrap, and keeps scheme/userinfo validation; the guard logs a startup warning while disabled. `just run` and `just dev` inject it for local work. Never enable it on an internet-reachable instance: it re-opens SSRF targets for every egress caller (Connect, webhooks, OAuth CIMD, site scraping).
