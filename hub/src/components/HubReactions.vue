@@ -93,8 +93,13 @@ watch(
   { deep: true },
 )
 
-onClickOutside(rootRef, () => close())
-onClickOutside(popRef, () => close())
+// The picker is teleported outside rootRef, so clicks inside it must not be
+// treated as outside; otherwise picking an emoji closes the bar at once and
+// kills the burst before it can play.
+onClickOutside(rootRef, (event) => {
+  if (popRef.value?.contains(event.target as Node)) return
+  close()
+})
 
 const label = (key: ReactionKey): string => String(t(`reaction.${key}`))
 
@@ -226,6 +231,14 @@ function onTriggerClick() {
   }
 }
 
+function onTriggerKeydown(event: KeyboardEvent) {
+  // Escape must close even when focus sits on the trigger rather than the
+  // teleported menu.
+  if (event.key !== 'Escape' || !open.value) return
+  event.preventDefault()
+  close()
+}
+
 function onItemClick(event: MouseEvent, key: ReactionKey) {
   if (event.detail !== 0) return
   react(key, (event.currentTarget as HTMLElement).getBoundingClientRect())
@@ -300,10 +313,13 @@ function emitBurst(key: ReactionKey, from: DOMRect | null) {
   particleSeq += 5
   particles.value = [...particles.value, ...next].slice(-60)
 
+  // Remove each particle just after its own animation ends; the last one has
+  // delay + duration of up to ~2.8s, so a fixed timeout would cut it short.
+  const lifetime = Math.max(...next.map((item) => (item.delay + item.duration) * 1000)) + 150
   window.setTimeout(() => {
     const ids = new Set(next.map((item) => item.id))
     particles.value = particles.value.filter((item) => !ids.has(item.id))
-  }, 2600)
+  }, lifetime)
 }
 
 async function request(key: ReactionKey, add: boolean) {
@@ -442,6 +458,7 @@ void (async () => {
         :aria-label="open ? t('reaction.close') : t('reaction.add')"
         @pointerdown="onTriggerPointerDown"
         @click="onTriggerClick"
+        @keydown="onTriggerKeydown"
       >
         <svg
           v-if="open"
