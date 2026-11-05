@@ -87,7 +87,7 @@ const tags = computed(() => props.echo.tags ?? [])
   gap: 0.3rem;
 }
 
-@media (max-width: 360px) {
+@media (width <= 360px) {
   /* The reaction pill can grow to three emoji plus a capped total; drop the
      least useful fact so the row and its actions still fit on small phones. */
   .echo-meta-word,
