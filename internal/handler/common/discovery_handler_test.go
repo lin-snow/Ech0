@@ -75,11 +75,41 @@ func TestGetLlmsTxt_Document(t *testing.T) {
 
 	body := rec.Body.String()
 	assert.Contains(t, body, "# Ech0 Blog\n")
-	assert.Contains(t, body, "> Notes from a self-hosted corner")
+	assert.Contains(
+		t,
+		body,
+		"> Notes from a self-hosted corner — a self-hosted microblogging platform powered by Ech0.",
+	)
 	// The guidance is "at least one link", and every link must be absolute.
-	assert.Contains(t, body, "[AI catalog](http://blog.example.com/.well-known/ard.json)")
-	assert.Contains(t, body, "[MCP server card](http://blog.example.com/mcp/server-card)")
-	assert.Contains(t, body, "[RSS feed](http://blog.example.com/rss)")
+	assert.Contains(t, body, "[Agent Catalog](http://blog.example.com/.well-known/ard.json)")
+	assert.Contains(t, body, "[MCP Server Card](http://blog.example.com/mcp/server-card)")
+	assert.Contains(t, body, "[RSS Feed](http://blog.example.com/rss)")
+	assert.Contains(t, body, "`POST /api/echo/query`")
+}
+
+func TestGetLlmsTxt_DescriptionFallback(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+	}{
+		{name: "no-server-name", raw: `{"site_title":"Ech0 Blog"}`},
+		{name: "server-name-repeats-title", raw: `{"site_title":"Ech0 Blog","server_name":"ech0 blog"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := discoveryRouter(t, settingsStore(t, tc.raw))
+
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/llms.txt", nil))
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			assert.Contains(
+				t,
+				rec.Body.String(),
+				"> A self-hosted microblogging platform powered by Ech0.",
+			)
+		})
+	}
 }
 
 func TestGetLlmsTxt_UsesForwardedOrigin(t *testing.T) {
