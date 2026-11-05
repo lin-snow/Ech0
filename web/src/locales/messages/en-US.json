@@ -1278,7 +1278,7 @@
   },
   "devicePage": {
     "codeLabel": "Device code",
-    "codePlaceholder": "ABCD-EFGH",
+    "codeSlotLabel": "Character {index} of {total}",
     "codeHelp": "Enter the 8-character code shown in your terminal.",
     "approve": "Approve",
     "approving": "Approving…",

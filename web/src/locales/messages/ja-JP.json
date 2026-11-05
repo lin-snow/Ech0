@@ -1278,7 +1278,7 @@
   },
   "devicePage": {
     "codeLabel": "デバイスコード",
-    "codePlaceholder": "ABCD-EFGH",
+    "codeSlotLabel": "{total} 文字中 {index} 番目の文字",
     "codeHelp": "ターミナルに表示された 8 文字のコードを入力してください。",
     "approve": "承認する",
     "approving": "承認中…",
