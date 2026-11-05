@@ -52,6 +52,7 @@
 | [dev/logging.md](dev/logging.md) | 日志库用法与字段 / `module` 约定 |
 | [dev/table-design-standard.md](dev/table-design-standard.md) | Panel 表格组件的布局与交互规范 |
 | [dev/huma-raw-gin-endpoints.md](dev/huma-raw-gin-endpoints.md) | 仍走裸 gin 的端点清单及原因（其余 JSON 端点已全量 Huma 化） |
+| [dev/seo-sharing.md](dev/seo-sharing.md) | 分享卡片与可抓取性：服务端 head 注入、路由表同步、canonical / OG / JSON-LD、robots / sitemap |
 
 ### 设计记录（为什么这样）
 

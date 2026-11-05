@@ -1,6 +1,9 @@
 {
   "name": "Ech0",
   "short_name": "Ech0",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["social", "news"],
   "description": "Ech0 is a new-generation open-source self-hosted platform designed for individual users. It is ultra-lightweight and low-cost, helping you easily publish and share ideas, writings, and links. With a clean, intuitive interface and powerful command-line tools, content management becomes simple and flexible. Your data is fully owned and controlled by you.",
   "start_url": "/",
   "id": "/",

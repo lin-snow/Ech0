@@ -18,6 +18,7 @@ import (
 	"github.com/lin-snow/ech0/internal/cache"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/storage"
@@ -52,6 +53,12 @@ func (s *CommonService) CommonGetUserByUserId(ctx context.Context, userId string
 
 func (s *CommonService) GetOwner() (userModel.User, error) {
 	return s.commonRepository.GetOwner(context.Background())
+}
+
+// ListSitemapEntries returns every public echo as an id + timestamp pair. It is
+// deliberately a projection: a sitemap must not pay for file and tag hydration.
+func (s *CommonService) ListSitemapEntries(ctx context.Context) ([]echoModel.EchoRef, error) {
+	return s.commonRepository.ListPublicEchoRefs(ctx)
 }
 
 func (s *CommonService) GetHeatMap(timezone string) ([]commonModel.Heatmap, error) {

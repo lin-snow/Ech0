@@ -6,22 +6,55 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!--ECH0_SEO_START-->
+    <meta
+      name="description"
+      content="Ech0 is a next-generation open-source self-hosted platform built for individuals. It is lightweight and low-cost, making it easy to publish and share your ideas, writing, and links."
+    />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Ech0" />
     <meta property="og:title" content="Ech0" />
     <meta
       property="og:description"
       content="Ech0 is a next-generation open-source self-hosted platform built for individuals. It is lightweight and low-cost, making it easy to publish and share your ideas, writing, and links."
     />
-    <meta property="og:image" content="/Ech0.png" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Ech0" />
     <meta property="og:url" content="/" />
+    <meta property="og:image" content="/og-cover.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Ech0" />
+    <meta property="og:locale" content="zh_CN" />
+
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Ech0" />
     <meta
       name="twitter:description"
       content="Ech0 is a next-generation open-source self-hosted platform built for individuals. It is lightweight and low-cost, making it easy to publish and share your ideas, writing, and links."
     />
-    <meta name="twitter:image" content="/Ech0.png" />
+    <meta name="twitter:image" content="/og-cover.jpg" />
+    <meta name="twitter:image:alt" content="Ech0" />
+
+    <title>Ech0</title>
+
+    <script id="website-jsonld" type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Ech0",
+        "description": "Ech0 is a next-generation open-source self-hosted platform built for individuals. It is lightweight and low-cost, making it easy to publish and share your ideas, writing, and links.",
+        "url": "/",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Ech0 Team",
+          "logo": "/Ech0.png"
+        },
+        "sameAs": ["https://github.com/lin-snow/Ech0"]
+      }
+    </script>
+    <!--ECH0_SEO_END-->
 
     <link rel="alternate" type="application/atom+xml" title="Ech0 Atom Feed" href="/rss" />
 
@@ -32,33 +65,11 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 
     <link rel="manifest" href="/app.webmanifest" />
-    <meta name="theme-color" content="#f4f1ec" />
-    <meta
-      name="description"
-      content="Ech0 is a next-generation open-source self-hosted platform built for individuals. It is lightweight and low-cost, making it easy to publish and share your ideas, writing, and links."
-    />
-    <meta
-      name="keywords"
-      content="Ech0, open-source, sharing, thoughts, text, links, privacy, data control, platform, web app"
-    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#333333" media="(prefers-color-scheme: dark)" />
     <meta name="author" content="Ech0 Team" />
     <meta name="generator" content="Ech0" />
-
-    <title>Ech0</title>
-
-    <script id="website-jsonld" type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Ech0",
-        "description": "Ech0 is a next-generation open-source self-hosted platform built for individuals. It is lightweight and low-cost, making it easy to publish and share your ideas, writing, and links.",
-        "publisher": {
-          "@type": "Organization",
-          "name": "Ech0 Team"
-        },
-        "sameAs": ["https://github.com/lin-snow/Ech0"]
-      }
-    </script>
 
     <style>
       html.app-loading,
@@ -222,7 +233,10 @@
   </head>
 
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!--ECH0_NOSCRIPT_START-->
+      <!--ECH0_NOSCRIPT_END-->
+    </div>
     <div id="app-loader">
       <h1 class="loader-brand" aria-label="Ech0">
         <span aria-hidden="true">E</span>

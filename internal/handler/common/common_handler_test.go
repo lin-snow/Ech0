@@ -16,6 +16,7 @@ import (
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
@@ -188,6 +189,9 @@ func TestGetRobotsTxt(t *testing.T) {
 			body := rec.Body.String()
 			assert.Contains(t, body, "User-agent: *")
 			assert.Contains(t, body, "Disallow: /api/")
+			for _, privatePath := range []string{"/auth", "/panel", "/device", "/oauth/", "/widget", "/chat", "/zen"} {
+				assert.Contains(t, body, "Disallow: "+privatePath)
+			}
 			assert.Contains(t, body, tc.wantSitemap)
 			assert.Contains(t, body, "Agentmap: ")
 		})
@@ -196,6 +200,9 @@ func TestGetRobotsTxt(t *testing.T) {
 
 func TestGetSitemap(t *testing.T) {
 	svc := commonmock.NewMockService(t)
+	svc.EXPECT().ListSitemapEntries(mock.Anything).Return([]echoModel.EchoRef{
+		{ID: "echo-1", CreatedAt: 1735689600},
+	}, nil).Once()
 	h := commonHandler.NewCommonHandler(svc, emptySettings())
 	r := gin.New()
 	r.GET("/sitemap.xml", h.GetSitemap)
@@ -211,7 +218,8 @@ func TestGetSitemap(t *testing.T) {
 
 	var urlset struct {
 		URLs []struct {
-			Loc string `xml:"loc"`
+			Loc     string `xml:"loc"`
+			LastMod string `xml:"lastmod"`
 		} `xml:"url"`
 	}
 	require.NoError(t, xml.Unmarshal(rec.Body.Bytes(), &urlset))
@@ -222,8 +230,24 @@ func TestGetSitemap(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		"http://ech0.app/",
 		"http://ech0.app/hub",
+		"http://ech0.app/about",
 		"http://ech0.app/rss",
+		"http://ech0.app/echo/echo-1",
 	}, locs)
+	assert.Equal(t, "2025-01-01T00:00:00Z", urlset.URLs[len(urlset.URLs)-1].LastMod)
+}
+
+func TestGetSitemap_ServiceError(t *testing.T) {
+	svc := commonmock.NewMockService(t)
+	svc.EXPECT().ListSitemapEntries(mock.Anything).Return(nil, errors.New("db down")).Once()
+	h := commonHandler.NewCommonHandler(svc, emptySettings())
+	r := gin.New()
+	r.GET("/sitemap.xml", h.GetSitemap)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil))
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestGetRss(t *testing.T) {

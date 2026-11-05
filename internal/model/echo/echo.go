@@ -25,6 +25,13 @@ type Echo struct {
 	CreatedAt int64          `gorm:"autoCreateTime;index:idx_echos_private_created,priority:2" json:"created_at"`
 }
 
+// EchoRef is the minimal projection of an echo used by machine-readable
+// indexes (the sitemap), so they never hydrate files or tags.
+type EchoRef struct {
+	ID        string `gorm:"column:id"          json:"id"`
+	CreatedAt int64  `gorm:"column:created_at" json:"created_at"`
+}
+
 type EchoExtension struct {
 	ID        string         `gorm:"type:char(36);primaryKey"      json:"id"`
 	EchoID    string         `gorm:"type:char(36);not null;uniqueIndex" json:"echo_id"`
