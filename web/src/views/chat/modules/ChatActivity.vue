@@ -2,17 +2,43 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div class="activity" :class="{ 'activity--active': active }">
-    <button
-      v-if="expandable"
-      type="button"
+    <component
+      :is="expandable ? 'button' : 'div'"
       class="activity__row"
-      :aria-expanded="open"
-      @click="pinned = !open"
+      :class="{ 'activity__row--static': !expandable }"
+      :type="expandable ? 'button' : undefined"
+      :aria-expanded="expandable ? open : undefined"
+      :aria-label="expandable ? rowLabel : undefined"
+      @click="onRowClick"
     >
-      <span class="activity__glyph"><slot name="glyph" /></span>
-      <span class="activity__label" role="status">{{ label }}</span>
+      <span class="activity__glyph">
+        <slot name="glyph" />
+      </span>
+
+      <span class="activity__label" role="status">
+        <!-- Measured off-screen so the visible label can animate to the width of
+             the next string; the row then glides between phases instead of
+             snapping as the text changes. -->
+        <span ref="measureEl" class="activity__label-measure" aria-hidden="true">{{ label }}</span>
+        <span class="activity__label-clip" :style="clipStyle">
+          <Transition name="activity-swap">
+            <span
+              :key="label"
+              class="activity__label-text"
+              :class="{ 'activity__label-text--shimmer': active }"
+              >{{ label }}</span
+            >
+          </Transition>
+        </span>
+      </span>
+
+      <span v-if="detail" class="activity__detail" :title="detail">{{ detail }}</span>
+      <slot name="trailing" />
+
       <span v-if="clock" class="activity__clock">{{ clock }}</span>
+
       <svg
+        v-if="expandable"
         class="activity__chevron"
         :class="{ 'activity__chevron--open': open }"
         viewBox="0 0 24 24"
@@ -25,12 +51,7 @@
       >
         <path d="m6 9 6 6 6-6" />
       </svg>
-    </button>
-    <div v-else class="activity__row activity__row--static">
-      <span class="activity__glyph"><slot name="glyph" /></span>
-      <span class="activity__label" role="status">{{ label }}</span>
-      <span v-if="clock" class="activity__clock">{{ clock }}</span>
-    </div>
+    </component>
 
     <div
       v-if="expandable"
@@ -49,6 +70,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useElementSize } from '@vueuse/core'
 
 const props = withDefaults(
   defineProps<{
@@ -57,6 +79,8 @@ const props = withDefaults(
     active?: boolean
     /** Duration beside the label, already formatted. */
     clock?: string
+    /** A short trailing fact — the current query, a coverage note. */
+    detail?: string
     /** No body worth revealing — the row degrades to plain text. */
     expandable?: boolean
   }>(),
@@ -71,6 +95,25 @@ const props = withDefaults(
 const pinned = ref<boolean | null>(null)
 
 const open = computed<boolean>(() => pinned.value ?? props.active === true)
+
+const onRowClick = () => {
+  if (props.expandable) pinned.value = !open.value
+}
+
+const measureEl = ref<HTMLElement | null>(null)
+const { width: labelWidth } = useElementSize(measureEl)
+
+const clipStyle = computed<Record<string, string> | undefined>(() =>
+  labelWidth.value > 0 ? { width: `${Math.ceil(labelWidth.value)}px` } : undefined,
+)
+
+/**
+ * The label is a live region, and live-region text is not folded into an
+ * ancestor button's name, so the row names itself from its own parts.
+ */
+const rowLabel = computed<string>(() =>
+  props.detail ? `${props.label}, ${props.detail}` : props.label,
+)
 
 /**
  * A trace nobody has opened costs nothing to have: the body renders on its first
@@ -155,20 +198,58 @@ watch(
   opacity: 0.85;
 }
 
+/* A row with no glyph loses the slot's gap too, so a glyph-less status still
+   starts on the transcript's text edge. */
+.activity__glyph:empty {
+  display: none;
+}
+
 .activity--active .activity__glyph {
   color: var(--color-accent);
   opacity: 1;
 }
 
+/* The label track is measured off-screen and the clip animates to that width,
+   so swapping "Thinking" for "Searching Echos" pushes the clock aside at the
+   same pace instead of teleporting it. */
 .activity__label {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.activity__label-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  font-weight: inherit;
+}
+
+.activity__label-clip {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.activity__label-text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* A gradient swept across the glyph box says "still going" without moving any
+/* A gradient swept across the text says "still going" without moving any
    layout, which is what lets this sit inline with the answer below it. */
-.activity--active .activity__label {
+.activity__label-text--shimmer {
   background-image: linear-gradient(
     90deg,
     var(--color-text-muted) 35%,
@@ -189,6 +270,48 @@ watch(
   to {
     background-position: -50% center;
   }
+}
+
+/* The old label lifts out as the new one settles in, both blurred at the edges
+   of the move — the same swap the answer's own text uses. */
+.activity-swap-enter-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.3s ease;
+}
+
+.activity-swap-leave-active {
+  position: absolute;
+  inset: 0;
+  transition:
+    opacity 0.25s ease,
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.3s ease;
+}
+
+.activity-swap-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+  filter: blur(3px);
+}
+
+.activity-swap-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+  filter: blur(3px);
+}
+
+.activity__detail {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 14rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  opacity: 0.75;
 }
 
 .activity__clock {
@@ -255,15 +378,24 @@ watch(
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .activity--active .activity__label {
+  .activity__label-text--shimmer {
     background-image: none;
     color: var(--color-text-secondary);
     animation: none;
   }
 
+  .activity__label-clip,
   .activity__chevron,
-  .activity__collapse {
+  .activity__collapse,
+  .activity-swap-enter-active,
+  .activity-swap-leave-active {
     transition: none;
+  }
+
+  .activity-swap-enter-from,
+  .activity-swap-leave-to {
+    transform: none;
+    filter: none;
   }
 }
 </style>
