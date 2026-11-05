@@ -74,12 +74,20 @@ export function shouldShowSiteChecklist(input: {
 /**
  * The first published echo is the moment the site becomes shareable. Show the
  * card once per browser; a private first echo is not shareable, so skip it.
+ * A filtered view can narrow `echoTotal` to 1, so never show it there.
  */
 export function shouldShowFirstEchoCard(input: {
   isOwner: boolean
+  filtering: boolean
   echoTotal: number
   firstEchoPrivate: boolean
   dismissed: boolean
 }): boolean {
-  return input.isOwner && input.echoTotal === 1 && !input.firstEchoPrivate && !input.dismissed
+  return (
+    input.isOwner &&
+    !input.filtering &&
+    input.echoTotal === 1 &&
+    !input.firstEchoPrivate &&
+    !input.dismissed
+  )
 }
