@@ -65,10 +65,27 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 
     <link rel="manifest" href="/app.webmanifest" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f4f1ec" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#333333" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f1ec" />
     <meta name="author" content="Ech0 Team" />
+    <script>
+      // The app theme is a user choice, not the OS preference. Resolve it before the first
+      // paint so no browser surface (PWA title bar / status bar, UA canvas behind transparent
+      // areas) falls back to prefers-color-scheme. Keep the map in sync with
+      // THEME_COLOR_FALLBACK in src/stores/theme.ts; that store re-syncs after hydration.
+      ;(() => {
+        const fallback = { light: '#f4f1ec', sunny: '#eeece6', dark: '#333333' }
+        let theme = 'light'
+        try {
+          const saved = JSON.parse(localStorage.getItem('themeMode'))
+          if (saved === 'light' || saved === 'sunny' || saved === 'dark') theme = saved
+        } catch {
+          // Malformed storage: fall through to the light default.
+        }
+        document.documentElement.classList.add(theme)
+        document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light'
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', fallback[theme])
+      })()
+    </script>
     <meta name="generator" content="Ech0" />
 
     <style>

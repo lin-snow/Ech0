@@ -89,8 +89,12 @@ export const useThemeStore = defineStore('themeStore', () => {
         break
     }
 
-    document.documentElement.classList.remove('light', 'dark', 'sunny')
-    document.documentElement.classList.add(theme.value)
+    const rootEl = document.documentElement
+    rootEl.classList.remove('light', 'dark', 'sunny')
+    rootEl.classList.add(theme.value)
+    // The chosen theme can differ from the OS preference; mirror it onto color-scheme so
+    // native scrollbars, form controls and the UA canvas follow the app, not the device.
+    rootEl.style.colorScheme = theme.value === 'dark' ? 'dark' : 'light'
     syncThemeColorMeta()
     localStg.setItem('theme', theme.value)
   }
@@ -101,16 +105,22 @@ export const useThemeStore = defineStore('themeStore', () => {
     const canvasColor = rootStyles.getPropertyValue('--color-bg-canvas').trim()
     const nextThemeColor = chromeColor || canvasColor || THEME_COLOR_FALLBACK[theme.value]
 
-    let themeColorMeta = document.querySelector<HTMLMetaElement>(
+    const metas = document.querySelectorAll<HTMLMetaElement>(
       `meta[name="${THEME_COLOR_META_NAME}"]`,
     )
-    if (!themeColorMeta) {
-      themeColorMeta = document.createElement('meta')
-      themeColorMeta.setAttribute('name', THEME_COLOR_META_NAME)
-      document.head.appendChild(themeColorMeta)
+    if (metas.length === 0) {
+      const meta = document.createElement('meta')
+      meta.setAttribute('name', THEME_COLOR_META_NAME)
+      meta.setAttribute('content', nextThemeColor)
+      document.head.appendChild(meta)
+      return
     }
 
-    themeColorMeta.setAttribute('content', nextThemeColor)
+    // Every tag must agree: a tag left at a stale value can win under its own media query.
+    metas.forEach((meta) => {
+      meta.removeAttribute('media')
+      meta.setAttribute('content', nextThemeColor)
+    })
   }
 
   const init = () => {
