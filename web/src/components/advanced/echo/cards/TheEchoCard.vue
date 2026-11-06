@@ -42,7 +42,8 @@
           :aria-expanded="isMenuOpen"
           aria-haspopup="menu"
           class="w-7 h-7 flex items-center justify-center bg-[var(--color-bg-surface)] ring-1 ring-[var(--color-border-subtle)] ring-inset rounded-full shadow-sm transition-shadow duration-150 hover:shadow-md focus:outline-none"
-          @click.stop="toggleMenu"
+          @pointerdown.stop="handleMenuPointerDown"
+          @click.stop="handleMenuClick"
         >
           <More class="w-5 h-5" />
         </button>
@@ -142,14 +143,8 @@
   </div>
 </template>
 
-<script lang="ts">
-import { ref } from 'vue'
-
-const activeMenuId = ref<string | null>(null)
-</script>
-
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { fetchDeleteEcho, fetchGetEchoById } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useUserStore, useEchoStore, useEditorStore } from '@/stores'
@@ -163,6 +158,7 @@ import { useRouter } from 'vue-router'
 import { getEchoFilesBy, isContentLeadingEcho } from '@/utils/echo'
 import { formatDate } from '@/utils/other'
 import { useBaseDialog } from '@/composables/useBaseDialog'
+import { useEchoMenu } from '@/composables/useEchoMenu'
 import { useI18n } from 'vue-i18n'
 
 const TheMediaPlayer = defineAsyncComponent(
@@ -173,6 +169,7 @@ const TheExtensionRenderer = defineAsyncComponent(
 )
 
 const { openConfirm } = useBaseDialog()
+const { activeMenuId } = useEchoMenu()
 const { t } = useI18n()
 
 type Echo = App.Api.Ech0.Echo
@@ -249,9 +246,9 @@ const menuPanelStyle = ref<Record<string, string>>({})
 
 const MENU_GAP = 8
 
-const updateMenuPosition = () => {
-  if (!isMenuOpen.value || !menuTriggerRef.value) return
-  const rect = menuTriggerRef.value.getBoundingClientRect()
+const updateMenuPosition = (trigger: HTMLElement | null = menuTriggerRef.value) => {
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
   const viewportRight = window.innerWidth
   const right = Math.max(MENU_GAP, viewportRight - rect.right)
   menuPanelStyle.value = {
@@ -268,7 +265,36 @@ const toggleMenu = () => {
   activeMenuId.value = isMenuOpen.value ? null : props.echo.id
 }
 
+// The opening pointerdown and the click that follows it are part of the same
+// gesture. Opening on pointerdown keeps the menu responsive while a virtual
+// row is being recycled, and the guard prevents that same click from being
+// treated as an outside click that immediately closes it again.
+let menuPointerHandled = false
+let ignoreOutsideUntil = 0
+
+const handleMenuPointerDown = (event: PointerEvent) => {
+  menuPointerHandled = true
+  if (!isMenuOpen.value) {
+    ignoreOutsideUntil = performance.now() + 350
+    updateMenuPosition(event.currentTarget as HTMLElement)
+  }
+  toggleMenu()
+}
+
+const handleMenuClick = (event: MouseEvent) => {
+  if (menuPointerHandled) {
+    menuPointerHandled = false
+    return
+  }
+  if (event.detail !== 0) return
+  if (!isMenuOpen.value) {
+    ignoreOutsideUntil = performance.now() + 350
+  }
+  toggleMenu()
+}
+
 const handleDocumentClick = (event: MouseEvent) => {
+  if (performance.now() < ignoreOutsideUntil) return
   const target = event.target as Node | null
   if (!target) return
   if (menuPanelRef.value?.contains(target) || menuTriggerRef.value?.contains(target)) return
@@ -279,20 +305,18 @@ const handleEscape = (event: KeyboardEvent) => {
   if (event.key === 'Escape') closeMenu()
 }
 
-const SCROLL_LISTENER_OPTIONS: AddEventListenerOptions = { passive: true, capture: true }
+const repositionMenu = () => updateMenuPosition()
 
 const bindGlobalListeners = () => {
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('keydown', handleEscape)
-  window.addEventListener('resize', updateMenuPosition, { passive: true })
-  window.addEventListener('scroll', updateMenuPosition, SCROLL_LISTENER_OPTIONS)
+  window.addEventListener('resize', repositionMenu, { passive: true })
 }
 
 const unbindGlobalListeners = () => {
   document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('keydown', handleEscape)
-  window.removeEventListener('resize', updateMenuPosition)
-  window.removeEventListener('scroll', updateMenuPosition, SCROLL_LISTENER_OPTIONS)
+  window.removeEventListener('resize', repositionMenu)
 }
 
 watch(isMenuOpen, async (open) => {
