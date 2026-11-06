@@ -196,7 +196,8 @@ const triggerRef = ref<HTMLButtonElement | null>(null)
 const itemRefs: HTMLElement[] = []
 const particles = ref<Particle[]>([])
 let particleSeq = 0
-let justOpened = false
+// Set while a pointer gesture owns the toggle, so the click trailing it is not a second toggle.
+let pointerHandled = false
 
 const placement = ref({ side: 'top' as 'top' | 'bottom', left: 0, top: 0, tailX: 0 })
 
@@ -288,7 +289,7 @@ function particleStyle(particle: Particle) {
   }
 }
 
-async function openPicker() {
+async function openPicker(options: { focusFirstItem?: boolean } = {}) {
   if (disabled.value) {
     theToast.info(String(t('reaction.unavailable')))
     return
@@ -298,7 +299,10 @@ async function openPicker() {
   placeBar()
   const reacted = catalog.value.findIndex((item) => isReacted(item.key))
   activeIndex.value = reacted >= 0 ? reacted : 0
-  if (!prefersReducedMotion()) {
+  // Keyboard opens must land focus on the active item so the menu's arrow/Enter handler
+  // receives the keys. Pointer opens must not: WebKit matches :focus-visible on
+  // programmatically focused elements, which paints a ring around the first emoji on touch.
+  if (options.focusFirstItem) {
     itemRefs[activeIndex.value]?.focus({ preventScroll: true })
   }
 }
@@ -361,10 +365,17 @@ onBeforeUnmount(() => {
 
 function onTriggerPointerDown(event: PointerEvent) {
   if (disabled.value || event.button !== 0) return
-  if (open.value) return
+
+  // Toggle on pointerdown and swallow the click that trails it: WebKit does not reliably
+  // dispatch that click (a home-screen web app drops it after touchend), so a flag cleared
+  // only by that click leaked and ate the next tap, which made closing need two taps.
+  pointerHandled = true
+  if (open.value) {
+    close()
+    return
+  }
 
   openPicker()
-  justOpened = true
 
   const onRelease = (release: PointerEvent) => {
     document.removeEventListener('pointerup', onRelease)
@@ -374,24 +385,26 @@ function onTriggerPointerDown(event: PointerEvent) {
     if (picked && key) {
       react(key, picked.getBoundingClientRect())
     }
-    // Releasing off the trigger fires no click, so nothing else clears the guard.
+    // Releasing off the trigger was a drag, not a tap: no trigger click follows.
     if (!triggerRef.value?.contains(target)) {
-      justOpened = false
+      pointerHandled = false
     }
   }
 
   document.addEventListener('pointerup', onRelease)
 }
 
-function onTriggerClick() {
-  if (justOpened) {
-    justOpened = false
+function onTriggerClick(event: MouseEvent) {
+  // detail is 0 for keyboard-activated clicks (Enter/Space on the button); those always
+  // toggle, even when the guard is still set because a touch click never arrived.
+  if (event.detail !== 0 && pointerHandled) {
+    pointerHandled = false
     return
   }
   if (open.value) {
     close()
   } else {
-    void openPicker()
+    void openPicker({ focusFirstItem: event.detail === 0 })
   }
 }
 
