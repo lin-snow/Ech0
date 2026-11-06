@@ -36,7 +36,6 @@
 
       <div v-else-if="userStore.isLogin" class="relative flex items-center justify-center">
         <button
-          ref="menuTriggerRef"
           type="button"
           :aria-label="t('echoCard.moreActions')"
           :aria-expanded="isMenuOpen"
@@ -47,61 +46,6 @@
         >
           <More class="w-5 h-5" />
         </button>
-
-        <Teleport to="body">
-          <transition
-            enter-active-class="transition duration-150 ease-out"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
-            leave-active-class="transition duration-100 ease-in"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95"
-          >
-            <div
-              v-if="isMenuOpen"
-              ref="menuPanelRef"
-              :style="menuPanelStyle"
-              class="fixed z-5000 w-36 origin-top-right rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] ring-1 ring-[var(--color-border-subtle)] shadow-[var(--shadow-md)] p-1"
-            >
-              <div
-                v-if="props.echo.private"
-                class="flex items-center gap-1.5 px-2 pt-1 pb-1.5 text-[var(--color-text-muted)]"
-              >
-                <Lock class="w-3 h-3" />
-                <span class="text-[10px] font-semibold tracking-[0.08em] uppercase">
-                  {{ t('echoCard.privateStatus') }}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                class="menu-row"
-                @click="
-                  () => {
-                    closeMenu()
-                    handleUpdateEcho()
-                  }
-                "
-              >
-                <EditEcho class="w-3.5 h-3.5 shrink-0" />
-                <span>{{ t('echoCard.update') }}</span>
-              </button>
-              <button
-                type="button"
-                class="menu-row menu-row--danger"
-                @click="
-                  () => {
-                    closeMenu()
-                    handleDeleteEcho(props.echo.id)
-                  }
-                "
-              >
-                <Roll class="w-3.5 h-3.5 shrink-0" />
-                <span>{{ t('echoCard.delete') }}</span>
-              </button>
-            </div>
-          </transition>
-        </Teleport>
       </div>
     </div>
 
@@ -144,20 +88,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { fetchDeleteEcho, fetchGetEchoById } from '@/service/api'
-import { theToast } from '@/utils/toast'
-import { useUserStore, useEchoStore, useEditorStore } from '@/stores'
+import { computed, defineAsyncComponent } from 'vue'
+import { useUserStore } from '@/stores'
 import { TheMdPreview } from '@/components/advanced/md'
-import Roll from '@/components/icons/roll.vue'
 import Lock from '@/components/icons/lock.vue'
 import More from '@/components/icons/more.vue'
-import EditEcho from '@/components/icons/editecho.vue'
 import Open from '@/components/icons/open.vue'
 import { useRouter } from 'vue-router'
 import { getEchoFilesBy, isContentLeadingEcho } from '@/utils/echo'
 import { formatDate } from '@/utils/other'
-import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useEchoMenu } from '@/composables/useEchoMenu'
 import { useI18n } from 'vue-i18n'
 
@@ -168,8 +107,7 @@ const TheExtensionRenderer = defineAsyncComponent(
   () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
 )
 
-const { openConfirm } = useBaseDialog()
-const { activeMenuId } = useEchoMenu()
+const { menu, openMenu, closeMenu } = useEchoMenu()
 const { t } = useI18n()
 
 type Echo = App.Api.Ech0.Echo
@@ -185,52 +123,7 @@ const isAvEcho = computed(
 
 const userStore = useUserStore()
 
-const echoStore = useEchoStore()
-const editorStore = useEditorStore()
 const router = useRouter()
-
-const handleDeleteEcho = (echoId: string) => {
-  openConfirm({
-    title: String(t('echoCard.deleteConfirmTitle')),
-    description: String(t('echoCard.deleteConfirmDesc')),
-    onConfirm: () => {
-      fetchDeleteEcho(echoId).then(() => {
-        theToast.success(String(t('echoCard.deleteSuccess')))
-        echoStore.removeEcho(echoId)
-      })
-    },
-  })
-}
-
-const startUpdate = async () => {
-  const res = await fetchGetEchoById(String(props.echo.id))
-  if (res.code === 1 && res.data) {
-    echoStore.echoToUpdate = res.data
-  } else {
-    echoStore.echoToUpdate = props.echo
-  }
-
-  editorStore.isUpdateMode = true
-  await router.push({
-    name: 'home',
-    query: { ...router.currentRoute.value.query, tab: 'publish' },
-  })
-}
-
-const handleUpdateEcho = async () => {
-  if (editorStore.isUpdateMode) {
-    openConfirm({
-      title: String(t('echoCard.editAnotherEchoTitle')),
-      description: String(t('echoCard.editAnotherEchoDesc')),
-      onConfirm: () => {
-        void startUpdate()
-      },
-    })
-    return
-  }
-
-  await startUpdate()
-}
 
 const handleExpandEcho = (echoId: string) => {
   router.push({
@@ -239,46 +132,24 @@ const handleExpandEcho = (echoId: string) => {
   })
 }
 
-const isMenuOpen = computed(() => activeMenuId.value === props.echo.id)
-const menuTriggerRef = ref<HTMLElement | null>(null)
-const menuPanelRef = ref<HTMLElement | null>(null)
-const menuPanelStyle = ref<Record<string, string>>({})
+const isMenuOpen = computed(() => menu.value?.echo.id === props.echo.id)
 
-const MENU_GAP = 8
-
-const updateMenuPosition = (trigger: HTMLElement | null = menuTriggerRef.value) => {
-  if (!trigger) return
-  const rect = trigger.getBoundingClientRect()
-  const viewportRight = window.innerWidth
-  const right = Math.max(MENU_GAP, viewportRight - rect.right)
-  menuPanelStyle.value = {
-    top: `${rect.bottom + MENU_GAP}px`,
-    right: `${right}px`,
-  }
-}
-
-const closeMenu = () => {
-  if (isMenuOpen.value) activeMenuId.value = null
-}
-
-const toggleMenu = () => {
-  activeMenuId.value = isMenuOpen.value ? null : props.echo.id
-}
-
-// The opening pointerdown and the click that follows it are part of the same
-// gesture. Opening on pointerdown keeps the menu responsive while a virtual
-// row is being recycled, and the guard prevents that same click from being
-// treated as an outside click that immediately closes it again.
+// Open on pointerdown: the click that follows can be lost while a virtual row
+// is recycled, but the global menu does not depend on this row's lifetime.
 let menuPointerHandled = false
-let ignoreOutsideUntil = 0
+
+const toggleMenu = (event: Event) => {
+  if (isMenuOpen.value) {
+    closeMenu()
+    return
+  }
+  const trigger = event.currentTarget as HTMLElement | null
+  if (trigger) openMenu(props.echo, trigger)
+}
 
 const handleMenuPointerDown = (event: PointerEvent) => {
   menuPointerHandled = true
-  if (!isMenuOpen.value) {
-    ignoreOutsideUntil = performance.now() + 350
-    updateMenuPosition(event.currentTarget as HTMLElement)
-  }
-  toggleMenu()
+  toggleMenu(event)
 }
 
 const handleMenuClick = (event: MouseEvent) => {
@@ -286,55 +157,8 @@ const handleMenuClick = (event: MouseEvent) => {
     menuPointerHandled = false
     return
   }
-  if (event.detail !== 0) return
-  if (!isMenuOpen.value) {
-    ignoreOutsideUntil = performance.now() + 350
-  }
-  toggleMenu()
+  if (event.detail === 0) toggleMenu(event)
 }
-
-const handleDocumentClick = (event: MouseEvent) => {
-  if (performance.now() < ignoreOutsideUntil) return
-  const target = event.target as Node | null
-  if (!target) return
-  if (menuPanelRef.value?.contains(target) || menuTriggerRef.value?.contains(target)) return
-  closeMenu()
-}
-
-const handleEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') closeMenu()
-}
-
-const repositionMenu = () => updateMenuPosition()
-
-const bindGlobalListeners = () => {
-  document.addEventListener('click', handleDocumentClick)
-  document.addEventListener('keydown', handleEscape)
-  window.addEventListener('resize', repositionMenu, { passive: true })
-}
-
-const unbindGlobalListeners = () => {
-  document.removeEventListener('click', handleDocumentClick)
-  document.removeEventListener('keydown', handleEscape)
-  window.removeEventListener('resize', repositionMenu)
-}
-
-watch(isMenuOpen, async (open) => {
-  if (open) {
-    await nextTick()
-    updateMenuPosition()
-    bindGlobalListeners()
-  } else {
-    unbindGlobalListeners()
-  }
-})
-
-onBeforeUnmount(() => {
-  if (isMenuOpen.value) {
-    activeMenuId.value = null
-    unbindGlobalListeners()
-  }
-})
 </script>
 
 <style scoped lang="css">
@@ -428,37 +252,5 @@ onBeforeUnmount(() => {
   100% {
     transform: translateX(0);
   }
-}
-
-.menu-row {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  gap: 8px;
-  height: 28px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  text-align: left;
-  transition:
-    color 150ms ease,
-    background-color 150ms ease;
-}
-
-.menu-row:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-surface);
-}
-
-.menu-row:focus-visible {
-  outline: none;
-  background: var(--color-bg-surface);
-  box-shadow: inset 0 0 0 1.5px var(--color-border-strong);
-}
-
-.menu-row--danger:hover {
-  color: var(--color-danger);
 }
 </style>

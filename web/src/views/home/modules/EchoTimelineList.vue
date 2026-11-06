@@ -22,7 +22,6 @@ import type { Ref } from 'vue'
 import { useVirtualizer, useWindowVirtualizer } from '@tanstack/vue-virtual'
 import type { VirtualItem, Virtualizer } from '@tanstack/vue-virtual'
 import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
-import { useEchoMenu } from '@/composables/useEchoMenu'
 import { HOME_TIMELINE_ANCHOR_KEY } from '@/constants/timeline'
 import { parseTimelineAnchor } from '@/utils/timelineAnchor'
 import type { TimelineAnchor } from '@/utils/timelineAnchor'
@@ -67,37 +66,7 @@ const virtualizer = (props.useWindow
   Virtualizer<Element | Window, HTMLElement>
 >
 
-const { activeMenuId } = useEchoMenu()
-const pinnedIndex = computed(() => {
-  const id = activeMenuId.value
-  if (!id) return -1
-  return props.items.findIndex((item) => item.id === id)
-})
-
-const virtualItems = computed<VirtualItem[]>(() => {
-  const rows = virtualizer.value.getVirtualItems()
-  const index = pinnedIndex.value
-  if (index < 0 || rows.some((row) => row.index === index)) return rows
-
-  // The open row must survive the virtualizer's range updates. Without this,
-  // the card (and its teleported menu) can unmount between pointerdown and the
-  // menu action, which is exactly when a click after a fast scroll gets lost.
-  const start = virtualizer.value.getOffsetForIndex(index, 'start')?.[0] ?? 0
-  const cache = (virtualizer.value as unknown as { measurementsCache?: Array<{ size: number }> })
-    .measurementsCache
-  const size = cache?.[index]?.size ?? 240
-  return [
-    ...rows,
-    {
-      index,
-      start,
-      size,
-      end: start + size,
-      key: props.items[index]?.id ?? index,
-      lane: 0,
-    },
-  ]
-})
+const virtualItems = computed<VirtualItem[]>(() => virtualizer.value.getVirtualItems())
 const totalSize = computed(() => virtualizer.value.getTotalSize())
 
 const measureRow = (el: unknown) => {

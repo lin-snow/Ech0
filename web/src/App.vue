@@ -10,6 +10,7 @@ import { resolveAvatarUrl } from './service/request/shared'
 import 'vue-sonner/style.css'
 import BaseDialog from './components/common/BaseDialog.vue'
 import TheRouteProgress from './components/common/TheRouteProgress.vue'
+import EchoActionMenu from './components/advanced/echo/EchoActionMenu.vue'
 
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
@@ -209,6 +210,7 @@ onMounted(() => {
       @confirm="handleConfirm"
       @cancel="handleCancel"
     />
+    <EchoActionMenu />
   </div>
 </template>
 
