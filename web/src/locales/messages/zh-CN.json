@@ -548,7 +548,8 @@
     "deleteConfirmTitle": "确定要删除吗？",
     "deleteConfirmDesc": "删除后将无法恢复，请谨慎操作",
     "deleteSuccess": "删除成功！",
-    "exitUpdateModeFirst": "请先退出更新模式！",
+    "editAnotherEchoTitle": "编辑另一条 Echo？",
+    "editAnotherEchoDesc": "你正在编辑另一条 Echo。放弃当前修改并编辑这条吗？",
     "openDetail": "查看详情"
   },
   "userSetting": {

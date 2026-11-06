@@ -548,7 +548,8 @@
     "deleteConfirmTitle": "Delete this Echo?",
     "deleteConfirmDesc": "This action cannot be undone.",
     "deleteSuccess": "Deleted successfully",
-    "exitUpdateModeFirst": "Please exit update mode first",
+    "editAnotherEchoTitle": "Edit another Echo?",
+    "editAnotherEchoDesc": "You are already editing an Echo. Discard those changes and edit this one?",
     "openDetail": "Open detail"
   },
   "userSetting": {

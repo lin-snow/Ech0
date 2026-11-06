@@ -205,13 +205,7 @@ const handleDeleteEcho = (echoId: string) => {
   })
 }
 
-const handleUpdateEcho = async () => {
-  if (editorStore.isUpdateMode) {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-    theToast.warning(String(t('echoCard.exitUpdateModeFirst')))
-    return
-  }
-
+const startUpdate = async () => {
   const res = await fetchGetEchoById(String(props.echo.id))
   if (res.code === 1 && res.data) {
     echoStore.echoToUpdate = res.data
@@ -224,6 +218,21 @@ const handleUpdateEcho = async () => {
     name: 'home',
     query: { ...router.currentRoute.value.query, tab: 'publish' },
   })
+}
+
+const handleUpdateEcho = async () => {
+  if (editorStore.isUpdateMode) {
+    openConfirm({
+      title: String(t('echoCard.editAnotherEchoTitle')),
+      description: String(t('echoCard.editAnotherEchoDesc')),
+      onConfirm: () => {
+        void startUpdate()
+      },
+    })
+    return
+  }
+
+  await startUpdate()
 }
 
 const handleExpandEcho = (echoId: string) => {
