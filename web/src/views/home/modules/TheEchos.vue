@@ -46,18 +46,16 @@
       </div>
     </Transition>
 
-    <div v-if="echoStore.isLoadingMore" class="echo-skeleton-list" aria-hidden="true">
-      <div v-for="row in 2" :key="row" class="echo-skeleton">
-        <span class="echo-skeleton__dot" />
-        <div class="echo-skeleton__body">
-          <span class="echo-skeleton__line echo-skeleton__line--short" />
-          <span class="echo-skeleton__line" />
-          <span class="echo-skeleton__line echo-skeleton__line--medium" />
-        </div>
-      </div>
-    </div>
+    <Transition name="fade">
+      <TheLoadingIndicator
+        v-if="echoStore.isLoadingMore"
+        class="mx-auto my-5 echos-toolbar"
+        size="md"
+        :label="t('homeFeed.loadingMore')"
+      />
+    </Transition>
 
-    <div v-else-if="echoStore.loadError === 'more'" class="echo-feed-status">
+    <div v-if="echoStore.loadError === 'more'" class="echo-feed-status">
       <p>{{ t('homeFeed.loadMoreFailed') }}</p>
       <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
         {{ t('homeFeed.retry') }}
@@ -65,7 +63,12 @@
     </div>
 
     <p
-      v-else-if="echoStore.echoList.length > 0 && echoStore.nextCursor === null"
+      v-if="
+        !echoStore.isLoadingMore &&
+        echoStore.loadError === null &&
+        echoStore.echoList.length > 0 &&
+        echoStore.nextCursor === null
+      "
       class="echo-feed-end echos-toolbar"
     >
       {{ t('homeFeed.allLoaded') }}
@@ -332,67 +335,6 @@ const onLeave = (el: Element, done: () => void) => {
   text-align: center;
 }
 
-.echo-skeleton-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-
-.echo-skeleton {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface);
-}
-
-.echo-skeleton__dot {
-  flex: none;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin-top: 0.3rem;
-  border-radius: 9999px;
-  background: var(--color-border-strong);
-  animation: echo-skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-.echo-skeleton__body {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.15rem;
-}
-
-.echo-skeleton__line {
-  height: 0.6rem;
-  width: 100%;
-  border-radius: 9999px;
-  background: var(--color-bg-muted);
-  animation: echo-skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-.echo-skeleton__line--short {
-  width: 28%;
-}
-
-.echo-skeleton__line--medium {
-  width: 62%;
-}
-
-@keyframes echo-skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
 .feed-sr-only {
   position: absolute;
   width: 1px;
@@ -403,13 +345,6 @@ const onLeave = (el: Element, done: () => void) => {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .echo-skeleton__dot,
-  .echo-skeleton__line {
-    animation: none;
-  }
 }
 
 .list-move {
