@@ -50,7 +50,7 @@ import Roll from '@/components/icons/roll.vue'
 import { useEchoActions } from '@/composables/useEchoActions'
 import { useEchoMenu } from '@/composables/useEchoMenu'
 
-const { menu, closeMenu } = useEchoMenu()
+const { menu, closeMenu, canCloseOnScroll } = useEchoMenu()
 const { updateEcho, deleteEcho } = useEchoActions()
 const { t } = useI18n()
 const route = useRoute()
@@ -73,17 +73,24 @@ const onKeydown = (event: KeyboardEvent) => {
 }
 
 const onResize = () => closeMenu()
+const onScroll = () => {
+  if (canCloseOnScroll()) closeMenu()
+}
 
 const bind = () => {
   document.addEventListener('pointerdown', onOutside)
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('resize', onResize)
+  // Scroll events from the inner .home-main do not bubble, but a capture
+  // listener on window sees them. The menu does not follow the row anyway.
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true })
 }
 
 const unbind = () => {
   document.removeEventListener('pointerdown', onOutside)
   document.removeEventListener('keydown', onKeydown)
   window.removeEventListener('resize', onResize)
+  window.removeEventListener('scroll', onScroll, { capture: true })
 }
 
 watch(menu, (open) => {

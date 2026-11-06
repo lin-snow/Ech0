@@ -17,6 +17,7 @@ const MENU_GAP = 8
 // the card's DOM: a virtual list may recycle the row at any time, but the menu
 // still has the Echo and can finish the update/delete.
 const menu = shallowRef<EchoMenuState | null>(null)
+let openedAt = 0
 
 export function useEchoMenu() {
   const openMenu = (echo: Echo, trigger: HTMLElement) => {
@@ -26,6 +27,7 @@ export function useEchoMenu() {
       top: Math.round(rect.bottom + MENU_GAP),
       right: Math.max(MENU_GAP, Math.round(window.innerWidth - rect.right)),
     }
+    openedAt = performance.now()
   }
 
   const closeMenu = () => {
@@ -33,6 +35,7 @@ export function useEchoMenu() {
   }
 
   const isMenuOpen = (id: string) => menu.value?.echo.id === id
+  const canCloseOnScroll = () => performance.now() - openedAt > 200
 
-  return { menu, openMenu, closeMenu, isMenuOpen }
+  return { menu, openMenu, closeMenu, isMenuOpen, canCloseOnScroll }
 }

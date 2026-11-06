@@ -189,6 +189,7 @@ onBeforeUnmount(() => {
   min-height: 100dvh;
   background: var(--home-canvas);
   color: var(--color-text-primary);
+  overflow-anchor: none;
 }
 
 @media (width >= 820px) {
@@ -261,6 +262,7 @@ onBeforeUnmount(() => {
     min-height: 0;
     align-self: stretch;
     overflow-y: auto;
+    overflow-anchor: none;
     scrollbar-gutter: stable;
     overscroll-behavior: contain;
     flex: 0 1 var(--home-main-max);
