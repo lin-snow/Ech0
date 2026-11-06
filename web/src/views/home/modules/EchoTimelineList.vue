@@ -22,6 +22,8 @@ import type { Ref } from 'vue'
 import { useVirtualizer, useWindowVirtualizer } from '@tanstack/vue-virtual'
 import type { VirtualItem, Virtualizer } from '@tanstack/vue-virtual'
 import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
+import { HOME_TIMELINE_ANCHOR_KEY } from '@/constants/timeline'
+import { parseTimelineAnchor } from '@/utils/timelineAnchor'
 import type { TimelineAnchor } from '@/utils/timelineAnchor'
 
 const props = defineProps<{
@@ -29,8 +31,9 @@ const props = defineProps<{
   scrollTarget: HTMLElement | null
   useWindow: boolean
   layoutKey: string
-  restoreAnchor: TimelineAnchor | null
 }>()
+
+const initialAnchor = parseTimelineAnchor(sessionStorage.getItem(HOME_TIMELINE_ANCHOR_KEY))
 
 const emit = defineEmits<{
   (e: 'anchor-change', anchor: TimelineAnchor): void
@@ -41,8 +44,10 @@ const scrollMargin = ref(0)
 
 const virtualizerOptions = computed(() => ({
   count: props.items.length,
-  estimateSize: () => 280,
-  overscan: 6,
+  // The measured rows average 232px (105-1104px). A closer estimate keeps
+  // the scrollbar and restore target stable before rows are measured.
+  estimateSize: () => 240,
+  overscan: 4,
   scrollMargin: scrollMargin.value,
   getItemKey: (index: number) => props.items[index]?.id ?? index,
 }))
@@ -82,29 +87,15 @@ const updateScrollMargin = () => {
   scrollMargin.value = Math.max(0, Math.round(listTop - rootTop + root.scrollTop))
 }
 
-const viewportTop = (): number => {
-  if (props.useWindow) return 0
-  return props.scrollTarget?.getBoundingClientRect().top ?? 0
-}
-
-const viewportBottom = (): number => {
-  if (props.useWindow) return window.innerHeight
-  return props.scrollTarget?.getBoundingClientRect().bottom ?? window.innerHeight
-}
-
 const currentAnchor = (): TimelineAnchor | null => {
-  const list = listEl.value
-  if (!list) return null
-  const top = viewportTop()
-  const bottom = viewportBottom()
-  for (const row of list.querySelectorAll<HTMLElement>('[data-echo-row]')) {
-    const rect = row.getBoundingClientRect()
-    if (rect.top >= bottom) break
-    if (rect.bottom <= top) continue
-    const index = Number(row.dataset.index)
-    const item = props.items[index]
+  const rows = virtualizer.value.getVirtualItems()
+  if (!rows.length) return null
+  const scrollOffset = props.useWindow ? window.scrollY : (props.scrollTarget?.scrollTop ?? 0)
+  for (const row of rows) {
+    if (row.start + row.size <= scrollOffset) continue
+    const item = props.items[row.index]
     if (!item) continue
-    return { id: item.id, offset: Math.round(top - rect.top) }
+    return { id: item.id, offset: Math.round(scrollOffset - row.start) }
   }
   return null
 }
@@ -114,7 +105,6 @@ const scheduleAnchor = () => {
   if (anchorTimer !== null) return
   anchorTimer = window.setTimeout(() => {
     anchorTimer = null
-    updateScrollMargin()
     const anchor = currentAnchor()
     if (anchor) emit('anchor-change', anchor)
   }, 120)
@@ -182,7 +172,7 @@ const applyRestore = (index: number, anchor: TimelineAnchor, attempt: number, wa
 }
 
 const restoreScroll = () => {
-  const anchor = props.restoreAnchor
+  const anchor = initialAnchor
   if (!anchor) return
   const index = props.items.findIndex((item) => item.id === anchor.id)
   if (index < 0) return
@@ -267,6 +257,11 @@ onBeforeUnmount(() => {
 .echo-virtual-list {
   position: relative;
   width: 100%;
+
+  /* Keep the browser's scroll anchoring out of the virtual layout: rows are
+     absolutely positioned and measured after mount, so anchoring to a row that
+     is about to unmount causes visible jumps. */
+  overflow-anchor: none;
 }
 
 .echo-virtual-row {

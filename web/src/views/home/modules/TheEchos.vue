@@ -15,7 +15,6 @@
       :scroll-target="scrollTarget ?? null"
       :use-window="useWindowScroll"
       :layout-key="resolvedLayoutKey"
-      :restore-anchor="restoreAnchor"
       :aria-busy="echoStore.isLoadingMore"
       @anchor-change="persistAnchor"
     />
@@ -97,11 +96,7 @@ import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables
 import { useSiteChecklist } from '@/composables/useSiteChecklist'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 import { HOME_TIMELINE_ANCHOR_KEY, HOME_TIMELINE_DEPTH_KEY } from '@/constants/timeline'
-import {
-  parseTimelineAnchor,
-  serializeTimelineAnchor,
-  type TimelineAnchor,
-} from '@/utils/timelineAnchor'
+import { serializeTimelineAnchor, type TimelineAnchor } from '@/utils/timelineAnchor'
 import { isScrollableElement } from '@/utils/scroll'
 import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
@@ -167,11 +162,7 @@ const liveMessage = computed(() => {
   return ''
 })
 
-const restoreAnchor = ref<TimelineAnchor | null>(
-  parseTimelineAnchor(sessionStorage.getItem(HOME_TIMELINE_ANCHOR_KEY)),
-)
 const persistAnchor = (anchor: TimelineAnchor) => {
-  restoreAnchor.value = anchor
   sessionStorage.setItem(HOME_TIMELINE_ANCHOR_KEY, serializeTimelineAnchor(anchor))
 }
 
