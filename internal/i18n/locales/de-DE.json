@@ -6,6 +6,8 @@
   { "id": "setting.update_success", "translation": "Einstellungen erfolgreich aktualisiert!" },
   { "id": "agent.model_missing", "translation": "Agent-Modellname ist nicht konfiguriert oder leer" },
   { "id": "echo.mixed_file_categories", "translation": "Ein Echo darf nur Dateien eines einzigen Typs enthalten" },
+  { "id": "echo.invalid_cursor", "translation": "Ungültiger Paginierungs-Cursor" },
+  { "id": "echo.cursor_sort_unsupported", "translation": "Cursor-Paginierung unterstützt keine Sortierung nach Reaktionen" },
   { "id": "auth.token_missing", "translation": "Kein Token vorhanden. Bitte zuerst anmelden." },
   { "id": "auth.token_invalid", "translation": "Ungültiges Token. Bitte erneut anmelden." },
   { "id": "auth.token_parse_error", "translation": "Token konnte nicht gelesen werden. Bitte erneut anmelden." },

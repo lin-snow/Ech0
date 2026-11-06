@@ -9,6 +9,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Added
+
+- **The home timeline scrolls continuously.** `POST /api/echo/query` now accepts an optional `cursor`: omit it for the unchanged page-based mode, send `""` for the first keyset page, then echo the previous response's `nextCursor`. Page-mode responses stay byte-identical. Ordering now includes the Echo id, so posts sharing a `created_at` second can no longer shuffle between pages, and keyset continuation stays stable while new posts arrive. The web feed replaces the Older/Newer pager with a sentinel that loads more near the viewport, restores the loaded depth and scroll position on reload, and patches edits/deletes in place instead of resetting to the top.
+
 ### Changed
 
 - **The hub is read-only.** The explore feed no longer renders a reaction bar: the hub does not write to instances it does not own, so it never depends on their CORS allowlist knowing about `X-Ech0-Visitor`. Reacting happens on the post's own instance, which the card already links to.

@@ -90,4 +90,8 @@ const (
 type PageQueryResult[T any] struct {
 	Total int64 `json:"total"`
 	Items T     `json:"items"`
+	// NextCursor is only populated for cursor-paginated queries. Its absence
+	// means there is no further page (and keeps legacy page-mode responses
+	// byte-identical).
+	NextCursor *string `json:"nextCursor,omitempty"`
 }

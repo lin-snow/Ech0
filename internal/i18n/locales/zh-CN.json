@@ -6,6 +6,8 @@
   { "id": "setting.update_success", "translation": "更新设置成功！" },
   { "id": "agent.model_missing", "translation": "未配置 Agent 模型名称或模型名称不能为空" },
   { "id": "echo.mixed_file_categories", "translation": "一条 Echo 只能包含同一类型的文件" },
+  { "id": "echo.invalid_cursor", "translation": "分页游标无效" },
+  { "id": "echo.cursor_sort_unsupported", "translation": "游标分页不支持按互动排序" },
   { "id": "auth.token_missing", "translation": "未找到令牌,请点击右上角登录" },
   { "id": "auth.token_invalid", "translation": "令牌无效，请重新登录" },
   { "id": "auth.token_parse_error", "translation": "令牌解析失败，请尝试重新登陆" },

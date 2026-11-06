@@ -97,10 +97,12 @@ const (
 )
 
 const (
-	NO_PERMISSION_DENIED       = "没有权限,请联系系统管理员"
-	ECHO_CAN_NOT_BE_EMPTY      = "ECHO 内容不能为空"
-	ECHO_NOT_FOUND             = "找不到Echo"
-	ECHO_MIXED_FILE_CATEGORIES = "一条 Echo 只能包含同一类型的文件"
+	NO_PERMISSION_DENIED         = "没有权限,请联系系统管理员"
+	ECHO_CAN_NOT_BE_EMPTY        = "ECHO 内容不能为空"
+	ECHO_NOT_FOUND               = "找不到Echo"
+	ECHO_MIXED_FILE_CATEGORIES   = "一条 Echo 只能包含同一类型的文件"
+	INVALID_ECHO_CURSOR          = "无效的分页游标"
+	ECHO_CURSOR_SORT_UNSUPPORTED = "游标分页不支持按互动排序"
 )
 
 const (

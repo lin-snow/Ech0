@@ -321,3 +321,85 @@ func TestGetAllTags(t *testing.T) {
 		require.ErrorIs(t, err, boom)
 	})
 }
+
+func TestQueryEchos_CursorMode(t *testing.T) {
+	repo := newEchoRepoMock(t)
+	common := commonmock.NewMockService(t)
+	cursor := "  " + echoModel.EncodeCursor(echoModel.Cursor{CreatedAt: 300, ID: "e3"}) + "  "
+
+	var captured commonModel.EchoQueryDto
+	repo.EXPECT().
+		QueryEchos(mock.Anything, false).
+		Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+		Return([]echoModel.Echo{
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
+		}, int64(4), nil).
+		Once()
+
+	svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+	got, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+		Page: 3, PageSize: 2, Cursor: &cursor,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, captured.Page, "cursor mode always starts at offset 0")
+	require.NotNil(t, captured.Cursor)
+	assert.Equal(t, echoModel.EncodeCursor(echoModel.Cursor{CreatedAt: 300, ID: "e3"}), *captured.Cursor)
+	assert.Equal(t, int64(4), got.Total)
+	require.NotNil(t, got.NextCursor)
+	next, err := echoModel.DecodeCursor(*got.NextCursor)
+	require.NoError(t, err)
+	assert.Equal(t, echoModel.Cursor{CreatedAt: 100, ID: "e1"}, next)
+}
+
+func TestQueryEchos_CursorLastPageHasNoNextCursor(t *testing.T) {
+	repo := newEchoRepoMock(t)
+	common := commonmock.NewMockService(t)
+	empty := ""
+
+	repo.EXPECT().
+		QueryEchos(mock.Anything, false).
+		Return([]echoModel.Echo{
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
+		}, int64(1), nil).
+		Once()
+
+	svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+	got, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+		PageSize: 2, Cursor: &empty,
+	})
+	require.NoError(t, err)
+	assert.Nil(t, got.NextCursor)
+}
+
+func TestQueryEchos_RejectsInvalidCursor(t *testing.T) {
+	repo := newEchoRepoMock(t)
+	svc := echoService.NewEchoService(nil, commonmock.NewMockService(t), nil, repo, nilBus)
+
+	invalid := "not-a-cursor"
+	_, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+		PageSize: 10, Cursor: &invalid,
+	})
+	require.Error(t, err)
+
+	var biz *commonModel.BizError
+	require.ErrorAs(t, err, &biz)
+	assert.Equal(t, commonModel.ErrCodeInvalidQuery, biz.Code)
+	assert.Equal(t, commonModel.MsgKeyEchoInvalidCursor, biz.MessageKey)
+}
+
+func TestQueryEchos_RejectsCursorWithReactionSort(t *testing.T) {
+	repo := newEchoRepoMock(t)
+	svc := echoService.NewEchoService(nil, commonmock.NewMockService(t), nil, repo, nilBus)
+
+	empty := ""
+	_, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+		PageSize: 10, Cursor: &empty, SortBy: "reactions",
+	})
+	require.Error(t, err)
+
+	var biz *commonModel.BizError
+	require.ErrorAs(t, err, &biz)
+	assert.Equal(t, commonModel.MsgKeyEchoCursorSortUnsupported, biz.MessageKey)
+}
