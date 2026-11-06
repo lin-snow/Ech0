@@ -3,6 +3,7 @@
 
 import { nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import type { Ref } from 'vue'
+import { isScrollableElement } from '@/utils/scroll'
 
 type InfiniteScrollOptions = {
   /** Element used as the load trigger; it must sit after the rendered items. */
@@ -18,8 +19,6 @@ type InfiniteScrollOptions = {
   rootMargin?: number
 }
 
-const SCROLLABLE_OVERFLOW = ['auto', 'scroll', 'overlay']
-
 /**
  * Sentinel-driven pagination that works with either the window (mobile) or an
  * internal scroll container (desktop). It is deliberately stateless about the
@@ -34,9 +33,7 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
 
   const activeRoot = (): HTMLElement | null => {
     const target = options.scrollTarget()
-    if (!target) return null
-    const overflowY = window.getComputedStyle(target).overflowY
-    return SCROLLABLE_OVERFLOW.includes(overflowY) ? target : null
+    return isScrollableElement(target) ? target : null
   }
 
   const trigger = async () => {

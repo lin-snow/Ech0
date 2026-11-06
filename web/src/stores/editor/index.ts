@@ -7,7 +7,7 @@ import { theToast } from '@/utils/toast'
 import { fetchAddEcho, fetchUpdateEcho } from '@/service/api'
 import { Mode, ExtensionType, ImageLayout, VideoLayout, AudioLayout } from '@/enums/enums'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
-import { HOME_TIMELINE_DEPTH_KEY, HOME_TIMELINE_SCROLL_KEY } from '@/constants/timeline'
+import { HOME_TIMELINE_ANCHOR_KEY, HOME_TIMELINE_DEPTH_KEY } from '@/constants/timeline'
 import { useEchoStore } from '@/stores'
 import { localStg } from '@/utils/storage'
 import { globalFileRegistry } from '@/lib/file'
@@ -64,7 +64,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     echoStore.filteredTag = null
     echoStore.isFilteringMode = false
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(HOME_TIMELINE_SCROLL_KEY)
+      sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
       sessionStorage.removeItem(HOME_TIMELINE_DEPTH_KEY)
     }
   }

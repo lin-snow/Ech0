@@ -15,6 +15,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ### Changed
 
+- **Timeline rows are virtualized.** Only the visible window (plus a small overscan) stays mounted, so a deep scroll no longer grows the DOM without bound. Cards outside the window unmount, which means audio/video playback stops when scrolled away and the old per-card enter/leave animations are gone. The scroll position is stored as a `{echoId, offset}` anchor rather than a pixel value, because virtualized rows estimate heights until they are measured.
+
 - **The hub is read-only.** The explore feed no longer renders a reaction bar: the hub does not write to instances it does not own, so it never depends on their CORS allowlist knowing about `X-Ech0-Visitor`. Reacting happens on the post's own instance, which the card already links to.
 
 ### Fixed

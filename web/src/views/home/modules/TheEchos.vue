@@ -7,21 +7,18 @@
   >
     <TheOnboardingChecklist v-if="showChecklist" />
     <TheFirstEchoCard v-if="showFirstEchoCard" @dismiss="dismissFirstEchoCard" />
-    <TransitionGroup
-      v-if="echoStore.echoList"
-      name="list"
-      tag="div"
-      class="relative"
+
+    <EchoTimelineList
+      v-if="scrollModeReady && echoStore.echoList.length > 0"
+      :key="useWindowScroll ? 'window' : 'element'"
+      :items="echoStore.echoList"
+      :scroll-target="scrollTarget ?? null"
+      :use-window="useWindowScroll"
+      :layout-key="resolvedLayoutKey"
+      :restore-anchor="restoreAnchor"
       :aria-busy="echoStore.isLoadingMore"
-      @before-enter="onBeforeEnter"
-      @enter="onEnter"
-      @before-leave="onBeforeLeave"
-      @leave="onLeave"
-    >
-      <div v-for="(echo, index) in echoStore.echoList" :key="echo.id">
-        <TheEchoCard :echo="echo" :index="index" />
-      </div>
-    </TransitionGroup>
+      @anchor-change="persistAnchor"
+    />
 
     <Transition name="fade">
       <div v-if="echoStore.isLoading && echoStore.echoList.length === 0" class="my-5">
@@ -91,15 +88,21 @@
 </template>
 
 <script setup lang="ts">
-import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
+import EchoTimelineList from './EchoTimelineList.vue'
 import TheFirstEchoCard from './TheFirstEchoCard.vue'
 import TheOnboardingChecklist from './TheOnboardingChecklist.vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
 import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables/useSiteOnboarding'
 import { useSiteChecklist } from '@/composables/useSiteChecklist'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { HOME_TIMELINE_DEPTH_KEY } from '@/constants/timeline'
+import { HOME_TIMELINE_ANCHOR_KEY, HOME_TIMELINE_DEPTH_KEY } from '@/constants/timeline'
+import {
+  parseTimelineAnchor,
+  serializeTimelineAnchor,
+  type TimelineAnchor,
+} from '@/utils/timelineAnchor'
+import { isScrollableElement } from '@/utils/scroll'
 import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { storeToRefs } from 'pinia'
@@ -109,6 +112,7 @@ import { useRoute, useRouter } from 'vue-router'
 const props = defineProps<{
   scrollTarget?: HTMLElement | null
   compact?: boolean
+  layoutKey?: string
 }>()
 
 const echoStore = useEchoStore()
@@ -118,7 +122,7 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const { SystemSetting } = storeToRefs(settingStore)
-const { isFilteringMode, hasActiveQuery } = storeToRefs(echoStore)
+const { isFilteringMode, hasActiveQuery, searchingMode } = storeToRefs(echoStore)
 const { isLogin } = storeToRefs(userStore)
 
 const firstEchoSeen = ref(localStg.getItem<boolean>(FIRST_ECHO_CARD_SEEN_KEY) === true)
@@ -163,7 +167,29 @@ const liveMessage = computed(() => {
   return ''
 })
 
-const hasInitialRendered = ref(false)
+const restoreAnchor = ref<TimelineAnchor | null>(
+  parseTimelineAnchor(sessionStorage.getItem(HOME_TIMELINE_ANCHOR_KEY)),
+)
+const persistAnchor = (anchor: TimelineAnchor) => {
+  restoreAnchor.value = anchor
+  sessionStorage.setItem(HOME_TIMELINE_ANCHOR_KEY, serializeTimelineAnchor(anchor))
+}
+
+const useWindowScroll = ref(true)
+const scrollModeReady = ref(false)
+const syncScrollMode = () => {
+  useWindowScroll.value = !isScrollableElement(props.scrollTarget ?? null)
+}
+
+const resolvedLayoutKey = computed(() =>
+  [
+    props.layoutKey ?? '',
+    showChecklist.value,
+    showFirstEchoCard.value,
+    searchingMode.value,
+    isFilteringMode.value,
+  ].join('|'),
+)
 
 const sentinel = ref<HTMLElement | null>(null)
 useInfiniteScroll({
@@ -197,11 +223,10 @@ watch(isFilteringMode, () => {
   echoStore.refreshEchos()
 })
 
-const markInitialRendered = () => {
-  window.setTimeout(() => {
-    hasInitialRendered.value = true
-  }, 500)
-}
+watch(
+  () => props.scrollTarget,
+  () => syncScrollMode(),
+)
 
 onMounted(async () => {
   const legacyPage = parseLegacyPage(route.query.page)
@@ -211,78 +236,22 @@ onMounted(async () => {
     router.replace({ query: nextQuery })
   }
 
+  syncScrollMode()
+  scrollModeReady.value = true
+  window.addEventListener('resize', syncScrollMode, { passive: true })
+
   // A refresh started elsewhere (publishing returns to this tab) already owns
   // the request; wait for it instead of firing a duplicate.
-  if (echoStore.isLoading && echoStore.hasFetched) {
-    markInitialRendered()
-    return
-  }
-  if (echoStore.isTimelineCurrent) {
-    markInitialRendered()
-    return
-  }
+  if (echoStore.isLoading && echoStore.hasFetched) return
+  if (echoStore.isTimelineCurrent) return
 
   const depth = Math.max(storedDepth(), legacyPage)
   await echoStore.refreshEchos(depth > 1 ? depth * echoStore.pageSize : undefined)
-  markInitialRendered()
 })
 
-const ENTER_DURATION = 420
-const ENTER_STAGGER = 100
-const ENTER_STAGGER_CAP = 600
-const ENTER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
-
-let enterBatchIndex = 0
-let enterBatchResetTimer: number | null = null
-
-const onBeforeEnter = (el: Element) => {
-  const element = el as HTMLElement
-  element.style.opacity = '0'
-  element.style.transform = 'translateY(-18px)'
-}
-
-const onEnter = (el: Element, done: () => void) => {
-  const element = el as HTMLElement
-  const indexInBatch = enterBatchIndex++
-  if (enterBatchResetTimer !== null) {
-    window.clearTimeout(enterBatchResetTimer)
-  }
-  enterBatchResetTimer = window.setTimeout(() => {
-    enterBatchIndex = 0
-    enterBatchResetTimer = null
-  }, 400)
-
-  const baseDelay = hasInitialRendered.value ? 80 : 0
-  const staggerDelay = Math.min(indexInBatch * ENTER_STAGGER, ENTER_STAGGER_CAP)
-
-  window.setTimeout(() => {
-    element.style.transition = `opacity ${ENTER_DURATION}ms ${ENTER_EASING}, transform ${ENTER_DURATION}ms ${ENTER_EASING}`
-    element.style.opacity = '1'
-    element.style.transform = 'translateY(0)'
-    window.setTimeout(done, ENTER_DURATION)
-  }, baseDelay + staggerDelay)
-}
-
-const onBeforeLeave = (el: Element) => {
-  const element = el as HTMLElement
-  const parent = element.parentElement
-  if (!parent) return
-  const rect = element.getBoundingClientRect()
-  const parentRect = parent.getBoundingClientRect()
-  element.style.position = 'absolute'
-  element.style.left = `${rect.left - parentRect.left}px`
-  element.style.top = `${rect.top - parentRect.top}px`
-  element.style.width = `${rect.width}px`
-}
-
-const onLeave = (el: Element, done: () => void) => {
-  const element = el as HTMLElement
-  window.requestAnimationFrame(() => {
-    element.style.transition = 'opacity 0.18s ease'
-    element.style.opacity = '0'
-    window.setTimeout(done, 180)
-  })
-}
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncScrollMode)
+})
 </script>
 
 <style scoped>
@@ -345,10 +314,6 @@ const onLeave = (el: Element, done: () => void) => {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
-}
-
-.list-move {
-  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .fade-enter-active,

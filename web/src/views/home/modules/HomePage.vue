@@ -32,7 +32,11 @@
             <template v-else-if="activeTab === 'home'">
               <HomeBanner :class="{ 'home-banner--mobile-hidden': shouldHideBannerOnMobile }" />
 
-              <TheEchos compact :scroll-target="mainColumn" />
+              <TheEchos
+                compact
+                :scroll-target="mainColumn"
+                :layout-key="mobileSearchOpen ? 'mobile-search-open' : 'mobile-search-closed'"
+              />
             </template>
 
             <div v-else-if="activeTab === 'status'" class="home-content-block home-status-widgets">
@@ -78,7 +82,6 @@ import TheFilter from './TheFilter.vue'
 import TheEchos from './TheEchos.vue'
 import TheCommandPalette from './TheCommandPalette.vue'
 import TheChatLauncher from './TheChatLauncher.vue'
-import { HOME_TIMELINE_SCROLL_KEY } from '@/constants/timeline'
 import { defineAsyncComponent, onMounted, ref, onBeforeUnmount, computed, watch } from 'vue'
 import { useEchoStore, useUserStore, useSettingStore, useConnectStore } from '@/stores'
 import { useRoute } from 'vue-router'
@@ -125,9 +128,6 @@ watch(
 )
 
 const mainColumn = ref<HTMLElement | null>(null)
-const WINDOW_SCROLL_KEY = 'home:window:scrollTop'
-let timelineScrollRaf: number | null = null
-let windowScrollRaf: number | null = null
 
 const paletteOpen = ref<boolean>(false)
 const chatLauncherOpen = ref<boolean>(false)
@@ -153,39 +153,6 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
   }
 }
 
-const saveTimelineScrollPosition = () => {
-  if (!mainColumn.value || timelineScrollRaf !== null) return
-
-  timelineScrollRaf = window.requestAnimationFrame(() => {
-    timelineScrollRaf = null
-    if (!mainColumn.value) return
-    sessionStorage.setItem(HOME_TIMELINE_SCROLL_KEY, String(mainColumn.value.scrollTop))
-  })
-}
-
-const saveWindowScrollPosition = () => {
-  if (windowScrollRaf !== null) return
-  windowScrollRaf = window.requestAnimationFrame(() => {
-    windowScrollRaf = null
-    sessionStorage.setItem(WINDOW_SCROLL_KEY, String(window.scrollY))
-  })
-}
-
-const restoreTimelineScrollPosition = () => {
-  if (mainColumn.value) {
-    const raw = sessionStorage.getItem(HOME_TIMELINE_SCROLL_KEY)
-    const scrollTop = raw ? Number(raw) : 0
-    if (Number.isFinite(scrollTop) && scrollTop > 0) {
-      mainColumn.value.scrollTop = scrollTop
-    }
-  }
-  const rawWindow = sessionStorage.getItem(WINDOW_SCROLL_KEY)
-  const windowTop = rawWindow ? Number(rawWindow) : 0
-  if (Number.isFinite(windowTop) && windowTop > 0) {
-    window.scrollTo({ top: windowTop, behavior: 'auto' })
-  }
-}
-
 const prefetchHeavyChunks = () => {
   const trigger = () => {
     import('@/views/echo/EchoView.vue').catch(() => {})
@@ -200,40 +167,15 @@ const prefetchHeavyChunks = () => {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   if (mainColumn.value) {
     mainColumn.value.scrollLeft = 0
-    mainColumn.value.addEventListener('scroll', saveTimelineScrollPosition, { passive: true })
   }
-  window.addEventListener('scroll', saveWindowScrollPosition, { passive: true })
-  const stopScrollRestoreWatch = watch(
-    () => echoStore.echoList.length > 0 && !echoStore.isLoading,
-    (ready) => {
-      if (!ready) return
-      stopScrollRestoreWatch()
-      window.requestAnimationFrame(() => {
-        restoreTimelineScrollPosition()
-      })
-    },
-    { immediate: true, flush: 'post' },
-  )
   window.addEventListener('keydown', handleGlobalKeydown)
   prefetchHeavyChunks()
 })
 
 onBeforeUnmount(() => {
-  if (mainColumn.value) {
-    mainColumn.value.removeEventListener('scroll', saveTimelineScrollPosition)
-  }
-  if (timelineScrollRaf !== null) {
-    window.cancelAnimationFrame(timelineScrollRaf)
-    timelineScrollRaf = null
-  }
-  if (windowScrollRaf !== null) {
-    window.cancelAnimationFrame(windowScrollRaf)
-    windowScrollRaf = null
-  }
-  window.removeEventListener('scroll', saveWindowScrollPosition)
   window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
