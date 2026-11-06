@@ -175,8 +175,6 @@ const TheExtensionRenderer = defineAsyncComponent(
 const { openConfirm } = useBaseDialog()
 const { t } = useI18n()
 
-const emit = defineEmits(['refresh'])
-
 type Echo = App.Api.Ech0.Echo
 
 const props = defineProps<{
@@ -201,7 +199,7 @@ const handleDeleteEcho = (echoId: string) => {
     onConfirm: () => {
       fetchDeleteEcho(echoId).then(() => {
         theToast.success(String(t('echoCard.deleteSuccess')))
-        emit('refresh')
+        echoStore.removeEcho(echoId)
       })
     },
   })

@@ -110,10 +110,47 @@ function publicEchos(dataset: StaticDataset): App.Api.Ech0.Echo[] {
   return (dataset.echos ?? []).filter((echo) => echo.private !== true)
 }
 
+type EchoCursor = { createdAt: number; id: string }
+
+const CURSOR_VERSION = 'v1:'
+
+function base64UrlEncode(value: string): string {
+  const bytes = new TextEncoder().encode(value)
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function base64UrlDecode(value: string): string | null {
+  try {
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/')
+    const padding = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4))
+    const binary = atob(padded + padding)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return new TextDecoder().decode(bytes)
+  } catch {
+    return null
+  }
+}
+
+function decodeEchoCursor(raw: string): EchoCursor | null {
+  const payload = base64UrlDecode(raw)
+  if (!payload || !payload.startsWith(CURSOR_VERSION)) return null
+  const separator = payload.indexOf(':', CURSOR_VERSION.length)
+  if (separator < 0) return null
+  const createdAt = Number(payload.slice(CURSOR_VERSION.length, separator))
+  const id = payload.slice(separator + 1)
+  if (!Number.isInteger(createdAt) || createdAt <= 0 || id === '' || id.length > 64) return null
+  return { createdAt, id }
+}
+
 function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.PaginationResult {
   const search = (body.search ?? '').trim().toLowerCase()
   const tagIds = (body.tagIds ?? []).filter((id) => typeof id === 'string' && id !== '')
   const { dateFrom, dateTo } = body
+  const cursorMode = typeof body.cursor === 'string'
 
   const filtered = publicEchos(dataset).filter((echo) => {
     if (search !== '' && !(echo.content ?? '').toLowerCase().includes(search)) {
@@ -140,10 +177,15 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
   const byReactions = body.sortBy === 'reactions'
   const ascending = String(body.sortOrder ?? '').toLowerCase() === 'asc'
   const sorted = filtered.slice().sort((a, b) => {
-    const delta = byReactions
-      ? reactionTotal(a) - reactionTotal(b)
-      : toUnixSeconds(a.created_at) - toUnixSeconds(b.created_at)
-    return ascending ? delta : -delta
+    if (byReactions) {
+      const delta = reactionTotal(a) - reactionTotal(b)
+      return ascending ? delta : -delta
+    }
+    const delta = toUnixSeconds(a.created_at) - toUnixSeconds(b.created_at)
+    if (delta !== 0) return ascending ? delta : -delta
+    // Keep the tiebreak identical to the backend keyset order.
+    if (a.id === b.id) return 0
+    return (ascending ? a.id > b.id : a.id < b.id) ? -1 : 1
   })
 
   const rawPageSize = Number(body.pageSize)
@@ -152,6 +194,40 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
     pageSize = DEFAULT_PAGE_SIZE
   } else if (pageSize > MAX_PAGE_SIZE) {
     pageSize = MAX_PAGE_SIZE
+  }
+
+  if (cursorMode) {
+    if (byReactions) {
+      return { items: [], total: sorted.length, nextCursor: null }
+    }
+
+    let start = 0
+    if (body.cursor) {
+      const cursor = decodeEchoCursor(body.cursor)
+      if (!cursor) {
+        return { items: [], total: sorted.length, nextCursor: null }
+      }
+      const index = sorted.findIndex((echo) => {
+        const createdAt = toUnixSeconds(echo.created_at)
+        if (createdAt !== cursor.createdAt) {
+          return ascending ? createdAt > cursor.createdAt : createdAt < cursor.createdAt
+        }
+        if (echo.id === cursor.id) return false
+        return ascending ? echo.id > cursor.id : echo.id < cursor.id
+      })
+      start = index >= 0 ? index : sorted.length
+    }
+
+    const items = sorted.slice(start, start + pageSize)
+    const last = items[items.length - 1]
+    return {
+      items,
+      total: sorted.length,
+      nextCursor:
+        items.length === pageSize && last
+          ? base64UrlEncode(`${CURSOR_VERSION}${toUnixSeconds(last.created_at)}:${last.id}`)
+          : null,
+    }
   }
 
   const rawPage = Number(body.page)

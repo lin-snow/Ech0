@@ -7,6 +7,7 @@ import { theToast } from '@/utils/toast'
 import { fetchAddEcho, fetchUpdateEcho } from '@/service/api'
 import { Mode, ExtensionType, ImageLayout, VideoLayout, AudioLayout } from '@/enums/enums'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
+import { HOME_TIMELINE_DEPTH_KEY, HOME_TIMELINE_SCROLL_KEY } from '@/constants/timeline'
 import { useEchoStore } from '@/stores'
 import { localStg } from '@/utils/storage'
 import { globalFileRegistry } from '@/lib/file'
@@ -16,8 +17,6 @@ import { useExtensionModule } from './useExtensionModule'
 import { useFilesModule } from './useFilesModule'
 import { useDraftModule } from './useDraftModule'
 import type { Translate } from './types'
-
-const HOME_TIMELINE_SCROLL_KEY = 'home:timeline:scrollTop'
 
 export const useEditorStore = defineStore('editorStore', () => {
   const echoStore = useEchoStore()
@@ -66,6 +65,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     echoStore.isFilteringMode = false
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(HOME_TIMELINE_SCROLL_KEY)
+      sessionStorage.removeItem(HOME_TIMELINE_DEPTH_KEY)
     }
   }
 
@@ -242,6 +242,9 @@ export const useEditorStore = defineStore('editorStore', () => {
           loading: justSyncFiles ? t('editor.syncingFiles') : t('editor.updating'),
           success: (res) => {
             if (res.code === 1 && !justSyncFiles) {
+              if (res.data) {
+                echoStore.replaceEcho(res.data)
+              }
               clearEditor()
               isUpdateMode.value = false
               echoStore.echoToUpdate = null

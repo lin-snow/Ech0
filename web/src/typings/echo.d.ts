@@ -51,6 +51,8 @@ declare namespace App {
         dateFrom?: number
         dateTo?: number
         private?: boolean
+        /** Omit for page mode; send '' for the first cursor page, then the previous nextCursor. */
+        cursor?: string
       }
 
       type Echo = {
@@ -154,6 +156,8 @@ declare namespace App {
       type PaginationResult = {
         items: Echo[]
         total: number
+        /** Present only for cursor queries; null/absent means there is no further page. */
+        nextCursor?: string | null
       }
 
       type HeatMap = {

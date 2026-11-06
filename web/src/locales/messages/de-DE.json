@@ -461,8 +461,10 @@
     "noMore": "Keine weiteren Daten",
     "noMoreFiltered": "Keine weiteren Daten",
     "loading": "Wird geladen…",
-    "older": "Älter",
-    "newer": "Neuer"
+    "loadingMore": "Weitere werden geladen…",
+    "loadMoreFailed": "Weitere Daten konnten nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "allLoaded": "Das war alles"
   },
   "dateTime": {
     "justNow": "Gerade eben",

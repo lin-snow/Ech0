@@ -78,6 +78,7 @@ import TheFilter from './TheFilter.vue'
 import TheEchos from './TheEchos.vue'
 import TheCommandPalette from './TheCommandPalette.vue'
 import TheChatLauncher from './TheChatLauncher.vue'
+import { HOME_TIMELINE_SCROLL_KEY } from '@/constants/timeline'
 import { defineAsyncComponent, onMounted, ref, onBeforeUnmount, computed, watch } from 'vue'
 import { useEchoStore, useUserStore, useSettingStore, useConnectStore } from '@/stores'
 import { useRoute } from 'vue-router'
@@ -124,7 +125,6 @@ watch(
 )
 
 const mainColumn = ref<HTMLElement | null>(null)
-const TIMELINE_SCROLL_KEY = 'home:timeline:scrollTop'
 const WINDOW_SCROLL_KEY = 'home:window:scrollTop'
 let timelineScrollRaf: number | null = null
 let windowScrollRaf: number | null = null
@@ -159,7 +159,7 @@ const saveTimelineScrollPosition = () => {
   timelineScrollRaf = window.requestAnimationFrame(() => {
     timelineScrollRaf = null
     if (!mainColumn.value) return
-    sessionStorage.setItem(TIMELINE_SCROLL_KEY, String(mainColumn.value.scrollTop))
+    sessionStorage.setItem(HOME_TIMELINE_SCROLL_KEY, String(mainColumn.value.scrollTop))
   })
 }
 
@@ -173,7 +173,7 @@ const saveWindowScrollPosition = () => {
 
 const restoreTimelineScrollPosition = () => {
   if (mainColumn.value) {
-    const raw = sessionStorage.getItem(TIMELINE_SCROLL_KEY)
+    const raw = sessionStorage.getItem(HOME_TIMELINE_SCROLL_KEY)
     const scrollTop = raw ? Number(raw) : 0
     if (Number.isFinite(scrollTop) && scrollTop > 0) {
       mainColumn.value.scrollTop = scrollTop

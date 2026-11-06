@@ -461,8 +461,10 @@
     "noMore": "No more data",
     "noMoreFiltered": "No more data",
     "loading": "Loading...",
-    "older": "Before",
-    "newer": "After"
+    "loadingMore": "Loading more...",
+    "loadMoreFailed": "Could not load more",
+    "retry": "Retry",
+    "allLoaded": "You're all caught up"
   },
   "dateTime": {
     "justNow": "Just now",

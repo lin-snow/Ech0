@@ -20,9 +20,7 @@ const echo = (
   private: false,
   user_id: 'u1',
   reactions:
-    reactionCount > 0
-      ? [{ key: 'like', emoji: '👍', count: reactionCount, reacted: false }]
-      : [],
+    reactionCount > 0 ? [{ key: 'like', emoji: '👍', count: reactionCount, reacted: false }] : [],
   created_at: createdAt,
   echo_files: [],
   tags: [],
@@ -110,6 +108,31 @@ describe('handleStaticRequest', () => {
     )
     expect(unfiltered.data.total).toBe(5)
     expect(unfiltered.data.items).toHaveLength(5)
+  })
+
+  it('POST /api/echo/query cursor 分页续接且不重叠', async () => {
+    const first = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
+      '/api/echo/query',
+      'POST',
+      { page: 1, pageSize: 2, cursor: '' },
+    )
+    expect(first.data.items.map((item) => item.id)).toEqual(['e5', 'e4'])
+    expect(first.data.nextCursor).toBeTruthy()
+
+    const second = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
+      '/api/echo/query',
+      'POST',
+      { page: 1, pageSize: 2, cursor: first.data.nextCursor ?? '' },
+    )
+    expect(second.data.items.map((item) => item.id)).toEqual(['e3', 'e2'])
+
+    const third = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
+      '/api/echo/query',
+      'POST',
+      { page: 1, pageSize: 2, cursor: second.data.nextCursor ?? '' },
+    )
+    expect(third.data.items.map((item) => item.id)).toEqual(['e1'])
+    expect(third.data.nextCursor).toBeNull()
   })
 
   it('GET /api/echo/{id} 命中返回 Echo，未命中返回 code 0', async () => {

@@ -461,8 +461,10 @@
     "noMore": "没有更多数据了",
     "noMoreFiltered": "没有更多数据了",
     "loading": "加载中...",
-    "older": "之前",
-    "newer": "之后"
+    "loadingMore": "正在加载更多...",
+    "loadMoreFailed": "加载失败",
+    "retry": "重试",
+    "allLoaded": "已经到底了"
   },
   "dateTime": {
     "justNow": "刚刚",

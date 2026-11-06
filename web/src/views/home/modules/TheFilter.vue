@@ -124,15 +124,8 @@ const userStore = useUserStore()
 const settingStore = useSettingStore()
 const { isLogin } = storeToRefs(userStore)
 const { AgentSetting } = storeToRefs(settingStore)
-const {
-  refreshForSearch,
-  fetchCurrentPage,
-  refreshEchos,
-  resetDateRange,
-  resetVisibilityFilter,
-  removeSelectedTag,
-  ensureTagsLoaded,
-} = echoStore
+const { refreshEchos, resetDateRange, resetVisibilityFilter, removeSelectedTag, ensureTagsLoaded } =
+  echoStore
 const {
   searchingMode,
   filteredTag,
@@ -186,8 +179,7 @@ const selectedTagChips = computed(() => {
 const handleSearch = () => {
   echoStore.searchValue = searchContent.value
   if (searchingMode.value) {
-    refreshForSearch()
-    fetchCurrentPage()
+    refreshEchos()
   }
 }
 
