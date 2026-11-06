@@ -41,7 +41,7 @@
           :aria-expanded="isMenuOpen"
           aria-haspopup="menu"
           class="w-7 h-7 flex items-center justify-center bg-[var(--color-bg-surface)] ring-1 ring-[var(--color-border-subtle)] ring-inset rounded-full shadow-sm transition-shadow duration-150 hover:shadow-md focus:outline-none"
-          @pointerdown.stop="handleMenuPointerDown"
+          @pointerdown.prevent.stop="toggleMenu"
           @mousedown.prevent
           @click.stop="handleMenuClick"
         >
@@ -137,8 +137,8 @@ const isMenuOpen = computed(() => menu.value?.echo.id === props.echo.id)
 
 // Open on pointerdown: the click that follows can be lost while a virtual row
 // is recycled, but the global menu does not depend on this row's lifetime.
-let menuPointerHandled = false
-
+// Preventing the pointerdown default also keeps the button from taking focus,
+// which can otherwise scroll a partially visible row into view.
 const toggleMenu = (event: Event) => {
   if (isMenuOpen.value) {
     closeMenu()
@@ -148,16 +148,9 @@ const toggleMenu = (event: Event) => {
   if (trigger) openMenu(props.echo, trigger)
 }
 
-const handleMenuPointerDown = (event: PointerEvent) => {
-  menuPointerHandled = true
-  toggleMenu(event)
-}
-
+// Keyboard and assistive technology activation still arrives as a click with
+// detail 0; mouse/touch are handled by pointerdown above.
 const handleMenuClick = (event: MouseEvent) => {
-  if (menuPointerHandled) {
-    menuPointerHandled = false
-    return
-  }
   if (event.detail === 0) toggleMenu(event)
 }
 </script>
