@@ -463,6 +463,7 @@
     "loading": "読み込み中...",
     "loadingMore": "さらに読み込み中...",
     "loadMoreFailed": "読み込みに失敗しました",
+    "loadFailed": "タイムラインを読み込めませんでした",
     "retry": "再試行",
     "allLoaded": "最後まで表示しました"
   },

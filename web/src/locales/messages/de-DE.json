@@ -463,6 +463,7 @@
     "loading": "Wird geladen…",
     "loadingMore": "Weitere werden geladen…",
     "loadMoreFailed": "Weitere Daten konnten nicht geladen werden",
+    "loadFailed": "Die Zeitleiste konnte nicht geladen werden",
     "retry": "Erneut versuchen",
     "allLoaded": "Das war alles"
   },

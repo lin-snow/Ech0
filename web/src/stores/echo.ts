@@ -30,6 +30,8 @@ export const useEchoStore = defineStore('echoStore', () => {
    */
   const nextCursor = ref<string | null | undefined>(undefined)
   const loadedSignature = ref<string | null>(null)
+  /** Page size the current stream was opened with, so a first-load retry restores the same depth. */
+  const refreshPageSize = ref<number | null>(null)
   let generation = 0
 
   const searchValue = ref<string>('')
@@ -174,6 +176,8 @@ export const useEchoStore = defineStore('echoStore', () => {
 
   async function refreshEchos(initialPageSize?: number): Promise<void> {
     const requestGeneration = ++generation
+    const requestedPageSize = clampPageSize(initialPageSize ?? pageSize.value)
+    refreshPageSize.value = requestedPageSize
     hasFetched.value = true
     isLoading.value = true
     isLoadingMore.value = false
@@ -186,7 +190,7 @@ export const useEchoStore = defineStore('echoStore', () => {
     try {
       const res = await fetchQueryEchos({
         ...buildQueryParams(),
-        pageSize: clampPageSize(initialPageSize ?? pageSize.value),
+        pageSize: requestedPageSize,
         cursor: '',
       })
       if (requestGeneration !== generation) return
@@ -247,7 +251,9 @@ export const useEchoStore = defineStore('echoStore', () => {
     if (loadError.value === null) return
     loadError.value = null
     if (nextCursor.value === undefined) {
-      await refreshEchos()
+      // Re-open at the depth the timeline was mounted with: a shallow first
+      // page would drop the restored anchor row from the result set.
+      await refreshEchos(refreshPageSize.value ?? undefined)
       return
     }
     await loadMore()
@@ -257,6 +263,7 @@ export const useEchoStore = defineStore('echoStore', () => {
     generation++
     nextCursor.value = undefined
     loadedSignature.value = null
+    refreshPageSize.value = null
     loadError.value = null
     total.value = 0
     echoList.value = []

@@ -463,6 +463,7 @@
     "loading": "Loading...",
     "loadingMore": "Loading more...",
     "loadMoreFailed": "Could not load more",
+    "loadFailed": "Could not load the timeline",
     "retry": "Retry",
     "allLoaded": "You're all caught up"
   },

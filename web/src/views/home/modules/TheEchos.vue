@@ -33,7 +33,7 @@
 
     <Transition name="fade">
       <div v-if="echoStore.loadError === 'first'" class="echo-feed-status">
-        <p>{{ t('homeFeed.loadMoreFailed') }}</p>
+        <p>{{ t('homeFeed.loadFailed') }}</p>
         <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
           {{ t('homeFeed.retry') }}
         </button>
@@ -150,6 +150,7 @@ const footerLink = computed(() => SystemSetting.value.footer_link)
 
 const liveMessage = computed(() => {
   if (echoStore.isLoadingMore) return t('homeFeed.loadingMore')
+  if (echoStore.loadError === 'first') return t('homeFeed.loadFailed')
   if (echoStore.loadError === 'more') return t('homeFeed.loadMoreFailed')
   if (echoStore.echoList.length > 0 && echoStore.nextCursor === null) {
     return t('homeFeed.allLoaded')

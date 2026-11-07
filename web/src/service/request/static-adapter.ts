@@ -146,6 +146,39 @@ function decodeEchoCursor(raw: string): EchoCursor | null {
   return { createdAt, id }
 }
 
+/**
+ * Index of the first Echo strictly after the cursor in the same
+ * (created_at, id) direction the backend keyset uses. The boundary is
+ * positional, so a cursor whose Echo was deleted still resumes correctly
+ * instead of truncating the page.
+ */
+function cursorBoundary(
+  sorted: App.Api.Ech0.Echo[],
+  cursor: EchoCursor,
+  ascending: boolean,
+): number {
+  const isAfter = (echo: App.Api.Ech0.Echo): boolean => {
+    const createdAt = toUnixSeconds(echo.created_at)
+    if (createdAt !== cursor.createdAt) {
+      return ascending ? createdAt > cursor.createdAt : createdAt < cursor.createdAt
+    }
+    if (echo.id === cursor.id) return false
+    return ascending ? echo.id > cursor.id : echo.id < cursor.id
+  }
+
+  let low = 0
+  let high = sorted.length
+  while (low < high) {
+    const mid = (low + high) >>> 1
+    if (isAfter(sorted[mid]!)) {
+      high = mid
+    } else {
+      low = mid + 1
+    }
+  }
+  return low
+}
+
 function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.PaginationResult {
   const search = (body.search ?? '').trim().toLowerCase()
   const tagIds = (body.tagIds ?? []).filter((id) => typeof id === 'string' && id !== '')
@@ -183,9 +216,10 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
     }
     const delta = toUnixSeconds(a.created_at) - toUnixSeconds(b.created_at)
     if (delta !== 0) return ascending ? delta : -delta
-    // Keep the tiebreak identical to the backend keyset order.
+    // Backend order is `ORDER BY created_at <dir>, id <dir>`: the tiebreaker
+    // follows the same direction, and keyset pagination depends on it.
     if (a.id === b.id) return 0
-    return (ascending ? a.id > b.id : a.id < b.id) ? -1 : 1
+    return (ascending ? a.id < b.id : a.id > b.id) ? -1 : 1
   })
 
   const rawPageSize = Number(body.pageSize)
@@ -207,15 +241,7 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
       if (!cursor) {
         return { items: [], total: sorted.length, nextCursor: null }
       }
-      const index = sorted.findIndex((echo) => {
-        const createdAt = toUnixSeconds(echo.created_at)
-        if (createdAt !== cursor.createdAt) {
-          return ascending ? createdAt > cursor.createdAt : createdAt < cursor.createdAt
-        }
-        if (echo.id === cursor.id) return false
-        return ascending ? echo.id > cursor.id : echo.id < cursor.id
-      })
-      start = index >= 0 ? index : sorted.length
+      start = cursorBoundary(sorted, cursor, ascending)
     }
 
     const items = sorted.slice(start, start + pageSize)

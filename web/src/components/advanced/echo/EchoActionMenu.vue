@@ -3,6 +3,7 @@
 <template>
   <div ref="rootEl" class="relative flex items-center justify-center mr-2">
     <button
+      ref="triggerEl"
       type="button"
       :aria-label="t('echoCard.moreActions')"
       :aria-expanded="open"
@@ -14,39 +15,47 @@
       <More class="w-5 h-5" />
     </button>
 
-    <transition
-      enter-active-class="transition-opacity duration-100 ease-out"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition-opacity duration-75 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="open"
-        class="absolute right-0 top-full z-50 mt-2 w-36 rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] ring-1 ring-[var(--color-border-subtle)] shadow-[var(--shadow-md)] p-1"
-        role="menu"
+    <!-- Teleported on purpose: every virtual row is its own stacking context
+         (transform) and the timeline scroller clips its overflow, so an in-row
+         popover is painted underneath the next row and cut off at the viewport
+         edge. Fixed coordinates are measured from the trigger when opening. -->
+    <Teleport to="body">
+      <transition
+        enter-active-class="transition-opacity duration-100 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-75 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
       >
         <div
-          v-if="echo.private"
-          class="flex items-center gap-1.5 px-2 pt-1 pb-1.5 text-[var(--color-text-muted)]"
+          v-if="open"
+          ref="panelEl"
+          :style="panelStyle"
+          class="fixed z-5000 w-36 rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] ring-1 ring-[var(--color-border-subtle)] shadow-[var(--shadow-md)] p-1"
+          role="menu"
         >
-          <Lock class="w-3 h-3" />
-          <span class="text-[10px] font-semibold tracking-[0.08em] uppercase">
-            {{ t('echoCard.privateStatus') }}
-          </span>
-        </div>
+          <div
+            v-if="echo.private"
+            class="flex items-center gap-1.5 px-2 pt-1 pb-1.5 text-[var(--color-text-muted)]"
+          >
+            <Lock class="w-3 h-3" />
+            <span class="text-[10px] font-semibold tracking-[0.08em] uppercase">
+              {{ t('echoCard.privateStatus') }}
+            </span>
+          </div>
 
-        <button type="button" class="menu-row" role="menuitem" @click="onUpdate">
-          <EditEcho class="w-3.5 h-3.5 shrink-0" />
-          <span>{{ t('echoCard.update') }}</span>
-        </button>
-        <button type="button" class="menu-row menu-row--danger" role="menuitem" @click="onDelete">
-          <Roll class="w-3.5 h-3.5 shrink-0" />
-          <span>{{ t('echoCard.delete') }}</span>
-        </button>
-      </div>
-    </transition>
+          <button type="button" class="menu-row" role="menuitem" @click="onUpdate">
+            <EditEcho class="w-3.5 h-3.5 shrink-0" />
+            <span>{{ t('echoCard.update') }}</span>
+          </button>
+          <button type="button" class="menu-row menu-row--danger" role="menuitem" @click="onDelete">
+            <Roll class="w-3.5 h-3.5 shrink-0" />
+            <span>{{ t('echoCard.delete') }}</span>
+          </button>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
@@ -59,7 +68,7 @@ const openMenuId = vueRef<string | null>(null)
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import EditEcho from '@/components/icons/editecho.vue'
@@ -85,7 +94,39 @@ const { openConfirm } = useBaseDialog()
 const { t } = useI18n()
 
 const rootEl = ref<HTMLElement | null>(null)
+const triggerEl = ref<HTMLElement | null>(null)
+const panelEl = ref<HTMLElement | null>(null)
 const open = computed(() => openMenuId.value === props.echo.id)
+
+const PANEL_WIDTH = 144
+const PANEL_GAP = 8
+const VIEWPORT_INSET = 8
+
+// The panel has not mounted yet when the first style is written; a per-shape
+// estimate keeps the opening frame in the right place, then the measured height
+// refines it (and decides the flip).
+const estimatedPanelHeight = () => (props.echo.private ? 92 : 68)
+
+const panelStyle = ref({ top: '0px', right: '0px' })
+
+const placePanel = (fallbackHeight: number) => {
+  const trigger = triggerEl.value
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
+  const width = panelEl.value?.offsetWidth || PANEL_WIDTH
+  const height = panelEl.value?.offsetHeight || fallbackHeight
+  // Right-align with the trigger, then clamp inside the viewport.
+  const right = Math.min(
+    Math.max(VIEWPORT_INSET, window.innerWidth - rect.right),
+    Math.max(VIEWPORT_INSET, window.innerWidth - width - VIEWPORT_INSET),
+  )
+  const below = rect.bottom + PANEL_GAP
+  const top =
+    below + height > window.innerHeight - VIEWPORT_INSET
+      ? Math.max(VIEWPORT_INSET, rect.top - PANEL_GAP - height)
+      : below
+  panelStyle.value = { top: `${Math.round(top)}px`, right: `${Math.round(right)}px` }
+}
 
 const close = () => {
   if (open.value) openMenuId.value = null
@@ -94,7 +135,8 @@ const close = () => {
 const onOutside = (event: PointerEvent) => {
   if (!open.value) return
   const target = event.target as Node | null
-  if (target && rootEl.value?.contains(target)) return
+  if (!target) return
+  if (rootEl.value?.contains(target) || panelEl.value?.contains(target)) return
   close()
 }
 
@@ -105,11 +147,17 @@ const onKeydown = (event: KeyboardEvent) => {
 const bind = () => {
   document.addEventListener('pointerdown', onOutside)
   document.addEventListener('keydown', onKeydown)
+  window.addEventListener('resize', close)
+  // A fixed panel stops tracking its trigger on scroll; closing is the only
+  // honest option, and scrolling while a menu is open is a dismiss gesture.
+  window.addEventListener('scroll', close, { capture: true, passive: true })
 }
 
 const unbind = () => {
   document.removeEventListener('pointerdown', onOutside)
   document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('resize', close)
+  window.removeEventListener('scroll', close, { capture: true })
 }
 
 const toggle = () => {
@@ -120,7 +168,12 @@ watch(
   open,
   (value) => {
     unbind()
-    if (value) bind()
+    if (!value) return
+    placePanel(estimatedPanelHeight())
+    void nextTick(() => {
+      if (open.value) placePanel(estimatedPanelHeight())
+    })
+    bind()
   },
   { immediate: true },
 )

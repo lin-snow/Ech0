@@ -118,12 +118,16 @@ const restoreAnchor = () => {
 }
 
 // ---------------------------------------------------------------------------
-// Anchor persistence (debounced to one write per scroll gesture)
+// Anchor persistence (throttled to at most one write per 150 ms)
 // ---------------------------------------------------------------------------
 
 let anchorTimer: number | null = null
 
 const persistAnchor = () => {
+  // Content above the list can change height without a resize (onboarding
+  // cards, banners); refresh the origin before reading rows so the visible
+  // range and the stored offset are not computed from a stale margin.
+  updateScrollMargin()
   const rows = virtualizer.value.getVirtualItems()
   if (!rows.length) return
   const scroll = readScroll()
@@ -174,8 +178,20 @@ const onResize = () => {
   }, 150)
 }
 
+// Cards/banners above the list collapse without a window resize; the list's
+// parent resizes with them, which is the cheapest signal for a new origin.
+let layoutObserver: ResizeObserver | null = null
+const observeLayout = () => {
+  const parent = listEl.value?.parentElement
+  if (!parent || typeof ResizeObserver === 'undefined') return
+  layoutObserver?.disconnect()
+  layoutObserver = new ResizeObserver(() => updateScrollMargin())
+  layoutObserver.observe(parent)
+}
+
 onMounted(async () => {
   updateScrollMargin()
+  observeLayout()
   bindScroll()
   window.addEventListener('pagehide', flushPersist)
   window.addEventListener('resize', onResize, { passive: true })
@@ -188,6 +204,8 @@ onBeforeUnmount(() => {
   scrollBoundTo?.removeEventListener('scroll', schedulePersist)
   window.removeEventListener('pagehide', flushPersist)
   window.removeEventListener('resize', onResize)
+  layoutObserver?.disconnect()
+  layoutObserver = null
   if (resizeTimer !== null) window.clearTimeout(resizeTimer)
   if (anchorTimer !== null) window.clearTimeout(anchorTimer)
 })

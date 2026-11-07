@@ -100,6 +100,21 @@ describe('echoStore cursor stream', () => {
     expect(store.echoList.map((item) => item.id)).toEqual(['a'])
   })
 
+  it('retries a failed deep first page at the depth it was opened with', async () => {
+    queryMock.mockResolvedValueOnce({ code: 0, msg: 'boom', data: null })
+    const store = useEchoStore()
+    await store.refreshEchos(21)
+    expect(store.loadError).toBe('first')
+
+    queryMock.mockResolvedValueOnce(page(['a'], 21, null))
+    await store.retryLoad()
+
+    expect(queryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, pageSize: 21, cursor: '' }),
+    )
+    expect(store.loadError).toBeNull()
+  })
+
   it('removes a deleted echo locally without resetting the stream', async () => {
     queryMock.mockResolvedValueOnce(page(['a', 'b'], 2, 'cursor-1'))
     const store = useEchoStore()
