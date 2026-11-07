@@ -29,6 +29,7 @@ Login modes, profiles and CI: [references/auth.md](references/auth.md).
 ```bash
 # Read the timeline, one Echo, or a curated view
 ech0 echo list --page 1 --page-size 20 --json
+ech0 echo list --cursor "" --page-size 50 --json        # keyset paging: then pass data.nextCursor
 ech0 echo list --search daily --sort-by reactions --json
 ech0 echo list --tag-ids <tag_id> --no-private --json   # public only
 ech0 echo get --id <echo_id> --json

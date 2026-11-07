@@ -31,6 +31,7 @@ const CATALOG = {
         properties: {
           page: { type: "integer", description: "Page number, 1-based (default 1)" },
           pageSize: { type: "integer", description: "Items per page, 1-100 (default 10)" },
+          cursor: { type: "string", description: "Keyset pagination cursor; empty string for the first page" },
           search: { type: "string" },
           tagIds: { type: ["array", "null"], items: { type: "string" } },
           sortBy: { type: "string", enum: ["created_at", "reactions"], description: "Sort field" },
@@ -41,6 +42,7 @@ const CATALOG = {
       bind: {
         page: "body",
         pageSize: "body",
+        cursor: "body",
         search: "body",
         tagIds: "body",
         sortBy: "body",
@@ -92,6 +94,13 @@ describe("echo query flags", () => {
   test("distinguishes an omitted boolean from false", async () => {
     expect(await valuesFor(["echo", "list"])).toEqual({});
     expect(await valuesFor(["echo", "list", "--no-private"])).toEqual({ private: false });
+  });
+
+  test("passes the cursor through, including the empty first-page value", async () => {
+    expect(await valuesFor(["echo", "list", "--cursor", ""])).toEqual({ cursor: "" });
+    expect(await valuesFor(["echo", "list", "--cursor", "v1:1700000000:abc"])).toEqual({
+      cursor: "v1:1700000000:abc",
+    });
   });
 
   test("rejects non-numeric values instead of sending null", async () => {
