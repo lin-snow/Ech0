@@ -11,17 +11,31 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ### Added
 
-- **The home timeline scrolls continuously.** `POST /api/echo/query` now accepts an optional `cursor`: omit it for the unchanged page-based mode, send `""` for the first keyset page, then echo the previous response's `nextCursor`. Page-mode responses stay byte-identical. Ordering now includes the Echo id, so posts sharing a `created_at` second can no longer shuffle between pages, and keyset continuation stays stable while new posts arrive. The web feed replaces the Older/Newer pager with a sentinel that loads more near the viewport, restores the loaded depth and scroll position on reload, and patches edits/deletes in place instead of resetting to the top.
+- **The home timeline scrolls continuously.** `POST /api/echo/query` now accepts an optional `cursor`: omit it for the unchanged page-based mode, send `""` for the first keyset page, then echo the previous response's `nextCursor`. Page-mode responses stay byte-identical. Ordering now includes the Echo id, so posts sharing a `created_at` second can no longer shuffle between pages, repeat, or be skipped, and keyset continuation stays stable while new posts arrive; the static adapter behind capsule deployments applies the same direction-aware tiebreaker and resumes past a deleted cursor row. Cursor mode only supports `sort_by=created_at`, and an unreadable or overlong cursor is a `400` instead of a silent restart from the top. The web feed replaces the Older/Newer pager with a sentinel that loads more near the viewport, restores the loaded depth and scroll position on reload, patches edits/deletes in place instead of resetting to the top, and appends pages behind the shared loading indicator instead of a skeleton placeholder. The `ech0` CLI passes the same flag through (`ech0 echo list --cursor ""`), and its help, bundled skill and generated types document the empty first page.
 
 ### Changed
 
-- **Timeline rows are virtualized.** Only the visible window (plus a small overscan) stays mounted, so a deep scroll no longer grows the DOM without bound. Cards outside the window unmount, which means audio/video playback stops when scrolled away and the old per-card enter/leave animations are gone. The scroll position is stored as a `{echoId, offset}` anchor rather than a pixel value, because virtualized rows estimate heights until they are measured.
+- **Timeline rows are virtualized.** Only the visible window (plus a small overscan) stays mounted, so a deep scroll no longer grows the DOM without bound. Cards outside the window unmount, which means audio/video playback stops when scrolled away and the old per-card enter/leave animations are gone. The scroll position is stored as an `{echoId, offset}` anchor in `sessionStorage` rather than a pixel value, because virtualized rows estimate heights until they are measured; a reload restores the first visible Echo to the same offset, and card Markdown paints its final line boxes on the first frame so late rendering cannot move the anchor.
+
+- **The timeline's chrome follows the rows.** The action menu is teleported to `body` and positioned from its trigger with fixed coordinates — each virtual row is its own stacking context and the scroller clips overflow, so an in-row popover was painted under the next card and Delete on a short Echo hit the wrong one. It flips above the trigger near the viewport bottom, closes on scroll, resize and route change, only one row's menu can be open, and the trigger suppresses mouse focus so clicking it cannot scroll a partly visible row into view. The desktop scroller hides its scrollbar, so nothing along the right edge can be grabbed or mis-tapped.
 
 - **The hub is read-only.** The explore feed no longer renders a reaction bar: the hub does not write to instances it does not own, so it never depends on their CORS allowlist knowing about `X-Ech0-Visitor`. Reacting happens on the post's own instance, which the card already links to.
 
 ### Fixed
 
+- **The reaction pill opens and closes in one tap.** Opening used to move focus to the first emoji, so WebKit matched `:focus-visible` and painted an accent ring for every touch open, and the toggle waited for the click that trails a pointer gesture — a home-screen web app drops that click after `touchend`, so the guard stayed set and closing took two taps. It now toggles on `pointerdown`, swallows only the trailing click, and focuses the first emoji only when the keyboard opened the bar.
+
+- **Choosing Update on another Echo asks before discarding the edit.** It used to scroll the window to the top and return without loading the selected Echo, which read as a no-op. The confirm now keeps the feed position when cancelled, and the unused "please exit update mode first" string is gone.
+
+- **The PWA title and status bar follow the app theme, not the OS.** The shell split `theme-color` into a `prefers-color-scheme` pair, but the runtime sync rewrote only the first tag, so a dark-mode phone with the light app theme kept a grey `#333333` chrome. The saved theme is now resolved before the first paint, one `theme-color` tag stays in sync, and the choice is mirrored onto `color-scheme` so native scrollbars and form controls no longer follow the device.
+
+- **Wide ordered-list markers are no longer clipped.** Markers render in the list's padding area and the Echo Markdown container clips at its padding edge, so entries such as "100." lost their period; ordered lists now reserve room for the widest marker.
+
 - **The hub feed loads from every listed instance again.** Its cross-origin `POST /api/echo/query` carried `X-Ech0-Visitor` and an empty `sortBy`: instances whose CORS allowlist predates the header (everything below 5.9.5) rejected the preflight outright, and 5.9.x answered `422` for the empty sort field, so most of the directory rendered "nothing here yet". The request is now a plain JSON POST — no identity, no custom headers — with `sortBy` omitted when it means the default.
+
+### Internal
+
+- **The home feed is one virtualized list.** `web/src/views/home/modules/EchoTimelineList.vue` owns measurement, anchor persistence (at most one `sessionStorage` write per 150 ms) and the single-offset restore through TanStack Virtual; `useInfiniteScroll` drives pagination from a sentinel and rebuilds its observer when the layout breakpoint moves scrolling between the window and the inner scroller. Timeline helpers live in `utils/timeline.ts`, and the generated CLI API types were synced with the new `cursor`/`nextCursor` fields.
 
 ## [5.9.5] - 2026-11-05
 
@@ -1007,7 +1021,13 @@ This is primarily a security release: six advisories disclosed since v4.7.2 are 
 
   Practical risk in this repo was negligible (the vulnerable code only runs at PWA build time on developer-controlled input), but the alerts are now resolved at the supply-chain level.
 
-[Unreleased]: https://github.com/lin-snow/Ech0/compare/v5.8.3...HEAD
+[Unreleased]: https://github.com/lin-snow/Ech0/compare/v5.9.5...HEAD
+[5.9.5]: https://github.com/lin-snow/Ech0/compare/v5.9.4...v5.9.5
+[5.9.4]: https://github.com/lin-snow/Ech0/compare/v5.9.3...v5.9.4
+[5.9.3]: https://github.com/lin-snow/Ech0/compare/v5.9.2...v5.9.3
+[5.9.2]: https://github.com/lin-snow/Ech0/compare/v5.9.1...v5.9.2
+[5.9.1]: https://github.com/lin-snow/Ech0/compare/v5.9.0...v5.9.1
+[5.9.0]: https://github.com/lin-snow/Ech0/compare/v5.8.3...v5.9.0
 [5.8.3]: https://github.com/lin-snow/Ech0/compare/v5.8.2...v5.8.3
 [5.5.0]: https://github.com/lin-snow/Ech0/compare/v5.4.7...v5.5.0
 [5.4.7]: https://github.com/lin-snow/Ech0/compare/v5.4.6...v5.4.7
