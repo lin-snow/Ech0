@@ -256,6 +256,7 @@ onBeforeUnmount(() => {
     min-height: 0;
     align-self: stretch;
     overflow-y: auto;
+
     /* No visible scrollbar: scrolling stays wheel/touch/keyboard-driven and
        nothing near the right edge can be mis-grabbed. */
     scrollbar-width: none;

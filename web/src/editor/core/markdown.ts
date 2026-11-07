@@ -250,10 +250,7 @@ export function renderMarkdownSync(source: string, labels?: MarkdownLabels): str
   return html
 }
 
-export async function renderMarkdown(
-  source: string,
-  labels?: MarkdownLabels,
-): Promise<string> {
+export async function renderMarkdown(source: string, labels?: MarkdownLabels): Promise<string> {
   if (!source) return ''
   const resolved = resolveLabels(source, labels)
   const cached = getFromRenderCache(resolved.cacheKey)
