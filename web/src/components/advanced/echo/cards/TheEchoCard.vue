@@ -34,20 +34,7 @@
         <Lock class="w-4 h-4" />
       </div>
 
-      <div v-else-if="userStore.isLogin" class="relative flex items-center justify-center">
-        <button
-          type="button"
-          :aria-label="t('echoCard.moreActions')"
-          :aria-expanded="isMenuOpen"
-          aria-haspopup="menu"
-          class="w-7 h-7 flex items-center justify-center bg-[var(--color-bg-surface)] ring-1 ring-[var(--color-border-subtle)] ring-inset rounded-full shadow-sm transition-shadow duration-150 hover:shadow-md focus:outline-none"
-          @pointerdown.prevent.stop="toggleMenu"
-          @mousedown.prevent
-          @click.stop="handleMenuClick"
-        >
-          <More class="w-5 h-5" />
-        </button>
-      </div>
+      <EchoActionMenu v-else-if="userStore.isLogin" :echo="props.echo" />
     </div>
 
     <div class="timeline-content">
@@ -93,13 +80,12 @@ import { computed, defineAsyncComponent } from 'vue'
 import { useUserStore } from '@/stores'
 import { TheMdPreview } from '@/components/advanced/md'
 import Lock from '@/components/icons/lock.vue'
-import More from '@/components/icons/more.vue'
 import Open from '@/components/icons/open.vue'
 import { useRouter } from 'vue-router'
 import { getEchoFilesBy, isContentLeadingEcho } from '@/utils/echo'
 import { formatDate } from '@/utils/other'
-import { useEchoMenu } from '@/composables/useEchoMenu'
 import { useI18n } from 'vue-i18n'
+import EchoActionMenu from '@/components/advanced/echo/EchoActionMenu.vue'
 
 const TheMediaPlayer = defineAsyncComponent(
   () => import('@/components/advanced/media/TheMediaPlayer.vue'),
@@ -108,7 +94,6 @@ const TheExtensionRenderer = defineAsyncComponent(
   () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
 )
 
-const { menu, openMenu, closeMenu } = useEchoMenu()
 const { t } = useI18n()
 
 type Echo = App.Api.Ech0.Echo
@@ -132,27 +117,6 @@ const handleExpandEcho = (echoId: string) => {
     params: { echoId: echoId },
   })
 }
-
-const isMenuOpen = computed(() => menu.value?.echo.id === props.echo.id)
-
-// Open on pointerdown: the click that follows can be lost while a virtual row
-// is recycled, but the global menu does not depend on this row's lifetime.
-// Preventing the pointerdown default also keeps the button from taking focus,
-// which can otherwise scroll a partially visible row into view.
-const toggleMenu = (event: Event) => {
-  if (isMenuOpen.value) {
-    closeMenu()
-    return
-  }
-  const trigger = event.currentTarget as HTMLElement | null
-  if (trigger) openMenu(props.echo, trigger)
-}
-
-// Keyboard and assistive technology activation still arrives as a click with
-// detail 0; mouse/touch are handled by pointerdown above.
-const handleMenuClick = (event: MouseEvent) => {
-  if (event.detail === 0) toggleMenu(event)
-}
 </script>
 
 <style scoped lang="css">
@@ -160,7 +124,6 @@ const handleMenuClick = (event: MouseEvent) => {
   position: relative;
   z-index: 1;
   background-color: var(--color-bg-canvas);
-  overflow: hidden;
 }
 
 .echo-timeline {

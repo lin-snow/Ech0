@@ -32,11 +32,7 @@
             <template v-else-if="activeTab === 'home'">
               <HomeBanner :class="{ 'home-banner--mobile-hidden': shouldHideBannerOnMobile }" />
 
-              <TheEchos
-                compact
-                :scroll-target="mainColumn"
-                :layout-key="mobileSearchOpen ? 'mobile-search-open' : 'mobile-search-closed'"
-              />
+              <TheEchos compact :scroll-target="mainColumn" />
             </template>
 
             <div v-else-if="activeTab === 'status'" class="home-content-block home-status-widgets">
@@ -156,7 +152,6 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
 const prefetchHeavyChunks = () => {
   const trigger = () => {
     import('@/views/echo/EchoView.vue').catch(() => {})
-    import('@/editor/core/markdown').catch(() => {})
   }
   const ric = (window as Window & { requestIdleCallback?: typeof requestIdleCallback })
     .requestIdleCallback
@@ -189,7 +184,6 @@ onBeforeUnmount(() => {
   min-height: 100dvh;
   background: var(--home-canvas);
   color: var(--color-text-primary);
-  overflow-anchor: none;
 }
 
 @media (width >= 820px) {
@@ -262,12 +256,17 @@ onBeforeUnmount(() => {
     min-height: 0;
     align-self: stretch;
     overflow-y: auto;
-    overflow-anchor: none;
-    scrollbar-gutter: stable;
+    /* No visible scrollbar: scrolling stays wheel/touch/keyboard-driven and
+       nothing near the right edge can be mis-grabbed. */
+    scrollbar-width: none;
     overscroll-behavior: contain;
     flex: 0 1 var(--home-main-max);
     max-width: var(--home-main-max);
     padding: 1.5rem 0 2rem;
+  }
+
+  .home-main::-webkit-scrollbar {
+    display: none;
   }
 
   .home-main--unclipped {

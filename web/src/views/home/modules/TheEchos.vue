@@ -8,13 +8,21 @@
     <TheOnboardingChecklist v-if="showChecklist" />
     <TheFirstEchoCard v-if="showFirstEchoCard" @dismiss="dismissFirstEchoCard" />
 
+    <EchoFlowList
+      v-if="scrollModeReady && useFlowList"
+      :key="`flow-${useWindowScroll ? 'window' : 'element'}`"
+      :items="echoStore.echoList"
+      :scroll-target="scrollTarget ?? null"
+      :use-window="useWindowScroll"
+      @anchor-change="persistAnchor"
+    />
+
     <EchoTimelineList
-      v-if="scrollModeReady && echoStore.echoList.length > 0"
+      v-else-if="scrollModeReady && echoStore.echoList.length > 0"
       :key="useWindowScroll ? 'window' : 'element'"
       :items="echoStore.echoList"
       :scroll-target="scrollTarget ?? null"
       :use-window="useWindowScroll"
-      :layout-key="resolvedLayoutKey"
       :aria-busy="echoStore.isLoadingMore"
       @anchor-change="persistAnchor"
     />
@@ -87,6 +95,7 @@
 </template>
 
 <script setup lang="ts">
+import EchoFlowList from './EchoFlowList.vue'
 import EchoTimelineList from './EchoTimelineList.vue'
 import TheFirstEchoCard from './TheFirstEchoCard.vue'
 import TheOnboardingChecklist from './TheOnboardingChecklist.vue'
@@ -107,7 +116,6 @@ import { useRoute, useRouter } from 'vue-router'
 const props = defineProps<{
   scrollTarget?: HTMLElement | null
   compact?: boolean
-  layoutKey?: string
 }>()
 
 const echoStore = useEchoStore()
@@ -117,7 +125,7 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const { SystemSetting } = storeToRefs(settingStore)
-const { isFilteringMode, hasActiveQuery, searchingMode } = storeToRefs(echoStore)
+const { isFilteringMode, hasActiveQuery } = storeToRefs(echoStore)
 const { isLogin } = storeToRefs(userStore)
 
 const firstEchoSeen = ref(localStg.getItem<boolean>(FIRST_ECHO_CARD_SEEN_KEY) === true)
@@ -162,25 +170,30 @@ const liveMessage = computed(() => {
   return ''
 })
 
-const persistAnchor = (anchor: TimelineAnchor) => {
+const persistAnchor = (anchor: TimelineAnchor | null) => {
+  // null means nothing to restore (scrolled above the list): clear so a
+  // refresh from there stays at the top instead of jumping back.
+  if (!anchor) {
+    sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
+    return
+  }
   sessionStorage.setItem(HOME_TIMELINE_ANCHOR_KEY, serializeTimelineAnchor(anchor))
 }
+
+// Feeds that comfortably fit in memory render as plain document flow — the
+// simplest, jitter-free path. Only genuinely large feeds pay for
+// virtualization (estimates, measurement passes, scroll compensation).
+const FLOW_FEED_LIMIT = 60
+const useFlowList = computed(() => {
+  const total = echoStore.total || echoStore.echoList.length
+  return total > 0 && total <= FLOW_FEED_LIMIT
+})
 
 const useWindowScroll = ref(true)
 const scrollModeReady = ref(false)
 const syncScrollMode = () => {
   useWindowScroll.value = !isScrollableElement(props.scrollTarget ?? null)
 }
-
-const resolvedLayoutKey = computed(() =>
-  [
-    props.layoutKey ?? '',
-    showChecklist.value,
-    showFirstEchoCard.value,
-    searchingMode.value,
-    isFilteringMode.value,
-  ].join('|'),
-)
 
 const sentinel = ref<HTMLElement | null>(null)
 useInfiniteScroll({

@@ -178,37 +178,92 @@ markdown.renderer.rules.link_open = (...args: Parameters<LinkOpenRule>) => {
   return originalLinkOpen(tokens, idx, options, env, self)
 }
 
-export async function renderMarkdown(
-  source: string,
-  labels?: {
-    expandLabel?: string
-    collapseLabel?: string
-    copyLabel?: string
-    copiedLabel?: string
-    taskCheckboxLabel?: string
-  },
-): Promise<string> {
-  if (!source) return ''
+export type MarkdownLabels = {
+  expandLabel?: string
+  collapseLabel?: string
+  copyLabel?: string
+  copiedLabel?: string
+  taskCheckboxLabel?: string
+}
+
+type ResolvedLabels = {
+  cacheKey: string
+  expandLabel: string
+  collapseLabel: string
+  copyLabel: string
+  copiedLabel: string
+  taskCheckboxLabel: string
+}
+
+function resolveLabels(source: string, labels?: MarkdownLabels): ResolvedLabels {
   const expandLabel = escapeHtml(String(labels?.expandLabel || 'Expand'))
   const collapseLabel = escapeHtml(String(labels?.collapseLabel || 'Collapse'))
   const copyLabel = escapeHtml(String(labels?.copyLabel || 'Copy'))
   const copiedLabel = escapeHtml(String(labels?.copiedLabel || 'Copied'))
   const taskCheckboxLabel = escapeHtml(String(labels?.taskCheckboxLabel || 'Task item'))
-  const cacheKey = `${source}\u241f${expandLabel}\u241f${collapseLabel}\u241f${copyLabel}\u241f${copiedLabel}\u241f${taskCheckboxLabel}`
-  const cached = getFromRenderCache(cacheKey)
+  return {
+    expandLabel,
+    collapseLabel,
+    copyLabel,
+    copiedLabel,
+    taskCheckboxLabel,
+    cacheKey: `${source}\u241f${expandLabel}\u241f${collapseLabel}\u241f${copyLabel}\u241f${copiedLabel}\u241f${taskCheckboxLabel}`,
+  }
+}
+
+function renderHtml(source: string, labels: ResolvedLabels): string {
+  return markdown
+    .render(source)
+    .replaceAll(EXPAND_PLACEHOLDER, labels.expandLabel)
+    .replaceAll(COLLAPSE_PLACEHOLDER, labels.collapseLabel)
+    .replaceAll(COPY_PLACEHOLDER, labels.copyLabel)
+    .replaceAll(COPIED_PLACEHOLDER, labels.copiedLabel)
+    .replaceAll(TASK_CHECKBOX_LABEL_PLACEHOLDER, labels.taskCheckboxLabel)
+}
+
+/** Whether the source contains fenced code that wants the lazy highlighter. */
+export function needsHighlight(source: string): boolean {
+  return CODE_FENCE_RE.test(source)
+}
+
+export function isHighlighterReady(): boolean {
+  return hljsInstance !== null
+}
+
+/**
+ * Renders without waiting for the lazy highlighter chunk. Markdown layout is
+ * identical with or without highlighting (only spans change), so callers can
+ * paint the final line boxes immediately and swap in the coloured HTML later.
+ * Un-highlighted fenced code is deliberately not cached so the async pass can
+ * still fill the shared cache with the highlighted version.
+ */
+export function renderMarkdownSync(source: string, labels?: MarkdownLabels): string {
+  if (!source) return ''
+  const resolved = resolveLabels(source, labels)
+  const cached = getFromRenderCache(resolved.cacheKey)
   if (cached) return cached
 
-  if (CODE_FENCE_RE.test(source)) {
+  const html = renderHtml(source, resolved)
+  if (!needsHighlight(source) || hljsInstance) {
+    setRenderCache(resolved.cacheKey, html)
+  }
+  return html
+}
+
+export async function renderMarkdown(
+  source: string,
+  labels?: MarkdownLabels,
+): Promise<string> {
+  if (!source) return ''
+  const resolved = resolveLabels(source, labels)
+  const cached = getFromRenderCache(resolved.cacheKey)
+  if (cached) return cached
+
+  if (needsHighlight(source)) {
     await ensureHighlighter()
   }
 
-  const rendered = markdown.render(source)
-  const finalHtml = rendered
-    .replaceAll(EXPAND_PLACEHOLDER, expandLabel)
-    .replaceAll(COLLAPSE_PLACEHOLDER, collapseLabel)
-    .replaceAll(COPY_PLACEHOLDER, copyLabel)
-    .replaceAll(COPIED_PLACEHOLDER, copiedLabel)
-    .replaceAll(TASK_CHECKBOX_LABEL_PLACEHOLDER, taskCheckboxLabel)
-  setRenderCache(cacheKey, finalHtml)
-  return finalHtml
+  const html = renderHtml(source, resolved)
+  setRenderCache(resolved.cacheKey, html)
+  return html
 }

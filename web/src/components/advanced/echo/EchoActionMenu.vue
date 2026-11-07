@@ -1,24 +1,34 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <Teleport to="body">
+  <div ref="rootEl" class="relative flex items-center justify-center mr-2">
+    <button
+      type="button"
+      :aria-label="t('echoCard.moreActions')"
+      :aria-expanded="open"
+      aria-haspopup="menu"
+      class="w-7 h-7 flex items-center justify-center bg-[var(--color-bg-surface)] ring-1 ring-[var(--color-border-subtle)] ring-inset rounded-full shadow-sm transition-shadow duration-150 hover:shadow-md focus:outline-none"
+      @mousedown.prevent
+      @click.stop="toggle"
+    >
+      <More class="w-5 h-5" />
+    </button>
+
     <transition
-      enter-active-class="transition duration-150 ease-out"
-      enter-from-class="opacity-0 scale-95"
-      enter-to-class="opacity-100 scale-100"
-      leave-active-class="transition duration-100 ease-in"
-      leave-from-class="opacity-100 scale-100"
-      leave-to-class="opacity-0 scale-95"
+      enter-active-class="transition-opacity duration-100 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-75 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
     >
       <div
-        v-if="menu"
-        ref="panelEl"
-        :style="{ top: `${menu.top}px`, right: `${menu.right}px` }"
-        class="fixed z-5000 w-36 origin-top-right rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] ring-1 ring-[var(--color-border-subtle)] shadow-[var(--shadow-md)] p-1"
+        v-if="open"
+        class="absolute right-0 top-full z-50 mt-2 w-36 rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] ring-1 ring-[var(--color-border-subtle)] shadow-[var(--shadow-md)] p-1"
         role="menu"
       >
         <div
-          v-if="menu.echo.private"
+          v-if="echo.private"
           class="flex items-center gap-1.5 px-2 pt-1 pb-1.5 text-[var(--color-text-muted)]"
         >
           <Lock class="w-3 h-3" />
@@ -37,7 +47,7 @@
         </button>
       </div>
     </transition>
-  </Teleport>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -46,73 +56,72 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import EditEcho from '@/components/icons/editecho.vue'
 import Lock from '@/components/icons/lock.vue'
+import More from '@/components/icons/more.vue'
 import Roll from '@/components/icons/roll.vue'
 import { useEchoActions } from '@/composables/useEchoActions'
-import { useEchoMenu } from '@/composables/useEchoMenu'
 
-const { menu, closeMenu, canCloseOnScroll } = useEchoMenu()
+type Echo = App.Api.Ech0.Echo
+
+const props = defineProps<{
+  echo: Echo
+}>()
+
 const { updateEcho, deleteEcho } = useEchoActions()
 const { t } = useI18n()
 const route = useRoute()
-const panelEl = ref<HTMLElement | null>(null)
 
-watch(
-  () => route.fullPath,
-  () => closeMenu(),
-)
+const rootEl = ref<HTMLElement | null>(null)
+const open = ref(false)
+
+const close = () => {
+  open.value = false
+}
 
 const onOutside = (event: PointerEvent) => {
   const target = event.target as Node | null
-  if (!target) return
-  if (panelEl.value?.contains(target)) return
-  closeMenu()
+  if (target && rootEl.value?.contains(target)) return
+  close()
 }
 
 const onKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') closeMenu()
-}
-
-const onResize = () => closeMenu()
-const onScroll = () => {
-  if (canCloseOnScroll()) closeMenu()
+  if (event.key === 'Escape') close()
 }
 
 const bind = () => {
   document.addEventListener('pointerdown', onOutside)
   document.addEventListener('keydown', onKeydown)
-  window.addEventListener('resize', onResize)
-  // Scroll events from the inner .home-main do not bubble, but a capture
-  // listener on window sees them. The menu does not follow the row anyway.
-  window.addEventListener('scroll', onScroll, { capture: true, passive: true })
 }
 
 const unbind = () => {
   document.removeEventListener('pointerdown', onOutside)
   document.removeEventListener('keydown', onKeydown)
-  window.removeEventListener('resize', onResize)
-  window.removeEventListener('scroll', onScroll, { capture: true })
 }
 
-watch(menu, (open) => {
+const toggle = () => {
+  open.value = !open.value
+}
+
+watch(open, (value) => {
   unbind()
-  if (open) bind()
+  if (value) bind()
 })
 
-onBeforeUnmount(() => {
-  unbind()
-  closeMenu()
-})
+watch(
+  () => route.fullPath,
+  () => close(),
+)
+
+onBeforeUnmount(unbind)
 
 const onUpdate = () => {
-  const echo = menu.value?.echo
-  closeMenu()
-  if (echo) void updateEcho(echo)
+  close()
+  void updateEcho(props.echo)
 }
 
 const onDelete = () => {
-  const echoId = menu.value?.echo.id
-  closeMenu()
-  if (echoId) deleteEcho(echoId)
+  const echoId = props.echo.id
+  close()
+  deleteEcho(echoId)
 }
 </script>
 

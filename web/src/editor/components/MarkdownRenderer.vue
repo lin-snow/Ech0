@@ -12,23 +12,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { loadedMarkdown, preloadMarkdown } from '../core/loader'
+import type { MarkdownModule } from '../core/loader'
+import type { MarkdownLabels } from '../core/markdown'
 import '../styles/markdown.scss'
-
-type RenderMarkdown = (typeof import('../core/markdown'))['renderMarkdown']
-
-let renderMarkdownFn: RenderMarkdown | null = null
-let renderMarkdownPromise: Promise<RenderMarkdown> | null = null
-
-const loadRenderMarkdown = async (): Promise<RenderMarkdown> => {
-  if (renderMarkdownFn) return renderMarkdownFn
-  if (!renderMarkdownPromise) {
-    renderMarkdownPromise = import('../core/markdown').then((module) => {
-      renderMarkdownFn = module.renderMarkdown
-      return module.renderMarkdown
-    })
-  }
-  return renderMarkdownPromise
-}
 
 const props = defineProps<{
   content: string
@@ -43,31 +30,45 @@ const copyLabel = computed(() => String(t('markdown.copy')))
 const copiedLabel = computed(() => String(t('markdown.copied')))
 const taskCheckboxLabel = computed(() => String(t('markdown.taskCheckboxLabel')))
 const html = ref('')
-const rendererReady = ref(Boolean(renderMarkdownFn))
+const rendererReady = ref(false)
+let markdownCore: MarkdownModule | null = loadedMarkdown()
 let renderSequence = 0
+
+const currentLabels = (): MarkdownLabels => ({
+  expandLabel: expandLabel.value,
+  collapseLabel: collapseLabel.value,
+  copyLabel: copyLabel.value,
+  copiedLabel: copiedLabel.value,
+  taskCheckboxLabel: taskCheckboxLabel.value,
+})
 
 const renderContent = async () => {
   const currentSequence = ++renderSequence
   const content = props.content
   if (!content) {
     html.value = ''
+    rendererReady.value = true
     return
   }
 
-  const render = await loadRenderMarkdown()
-  if (currentSequence !== renderSequence) return
+  if (!markdownCore) {
+    markdownCore = await preloadMarkdown().catch(() => null)
+    if (!markdownCore || currentSequence !== renderSequence) return
+  }
 
-  const rendered = await render(content, {
-    expandLabel: expandLabel.value,
-    collapseLabel: collapseLabel.value,
-    copyLabel: copyLabel.value,
-    copiedLabel: copiedLabel.value,
-    taskCheckboxLabel: taskCheckboxLabel.value,
-  })
-  if (currentSequence !== renderSequence) return
-
+  // Paint final line boxes on the first frame: a raw-text fallback that is
+  // replaced after paint changes row height and reflows the virtual timeline.
+  const labels = currentLabels()
+  html.value = markdownCore.renderMarkdownSync(content, labels)
   rendererReady.value = true
-  html.value = rendered
+
+  if (!markdownCore.isHighlighterReady() && markdownCore.needsHighlight(content)) {
+    // The coloured swap keeps the same text and line boxes, so it cannot move
+    // the row; it only adds token spans.
+    const highlighted = await markdownCore.renderMarkdown(content, labels)
+    if (currentSequence !== renderSequence) return
+    html.value = highlighted
+  }
 }
 
 function onRootClick(event: Event) {

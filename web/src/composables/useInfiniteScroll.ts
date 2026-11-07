@@ -59,12 +59,18 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
 
   // IntersectionObserver is enough once the sentinel is off-screen, but a
   // short feed keeps it visible and never fires again. This explicit check
-  // fills the viewport and survives appended pages.
+  // fills the viewport and survives appended pages. The scroll root can appear
+  // after mount (the first page is what makes the container scrollable), so
+  // the observer is rebuilt whenever that root changes.
   const scheduleCheck = () => {
     if (scheduled) return
     scheduled = true
     window.requestAnimationFrame(() => {
       scheduled = false
+      if (activeRoot() !== root) {
+        setup()
+        return
+      }
       if (isNearViewport()) {
         void trigger()
       }
