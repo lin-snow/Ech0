@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.6] - 2026-11-07
+
 ### Added
 
 - **The home timeline has a back-to-top control again.** A floating button appears once the feed is scrolled more than 300 px, follows whichever scroller the layout uses (the inner column on desktop, the window on mobile), parks itself in the gutter right of the column like the hub feed's button, and smooth-scrolls back to the top.
@@ -18,8 +20,6 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 - **A refresh at the top of the timeline stays at the top.** The saved anchor was only skipped, never cleared, while the viewport sat above the list, so scrolling back to the top and reloading still jumped to the last read card. An anchor above the list is now dropped, except when the scroller is momentarily collapsed by a persistent-layout mode switch, which is the case that must keep it for the remount.
 
 - **Reloading an anchored feed on the mobile layout restores it.** The startup loader holds `<html>` at viewport height with `overflow: hidden` for the first frames, so the window virtualizer saw a zero max offset and clamped the restore command to the top; the restore now retries until the page can actually scroll.
-
-## [5.9.6] - 2026-11-07
 
 ### Added
 
