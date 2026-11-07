@@ -334,6 +334,7 @@ func TestQueryEchos_CursorMode(t *testing.T) {
 		Return([]echoModel.Echo{
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e0"; e.CreatedAt = 50 }),
 		}, int64(4), nil).
 		Once()
 
@@ -344,25 +345,30 @@ func TestQueryEchos_CursorMode(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, captured.Page, "cursor mode always starts at offset 0")
+	assert.Equal(t, 3, captured.PageSize, "cursor mode probes one extra row")
 	require.NotNil(t, captured.Cursor)
 	assert.Equal(t, echoModel.EncodeCursor(echoModel.Cursor{CreatedAt: 300, ID: "e3"}), *captured.Cursor)
 	assert.Equal(t, int64(4), got.Total)
+	require.Len(t, got.Items, 2, "the probe row is not returned")
 	require.NotNil(t, got.NextCursor)
 	next, err := echoModel.DecodeCursor(*got.NextCursor)
 	require.NoError(t, err)
 	assert.Equal(t, echoModel.Cursor{CreatedAt: 100, ID: "e1"}, next)
 }
 
-func TestQueryEchos_CursorLastPageHasNoNextCursor(t *testing.T) {
+func TestQueryEchos_CursorExactFullLastPageHasNoNextCursor(t *testing.T) {
 	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	empty := ""
 
+	// The probe returns exactly pageSize rows, so there is no next page; the
+	// client must not be sent into a guaranteed-empty request.
 	repo.EXPECT().
 		QueryEchos(mock.Anything, false).
 		Return([]echoModel.Echo{
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
-		}, int64(1), nil).
+		}, int64(2), nil).
 		Once()
 
 	svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
@@ -370,6 +376,30 @@ func TestQueryEchos_CursorLastPageHasNoNextCursor(t *testing.T) {
 		PageSize: 2, Cursor: &empty,
 	})
 	require.NoError(t, err)
+	assert.Nil(t, got.NextCursor)
+}
+
+func TestQueryEchos_PageModeHasNoNextCursor(t *testing.T) {
+	repo := newEchoRepoMock(t)
+	common := commonmock.NewMockService(t)
+
+	var captured commonModel.EchoQueryDto
+	repo.EXPECT().
+		QueryEchos(mock.Anything, false).
+		Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+		Return([]echoModel.Echo{
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
+			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
+		}, int64(2), nil).
+		Once()
+
+	svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+	got, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+		Page: 1, PageSize: 2,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, captured.PageSize, "page mode keeps the exact page size")
+	assert.Len(t, got.Items, 2)
 	assert.Nil(t, got.NextCursor)
 }
 

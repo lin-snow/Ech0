@@ -374,6 +374,61 @@ func TestEchoRepository_QueryEchos_CursorBreaksSameSecondTies(t *testing.T) {
 	assert.Equal(t, []string{"e-a", "e-b"}, echoIDs(asc))
 }
 
+func TestEchoRepository_QueryEchos_CursorSplitsSameSecondTie(t *testing.T) {
+	repo, db := newEchoRepo(t)
+	seedEcho(t, db, "e-a", "a", false, 200)
+	seedEcho(t, db, "e-b", "b", false, 200)
+	seedEcho(t, db, "e-c", "c", false, 200)
+
+	empty := ""
+	first, total, err := repo.QueryEchos(
+		commonModel.EchoQueryDto{PageSize: 2, Cursor: &empty, SortBy: "created_at", SortOrder: "desc"},
+		true,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), total)
+	assert.Equal(t, []string{"e-c", "e-b"}, echoIDs(first))
+
+	// The page boundary lands inside the same-second group; the id tiebreaker
+	// must resume at exactly the row after the cursor without skipping e-a.
+	next := echoModel.EncodeCursor(echoModel.Cursor{
+		CreatedAt: first[len(first)-1].CreatedAt,
+		ID:        first[len(first)-1].ID,
+	})
+	second, _, err := repo.QueryEchos(
+		commonModel.EchoQueryDto{PageSize: 2, Cursor: &next, SortBy: "created_at", SortOrder: "desc"},
+		true,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"e-a"}, echoIDs(second))
+}
+
+func TestEchoRepository_QueryEchos_CursorPaginationAsc(t *testing.T) {
+	repo, db := newEchoRepo(t)
+	seedEcho(t, db, "e1", "one", false, 100)
+	seedEcho(t, db, "e2", "two", false, 200)
+	seedEcho(t, db, "e3", "three", false, 300)
+
+	empty := ""
+	first, _, err := repo.QueryEchos(
+		commonModel.EchoQueryDto{PageSize: 2, Cursor: &empty, SortBy: "created_at", SortOrder: "asc"},
+		true,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"e1", "e2"}, echoIDs(first))
+
+	next := echoModel.EncodeCursor(echoModel.Cursor{
+		CreatedAt: first[len(first)-1].CreatedAt,
+		ID:        first[len(first)-1].ID,
+	})
+	second, _, err := repo.QueryEchos(
+		commonModel.EchoQueryDto{PageSize: 2, Cursor: &next, SortBy: "created_at", SortOrder: "asc"},
+		true,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"e3"}, echoIDs(second))
+}
+
 func TestEchoRepository_QueryEchos_CursorWithTagFilter(t *testing.T) {
 	repo, db := newEchoRepo(t)
 	seedEcho(t, db, "e1", "one", false, 100)

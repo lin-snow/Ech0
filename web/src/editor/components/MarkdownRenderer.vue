@@ -33,6 +33,7 @@ const html = ref('')
 const rendererReady = ref(false)
 let markdownCore: MarkdownModule | null = loadedMarkdown()
 let renderSequence = 0
+let disposed = false
 
 const currentLabels = (): MarkdownLabels => ({
   expandLabel: expandLabel.value,
@@ -43,6 +44,7 @@ const currentLabels = (): MarkdownLabels => ({
 })
 
 const renderContent = async () => {
+  if (disposed) return
   const currentSequence = ++renderSequence
   const content = props.content
   if (!content) {
@@ -53,7 +55,7 @@ const renderContent = async () => {
 
   if (!markdownCore) {
     markdownCore = await preloadMarkdown().catch(() => null)
-    if (!markdownCore || currentSequence !== renderSequence) return
+    if (disposed || !markdownCore || currentSequence !== renderSequence) return
   }
 
   // Paint final line boxes on the first frame: a raw-text fallback that is
@@ -66,7 +68,7 @@ const renderContent = async () => {
     // The coloured swap keeps the same text and line boxes, so it cannot move
     // the row; it only adds token spans.
     const highlighted = await markdownCore.renderMarkdown(content, labels)
-    if (currentSequence !== renderSequence) return
+    if (disposed || currentSequence !== renderSequence) return
     html.value = highlighted
   }
 }
@@ -129,6 +131,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   rootRef.value?.removeEventListener('click', onRootClick)
 })
 

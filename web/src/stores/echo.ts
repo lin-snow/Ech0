@@ -188,8 +188,12 @@ export const useEchoStore = defineStore('echoStore', () => {
     echoIndexMap.value = new Map()
 
     try {
+      const requestQuery = buildQueryParams()
+      // Describe the request with the filters it was built from, not with
+      // whatever the store holds when the response lands.
+      const requestSignature = querySignature()
       const res = await fetchQueryEchos({
-        ...buildQueryParams(),
+        ...requestQuery,
         pageSize: requestedPageSize,
         cursor: '',
       })
@@ -201,7 +205,7 @@ export const useEchoStore = defineStore('echoStore', () => {
       total.value = res.data.total ?? 0
       appendDeduped(normalizeItems(res.data.items))
       nextCursor.value = res.data.nextCursor ?? null
-      loadedSignature.value = querySignature()
+      loadedSignature.value = requestSignature
     } catch {
       if (requestGeneration === generation) {
         loadError.value = 'first'
@@ -371,6 +375,7 @@ export const useEchoStore = defineStore('echoStore', () => {
     nextCursor,
     canLoadMore,
     isTimelineCurrent,
+    loadedSignature,
     searchValue,
     searchingMode,
     echoToUpdate,

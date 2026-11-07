@@ -13,6 +13,12 @@ describe('timelineAnchor', () => {
     })
   })
 
+  it('round-trips an anchor with a filter signature', () => {
+    const anchor = { id: 'echo-1', offset: 0, signature: '["",[],null,null,"all"]' }
+    expect(parseTimelineAnchor(serializeTimelineAnchor(anchor))).toEqual(anchor)
+    expect(parseTimelineAnchor('{"id":"e1","offset":1,"signature":5}')).toBeNull()
+  })
+
   it('rejects malformed payloads instead of restoring to a random place', () => {
     expect(parseTimelineAnchor(null)).toBeNull()
     expect(parseTimelineAnchor('')).toBeNull()

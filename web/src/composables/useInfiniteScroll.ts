@@ -30,6 +30,7 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
   let busy = false
   let frame = 0
   let resizeTimer: number | null = null
+  let disposed = false
 
   const scrollRoot = (): HTMLElement | null => {
     const target = options.scrollTarget()
@@ -48,20 +49,22 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
   // A short feed keeps the sentinel visible, so the observer never fires a
   // second time; re-check explicitly after each page and while it fills.
   const check = () => {
+    if (disposed) return
     cancelAnimationFrame(frame)
     frame = window.requestAnimationFrame(() => {
-      if (busy || !nearViewport() || !options.canLoad()) return
+      if (disposed || busy || !nearViewport() || !options.canLoad()) return
       busy = true
       Promise.resolve(options.load())
         .catch(() => {})
         .finally(() => {
           busy = false
-          nextTick(check)
+          if (!disposed) nextTick(check)
         })
     })
   }
 
   const setup = () => {
+    if (disposed) return
     observer?.disconnect()
     root = scrollRoot()
     const el = options.sentinel.value
@@ -111,6 +114,7 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
   )
 
   onBeforeUnmount(() => {
+    disposed = true
     observer?.disconnect()
     cancelAnimationFrame(frame)
     window.removeEventListener('resize', onResize)

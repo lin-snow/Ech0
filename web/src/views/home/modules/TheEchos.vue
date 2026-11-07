@@ -15,6 +15,7 @@
       :scroll-target="scrollTarget ?? null"
       :use-window="useWindowScroll"
       :busy="echoStore.isLoadingMore"
+      :signature="echoStore.loadedSignature"
     />
 
     <Transition name="fade">
@@ -71,6 +72,14 @@
     <div ref="sentinel" class="h-px" aria-hidden="true" />
     <p class="feed-sr-only" aria-live="polite">{{ liveMessage }}</p>
 
+    <div
+      v-show="showBackTop"
+      :style="backTopStyle"
+      class="fixed bottom-6 z-50 transition-all duration-500"
+    >
+      <TheBackTop class="h-8 w-8 p-1" :target="scrollTarget ?? null" />
+    </div>
+
     <div v-if="footerContent" class="mt-6 text-center">
       <a v-if="footerLink" :href="footerLink" target="_blank" rel="noopener noreferrer">
         <span class="text-[var(--color-text-muted)] text-sm">
@@ -96,6 +105,7 @@ import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 import { HOME_TIMELINE_DEPTH_KEY } from '@/utils/timeline'
 import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
+import TheBackTop from '@/components/advanced/TheBackTop.vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -167,6 +177,73 @@ const syncScrollMode = () => {
     !target || (overflow !== 'auto' && overflow !== 'scroll' && overflow !== 'overlay')
 }
 
+// Floating "back to top" control: the timeline only scrolls the window on the
+// mobile layout, the inner column on desktop, so it follows that scroller and
+// parks itself in the gutter right of the column (same as the hub feed).
+const BACK_TOP_OFFSET = 300
+const showBackTop = ref(false)
+const backTopStyle = ref<Record<string, string>>({ right: '1.5rem' })
+
+const readFeedScroll = () =>
+  useWindowScroll.value ? window.scrollY : (props.scrollTarget?.scrollTop ?? 0)
+
+const updateBackTop = () => {
+  showBackTop.value = readFeedScroll() > BACK_TOP_OFFSET
+  const column = props.scrollTarget
+  if (useWindowScroll.value || !column) {
+    backTopStyle.value = { right: '1.5rem' }
+    return
+  }
+  const rect = column.getBoundingClientRect()
+  backTopStyle.value = {
+    left: `${Math.min(window.innerWidth - 56, Math.round(rect.right + 24))}px`,
+  }
+}
+
+let backTopScroller: HTMLElement | Window | null = null
+let backTopColumnObserver: ResizeObserver | null = null
+const observeBackTopColumn = () => {
+  backTopColumnObserver?.disconnect()
+  backTopColumnObserver = null
+  const column = props.scrollTarget
+  if (!column || typeof ResizeObserver === 'undefined') return
+  // The breakpoint moves the column and the scrollbar width changes with it;
+  // a resize event alone reads the pre-layout rect on some engines.
+  backTopColumnObserver = new ResizeObserver(() => updateBackTop())
+  backTopColumnObserver.observe(column)
+}
+
+// The home shell animates in over a few frames (deferred chunks, the rail
+// claiming its final width), so a single measurement at mount can be off by
+// the distance the column still travels. Re-measure for a short window
+// instead of waiting for the first user scroll to correct it.
+const BACK_TOP_SETTLE_MS = 800
+let settleFrame: number | null = null
+let settleUntil = 0
+const settleBackTop = () => {
+  settleUntil = performance.now() + BACK_TOP_SETTLE_MS
+  if (settleFrame !== null) return
+  const step = () => {
+    updateBackTop()
+    settleFrame = performance.now() < settleUntil ? requestAnimationFrame(step) : null
+  }
+  settleFrame = requestAnimationFrame(step)
+}
+
+const bindBackTop = () => {
+  backTopScroller?.removeEventListener('scroll', updateBackTop)
+  backTopScroller = useWindowScroll.value ? window : (props.scrollTarget ?? window)
+  backTopScroller.addEventListener('scroll', updateBackTop, { passive: true })
+  observeBackTopColumn()
+  updateBackTop()
+  settleBackTop()
+}
+
+const handleViewportChange = () => {
+  syncScrollMode()
+  bindBackTop()
+}
+
 const sentinel = ref<HTMLElement | null>(null)
 useInfiniteScroll({
   sentinel,
@@ -201,7 +278,10 @@ watch(isFilteringMode, () => {
 
 watch(
   () => props.scrollTarget,
-  () => syncScrollMode(),
+  () => {
+    syncScrollMode()
+    bindBackTop()
+  },
 )
 
 onMounted(async () => {
@@ -213,8 +293,9 @@ onMounted(async () => {
   }
 
   syncScrollMode()
+  bindBackTop()
   scrollModeReady.value = true
-  window.addEventListener('resize', syncScrollMode, { passive: true })
+  window.addEventListener('resize', handleViewportChange, { passive: true })
 
   // A refresh started elsewhere (publishing returns to this tab) already owns
   // the request; wait for it instead of firing a duplicate.
@@ -226,7 +307,13 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', syncScrollMode)
+  window.removeEventListener('resize', handleViewportChange)
+  backTopScroller?.removeEventListener('scroll', updateBackTop)
+  backTopScroller = null
+  backTopColumnObserver?.disconnect()
+  backTopColumnObserver = null
+  if (settleFrame !== null) cancelAnimationFrame(settleFrame)
+  settleFrame = null
 })
 </script>
 

@@ -142,7 +142,10 @@ function decodeEchoCursor(raw: string): EchoCursor | null {
   if (separator < 0) return null
   const createdAt = Number(payload.slice(CURSOR_VERSION.length, separator))
   const id = payload.slice(separator + 1)
-  if (!Number.isInteger(createdAt) || createdAt <= 0 || id === '' || id.length > 64) return null
+  // Any int64 is a valid position, matching the backend: stored Echoes may
+  // carry a zero/negative created_at and the server must accept its own
+  // nextCursor.
+  if (!Number.isInteger(createdAt) || id === '' || id.length > 64) return null
   return { createdAt, id }
 }
 
@@ -179,7 +182,20 @@ function cursorBoundary(
   return low
 }
 
-function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.PaginationResult {
+function invalidQuery<T>(msg: string, messageKey: string): App.Api.Response<T> {
+  return {
+    code: 0,
+    msg,
+    error_code: 'INVALID_QUERY',
+    message_key: messageKey,
+    data: null as T,
+  }
+}
+
+function queryEchos(
+  dataset: StaticDataset,
+  body: EchoQueryBody,
+): App.Api.Response<App.Api.Ech0.PaginationResult> {
   const search = (body.search ?? '').trim().toLowerCase()
   const tagIds = (body.tagIds ?? []).filter((id) => typeof id === 'string' && id !== '')
   const { dateFrom, dateTo } = body
@@ -232,35 +248,41 @@ function queryEchos(dataset: StaticDataset, body: EchoQueryBody): App.Api.Ech0.P
 
   if (cursorMode) {
     if (byReactions) {
-      return { items: [], total: sorted.length, nextCursor: null }
+      return invalidQuery<App.Api.Ech0.PaginationResult>(
+        'Cursor pagination requires sortBy=created_at',
+        'echo.cursor_sort_unsupported',
+      )
     }
 
     let start = 0
     if (body.cursor) {
       const cursor = decodeEchoCursor(body.cursor)
       if (!cursor) {
-        return { items: [], total: sorted.length, nextCursor: null }
+        return invalidQuery<App.Api.Ech0.PaginationResult>('Invalid cursor', 'echo.invalid_cursor')
       }
       start = cursorBoundary(sorted, cursor, ascending)
     }
 
     const items = sorted.slice(start, start + pageSize)
     const last = items[items.length - 1]
-    return {
+    return ok<App.Api.Ech0.PaginationResult>({
       items,
       total: sorted.length,
       nextCursor:
         items.length === pageSize && last
           ? base64UrlEncode(`${CURSOR_VERSION}${toUnixSeconds(last.created_at)}:${last.id}`)
           : null,
-    }
+    })
   }
 
   const rawPage = Number(body.page)
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.trunc(rawPage) : 1
   const start = (page - 1) * pageSize
 
-  return { items: sorted.slice(start, start + pageSize), total: sorted.length }
+  return ok<App.Api.Ech0.PaginationResult>({
+    items: sorted.slice(start, start + pageSize),
+    total: sorted.length,
+  })
 }
 
 function reactionTotal(echo: App.Api.Ech0.Echo): number {
@@ -302,7 +324,7 @@ function route<T>(
     case 'GET /passkey/status':
       return ok<T>({ passkey_ready: false })
     case 'POST /echo/query':
-      return ok<T>(queryEchos(dataset, (body ?? {}) as EchoQueryBody))
+      return queryEchos(dataset, (body ?? {}) as EchoQueryBody) as App.Api.Response<T>
     case 'GET /echo/today':
       return ok<T>(echosOnThisDay(dataset, true))
     case 'GET /echo/onthisday':

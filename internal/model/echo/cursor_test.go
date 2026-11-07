@@ -21,6 +21,16 @@ func TestCursorRoundTrip(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+func TestCursorRoundTripsNonPositiveTimestamp(t *testing.T) {
+	for _, createdAt := range []int64{0, -1} {
+		want := Cursor{CreatedAt: createdAt, ID: "echo-id"}
+
+		got, err := DecodeCursor(EncodeCursor(want))
+		require.NoError(t, err, "createdAt=%d", createdAt)
+		assert.Equal(t, want, got)
+	}
+}
+
 func TestCursorRejectsInvalidPayloads(t *testing.T) {
 	cases := []struct {
 		name string
@@ -31,8 +41,6 @@ func TestCursorRejectsInvalidPayloads(t *testing.T) {
 		{name: "wrong version", raw: encodeRaw("v2:100:echo-id")},
 		{name: "missing id", raw: encodeRaw("v1:100:")},
 		{name: "missing separator", raw: encodeRaw("v1:100")},
-		{name: "zero timestamp", raw: encodeRaw("v1:0:echo-id")},
-		{name: "negative timestamp", raw: encodeRaw("v1:-1:echo-id")},
 		{name: "non numeric timestamp", raw: encodeRaw("v1:soon:echo-id")},
 		{name: "id too long", raw: encodeRaw("v1:100:" + strings.Repeat("a", maxCursorIDLength+1))},
 	}

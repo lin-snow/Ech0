@@ -481,10 +481,26 @@ func (echoService *EchoService) QueryEchos(
 		return commonModel.PageQueryResult[[]model.Echo]{}, err
 	}
 
+	cursorMode := queryDto.Cursor != nil
+	pageSize := queryDto.PageSize
+	if cursorMode {
+		// Fetch one extra row so the presence of a next page is known without
+		// making the client issue a guaranteed-empty request when the last page
+		// is exactly full.
+		queryDto.PageSize = pageSize + 1
+	}
+
 	echos, total, err := echoService.echoRepository.QueryEchos(queryDto, showPrivate)
 	if err != nil {
 		return commonModel.PageQueryResult[[]model.Echo]{}, err
 	}
+
+	hasMore := false
+	if cursorMode && len(echos) > pageSize {
+		echos = echos[:pageSize]
+		hasMore = true
+	}
+
 	echos, err = echoService.hydrateReactions(ctx, echos)
 	if err != nil {
 		return commonModel.PageQueryResult[[]model.Echo]{}, err
@@ -494,9 +510,9 @@ func (echoService *EchoService) QueryEchos(
 		Items: echos,
 		Total: total,
 	}
-	if queryDto.Cursor != nil && len(echos) == queryDto.PageSize {
+	if hasMore {
 		last := echos[len(echos)-1]
-		if last.CreatedAt > 0 && last.ID != "" {
+		if last.ID != "" {
 			next := model.EncodeCursor(model.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
 			result.NextCursor = &next
 		}

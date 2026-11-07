@@ -154,7 +154,7 @@ const markdown: MarkdownIt = markdownit({
       } catch {}
     }
 
-    return renderCodeBlock(str, escapeHtml(str))
+    return renderCodeBlock(str, escapeHtml(str), language)
   },
 })
 markdown.use(taskListPlugin)

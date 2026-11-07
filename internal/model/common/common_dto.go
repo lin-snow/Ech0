@@ -10,19 +10,20 @@ type PageQueryDto struct {
 }
 
 type EchoQueryDto struct {
-	Page      int      `json:"page"      doc:"Page number, 1-based (default 1)"`
-	PageSize  int      `json:"pageSize"  doc:"Items per page, 1-100 (default 10)"`
+	Page      int      `json:"page"      doc:"Page number, 1-based (default 1); ignored when cursor is set"`
+	PageSize  int      `json:"pageSize"  doc:"Items per page, 1-100 (default 10); also the cursor page size"`
 	Search    string   `json:"search"    doc:"Substring match on Echo content"`
 	TagIDs    []string `json:"tagIds"    doc:"Tag IDs to match; an Echo qualifies if it carries any listed tag"`
-	SortBy    string   `json:"sortBy"    doc:"Sort field (default created_at)"              enum:"created_at,reactions"`
+	SortBy    string   `json:"sortBy"    doc:"Sort field (default created_at); cursor pagination requires created_at" enum:"created_at,reactions"`
 	SortOrder string   `json:"sortOrder" doc:"Sort direction (default desc)"                enum:"asc,desc"`
 	DateFrom  int64    `json:"dateFrom"  doc:"Only Echoes created at or after this Unix time (seconds)"`
 	DateTo    int64    `json:"dateTo"    doc:"Only Echoes created at or before this Unix time (seconds)"`
 	Private   *bool    `json:"private,omitempty" doc:"Visibility filter: true for private only, false for public only; omit for both"`
 	// Cursor switches the query to keyset pagination. Omit it for the legacy
 	// page-based mode; send an empty string on the first cursor request, then
-	// echo back the previous response's nextCursor.
-	Cursor *string `json:"cursor,omitempty" doc:"Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page"`
+	// echo back the previous response's nextCursor. In cursor mode page is
+	// ignored and sortBy must be created_at.
+	Cursor *string `json:"cursor,omitempty" doc:"Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page. Cursor mode ignores page and requires sortBy=created_at"`
 	UserID string  `json:"-"`
 }
 

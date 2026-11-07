@@ -32,12 +32,15 @@ import {
   parseTimelineAnchor,
   serializeTimelineAnchor,
 } from '@/utils/timeline'
+import type { TimelineAnchor } from '@/utils/timeline'
 
 const props = defineProps<{
   items: App.Api.Ech0.Echo[]
   scrollTarget: HTMLElement | null
   useWindow: boolean
   busy?: boolean
+  /** Filter signature of the loaded stream; anchors from another query are discarded. */
+  signature?: string | null
 }>()
 
 const listEl = ref<HTMLElement | null>(null)
@@ -105,13 +108,52 @@ const measureRow = (el: unknown) => {
 
 const initialAnchor = parseTimelineAnchor(sessionStorage.getItem(HOME_TIMELINE_ANCHOR_KEY))
 
-const restoreAnchor = () => {
+// The startup loader keeps <html> at viewport height with `overflow: hidden`
+// until the first paint settles, so on the mobile layout the page reports a
+// zero max offset while the feed is already mounted. The virtualizer clamps
+// every scroll command to that stale maximum, which would turn the restore
+// into a no-op at the top. Wait for the release instead of losing the anchor.
+const RESTORE_RETRY_MS = 50
+const RESTORE_RETRY_LIMIT = 40
+let restoreTimer: number | null = null
+
+const scrollerCanScroll = (): boolean => {
+  if (props.useWindow) {
+    const scroller = document.scrollingElement
+    return !!scroller && scroller.scrollHeight > window.innerHeight + 1
+  }
+  const root = props.scrollTarget
+  return !!root && root.scrollHeight > root.clientHeight + 1
+}
+
+const anchorMatchesQuery = (anchor: TimelineAnchor): boolean =>
+  anchor.signature !== undefined && anchor.signature === (props.signature ?? '')
+
+const restoreAnchor = (attempt = 0) => {
   const anchor = initialAnchor
   if (!anchor) return
+  if (!anchorMatchesQuery(anchor)) {
+    // The stored position belongs to another filter set; restoring it would
+    // resume the new stream at an arbitrary row.
+    sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
+    return
+  }
   const index = props.items.findIndex((item) => item.id === anchor.id)
   const offset = index >= 0 ? virtualizer.value.getOffsetForIndex(index, 'start') : null
   if (!offset) {
     sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
+    return
+  }
+  // Only the window scroller is held by the loader; the inner column is
+  // already scrollable when the list mounts.
+  if (props.useWindow && !scrollerCanScroll() && attempt < RESTORE_RETRY_LIMIT) {
+    restoreTimer = window.setTimeout(() => {
+      // A user scroll while we waited rewrites or drops the anchor; that
+      // position is the newer truth, so the retry must not drag it back.
+      const stored = parseTimelineAnchor(sessionStorage.getItem(HOME_TIMELINE_ANCHOR_KEY))
+      if (stored?.id !== anchor.id || stored.offset !== anchor.offset) return
+      restoreAnchor(attempt + 1)
+    }, RESTORE_RETRY_MS)
     return
   }
   virtualizer.value.scrollToOffset(offset[0] + anchor.offset)
@@ -123,6 +165,17 @@ const restoreAnchor = () => {
 
 let anchorTimer: number | null = null
 
+// A scroll-mode switch collapses the scroller this instance reads (the page
+// becomes fixed-height, or the old container loses its content). Its zero
+// offset is a layout artifact then, not a position the user chose.
+const scrollerCollapsed = (): boolean => {
+  if (props.useWindow) {
+    return document.documentElement.scrollHeight <= window.innerHeight + 1
+  }
+  const root = props.scrollTarget
+  return !root || root.scrollHeight <= root.clientHeight + 1
+}
+
 const persistAnchor = () => {
   // Content above the list can change height without a resize (onboarding
   // cards, banners); refresh the origin before reading rows so the visible
@@ -131,15 +184,24 @@ const persistAnchor = () => {
   const rows = virtualizer.value.getVirtualItems()
   if (!rows.length) return
   const scroll = readScroll()
-  // Above the list there is no row to anchor; keep the previous anchor so a
-  // layout/mode switch that momentarily resets the scroller cannot erase it.
-  if (scroll < rows[0]!.start) return
+  // The viewport sits above the list (header, banner, or the very top): there
+  // is no Echo to anchor. Drop the anchor so a refresh starts where the user
+  // left off instead of jumping back down to an old Echo; a scroller that is
+  // momentarily collapsed keeps it for the restore that follows the remount.
+  if (scroll < rows[0]!.start) {
+    if (!scrollerCollapsed()) sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
+    return
+  }
   const row = rows.find((candidate) => candidate.end > scroll) ?? rows[rows.length - 1]!
   const item = props.items[row.index]
   if (!item) return
   sessionStorage.setItem(
     HOME_TIMELINE_ANCHOR_KEY,
-    serializeTimelineAnchor({ id: item.id, offset: Math.max(0, Math.round(scroll - row.start)) }),
+    serializeTimelineAnchor({
+      id: item.id,
+      offset: Math.max(0, Math.round(scroll - row.start)),
+      signature: props.signature ?? undefined,
+    }),
   )
 }
 
@@ -208,6 +270,7 @@ onBeforeUnmount(() => {
   layoutObserver = null
   if (resizeTimer !== null) window.clearTimeout(resizeTimer)
   if (anchorTimer !== null) window.clearTimeout(anchorTimer)
+  if (restoreTimer !== null) window.clearTimeout(restoreTimer)
 })
 </script>
 

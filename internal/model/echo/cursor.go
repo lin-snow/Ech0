@@ -49,8 +49,13 @@ func DecodeCursor(raw string) (Cursor, error) {
 		return Cursor{}, ErrInvalidCursor
 	}
 
+	// Any int64 is a valid position: EncodeCursor writes whatever the last row
+	// carried, and a stored row may legitimately hold a zero/negative
+	// created_at (imported data, explicit publish time). Rejecting those here
+	// would make the server refuse its own nextCursor. The payload is not a
+	// capability, so the value cannot widen access.
 	createdAt, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil || createdAt <= 0 {
+	if err != nil {
 		return Cursor{}, ErrInvalidCursor
 	}
 

@@ -140,8 +140,49 @@ const onOutside = (event: PointerEvent) => {
   close()
 }
 
+const menuItems = (): HTMLElement[] =>
+  Array.from(panelEl.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+
+const focusItem = (index: number) => {
+  const items = menuItems()
+  if (!items.length) return
+  items[(index + items.length) % items.length]?.focus()
+}
+
 const onKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') close()
+  if (event.key === 'Escape') {
+    if (!open.value) return
+    close()
+    triggerEl.value?.focus()
+    return
+  }
+
+  if (!open.value) return
+  const active = document.activeElement
+  if (active !== triggerEl.value && !panelEl.value?.contains(active)) return
+  const items = menuItems()
+  if (!items.length) return
+  const current = items.indexOf(active as HTMLElement)
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault()
+      focusItem(current < 0 ? 0 : current + 1)
+      break
+    case 'ArrowUp':
+      event.preventDefault()
+      focusItem(current < 0 ? items.length - 1 : current - 1)
+      break
+    case 'Home':
+      event.preventDefault()
+      focusItem(0)
+      break
+    case 'End':
+      event.preventDefault()
+      focusItem(items.length - 1)
+      break
+    default:
+      break
+  }
 }
 
 const bind = () => {
@@ -171,7 +212,9 @@ watch(
     if (!value) return
     placePanel(estimatedPanelHeight())
     void nextTick(() => {
-      if (open.value) placePanel(estimatedPanelHeight())
+      if (!open.value) return
+      placePanel(estimatedPanelHeight())
+      focusItem(0)
     })
     bind()
   },

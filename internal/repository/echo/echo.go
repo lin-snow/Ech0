@@ -91,7 +91,7 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 				Preload("Tags").
 				Limit(pageSize).
 				Offset(offset).
-				Order("created_at DESC").
+				Order("created_at DESC, id DESC").
 				Find(&echos).Error; dbErr != nil {
 				return commonModel.PageQueryResult[[]model.Echo]{}, dbErr
 			}

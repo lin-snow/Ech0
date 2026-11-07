@@ -142,4 +142,46 @@ describe('static adapter keyset ordering', () => {
     const next = await query(after, { page: 1, pageSize: 2, cursor: page.nextCursor ?? '' })
     expect(ids(next)).toEqual(['e-b', 'e-a'])
   })
+
+  it('cursor 与 reactions 排序组合返回错误而不是空页', async () => {
+    const adapter = await loadAdapter([echo('e-a', SECOND)])
+    const res = await adapter.handleStaticRequest<App.Api.Ech0.PaginationResult>(
+      '/api/echo/query',
+      'POST',
+      { pageSize: 2, cursor: '', sortBy: 'reactions' },
+    )
+
+    expect(res.code).toBe(0)
+    expect(res.error_code).toBe('INVALID_QUERY')
+    expect(res.message_key).toBe('echo.cursor_sort_unsupported')
+    expect(res.data).toBeNull()
+  })
+
+  it('非法 cursor 返回错误而不是空页', async () => {
+    const adapter = await loadAdapter([echo('e-a', SECOND)])
+    const res = await adapter.handleStaticRequest<App.Api.Ech0.PaginationResult>(
+      '/api/echo/query',
+      'POST',
+      { pageSize: 2, cursor: 'not-a-cursor' },
+    )
+
+    expect(res.code).toBe(0)
+    expect(res.error_code).toBe('INVALID_QUERY')
+    expect(res.message_key).toBe('echo.invalid_cursor')
+    expect(res.data).toBeNull()
+  })
+
+  it('created_at 为 0 的 Echo 能生成并复用 cursor', async () => {
+    const adapter = await loadAdapter([echo('e-zero', 0), echo('e-one', SECOND)])
+
+    const first = await query(adapter, { page: 1, pageSize: 1, cursor: '' })
+    expect(ids(first)).toEqual(['e-one'])
+    expect(first.nextCursor).toBeTruthy()
+
+    const second = await query(adapter, { page: 1, pageSize: 1, cursor: first.nextCursor ?? '' })
+    expect(ids(second)).toEqual(['e-zero'])
+
+    const third = await query(adapter, { page: 1, pageSize: 1, cursor: second.nextCursor ?? '' })
+    expect(ids(third)).toEqual([])
+  })
 })

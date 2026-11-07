@@ -25,5 +25,6 @@ describe('renderMarkdownSync', () => {
     expect(html).toContain('code-block')
     expect(html).toContain('const answer = 42')
     expect(html).not.toContain('```')
+    expect(html).toContain('<span class="code-block__lang">ts</span>')
   })
 })

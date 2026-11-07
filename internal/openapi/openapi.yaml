@@ -490,7 +490,7 @@ components:
       additionalProperties: true
       properties:
         cursor:
-          description: Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page
+          description: Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page. Cursor mode ignores page and requires sortBy=created_at
           type: string
         dateFrom:
           description: Only Echoes created at or after this Unix time (seconds)
@@ -501,11 +501,11 @@ components:
           format: int64
           type: integer
         page:
-          description: Page number, 1-based (default 1)
+          description: Page number, 1-based (default 1); ignored when cursor is set
           format: int64
           type: integer
         pageSize:
-          description: Items per page, 1-100 (default 10)
+          description: Items per page, 1-100 (default 10); also the cursor page size
           format: int64
           type: integer
         private:
@@ -515,7 +515,7 @@ components:
           description: Substring match on Echo content
           type: string
         sortBy:
-          description: Sort field (default created_at)
+          description: Sort field (default created_at); cursor pagination requires created_at
           enum:
             - created_at
             - reactions
