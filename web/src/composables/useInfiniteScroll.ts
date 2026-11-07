@@ -63,6 +63,20 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
     if (disposed) return
     cancelAnimationFrame(frame)
     frame = window.requestAnimationFrame(() => {
+      const diagEl = options.sentinel.value
+      console.log('[is]', JSON.stringify({
+        t: Math.round(performance.now()),
+        near: nearViewport(),
+        can: options.canLoad(),
+        busy,
+        stalled,
+        rootKind: root ? 'element' : 'window',
+        sentTop: diagEl ? Math.round(diagEl.getBoundingClientRect().top) : null,
+        rootBottom: root ? Math.round(root.getBoundingClientRect().bottom) : null,
+        winH: window.innerHeight,
+        items: options.items.value.length,
+        rootMatches: scrollRoot() === root,
+      }))
       if (disposed || busy || stalled) return
       if (scrollRoot() !== root) {
         // The breakpoint moved scrolling to/from the window since the observer
