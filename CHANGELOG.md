@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.7] - 2026-11-07
+
 ### Fixed
 
 - **The timeline no longer chases page after page on a large screen.** The feed asked for the baseline seven rows per page, so on a tall viewport the sentinel never left the prefetch band: the next cursor page was requested as soon as the previous one resolved, and the loading indicator flickered through the burst. Page size now follows the viewport (page fill + prefetch band, capped at the server limit), the stored restore depth is a row count rather than a page count so it survives the new size, and the automatic chain stops when a page appends no rows and resumes on the next scroll. The observer is also rebuilt when the layout moves scrolling between the window and the inner column, instead of comparing the sentinel against a stale root.
