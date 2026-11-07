@@ -10,7 +10,7 @@ import router from '@/router'
 import { useAuthStore } from './auth'
 import { useEchoStore } from './echo'
 import { i18n, setI18nLocale } from '@/locales'
-import { HOME_TIMELINE_ANCHOR_KEY, HOME_TIMELINE_DEPTH_KEY } from '@/utils/timeline'
+import { HOME_TIMELINE_ANCHOR_KEY, HOME_TIMELINE_COUNT_KEY } from '@/utils/timeline'
 
 export const useUserStore = defineStore('userStore', () => {
   const authStore = useAuthStore()
@@ -81,10 +81,10 @@ export const useUserStore = defineStore('userStore', () => {
 
     user.value = null
 
-    // The timeline is about to reload as anonymous; a restored anchor/depth
+    // The timeline is about to reload as anonymous; a restored anchor/count
     // belongs to the previous session and must not seed that feed.
     sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
-    sessionStorage.removeItem(HOME_TIMELINE_DEPTH_KEY)
+    sessionStorage.removeItem(HOME_TIMELINE_COUNT_KEY)
 
     const echoStore = useEchoStore()
     echoStore.refreshEchos()

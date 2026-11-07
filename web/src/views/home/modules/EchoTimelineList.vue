@@ -29,6 +29,7 @@ import type { VirtualItem, Virtualizer } from '@tanstack/vue-virtual'
 import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
 import {
   HOME_TIMELINE_ANCHOR_KEY,
+  TIMELINE_ROW_ESTIMATE_PX,
   parseTimelineAnchor,
   serializeTimelineAnchor,
 } from '@/utils/timeline'
@@ -70,7 +71,7 @@ const updateScrollMargin = () => {
 
 const virtualizerOptions = computed(() => ({
   count: props.items.length,
-  estimateSize: () => 240,
+  estimateSize: () => TIMELINE_ROW_ESTIMATE_PX,
   overscan: 4,
   scrollMargin: scrollMargin.value,
   getItemKey: (index: number) => props.items[index]?.id ?? index,

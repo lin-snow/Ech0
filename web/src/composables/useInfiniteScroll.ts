@@ -31,6 +31,9 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
   let frame = 0
   let resizeTimer: number | null = null
   let disposed = false
+  // Set when a page appended no rows; the automatic chain then waits for a
+  // user scroll instead of requesting the same position in a loop.
+  let stalled = false
 
   const scrollRoot = (): HTMLElement | null => {
     const target = options.scrollTarget()
@@ -46,19 +49,41 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
     return el.getBoundingClientRect().top <= bottom + rootMargin
   }
 
+  // A page that appended nothing keeps the sentinel in place, so the next
+  // check would request the same position again, forever: a page of already
+  // known rows (dedupe) or a cursor that did not advance resolves in the same
+  // layout. `stalled` parks the automatic chain until the user scrolls.
+  const onUserScroll = () => {
+    stalled = false
+  }
+
   // A short feed keeps the sentinel visible, so the observer never fires a
   // second time; re-check explicitly after each page and while it fills.
   const check = () => {
     if (disposed) return
     cancelAnimationFrame(frame)
     frame = window.requestAnimationFrame(() => {
-      if (disposed || busy || !nearViewport() || !options.canLoad()) return
+      if (disposed || busy || stalled) return
+      if (scrollRoot() !== root) {
+        // The breakpoint moved scrolling to/from the window since the observer
+        // was built. The stale root would report the sentinel as permanently
+        // near and chain pages without end, so rebuild before deciding.
+        setup()
+        return
+      }
+      if (!nearViewport() || !options.canLoad()) return
       busy = true
+      const before = options.items.value.length
       Promise.resolve(options.load())
         .catch(() => {})
         .finally(() => {
           busy = false
-          if (!disposed) nextTick(check)
+          if (disposed) return
+          if (options.items.value.length <= before) {
+            stalled = true
+            return
+          }
+          nextTick(check)
         })
     })
   }
@@ -93,6 +118,9 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
   onMounted(() => {
     nextTick(setup)
     window.addEventListener('resize', onResize, { passive: true })
+    // Scroll events do not bubble, but a capturing window listener sees both
+    // the page and the inner timeline column.
+    window.addEventListener('scroll', onUserScroll, { passive: true, capture: true })
   })
 
   watch(
@@ -103,7 +131,12 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
   watch(options.sentinel, () => nextTick(setup), { flush: 'post' })
   watch(
     () => options.items.value.length,
-    () => nextTick(check),
+    () => {
+      // Rows arrived, so the feed can make progress again (a retry after a
+      // failed page also lands here).
+      stalled = false
+      nextTick(check)
+    },
     { flush: 'post' },
   )
   watch(
@@ -118,6 +151,7 @@ export function useInfiniteScroll(options: InfiniteScrollOptions) {
     observer?.disconnect()
     cancelAnimationFrame(frame)
     window.removeEventListener('resize', onResize)
+    window.removeEventListener('scroll', onUserScroll, { capture: true })
     if (resizeTimer !== null) window.clearTimeout(resizeTimer)
   })
 }

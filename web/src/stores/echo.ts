@@ -4,10 +4,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { fetchQueryEchos, fetchGetTags, fetchGetEchoById, fetchCreateTag } from '@/service/api'
+import { TIMELINE_BASE_PAGE_SIZE } from '@/utils/timeline'
 
 /** Backend clamps to [1, 100]; mirror it so a restored depth cannot overflow. */
 const MAX_PAGE_SIZE = 100
-const PAGE_SIZE = 7
+const PAGE_SIZE = TIMELINE_BASE_PAGE_SIZE
 
 type LoadPhase = 'first' | 'more'
 

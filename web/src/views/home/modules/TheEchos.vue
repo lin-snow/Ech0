@@ -102,7 +102,12 @@ import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
 import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables/useSiteOnboarding'
 import { useSiteChecklist } from '@/composables/useSiteChecklist'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { HOME_TIMELINE_DEPTH_KEY } from '@/utils/timeline'
+import {
+  HOME_TIMELINE_COUNT_KEY,
+  TIMELINE_BASE_PAGE_SIZE,
+  TIMELINE_LOAD_AHEAD_PX,
+  timelinePageSize,
+} from '@/utils/timeline'
 import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import TheBackTop from '@/components/advanced/TheBackTop.vue'
@@ -239,8 +244,21 @@ const bindBackTop = () => {
   settleBackTop()
 }
 
+// A fixed handful of rows cannot fill a tall screen, so every appended page
+// leaves the sentinel inside the prefetch band and the feed chases the next
+// one immediately (a flickering loading indicator and a burst of cursor
+// requests). Size each page from the viewport instead. On the mobile layout
+// the column is not the scroller: its clientHeight is the content height.
+const syncPageSize = () => {
+  const viewport = useWindowScroll.value
+    ? window.innerHeight
+    : (props.scrollTarget?.clientHeight ?? window.innerHeight)
+  echoStore.pageSize = timelinePageSize(viewport)
+}
+
 const handleViewportChange = () => {
   syncScrollMode()
+  syncPageSize()
   bindBackTop()
 }
 
@@ -251,6 +269,7 @@ useInfiniteScroll({
   canLoad: () => echoStore.canLoadMore,
   load: () => echoStore.loadMore(),
   items: computed(() => echoStore.echoList),
+  rootMargin: TIMELINE_LOAD_AHEAD_PX,
 })
 
 const parseLegacyPage = (raw: unknown): number => {
@@ -259,16 +278,18 @@ const parseLegacyPage = (raw: unknown): number => {
   return Math.floor(value)
 }
 
-const storedDepth = (): number => {
-  const value = Number(sessionStorage.getItem(HOME_TIMELINE_DEPTH_KEY))
-  return Number.isFinite(value) && value > 1 ? Math.floor(value) : 1
+// Rows already on screen when the timeline was left (tab switch, back
+// navigation). Stored as a row count rather than a page count so a different
+// page size on the next mount cannot change how deep the feed reopens.
+const storedCount = (): number => {
+  const value = Number(sessionStorage.getItem(HOME_TIMELINE_COUNT_KEY))
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
 watch(
   () => echoStore.echoList.length,
   (length) => {
-    const depth = Math.max(1, Math.ceil(length / echoStore.pageSize))
-    sessionStorage.setItem(HOME_TIMELINE_DEPTH_KEY, String(depth))
+    sessionStorage.setItem(HOME_TIMELINE_COUNT_KEY, String(length))
   },
 )
 
@@ -280,6 +301,7 @@ watch(
   () => props.scrollTarget,
   () => {
     syncScrollMode()
+    syncPageSize()
     bindBackTop()
   },
 )
@@ -293,6 +315,7 @@ onMounted(async () => {
   }
 
   syncScrollMode()
+  syncPageSize()
   bindBackTop()
   scrollModeReady.value = true
   window.addEventListener('resize', handleViewportChange, { passive: true })
@@ -302,8 +325,9 @@ onMounted(async () => {
   if (echoStore.isLoading && echoStore.hasFetched) return
   if (echoStore.isTimelineCurrent) return
 
-  const depth = Math.max(storedDepth(), legacyPage)
-  await echoStore.refreshEchos(depth > 1 ? depth * echoStore.pageSize : undefined)
+  // legacy page numbers were counted in baseline-size pages.
+  const legacyCount = legacyPage > 1 ? legacyPage * TIMELINE_BASE_PAGE_SIZE : 0
+  await echoStore.refreshEchos(Math.max(echoStore.pageSize, storedCount(), legacyCount))
 })
 
 onBeforeUnmount(() => {
