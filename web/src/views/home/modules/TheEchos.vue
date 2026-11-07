@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div
-    class="mx-auto mt-1 sm:mt-0 mb-4 sm:mb-5 md:mb-6"
+    class="echo-feed mx-auto mt-1 sm:mt-0 mb-4 sm:mb-5 md:mb-6"
     :class="compact ? 'pl-1 pr-0 max-w-full' : 'px-2 sm:px-4 md:px-6 max-w-full'"
   >
     <TheOnboardingChecklist v-if="showChecklist" />
@@ -342,6 +342,18 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/*
+ * Chrome's scroll anchoring keeps the node nearest the viewport bottom fixed
+ * while content above it grows, so appending a page moved the scroll offset
+ * down by the same amount and left the sentinel inside the prefetch band —
+ * the loader then asked for the next cursor page again, chaining pages while
+ * the reader sat still. The feed owns its scroll position; the virtualizer
+ * compensates for measured rows itself.
+ */
+.echo-feed {
+  overflow-anchor: none;
+}
+
 .echos-toolbar {
   font-family: var(--font-family-display);
 }
