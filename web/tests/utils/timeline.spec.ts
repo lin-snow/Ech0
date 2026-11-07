@@ -2,7 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { describe, expect, it } from 'vitest'
-import { parseTimelineAnchor, serializeTimelineAnchor } from '@/utils/timelineAnchor'
+import { parseTimelineAnchor, serializeTimelineAnchor } from '@/utils/timeline'
 
 describe('timelineAnchor', () => {
   it('round-trips an anchor', () => {

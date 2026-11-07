@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+export const HOME_TIMELINE_ANCHOR_KEY = 'home:timeline:anchor'
+export const HOME_TIMELINE_DEPTH_KEY = 'home:timeline:depth'
+
 /** Identifies the first Echo visible at the top of the timeline viewport. */
 export type TimelineAnchor = {
   id: string
@@ -16,7 +19,7 @@ export function parseTimelineAnchor(raw: string | null): TimelineAnchor | null {
     const { id, offset } = value as { id?: unknown; offset?: unknown }
     if (typeof id !== 'string' || id.trim() === '') return null
     if (typeof offset !== 'number' || !Number.isFinite(offset)) return null
-    return { id, offset: Math.round(offset) }
+    return { id, offset: Math.max(0, Math.round(offset)) }
   } catch {
     return null
   }

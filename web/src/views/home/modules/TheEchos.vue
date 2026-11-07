@@ -8,23 +8,13 @@
     <TheOnboardingChecklist v-if="showChecklist" />
     <TheFirstEchoCard v-if="showFirstEchoCard" @dismiss="dismissFirstEchoCard" />
 
-    <EchoFlowList
-      v-if="scrollModeReady && useFlowList"
-      :key="`flow-${useWindowScroll ? 'window' : 'element'}`"
-      :items="echoStore.echoList"
-      :scroll-target="scrollTarget ?? null"
-      :use-window="useWindowScroll"
-      @anchor-change="persistAnchor"
-    />
-
     <EchoTimelineList
-      v-else-if="scrollModeReady && echoStore.echoList.length > 0"
+      v-if="scrollModeReady && echoStore.echoList.length > 0"
       :key="useWindowScroll ? 'window' : 'element'"
       :items="echoStore.echoList"
       :scroll-target="scrollTarget ?? null"
       :use-window="useWindowScroll"
-      :aria-busy="echoStore.isLoadingMore"
-      @anchor-change="persistAnchor"
+      :busy="echoStore.isLoadingMore"
     />
 
     <Transition name="fade">
@@ -95,7 +85,6 @@
 </template>
 
 <script setup lang="ts">
-import EchoFlowList from './EchoFlowList.vue'
 import EchoTimelineList from './EchoTimelineList.vue'
 import TheFirstEchoCard from './TheFirstEchoCard.vue'
 import TheOnboardingChecklist from './TheOnboardingChecklist.vue'
@@ -104,9 +93,7 @@ import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
 import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables/useSiteOnboarding'
 import { useSiteChecklist } from '@/composables/useSiteChecklist'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { HOME_TIMELINE_ANCHOR_KEY, HOME_TIMELINE_DEPTH_KEY } from '@/constants/timeline'
-import { serializeTimelineAnchor, type TimelineAnchor } from '@/utils/timelineAnchor'
-import { isScrollableElement } from '@/utils/scroll'
+import { HOME_TIMELINE_DEPTH_KEY } from '@/utils/timeline'
 import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { storeToRefs } from 'pinia'
@@ -170,29 +157,13 @@ const liveMessage = computed(() => {
   return ''
 })
 
-const persistAnchor = (anchor: TimelineAnchor | null) => {
-  // null means nothing to restore (scrolled above the list): clear so a
-  // refresh from there stays at the top instead of jumping back.
-  if (!anchor) {
-    sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
-    return
-  }
-  sessionStorage.setItem(HOME_TIMELINE_ANCHOR_KEY, serializeTimelineAnchor(anchor))
-}
-
-// Feeds that comfortably fit in memory render as plain document flow — the
-// simplest, jitter-free path. Only genuinely large feeds pay for
-// virtualization (estimates, measurement passes, scroll compensation).
-const FLOW_FEED_LIMIT = 60
-const useFlowList = computed(() => {
-  const total = echoStore.total || echoStore.echoList.length
-  return total > 0 && total <= FLOW_FEED_LIMIT
-})
-
 const useWindowScroll = ref(true)
 const scrollModeReady = ref(false)
 const syncScrollMode = () => {
-  useWindowScroll.value = !isScrollableElement(props.scrollTarget ?? null)
+  const target = props.scrollTarget
+  const overflow = target ? getComputedStyle(target).overflowY : ''
+  useWindowScroll.value =
+    !target || (overflow !== 'auto' && overflow !== 'scroll' && overflow !== 'overlay')
 }
 
 const sentinel = ref<HTMLElement | null>(null)

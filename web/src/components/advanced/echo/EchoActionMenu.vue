@@ -50,15 +50,26 @@
   </div>
 </template>
 
+<script lang="ts">
+import { ref as vueRef } from 'vue'
+
+// One open menu across every timeline row: opening another row closes this one,
+// and virtual rows recycling away cannot leave a menu stranded.
+const openMenuId = vueRef<string | null>(null)
+</script>
+
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import EditEcho from '@/components/icons/editecho.vue'
 import Lock from '@/components/icons/lock.vue'
 import More from '@/components/icons/more.vue'
 import Roll from '@/components/icons/roll.vue'
-import { useEchoActions } from '@/composables/useEchoActions'
+import { fetchDeleteEcho, fetchGetEchoById } from '@/service/api'
+import { useEchoStore, useEditorStore } from '@/stores'
+import { useBaseDialog } from '@/composables/useBaseDialog'
+import { theToast } from '@/utils/toast'
 
 type Echo = App.Api.Ech0.Echo
 
@@ -66,18 +77,22 @@ const props = defineProps<{
   echo: Echo
 }>()
 
-const { updateEcho, deleteEcho } = useEchoActions()
-const { t } = useI18n()
+const echoStore = useEchoStore()
+const editorStore = useEditorStore()
+const router = useRouter()
 const route = useRoute()
+const { openConfirm } = useBaseDialog()
+const { t } = useI18n()
 
 const rootEl = ref<HTMLElement | null>(null)
-const open = ref(false)
+const open = computed(() => openMenuId.value === props.echo.id)
 
 const close = () => {
-  open.value = false
+  if (open.value) openMenuId.value = null
 }
 
 const onOutside = (event: PointerEvent) => {
+  if (!open.value) return
   const target = event.target as Node | null
   if (target && rootEl.value?.contains(target)) return
   close()
@@ -98,30 +113,66 @@ const unbind = () => {
 }
 
 const toggle = () => {
-  open.value = !open.value
+  openMenuId.value = open.value ? null : props.echo.id
 }
 
-watch(open, (value) => {
-  unbind()
-  if (value) bind()
-})
+watch(
+  open,
+  (value) => {
+    unbind()
+    if (value) bind()
+  },
+  { immediate: true },
+)
 
 watch(
   () => route.fullPath,
   () => close(),
 )
 
-onBeforeUnmount(unbind)
+onBeforeUnmount(() => {
+  unbind()
+  close()
+})
+
+const startUpdate = async (echo: Echo) => {
+  const res = await fetchGetEchoById(String(echo.id))
+  echoStore.echoToUpdate = res.code === 1 && res.data ? res.data : echo
+  editorStore.isUpdateMode = true
+  await router.push({
+    name: 'home',
+    query: { ...router.currentRoute.value.query, tab: 'publish' },
+  })
+}
 
 const onUpdate = () => {
   close()
-  void updateEcho(props.echo)
+  if (!editorStore.isUpdateMode) {
+    void startUpdate(props.echo)
+    return
+  }
+  openConfirm({
+    title: String(t('echoCard.editAnotherEchoTitle')),
+    description: String(t('echoCard.editAnotherEchoDesc')),
+    onConfirm: () => {
+      void startUpdate(props.echo)
+    },
+  })
 }
 
 const onDelete = () => {
   const echoId = props.echo.id
   close()
-  deleteEcho(echoId)
+  openConfirm({
+    title: String(t('echoCard.deleteConfirmTitle')),
+    description: String(t('echoCard.deleteConfirmDesc')),
+    onConfirm: () => {
+      fetchDeleteEcho(echoId).then(() => {
+        theToast.success(String(t('echoCard.deleteSuccess')))
+        echoStore.removeEcho(echoId)
+      })
+    },
+  })
 }
 </script>
 
