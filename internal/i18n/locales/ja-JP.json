@@ -6,6 +6,8 @@
   { "id": "setting.update_success", "translation": "設定を更新しました！" },
   { "id": "agent.model_missing", "translation": "Agent のモデル名が未設定か、空です" },
   { "id": "echo.mixed_file_categories", "translation": "1 つの Echo には同じ種類のファイルしか含められません" },
+  { "id": "echo.invalid_cursor", "translation": "ページカーソルが無効です" },
+  { "id": "echo.cursor_sort_unsupported", "translation": "カーソルページングはリアクション順に未対応です" },
   { "id": "auth.token_missing", "translation": "トークンが見つかりません。右上からログインしてください" },
   { "id": "auth.token_invalid", "translation": "トークンが無効です。再ログインしてください" },
   { "id": "auth.token_parse_error", "translation": "トークンの解析に失敗しました。再ログインを試してください" },

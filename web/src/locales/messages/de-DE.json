@@ -461,8 +461,11 @@
     "noMore": "Keine weiteren Daten",
     "noMoreFiltered": "Keine weiteren Daten",
     "loading": "Wird geladen…",
-    "older": "Älter",
-    "newer": "Neuer"
+    "loadingMore": "Weitere werden geladen…",
+    "loadMoreFailed": "Weitere Daten konnten nicht geladen werden",
+    "loadFailed": "Die Zeitleiste konnte nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "allLoaded": "Das war alles"
   },
   "dateTime": {
     "justNow": "Gerade eben",
@@ -546,7 +549,8 @@
     "deleteConfirmTitle": "Dieses Echo löschen?",
     "deleteConfirmDesc": "Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteSuccess": "Gelöscht",
-    "exitUpdateModeFirst": "Bitte zuerst den Bearbeitungsmodus verlassen",
+    "editAnotherEchoTitle": "Anderen Echo bearbeiten?",
+    "editAnotherEchoDesc": "Du bearbeitest bereits einen Echo. Aktuelle Änderungen verwerfen und diesen Echo bearbeiten?",
     "openDetail": "Detail öffnen"
   },
   "userSetting": {

@@ -321,6 +321,10 @@ export type EchoFile = {
 
 export type EchoQueryDto = {
     /**
+     * Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page
+     */
+    cursor?: string;
+    /**
      * Only Echoes created at or after this Unix time (seconds)
      */
     dateFrom?: number;
@@ -737,6 +741,7 @@ export type PageQueryDto = {
 
 export type PageQueryResultListEcho = {
     items?: Array<Echo> | null;
+    nextCursor?: string;
     total?: number;
     [key: string]: unknown;
 };

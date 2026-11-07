@@ -461,8 +461,11 @@
     "noMore": "No more data",
     "noMoreFiltered": "No more data",
     "loading": "Loading...",
-    "older": "Before",
-    "newer": "After"
+    "loadingMore": "Loading more...",
+    "loadMoreFailed": "Could not load more",
+    "loadFailed": "Could not load the timeline",
+    "retry": "Retry",
+    "allLoaded": "You're all caught up"
   },
   "dateTime": {
     "justNow": "Just now",
@@ -546,7 +549,8 @@
     "deleteConfirmTitle": "Delete this Echo?",
     "deleteConfirmDesc": "This action cannot be undone.",
     "deleteSuccess": "Deleted successfully",
-    "exitUpdateModeFirst": "Please exit update mode first",
+    "editAnotherEchoTitle": "Edit another Echo?",
+    "editAnotherEchoDesc": "You are already editing an Echo. Discard those changes and edit this one?",
     "openDetail": "Open detail"
   },
   "userSetting": {

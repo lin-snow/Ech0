@@ -461,8 +461,11 @@
     "noMore": "これ以上データはありません",
     "noMoreFiltered": "これ以上データはありません",
     "loading": "読み込み中...",
-    "older": "以前",
-    "newer": "以降"
+    "loadingMore": "さらに読み込み中...",
+    "loadMoreFailed": "読み込みに失敗しました",
+    "loadFailed": "タイムラインを読み込めませんでした",
+    "retry": "再試行",
+    "allLoaded": "最後まで表示しました"
   },
   "dateTime": {
     "justNow": "たった今",
@@ -546,7 +549,8 @@
     "deleteConfirmTitle": "削除しますか？",
     "deleteConfirmDesc": "削除すると復元できません。慎重に操作してください",
     "deleteSuccess": "削除しました！",
-    "exitUpdateModeFirst": "先に更新モードを終了してください！",
+    "editAnotherEchoTitle": "別の Echo を編集しますか？",
+    "editAnotherEchoDesc": "すでに別の Echo を編集中です。現在の変更を破棄してこの Echo を編集しますか？",
     "openDetail": "詳細を開く"
   },
   "userSetting": {

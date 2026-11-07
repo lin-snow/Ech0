@@ -371,7 +371,32 @@ func (echoRepository *EchoRepository) QueryEchos(
 	if queryDto.SortOrder == "asc" {
 		sortDir = "ASC"
 	}
-	orderClause := sortColumn + " " + sortDir
+	// The id tiebreaker makes the order total: several Echoes can share the
+	// same created_at second, and keyset pagination needs a stable boundary.
+	orderClause := sortColumn + " " + sortDir + ", echos.id " + sortDir
+
+	applyCursor := func(db *gorm.DB) *gorm.DB { return db }
+	if queryDto.Cursor != nil && *queryDto.Cursor != "" {
+		cursor, err := model.DecodeCursor(*queryDto.Cursor)
+		if err != nil {
+			return nil, 0, err
+		}
+		if sortDir == "ASC" {
+			applyCursor = func(db *gorm.DB) *gorm.DB {
+				return db.Where(
+					"(echos.created_at > ? OR (echos.created_at = ? AND echos.id > ?))",
+					cursor.CreatedAt, cursor.CreatedAt, cursor.ID,
+				)
+			}
+		} else {
+			applyCursor = func(db *gorm.DB) *gorm.DB {
+				return db.Where(
+					"(echos.created_at < ? OR (echos.created_at = ? AND echos.id < ?))",
+					cursor.CreatedAt, cursor.CreatedAt, cursor.ID,
+				)
+			}
+		}
+	}
 
 	// Reaction totals are derived, so ordering by them needs the aggregate
 	// joined in. The join is added only when it is actually used.
@@ -419,10 +444,13 @@ func (echoRepository *EchoRepository) QueryEchos(
 	}
 
 	offset := (queryDto.Page - 1) * queryDto.PageSize
+	if queryDto.Cursor != nil {
+		offset = 0
+	}
 
 	if hasTagFilter {
 		var echoIDs []string
-		idsQuery := withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{})))
+		idsQuery := applyCursor(withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{}))))
 		if err := idsQuery.
 			Distinct("echos.id").
 			Order(orderClause).
@@ -447,7 +475,7 @@ func (echoRepository *EchoRepository) QueryEchos(
 			return nil, 0, err
 		}
 	} else {
-		query := withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{})))
+		query := applyCursor(withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{}))))
 		if err := query.
 			Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
 				return db.Order("echo_files.sort_order ASC")

@@ -489,6 +489,9 @@ components:
     EchoQueryDto:
       additionalProperties: true
       properties:
+        cursor:
+          description: Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page
+          type: string
         dateFrom:
           description: Only Echoes created at or after this Unix time (seconds)
           format: int64
@@ -1181,6 +1184,8 @@ components:
           type:
             - array
             - "null"
+        nextCursor:
+          type: string
         total:
           format: int64
           type: integer

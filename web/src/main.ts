@@ -11,6 +11,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { initStores } from './stores/store-init'
+import { preloadMarkdown } from './editor/core/loader'
 import { useSettingStore } from './stores/setting'
 import { useInitStore } from './stores/init'
 import { setupI18n } from './locales'
@@ -22,9 +23,23 @@ const pinia = createPinia()
 
 app.use(pinia)
 
-await initStores().catch((e) => {
-  console.error('Failed to initialize stores:', e)
-})
+// The timeline restores its own row-based anchor. Browser scroll restoration
+// would move the document to a pixel offset that the virtual list immediately
+// contradicts, so the user sees two jumps on reload.
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual'
+}
+
+// The timeline renders markdown immediately; both bootstrap tasks run in
+// parallel so the renderer is ready before the first row mounts.
+await Promise.all([
+  initStores().catch((e) => {
+    console.error('Failed to initialize stores:', e)
+  }),
+  preloadMarkdown().catch((e) => {
+    console.error('Failed to load the markdown renderer:', e)
+  }),
+])
 
 const settingStore = useSettingStore()
 const initStore = useInitStore()

@@ -7,63 +7,70 @@
   >
     <TheOnboardingChecklist v-if="showChecklist" />
     <TheFirstEchoCard v-if="showFirstEchoCard" @dismiss="dismissFirstEchoCard" />
-    <TransitionGroup
-      v-if="echoStore.echoList"
-      name="list"
-      tag="div"
-      class="relative"
-      @before-enter="onBeforeEnter"
-      @enter="onEnter"
-      @before-leave="onBeforeLeave"
-      @leave="onLeave"
-    >
-      <div v-for="(echo, index) in echoStore.echoList" :key="echo.id">
-        <TheEchoCard :echo="echo" :index="index" @refresh="handleRefresh" />
-      </div>
-    </TransitionGroup>
+
+    <EchoTimelineList
+      v-if="scrollModeReady && echoStore.echoList.length > 0"
+      :key="useWindowScroll ? 'window' : 'element'"
+      :items="echoStore.echoList"
+      :scroll-target="scrollTarget ?? null"
+      :use-window="useWindowScroll"
+      :busy="echoStore.isLoadingMore"
+    />
+
     <Transition name="fade">
-      <div
-        v-if="!echoStore.isLoading && echoStore.total > 0 && echoStore.totalPages > 1"
-        class="echos-toolbar mb-2 mt-1 -ml-1 flex items-center justify-between"
-      >
-        <button
-          v-if="canGoOlder"
-          type="button"
-          class="echos-pager echos-pager--older"
-          @click="handleGoToPage(echoStore.currentPage + 1)"
-        >
-          {{ t('homeFeed.older') }}
-        </button>
-        <span v-else aria-hidden="true" />
-        <button
-          v-if="canGoNewer"
-          type="button"
-          class="echos-pager echos-pager--newer"
-          @click="handleGoToPage(echoStore.currentPage - 1)"
-        >
-          {{ t('homeFeed.newer') }}
-        </button>
-        <span v-else aria-hidden="true" />
+      <div v-if="echoStore.isLoading && echoStore.echoList.length === 0" class="my-5">
+        <TheLoadingIndicator class="echos-toolbar" size="lg" :label="t('homeFeed.loading')" />
       </div>
     </Transition>
+
     <Transition name="fade">
-      <div
-        v-if="!showChecklist && !echoStore.isLoading && echoStore.total === 0"
-        class="mx-auto my-5 text-center echos-toolbar"
-      >
+      <div v-if="showEmptyState" class="mx-auto my-5 text-center echos-toolbar">
         <p class="text-xl text-[var(--color-text-muted)]">
           {{ echoStore.isFilteringMode ? t('homeFeed.noMoreFiltered') : t('homeFeed.noMore') }}
         </p>
       </div>
     </Transition>
+
+    <Transition name="fade">
+      <div v-if="echoStore.loadError === 'first'" class="echo-feed-status">
+        <p>{{ t('homeFeed.loadFailed') }}</p>
+        <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
+          {{ t('homeFeed.retry') }}
+        </button>
+      </div>
+    </Transition>
+
     <Transition name="fade">
       <TheLoadingIndicator
-        v-if="echoStore.isLoading"
+        v-if="echoStore.isLoadingMore"
         class="mx-auto my-5 echos-toolbar"
-        size="lg"
-        :label="t('homeFeed.loading')"
+        size="md"
+        :label="t('homeFeed.loadingMore')"
       />
     </Transition>
+
+    <div v-if="echoStore.loadError === 'more'" class="echo-feed-status">
+      <p>{{ t('homeFeed.loadMoreFailed') }}</p>
+      <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
+        {{ t('homeFeed.retry') }}
+      </button>
+    </div>
+
+    <p
+      v-if="
+        !echoStore.isLoadingMore &&
+        echoStore.loadError === null &&
+        echoStore.echoList.length > 0 &&
+        echoStore.nextCursor === null
+      "
+      class="echo-feed-end echos-toolbar"
+    >
+      {{ t('homeFeed.allLoaded') }}
+    </p>
+
+    <div ref="sentinel" class="h-px" aria-hidden="true" />
+    <p class="feed-sr-only" aria-live="polite">{{ liveMessage }}</p>
+
     <div v-if="footerContent" class="mt-6 text-center">
       <a v-if="footerLink" :href="footerLink" target="_blank" rel="noopener noreferrer">
         <span class="text-[var(--color-text-muted)] text-sm">
@@ -78,13 +85,15 @@
 </template>
 
 <script setup lang="ts">
-import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
+import EchoTimelineList from './EchoTimelineList.vue'
 import TheFirstEchoCard from './TheFirstEchoCard.vue'
 import TheOnboardingChecklist from './TheOnboardingChecklist.vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
 import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables/useSiteOnboarding'
 import { useSiteChecklist } from '@/composables/useSiteChecklist'
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
+import { HOME_TIMELINE_DEPTH_KEY } from '@/utils/timeline'
 import { localStg } from '@/utils/storage'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { storeToRefs } from 'pinia'
@@ -122,6 +131,14 @@ const showFirstEchoCard = computed(() => {
   })
 })
 
+const showEmptyState = computed(
+  () =>
+    !showChecklist.value &&
+    !echoStore.isLoading &&
+    echoStore.loadError !== 'first' &&
+    echoStore.total === 0,
+)
+
 const dismissFirstEchoCard = () => {
   firstEchoSeen.value = true
   localStg.setItem(FIRST_ECHO_CARD_SEEN_KEY, true)
@@ -131,115 +148,50 @@ const footerContent = computed(
 )
 const footerLink = computed(() => SystemSetting.value.footer_link)
 
-const canGoNewer = computed(() => echoStore.currentPage > 1)
-const canGoOlder = computed(() => echoStore.currentPage < echoStore.totalPages)
-
-const hasInitialRendered = ref(false)
-
-let enterBatchIndex = 0
-let enterBatchResetTimer: number | null = null
-
-const ENTER_DURATION = 420
-const ENTER_STAGGER = 100
-const ENTER_STAGGER_CAP = 600
-const ENTER_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
-
-const onBeforeEnter = (el: Element) => {
-  const element = el as HTMLElement
-  element.style.opacity = '0'
-  element.style.transform = 'translateY(-18px)'
-}
-
-const onEnter = (el: Element, done: () => void) => {
-  const element = el as HTMLElement
-  const indexInBatch = enterBatchIndex++
-  if (enterBatchResetTimer !== null) {
-    window.clearTimeout(enterBatchResetTimer)
+const liveMessage = computed(() => {
+  if (echoStore.isLoadingMore) return t('homeFeed.loadingMore')
+  if (echoStore.loadError === 'first') return t('homeFeed.loadFailed')
+  if (echoStore.loadError === 'more') return t('homeFeed.loadMoreFailed')
+  if (echoStore.echoList.length > 0 && echoStore.nextCursor === null) {
+    return t('homeFeed.allLoaded')
   }
-  enterBatchResetTimer = window.setTimeout(() => {
-    enterBatchIndex = 0
-    enterBatchResetTimer = null
-  }, 400)
+  return ''
+})
 
-  const baseDelay = hasInitialRendered.value ? 80 : 0
-  const staggerDelay = Math.min(indexInBatch * ENTER_STAGGER, ENTER_STAGGER_CAP)
-
-  window.setTimeout(() => {
-    element.style.transition = `opacity ${ENTER_DURATION}ms ${ENTER_EASING}, transform ${ENTER_DURATION}ms ${ENTER_EASING}`
-    element.style.opacity = '1'
-    element.style.transform = 'translateY(0)'
-    window.setTimeout(done, ENTER_DURATION)
-  }, baseDelay + staggerDelay)
+const useWindowScroll = ref(true)
+const scrollModeReady = ref(false)
+const syncScrollMode = () => {
+  const target = props.scrollTarget
+  const overflow = target ? getComputedStyle(target).overflowY : ''
+  useWindowScroll.value =
+    !target || (overflow !== 'auto' && overflow !== 'scroll' && overflow !== 'overlay')
 }
 
-const onBeforeLeave = (el: Element) => {
-  const element = el as HTMLElement
-  const parent = element.parentElement
-  if (!parent) return
-  const rect = element.getBoundingClientRect()
-  const parentRect = parent.getBoundingClientRect()
-  element.style.position = 'absolute'
-  element.style.left = `${rect.left - parentRect.left}px`
-  element.style.top = `${rect.top - parentRect.top}px`
-  element.style.width = `${rect.width}px`
-}
+const sentinel = ref<HTMLElement | null>(null)
+useInfiniteScroll({
+  sentinel,
+  scrollTarget: () => props.scrollTarget ?? null,
+  canLoad: () => echoStore.canLoadMore,
+  load: () => echoStore.loadMore(),
+  items: computed(() => echoStore.echoList),
+})
 
-const onLeave = (el: Element, done: () => void) => {
-  const element = el as HTMLElement
-  window.requestAnimationFrame(() => {
-    element.style.transition = 'opacity 0.18s ease'
-    element.style.opacity = '0'
-    window.setTimeout(done, 180)
-  })
-}
-
-const scrollToTop = () => {
-  const container = props.scrollTarget
-  if (container) {
-    container.scrollTo({ top: 0, behavior: 'smooth' })
-  } else if (typeof window !== 'undefined') {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-}
-
-const parsePageQuery = (raw: unknown): number => {
+const parseLegacyPage = (raw: unknown): number => {
   const value = Number(Array.isArray(raw) ? raw[0] : raw)
   if (!Number.isFinite(value) || value < 1) return 1
   return Math.floor(value)
 }
 
-const handleGoToPage = async (page: number) => {
-  const target = Math.max(1, Math.min(page, echoStore.totalPages || page))
-  if (target === echoStore.currentPage) return
-  await echoStore.goToPage(target)
-  scrollToTop()
-}
-
-const handleRefresh = () => {
-  echoStore.refreshEchos()
+const storedDepth = (): number => {
+  const value = Number(sessionStorage.getItem(HOME_TIMELINE_DEPTH_KEY))
+  return Number.isFinite(value) && value > 1 ? Math.floor(value) : 1
 }
 
 watch(
-  () => echoStore.currentPage,
-  (page) => {
-    if (parsePageQuery(route.query.page) === page) return
-    const nextQuery = { ...route.query }
-    if (page > 1) {
-      nextQuery.page = String(page)
-    } else {
-      delete nextQuery.page
-    }
-    router.replace({ query: nextQuery })
-  },
-)
-
-watch(
-  () => route.query.page,
-  async (raw) => {
-    const target = parsePageQuery(raw)
-    if (target === echoStore.currentPage) return
-    await echoStore.goToPage(target)
-    scrollToTop()
+  () => echoStore.echoList.length,
+  (length) => {
+    const depth = Math.max(1, Math.ceil(length / echoStore.pageSize))
+    sessionStorage.setItem(HOME_TIMELINE_DEPTH_KEY, String(depth))
   },
 )
 
@@ -247,13 +199,34 @@ watch(isFilteringMode, () => {
   echoStore.refreshEchos()
 })
 
+watch(
+  () => props.scrollTarget,
+  () => syncScrollMode(),
+)
+
 onMounted(async () => {
-  const target = parsePageQuery(route.query.page)
-  echoStore.currentPage = target
-  await echoStore.fetchCurrentPage()
-  window.setTimeout(() => {
-    hasInitialRendered.value = true
-  }, 500)
+  const legacyPage = parseLegacyPage(route.query.page)
+  if (route.query.page !== undefined) {
+    const nextQuery = { ...route.query }
+    delete nextQuery.page
+    router.replace({ query: nextQuery })
+  }
+
+  syncScrollMode()
+  scrollModeReady.value = true
+  window.addEventListener('resize', syncScrollMode, { passive: true })
+
+  // A refresh started elsewhere (publishing returns to this tab) already owns
+  // the request; wait for it instead of firing a duplicate.
+  if (echoStore.isLoading && echoStore.hasFetched) return
+  if (echoStore.isTimelineCurrent) return
+
+  const depth = Math.max(storedDepth(), legacyPage)
+  await echoStore.refreshEchos(depth > 1 ? depth * echoStore.pageSize : undefined)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncScrollMode)
 })
 </script>
 
@@ -262,16 +235,22 @@ onMounted(async () => {
   font-family: var(--font-family-display);
 }
 
-.echos-pager {
-  display: inline-flex;
+.echo-feed-status {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-width: 5rem;
-  padding: 0.4rem 1.1rem;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+  font-family: var(--font-family-display);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.echo-feed-retry {
+  padding: 0.35rem 1.1rem;
   font-family: var(--font-family-display);
   font-size: 0.8125rem;
   font-weight: 500;
-  letter-spacing: 0.01em;
   color: var(--color-text-secondary);
   background: transparent;
   border: 1px solid var(--color-border-strong);
@@ -280,27 +259,37 @@ onMounted(async () => {
   transition:
     color 0.18s ease,
     border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.08s ease;
+    background 0.18s ease;
 }
 
-.echos-pager:hover {
+.echo-feed-retry:hover {
   color: var(--color-text-primary);
   border-color: var(--color-text-secondary);
   background: var(--color-border-subtle);
 }
 
-.echos-pager:active {
-  transform: translateY(1px);
-}
-
-.echos-pager:focus-visible {
+.echo-feed-retry:focus-visible {
   outline: 2px solid var(--color-text-secondary);
   outline-offset: 2px;
 }
 
-.list-move {
-  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+.echo-feed-end {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.feed-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .fade-enter-active,

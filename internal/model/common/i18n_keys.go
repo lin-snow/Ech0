@@ -16,6 +16,8 @@ const (
 	MsgKeySettingUpdateOK             = "setting.update_success"
 	MsgKeyAgentModelMissing           = "agent.model_missing"
 	MsgKeyEchoMixedFileCategories     = "echo.mixed_file_categories"
+	MsgKeyEchoInvalidCursor           = "echo.invalid_cursor"
+	MsgKeyEchoCursorSortUnsupported   = "echo.cursor_sort_unsupported"
 	MsgKeyAuthTokenMissing            = "auth.token_missing"
 	MsgKeyAuthTokenInvalid            = "auth.token_invalid"
 	MsgKeyAuthTokenParse              = "auth.token_parse_error"

@@ -19,7 +19,11 @@ type EchoQueryDto struct {
 	DateFrom  int64    `json:"dateFrom"  doc:"Only Echoes created at or after this Unix time (seconds)"`
 	DateTo    int64    `json:"dateTo"    doc:"Only Echoes created at or before this Unix time (seconds)"`
 	Private   *bool    `json:"private,omitempty" doc:"Visibility filter: true for private only, false for public only; omit for both"`
-	UserID    string   `json:"-"`
+	// Cursor switches the query to keyset pagination. Omit it for the legacy
+	// page-based mode; send an empty string on the first cursor request, then
+	// echo back the previous response's nextCursor.
+	Cursor *string `json:"cursor,omitempty" doc:"Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page"`
+	UserID string  `json:"-"`
 }
 
 type FileDto struct {

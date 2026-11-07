@@ -181,6 +181,7 @@ function echoQueryExamples(id: string): string[] | undefined {
     case "echo.list":
       return [
         "ech0 echo list --page 1 --page-size 20",
+        'ech0 echo list --cursor "" --page-size 50',
         "ech0 echo list --search daily --tag-ids <tag_id>",
         "ech0 echo list --sort-by reactions --json",
       ];
@@ -204,6 +205,7 @@ function echoQueryHints(id: string): string[] {
     return [
       "标签 ID 来自 ech0 tag list；多个 ID 命中任意一个即可",
       "私密可见性由账号决定：管理员可用 --private / --no-private 过滤，其他账号只看公开",
+      '游标翻页：--cursor "" 取第一页，之后回传上一页的 nextCursor；只支持 --sort-by created_at，忽略 --page',
     ];
   }
   if (id === "echo.hot" || id === "echo.today" || id === "echo.random" || id === "echo.onthisday") {

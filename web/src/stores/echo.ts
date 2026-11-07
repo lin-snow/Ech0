@@ -5,20 +5,37 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { fetchQueryEchos, fetchGetTags, fetchGetEchoById, fetchCreateTag } from '@/service/api'
 
+/** Backend clamps to [1, 100]; mirror it so a restored depth cannot overflow. */
+const MAX_PAGE_SIZE = 100
+const PAGE_SIZE = 7
+
+type LoadPhase = 'first' | 'more'
+
 export const useEchoStore = defineStore('echoStore', () => {
   const normalizeEchoId = (echo: App.Api.Ech0.Echo): string => String(echo?.id ?? '').trim()
 
   const echoList = ref<App.Api.Ech0.Echo[]>([])
   const echoIndexMap = ref(new Map<string, number>())
   const isLoading = ref<boolean>(true)
+  const hasFetched = ref<boolean>(false)
+  const isLoadingMore = ref<boolean>(false)
+  const loadError = ref<LoadPhase | null>(null)
   const total = ref<number>(0)
-  const pageSize = ref<number>(7)
-  const currentPage = ref<number>(1)
+  const pageSize = ref<number>(PAGE_SIZE)
+
+  /**
+   * `undefined` = the current query has not been fetched yet, a string = the
+   * next keyset position, `null` = the feed is exhausted. This single ref is
+   * the only pagination state the view has to understand.
+   */
+  const nextCursor = ref<string | null | undefined>(undefined)
+  const loadedSignature = ref<string | null>(null)
+  /** Page size the current stream was opened with, so a first-load retry restores the same depth. */
+  const refreshPageSize = ref<number | null>(null)
+  let generation = 0
+
   const searchValue = ref<string>('')
   const searchingMode = computed(() => searchValue.value.length > 0)
-  const totalPages = computed(() =>
-    total.value <= 0 ? 1 : Math.max(1, Math.ceil(total.value / pageSize.value)),
-  )
   const echoToUpdate = ref<App.Api.Ech0.EchoToUpdate | null>(null)
 
   const tagList = ref<App.Api.Ech0.Tag[]>([])
@@ -36,6 +53,15 @@ export const useEchoStore = defineStore('echoStore', () => {
 
   const visibilityFilter = ref<App.Api.Ech0.EchoVisibilityFilter>('all')
   const isVisibilityFilterActive = computed(() => visibilityFilter.value !== 'all')
+
+  const canLoadMore = computed(
+    () =>
+      nextCursor.value !== undefined &&
+      nextCursor.value !== null &&
+      !isLoading.value &&
+      !isLoadingMore.value &&
+      loadError.value === null,
+  )
 
   /**
    * True whenever the timeline is showing a narrowed result set. `total` and
@@ -59,7 +85,7 @@ export const useEchoStore = defineStore('echoStore', () => {
 
   function buildQueryParams(): App.Api.Ech0.EchoQueryParams {
     const params: App.Api.Ech0.EchoQueryParams = {
-      page: currentPage.value,
+      page: 1,
       pageSize: pageSize.value,
       search: searchValue.value || undefined,
     }
@@ -83,6 +109,26 @@ export const useEchoStore = defineStore('echoStore', () => {
     return params
   }
 
+  /**
+   * Identifies the filter set currently backing the loaded stream. Mounting the
+   * timeline again (tab switches, back navigation) reuses the loaded pages only
+   * while this still matches.
+   */
+  function querySignature(): string {
+    const params = buildQueryParams()
+    return JSON.stringify([
+      params.search ?? '',
+      [...(params.tagIds ?? [])].sort(),
+      params.dateFrom ?? null,
+      params.dateTo ?? null,
+      visibilityFilter.value,
+    ])
+  }
+
+  const isTimelineCurrent = computed(
+    () => loadedSignature.value !== null && loadedSignature.value === querySignature(),
+  )
+
   const resetDateRange = () => {
     dateFrom.value = null
     dateTo.value = null
@@ -104,62 +150,127 @@ export const useEchoStore = defineStore('echoStore', () => {
     }
   }
 
-  let pendingFetch: Promise<void> | null = null
-  async function fetchCurrentPage() {
-    if (pendingFetch) return pendingFetch
+  const normalizeItems = (items: App.Api.Ech0.Echo[] | undefined): App.Api.Ech0.Echo[] =>
+    (items ?? []).map((item) => ({ ...item, id: normalizeEchoId(item) }))
 
+  const rebuildIndex = () => {
+    const nextIndex = new Map<string, number>()
+    echoList.value.forEach((item, idx) => {
+      if (item.id) nextIndex.set(item.id, idx)
+    })
+    echoIndexMap.value = nextIndex
+  }
+
+  const appendDeduped = (items: App.Api.Ech0.Echo[]) => {
+    const seen = new Set(echoList.value.map((item) => item.id))
+    items.forEach((item) => {
+      if (!item.id || seen.has(item.id)) return
+      seen.add(item.id)
+      echoList.value.push(item)
+    })
+    rebuildIndex()
+  }
+
+  const clampPageSize = (value: number): number =>
+    Math.max(1, Math.min(MAX_PAGE_SIZE, Math.trunc(value) || PAGE_SIZE))
+
+  async function refreshEchos(initialPageSize?: number): Promise<void> {
+    const requestGeneration = ++generation
+    const requestedPageSize = clampPageSize(initialPageSize ?? pageSize.value)
+    refreshPageSize.value = requestedPageSize
+    hasFetched.value = true
     isLoading.value = true
-    pendingFetch = fetchQueryEchos(buildQueryParams())
-      .then((res) => {
-        if (res.code === 1) {
-          total.value = res.data.total
-          const items = (res.data.items ?? []).map((item) => ({
-            ...item,
-            id: normalizeEchoId(item),
-          }))
-          echoList.value = items
-          const nextIndex = new Map<string, number>()
-          items.forEach((item, idx) => {
-            if (item.id) nextIndex.set(item.id, idx)
-          })
-          echoIndexMap.value = nextIndex
-        }
-      })
-      .finally(() => {
-        isLoading.value = false
-        pendingFetch = null
-      })
-
-    return pendingFetch
-  }
-
-  async function goToPage(page: number) {
-    const target = Math.max(1, Math.floor(page) || 1)
-    if (target === currentPage.value && echoList.value.length > 0) return
-    currentPage.value = target
-    await fetchCurrentPage()
-  }
-
-  const refreshEchos = () => {
-    currentPage.value = 1
-    total.value = 0
+    isLoadingMore.value = false
+    loadError.value = null
+    loadedSignature.value = null
+    nextCursor.value = undefined
     echoList.value = []
     echoIndexMap.value = new Map()
-    return fetchCurrentPage()
+
+    try {
+      const res = await fetchQueryEchos({
+        ...buildQueryParams(),
+        pageSize: requestedPageSize,
+        cursor: '',
+      })
+      if (requestGeneration !== generation) return
+      if (res.code !== 1 || !res.data) {
+        loadError.value = 'first'
+        return
+      }
+      total.value = res.data.total ?? 0
+      appendDeduped(normalizeItems(res.data.items))
+      nextCursor.value = res.data.nextCursor ?? null
+      loadedSignature.value = querySignature()
+    } catch {
+      if (requestGeneration === generation) {
+        loadError.value = 'first'
+      }
+    } finally {
+      if (requestGeneration === generation) {
+        isLoading.value = false
+      }
+    }
+  }
+
+  async function loadMore(): Promise<void> {
+    const cursor = nextCursor.value
+    if (!cursor || isLoading.value || isLoadingMore.value || loadError.value !== null) return
+    if (!isTimelineCurrent.value) {
+      await refreshEchos()
+      return
+    }
+
+    const requestGeneration = generation
+    isLoadingMore.value = true
+    try {
+      const res = await fetchQueryEchos({
+        ...buildQueryParams(),
+        cursor,
+      })
+      if (requestGeneration !== generation) return
+      if (res.code !== 1 || !res.data) {
+        loadError.value = 'more'
+        return
+      }
+      appendDeduped(normalizeItems(res.data.items))
+      nextCursor.value = res.data.nextCursor ?? null
+      total.value = res.data.total ?? total.value
+    } catch {
+      if (requestGeneration === generation) {
+        loadError.value = 'more'
+      }
+    } finally {
+      if (requestGeneration === generation) {
+        isLoadingMore.value = false
+      }
+    }
+  }
+
+  const retryLoad = async (): Promise<void> => {
+    if (loadError.value === null) return
+    loadError.value = null
+    if (nextCursor.value === undefined) {
+      // Re-open at the depth the timeline was mounted with: a shallow first
+      // page would drop the restored anchor row from the result set.
+      await refreshEchos(refreshPageSize.value ?? undefined)
+      return
+    }
+    await loadMore()
   }
 
   const clearEchos = () => {
-    currentPage.value = 1
+    generation++
+    nextCursor.value = undefined
+    loadedSignature.value = null
+    refreshPageSize.value = null
+    loadError.value = null
     total.value = 0
     echoList.value = []
     echoIndexMap.value = new Map()
-  }
-
-  const refreshForSearch = () => {
-    currentPage.value = 1
-    total.value = 0
-    echoList.value = []
-    echoIndexMap.value = new Map()
+    isLoading.value = false
+    isLoadingMore.value = false
+    hasFetched.value = false
   }
 
   const updateEcho = (echo: App.Api.Ech0.Echo) => {
@@ -167,6 +278,21 @@ export const useEchoStore = defineStore('echoStore', () => {
     if (idx !== undefined) {
       echoList.value[idx] = echo
     }
+  }
+
+  const replaceEcho = (echo: App.Api.Ech0.Echo) => {
+    const idx = echoIndexMap.value.get(echo.id)
+    if (idx === undefined) return
+    echoList.value[idx] = { ...echo, id: normalizeEchoId(echo) }
+    rebuildIndex()
+  }
+
+  const removeEcho = (echoId: string) => {
+    const idx = echoIndexMap.value.get(echoId)
+    if (idx === undefined) return
+    echoList.value.splice(idx, 1)
+    total.value = Math.max(0, total.value - 1)
+    rebuildIndex()
   }
 
   const setEchoReactions = (echoId: string, reactions: App.Api.Ech0.ReactionCount[]) => {
@@ -237,10 +363,14 @@ export const useEchoStore = defineStore('echoStore', () => {
     echoList,
     echoIndexMap,
     isLoading,
+    hasFetched,
+    isLoadingMore,
+    loadError,
     total,
     pageSize,
-    currentPage,
-    totalPages,
+    nextCursor,
+    canLoadMore,
+    isTimelineCurrent,
     searchValue,
     searchingMode,
     echoToUpdate,
@@ -261,16 +391,17 @@ export const useEchoStore = defineStore('echoStore', () => {
     isVisibilityFilterActive,
     hasActiveQuery,
 
-    fetchCurrentPage,
-    goToPage,
     refreshEchos,
+    loadMore,
+    retryLoad,
     clearEchos,
-    refreshForSearch,
     resetDateRange,
     resetSelectedTags,
     resetVisibilityFilter,
     removeSelectedTag,
     updateEcho,
+    replaceEcho,
+    removeEcho,
     setEchoReactions,
     prefetchEcho,
     getTags,
