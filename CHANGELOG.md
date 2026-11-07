@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.6] - 2026-11-07
+
 ### Added
 
 - **The home timeline scrolls continuously.** `POST /api/echo/query` now accepts an optional `cursor`: omit it for the unchanged page-based mode, send `""` for the first keyset page, then echo the previous response's `nextCursor`. Page-mode responses stay byte-identical. Ordering now includes the Echo id, so posts sharing a `created_at` second can no longer shuffle between pages, repeat, or be skipped, and keyset continuation stays stable while new posts arrive; the static adapter behind capsule deployments applies the same direction-aware tiebreaker and resumes past a deleted cursor row. Cursor mode only supports `sort_by=created_at`, and an unreadable or overlong cursor is a `400` instead of a silent restart from the top. The web feed replaces the Older/Newer pager with a sentinel that loads more near the viewport, restores the loaded depth and scroll position on reload, patches edits/deletes in place instead of resetting to the top, and appends pages behind the shared loading indicator instead of a skeleton placeholder. The `ech0` CLI passes the same flag through (`ech0 echo list --cursor ""`), and its help, bundled skill and generated types document the empty first page.
