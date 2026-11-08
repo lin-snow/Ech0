@@ -1,39 +1,26 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div
-    ref="listEl"
-    class="echo-virtual-list"
-    :style="{ height: `${totalSize}px` }"
-    :aria-busy="busy"
-  >
+  <div ref="listEl" class="echo-timeline-list" :aria-busy="busy">
     <div
-      v-for="row in virtualItems"
-      :key="String(row.key)"
-      :data-index="row.index"
-      :data-echo-id="items[row.index]?.id ?? ''"
-      :ref="measureRow"
-      class="echo-virtual-row"
-      :style="{ transform: `translateY(${row.start - scrollMargin}px)` }"
+      v-for="(item, index) in items"
+      :key="item.id"
+      :data-echo-id="item.id"
+      class="echo-timeline-row"
     >
-      <TheEchoCard v-if="items[row.index]" :echo="items[row.index]!" :index="row.index" />
+      <TheEchoCard :echo="item" :index="index" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { Ref } from 'vue'
-import { useVirtualizer, useWindowVirtualizer } from '@tanstack/vue-virtual'
-import type { VirtualItem, Virtualizer } from '@tanstack/vue-virtual'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import TheEchoCard from '@/components/advanced/echo/cards/TheEchoCard.vue'
 import {
   HOME_TIMELINE_ANCHOR_KEY,
-  TIMELINE_ROW_ESTIMATE_PX,
   parseTimelineAnchor,
   serializeTimelineAnchor,
 } from '@/utils/timeline'
-import type { TimelineAnchor } from '@/utils/timeline'
 
 const props = defineProps<{
   items: App.Api.Ech0.Echo[]
@@ -45,78 +32,37 @@ const props = defineProps<{
 }>()
 
 const listEl = ref<HTMLElement | null>(null)
-const scrollMargin = ref(0)
 
-const readScroll = (): number =>
-  props.useWindow ? window.scrollY : (props.scrollTarget?.scrollTop ?? 0)
-
-// The virtualizer positions rows from the list's own top; scrollMargin maps
-// that origin onto the page (window) or the scroll container's content.
-const updateScrollMargin = () => {
-  const list = listEl.value
-  if (!list) return
-  if (props.useWindow) {
-    scrollMargin.value = Math.max(0, Math.round(list.getBoundingClientRect().top + window.scrollY))
-    return
-  }
+// Top edge of a row in the coordinates of the scroller that owns it: document
+// space for the window, scroller content space for the inner column.
+const rowTop = (el: HTMLElement): number => {
+  if (props.useWindow) return el.getBoundingClientRect().top + window.scrollY
   const root = props.scrollTarget
-  if (!root) return
-  scrollMargin.value = Math.max(
-    0,
-    Math.round(
-      list.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop,
-    ),
-  )
+  if (!root) return el.offsetTop
+  return el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
 }
 
-const virtualizerOptions = computed(() => ({
-  count: props.items.length,
-  estimateSize: () => TIMELINE_ROW_ESTIMATE_PX,
-  overscan: 4,
-  scrollMargin: scrollMargin.value,
-  getItemKey: (index: number) => props.items[index]?.id ?? index,
-}))
-
-const elementVirtualizerOptions = computed(() => ({
-  ...virtualizerOptions.value,
-  getScrollElement: () => props.scrollTarget,
-}))
-
-// The mode is fixed for this instance; the parent remounts the list via :key
-// when the page crosses the layout breakpoint.
-const virtualizer = (props.useWindow
-  ? useWindowVirtualizer(virtualizerOptions)
-  : useVirtualizer<HTMLElement, HTMLElement>(elementVirtualizerOptions)) as unknown as Ref<
-  Virtualizer<Element | Window, HTMLElement>
->
-
-const virtualItems = computed<VirtualItem[]>(() => virtualizer.value.getVirtualItems())
-const totalSize = computed(() => virtualizer.value.getTotalSize())
-
-const measureRow = (el: unknown) => {
-  virtualizer.value.measureElement(el instanceof HTMLElement ? el : null)
-}
+const rowElements = (): HTMLElement[] =>
+  Array.from(listEl.value?.querySelectorAll<HTMLElement>('[data-echo-id]') ?? [])
 
 // ---------------------------------------------------------------------------
 // Refresh restore
 //
 // One anchor (first visible Echo + how far it is scrolled past the top) is
-// kept in sessionStorage. Restoring is a single offset write: rows above the
-// anchor are still estimates, so the anchor row lands exactly where it was,
-// and the virtualizer's default size-change compensation keeps it there while
-// neighbouring rows are measured.
+// kept in sessionStorage and restored as a single offset write once the page
+// it belongs to is rendered. The page index itself lives in the store.
 // ---------------------------------------------------------------------------
 
 const initialAnchor = parseTimelineAnchor(sessionStorage.getItem(HOME_TIMELINE_ANCHOR_KEY))
 
 // The startup loader keeps <html> at viewport height with `overflow: hidden`
 // until the first paint settles, so on the mobile layout the page reports a
-// zero max offset while the feed is already mounted. The virtualizer clamps
-// every scroll command to that stale maximum, which would turn the restore
-// into a no-op at the top. Wait for the release instead of losing the anchor.
+// zero max offset while the feed is already mounted. The browser clamps every
+// scroll command to that stale maximum, which would turn the restore into a
+// no-op at the top. Wait for the release instead of losing the anchor.
 const RESTORE_RETRY_MS = 50
 const RESTORE_RETRY_LIMIT = 40
-let restoreTimer: number | null = null
+let restoreTimer: number | undefined
 
 const scrollerCanScroll = (): boolean => {
   if (props.useWindow) {
@@ -127,26 +73,21 @@ const scrollerCanScroll = (): boolean => {
   return !!root && root.scrollHeight > root.clientHeight + 1
 }
 
-const anchorMatchesQuery = (anchor: TimelineAnchor): boolean =>
-  anchor.signature !== undefined && anchor.signature === (props.signature ?? '')
-
 const restoreAnchor = (attempt = 0) => {
   const anchor = initialAnchor
   if (!anchor) return
-  if (!anchorMatchesQuery(anchor)) {
+  if (anchor.signature === undefined || anchor.signature !== (props.signature ?? '')) {
     // The stored position belongs to another filter set; restoring it would
     // resume the new stream at an arbitrary row.
     sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
     return
   }
-  const index = props.items.findIndex((item) => item.id === anchor.id)
-  const offset = index >= 0 ? virtualizer.value.getOffsetForIndex(index, 'start') : null
-  if (!offset) {
+  const row = rowElements().find((el) => el.dataset.echoId === anchor.id)
+  if (!row) {
+    // The anchored Echo is not on this page (or was deleted): start at the top.
     sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
     return
   }
-  // Only the window scroller is held by the loader; the inner column is
-  // already scrollable when the list mounts.
   if (props.useWindow && !scrollerCanScroll() && attempt < RESTORE_RETRY_LIMIT) {
     restoreTimer = window.setTimeout(() => {
       // A user scroll while we waited rewrites or drops the anchor; that
@@ -157,14 +98,16 @@ const restoreAnchor = (attempt = 0) => {
     }, RESTORE_RETRY_MS)
     return
   }
-  virtualizer.value.scrollToOffset(offset[0] + anchor.offset)
+  const target = rowTop(row) + anchor.offset
+  if (props.useWindow) window.scrollTo({ top: target })
+  else props.scrollTarget?.scrollTo({ top: target })
 }
 
 // ---------------------------------------------------------------------------
 // Anchor persistence (throttled to at most one write per 150 ms)
 // ---------------------------------------------------------------------------
 
-let anchorTimer: number | null = null
+let anchorTimer: number | undefined
 
 // A scroll-mode switch collapses the scroller this instance reads (the page
 // becomes fixed-height, or the old container loses its content). Its zero
@@ -178,47 +121,41 @@ const scrollerCollapsed = (): boolean => {
 }
 
 const persistAnchor = () => {
-  // Content above the list can change height without a resize (onboarding
-  // cards, banners); refresh the origin before reading rows so the visible
-  // range and the stored offset are not computed from a stale margin.
-  updateScrollMargin()
-  const rows = virtualizer.value.getVirtualItems()
+  const rows = rowElements()
   if (!rows.length) return
-  const scroll = readScroll()
+  const scroll = props.useWindow ? window.scrollY : (props.scrollTarget?.scrollTop ?? 0)
   // The viewport sits above the list (header, banner, or the very top): there
   // is no Echo to anchor. Drop the anchor so a refresh starts where the user
   // left off instead of jumping back down to an old Echo; a scroller that is
   // momentarily collapsed keeps it for the restore that follows the remount.
-  if (scroll < rows[0]!.start) {
+  if (scroll < rowTop(rows[0]!)) {
     if (!scrollerCollapsed()) sessionStorage.removeItem(HOME_TIMELINE_ANCHOR_KEY)
     return
   }
-  const row = rows.find((candidate) => candidate.end > scroll) ?? rows[rows.length - 1]!
-  const item = props.items[row.index]
-  if (!item) return
+  const row = rows.find((el) => rowTop(el) + el.offsetHeight > scroll) ?? rows[rows.length - 1]!
+  const id = row.dataset.echoId
+  if (!id) return
   sessionStorage.setItem(
     HOME_TIMELINE_ANCHOR_KEY,
     serializeTimelineAnchor({
-      id: item.id,
-      offset: Math.max(0, Math.round(scroll - row.start)),
+      id,
+      offset: Math.max(0, Math.round(scroll - rowTop(row))),
       signature: props.signature ?? undefined,
     }),
   )
 }
 
 const schedulePersist = () => {
-  if (anchorTimer !== null) return
+  if (anchorTimer !== undefined) return
   anchorTimer = window.setTimeout(() => {
-    anchorTimer = null
+    anchorTimer = undefined
     persistAnchor()
   }, 150)
 }
 
 const flushPersist = () => {
-  if (anchorTimer !== null) {
-    window.clearTimeout(anchorTimer)
-    anchorTimer = null
-  }
+  window.clearTimeout(anchorTimer)
+  anchorTimer = undefined
   persistAnchor()
 }
 
@@ -229,35 +166,9 @@ const bindScroll = () => {
   scrollBoundTo?.addEventListener('scroll', schedulePersist, { passive: true })
 }
 
-let resizeTimer: number | null = null
-const onResize = () => {
-  if (resizeTimer !== null) window.clearTimeout(resizeTimer)
-  resizeTimer = window.setTimeout(() => {
-    resizeTimer = null
-    updateScrollMargin()
-    // Card heights depend on width; discard stale measurements.
-    virtualizer.value.measure()
-    bindScroll()
-  }, 150)
-}
-
-// Cards/banners above the list collapse without a window resize; the list's
-// parent resizes with them, which is the cheapest signal for a new origin.
-let layoutObserver: ResizeObserver | null = null
-const observeLayout = () => {
-  const parent = listEl.value?.parentElement
-  if (!parent || typeof ResizeObserver === 'undefined') return
-  layoutObserver?.disconnect()
-  layoutObserver = new ResizeObserver(() => updateScrollMargin())
-  layoutObserver.observe(parent)
-}
-
 onMounted(async () => {
-  updateScrollMargin()
-  observeLayout()
   bindScroll()
   window.addEventListener('pagehide', flushPersist)
-  window.addEventListener('resize', onResize, { passive: true })
   await nextTick()
   restoreAnchor()
 })
@@ -266,29 +177,17 @@ onBeforeUnmount(() => {
   flushPersist()
   scrollBoundTo?.removeEventListener('scroll', schedulePersist)
   window.removeEventListener('pagehide', flushPersist)
-  window.removeEventListener('resize', onResize)
-  layoutObserver?.disconnect()
-  layoutObserver = null
-  if (resizeTimer !== null) window.clearTimeout(resizeTimer)
-  if (anchorTimer !== null) window.clearTimeout(anchorTimer)
-  if (restoreTimer !== null) window.clearTimeout(restoreTimer)
+  window.clearTimeout(restoreTimer)
 })
 </script>
 
 <style scoped>
-.echo-virtual-list {
+.echo-timeline-list {
   position: relative;
   width: 100%;
-
-  /* The virtualizer compensates for measurement changes itself; browser
-     scroll anchoring would add a second, conflicting correction. */
-  overflow-anchor: none;
 }
 
-.echo-virtual-row {
-  position: absolute;
-  top: 0;
-  left: 0;
+.echo-timeline-row {
   width: 100%;
 }
 </style>

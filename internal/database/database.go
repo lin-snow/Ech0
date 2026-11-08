@@ -152,6 +152,7 @@ func InitDatabase() {
 			dbMigration.NewUsersPasswordDropMigrator(),
 			dbMigration.NewEchoExtensionOrphansMigrator(),
 			dbMigration.NewEchosFavCountDropMigrator(),
+			dbMigration.NewEchosPrivateCreatedIndexDropMigrator(),
 		),
 	)
 }

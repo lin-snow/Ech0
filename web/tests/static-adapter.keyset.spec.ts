@@ -84,6 +84,8 @@ describe('static adapter keyset ordering', () => {
 
     const second = await query(adapter, { page: 1, pageSize: 2, cursor: first.nextCursor ?? '' })
     expect(ids(second)).toEqual(['e-b', 'e-a'])
+    // The last page is exactly full, yet nothing follows: no cursor to an empty page.
+    expect(second.nextCursor).toBeNull()
     expect([...ids(first), ...ids(second)]).toEqual(['e-d', 'e-c', 'e-b', 'e-a'])
   })
 
@@ -180,8 +182,7 @@ describe('static adapter keyset ordering', () => {
 
     const second = await query(adapter, { page: 1, pageSize: 1, cursor: first.nextCursor ?? '' })
     expect(ids(second)).toEqual(['e-zero'])
-
-    const third = await query(adapter, { page: 1, pageSize: 1, cursor: second.nextCursor ?? '' })
-    expect(ids(third)).toEqual([])
+    // Nothing follows the last row, so no cursor is issued for an empty page.
+    expect(second.nextCursor).toBeNull()
   })
 })

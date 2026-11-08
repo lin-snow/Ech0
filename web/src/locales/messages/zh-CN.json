@@ -465,7 +465,10 @@
     "loadMoreFailed": "加载失败",
     "loadFailed": "时间线加载失败",
     "retry": "重试",
-    "allLoaded": "已经到底了"
+    "allLoaded": "已经到底了",
+    "earlier": "之前",
+    "later": "之后",
+    "pagerLabel": "时间线分页"
   },
   "dateTime": {
     "justNow": "刚刚",

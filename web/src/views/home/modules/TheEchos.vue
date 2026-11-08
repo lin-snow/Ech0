@@ -2,6 +2,7 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div
+    ref="feedEl"
     class="echo-feed mx-auto mt-1 sm:mt-0 mb-4 sm:mb-5 md:mb-6"
     :class="compact ? 'pl-1 pr-0 max-w-full' : 'px-2 sm:px-4 md:px-6 max-w-full'"
   >
@@ -18,77 +19,108 @@
       :signature="echoStore.loadedSignature"
     />
 
-    <Transition name="fade">
-      <div v-if="echoStore.isLoading && echoStore.echoList.length === 0" class="my-5">
-        <TheLoadingIndicator class="echos-toolbar" size="lg" :label="t('homeFeed.loading')" />
-      </div>
-    </Transition>
+    <!--
+      Everything after the list is the feed's tail: status, pager and the
+      load sentinel. It opts out of scroll anchoring (see the style block).
+    -->
+    <div class="echo-feed-tail">
+      <Transition name="fade">
+        <div v-if="echoStore.isLoading && echoStore.echoList.length === 0" class="my-5">
+          <TheLoadingIndicator class="echos-toolbar" size="lg" :label="t('homeFeed.loading')" />
+        </div>
+      </Transition>
 
-    <Transition name="fade">
-      <div v-if="showEmptyState" class="mx-auto my-5 text-center echos-toolbar">
-        <p class="text-xl text-[var(--color-text-muted)]">
-          {{ echoStore.isFilteringMode ? t('homeFeed.noMoreFiltered') : t('homeFeed.noMore') }}
-        </p>
-      </div>
-    </Transition>
+      <Transition name="fade">
+        <div v-if="showEmptyState" class="mx-auto my-5 text-center echos-toolbar">
+          <p class="text-xl text-[var(--color-text-muted)]">
+            {{ echoStore.isFilteringMode ? t('homeFeed.noMoreFiltered') : t('homeFeed.noMore') }}
+          </p>
+        </div>
+      </Transition>
 
-    <Transition name="fade">
-      <div v-if="echoStore.loadError === 'first'" class="echo-feed-status">
-        <p>{{ t('homeFeed.loadFailed') }}</p>
+      <Transition name="fade">
+        <div v-if="echoStore.loadError === 'first'" class="echo-feed-status">
+          <p>{{ t('homeFeed.loadFailed') }}</p>
+          <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
+            {{ t('homeFeed.retry') }}
+          </button>
+        </div>
+      </Transition>
+
+      <Transition name="fade">
+        <TheLoadingIndicator
+          v-if="echoStore.isLoadingMore"
+          class="mx-auto my-5 echos-toolbar"
+          size="md"
+          :label="t('homeFeed.loadingMore')"
+        />
+      </Transition>
+
+      <div v-if="echoStore.loadError === 'more'" class="echo-feed-status">
+        <p>{{ t('homeFeed.loadMoreFailed') }}</p>
         <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
           {{ t('homeFeed.retry') }}
         </button>
       </div>
-    </Transition>
 
-    <Transition name="fade">
-      <TheLoadingIndicator
-        v-if="echoStore.isLoadingMore"
-        class="mx-auto my-5 echos-toolbar"
-        size="md"
-        :label="t('homeFeed.loadingMore')"
-      />
-    </Transition>
+      <nav
+        v-if="echoStore.isPaged || echoStore.hasNextPage || echoStore.hasPrevPage"
+        class="echo-pager echos-toolbar"
+        :aria-label="t('homeFeed.pagerLabel')"
+      >
+        <button
+          type="button"
+          class="echo-pager-btn"
+          :class="{ 'echo-pager-btn--absent': !echoStore.hasNextPage }"
+          :disabled="!echoStore.hasNextPage"
+          @click="goEarlier"
+        >
+          {{ t('homeFeed.earlier') }}
+        </button>
+        <button
+          type="button"
+          class="echo-pager-btn"
+          :class="{ 'echo-pager-btn--absent': !echoStore.hasPrevPage }"
+          :disabled="!echoStore.hasPrevPage"
+          @click="goLater"
+        >
+          {{ t('homeFeed.later') }}
+        </button>
+      </nav>
 
-    <div v-if="echoStore.loadError === 'more'" class="echo-feed-status">
-      <p>{{ t('homeFeed.loadMoreFailed') }}</p>
-      <button type="button" class="echo-feed-retry" @click="echoStore.retryLoad()">
-        {{ t('homeFeed.retry') }}
-      </button>
-    </div>
+      <p
+        v-if="
+          !echoStore.isLoadingMore &&
+          echoStore.loadError === null &&
+          echoStore.echoList.length > 0 &&
+          echoStore.nextCursor === null
+        "
+        class="echo-feed-end echos-toolbar"
+      >
+        {{ t('homeFeed.allLoaded') }}
+      </p>
 
-    <p
-      v-if="
-        !echoStore.isLoadingMore &&
-        echoStore.loadError === null &&
-        echoStore.echoList.length > 0 &&
-        echoStore.nextCursor === null
-      "
-      class="echo-feed-end echos-toolbar"
-    >
-      {{ t('homeFeed.allLoaded') }}
-    </p>
+      <div ref="sentinel" class="h-px" aria-hidden="true" />
+      <p class="feed-sr-only" aria-live="polite">{{ liveMessage }}</p>
 
-    <div ref="sentinel" class="h-px" aria-hidden="true" />
-    <p class="feed-sr-only" aria-live="polite">{{ liveMessage }}</p>
+      <div
+        v-show="showBackTop"
+        :style="backTopStyle"
+        class="fixed bottom-6 z-50 transition-all duration-500"
+      >
+        <TheBackTop class="h-8 w-8 p-1" :target="scrollTarget ?? null" />
+      </div>
 
-    <div
-      v-show="showBackTop"
-      :style="backTopStyle"
-      class="fixed bottom-6 z-50 transition-all duration-500"
-    >
-      <TheBackTop class="h-8 w-8 p-1" :target="scrollTarget ?? null" />
-    </div>
-
-    <div v-if="footerContent" class="mt-6 text-center">
-      <a v-if="footerLink" :href="footerLink" target="_blank" rel="noopener noreferrer">
-        <span class="text-[var(--color-text-muted)] text-sm">
+      <div v-if="footerContent" class="mt-6 text-center">
+        <a v-if="footerLink" :href="footerLink" target="_blank" rel="noopener noreferrer">
+          <span class="text-[var(--color-text-muted)] text-sm">
+            {{ footerContent }}
+          </span>
+        </a>
+        <span v-else class="text-[var(--color-text-muted)] text-sm">
           {{ footerContent }}
         </span>
-      </a>
-      <span v-else class="text-[var(--color-text-muted)] text-sm">
-        {{ footerContent }}
-      </span>
+      </div>
     </div>
   </div>
 </template>
@@ -103,9 +135,15 @@ import { FIRST_ECHO_CARD_SEEN_KEY, shouldShowFirstEchoCard } from '@/composables
 import { useSiteChecklist } from '@/composables/useSiteChecklist'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 import {
-  HOME_TIMELINE_COUNT_KEY,
+  HOME_TIMELINE_CURSORS_KEY,
+  HOME_TIMELINE_PAGE_KEY,
   TIMELINE_BASE_PAGE_SIZE,
   TIMELINE_LOAD_AHEAD_PX,
+  TIMELINE_PAGE_ITEMS,
+  parseTimelinePage,
+  resolveTimelineRestore,
+  serializeTimelineCursorChain,
+  timelinePageForRows,
   timelinePageSize,
 } from '@/utils/timeline'
 import { localStg } from '@/utils/storage'
@@ -173,6 +211,7 @@ const liveMessage = computed(() => {
   return ''
 })
 
+const feedEl = ref<HTMLElement | null>(null)
 const useWindowScroll = ref(true)
 const scrollModeReady = ref(false)
 const syncScrollMode = () => {
@@ -244,11 +283,11 @@ const bindBackTop = () => {
   settleBackTop()
 }
 
-// A fixed handful of rows cannot fill a tall screen, so every appended page
-// leaves the sentinel inside the prefetch band and the feed chases the next
-// one immediately (a flickering loading indicator and a burst of cursor
-// requests). Size each page from the viewport instead. On the mobile layout
-// the column is not the scroller: its clientHeight is the content height.
+// A fixed handful of rows cannot fill a tall screen, so every appended chunk
+// would leave the sentinel inside the prefetch band and the feed would chase
+// the next one immediately. Size each chunk from the viewport instead. On the
+// mobile layout the column is not the scroller: its clientHeight is the
+// content height.
 const syncPageSize = () => {
   const viewport = useWindowScroll.value
     ? window.innerHeight
@@ -260,6 +299,27 @@ const handleViewportChange = () => {
   syncScrollMode()
   syncPageSize()
   bindBackTop()
+}
+
+// A new page starts at the top of the feed, not at the offset of the old one.
+const scrollFeedTop = () => {
+  if (useWindowScroll.value) {
+    const top = feedEl.value ? feedEl.value.getBoundingClientRect().top + window.scrollY : 0
+    window.scrollTo({ top })
+    return
+  }
+  props.scrollTarget?.scrollTo({ top: 0 })
+}
+
+// The feed runs newest to oldest, so the next page holds earlier Echos.
+const goEarlier = () => {
+  scrollFeedTop()
+  void echoStore.nextPage()
+}
+
+const goLater = () => {
+  scrollFeedTop()
+  void echoStore.prevPage()
 }
 
 const sentinel = ref<HTMLElement | null>(null)
@@ -278,19 +338,23 @@ const parseLegacyPage = (raw: unknown): number => {
   return Math.floor(value)
 }
 
-// Rows already on screen when the timeline was left (tab switch, back
-// navigation). Stored as a row count rather than a page count so a different
-// page size on the next mount cannot change how deep the feed reopens.
-const storedCount = (): number => {
-  const value = Number(sessionStorage.getItem(HOME_TIMELINE_COUNT_KEY))
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
-}
-
+// The page the reader was on is kept across reloads (the store itself is lost
+// then). The cursor chain is stored with the filter signature that produced
+// it, so a refresh can reopen the page in one request instead of walking every
+// page before it; a chain from another query is discarded on restore.
 watch(
-  () => echoStore.echoList.length,
-  (length) => {
-    sessionStorage.setItem(HOME_TIMELINE_COUNT_KEY, String(length))
+  [() => echoStore.pageIndex, () => echoStore.pageStarts],
+  ([page, starts]) => {
+    sessionStorage.setItem(
+      HOME_TIMELINE_CURSORS_KEY,
+      serializeTimelineCursorChain({
+        signature: echoStore.querySignature(),
+        page,
+        starts,
+      }),
+    )
   },
+  { deep: true },
 )
 
 watch(isFilteringMode, () => {
@@ -325,9 +389,37 @@ onMounted(async () => {
   if (echoStore.isLoading && echoStore.hasFetched) return
   if (echoStore.isTimelineCurrent) return
 
-  // legacy page numbers were counted in baseline-size pages.
-  const legacyCount = legacyPage > 1 ? legacyPage * TIMELINE_BASE_PAGE_SIZE : 0
-  await echoStore.refreshEchos(Math.max(echoStore.pageSize, storedCount(), legacyCount))
+  // Legacy page numbers were counted in baseline-size rows; land on the page
+  // that holds that depth.
+  const legacyRows = legacyPage > 1 ? legacyPage * TIMELINE_BASE_PAGE_SIZE : 0
+  if (legacyRows > 0) {
+    await echoStore.openAt(timelinePageForRows(legacyRows), TIMELINE_PAGE_ITEMS)
+    return
+  }
+
+  const restore = resolveTimelineRestore(
+    sessionStorage.getItem(HOME_TIMELINE_CURSORS_KEY),
+    echoStore.querySignature(),
+    parseTimelinePage(sessionStorage.getItem(HOME_TIMELINE_PAGE_KEY)),
+  )
+  if (restore.mode === 'chain') {
+    // The saved chain opens the page in one request; the anchor restore then
+    // lands on the row it was captured from.
+    await echoStore.openFromChain(restore.page, restore.starts, TIMELINE_PAGE_ITEMS)
+    if (echoStore.loadError === 'first') {
+      // A cursor chain the server no longer accepts (protocol bump, cleared
+      // feed) must not leave the timeline stuck on its retry button.
+      sessionStorage.removeItem(HOME_TIMELINE_CURSORS_KEY)
+      await echoStore.refreshEchos(echoStore.pageSize)
+    }
+    return
+  }
+  if (restore.mode === 'page') {
+    // Legacy page number stored before the cursor chain existed.
+    await echoStore.openAt(restore.page, TIMELINE_PAGE_ITEMS)
+    return
+  }
+  await echoStore.refreshEchos(echoStore.pageSize)
 })
 
 onBeforeUnmount(() => {
@@ -343,19 +435,29 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /*
- * Chrome's scroll anchoring keeps the node nearest the viewport bottom fixed
- * while content above it grows, so appending a page moved the scroll offset
- * down by the same amount and left the sentinel inside the prefetch band —
- * the loader then asked for the next cursor page again, chaining pages while
- * the reader sat still. The feed owns its scroll position; the virtualizer
- * compensates for measured rows itself.
+ * The screen-reader live region is absolutely positioned. Without a positioned
+ * ancestor here it resolves to the app shell, escapes home-page's
+ * overflow: hidden, and its static position at the end of the list extends the
+ * document, so wheel input outside the column scrolled the whole page away.
  */
 .echo-feed {
-  overflow-anchor: none;
+  position: relative;
 }
 
 .echos-toolbar {
   font-family: var(--font-family-display);
+}
+
+/*
+ * The tail (status, pager, sentinel) must never be picked as the scroll
+ * anchor. When a chunk is appended above the sentinel, Chrome's scroll
+ * anchoring keeps the sentinel fixed by moving the scroll offset down by the
+ * same amount, which leaves it inside the prefetch band and chains chunk
+ * after chunk while the reader sits still. Rows above the tail keep native
+ * anchoring, so media loading above the viewport does not jump the page.
+ */
+.echo-feed-tail {
+  overflow-anchor: none;
 }
 
 .echo-feed-status {
@@ -394,6 +496,56 @@ onBeforeUnmount(() => {
 .echo-feed-retry:focus-visible {
   outline: 2px solid var(--color-text-secondary);
   outline-offset: 2px;
+}
+
+.echo-feed-retry:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-strong);
+}
+
+.echo-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.5rem 0 1.25rem;
+  font-family: var(--font-family-display);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.echo-pager-btn {
+  padding: 0.45rem 1.9rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.echo-pager-btn:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+  background: var(--color-border-subtle);
+}
+
+.echo-pager-btn:focus-visible {
+  outline: 2px solid var(--color-text-secondary);
+  outline-offset: 2px;
+}
+
+/* Unavailable directions are not shown at all; the slot stays reserved so the
+   remaining button keeps its side of the column. */
+.echo-pager-btn--absent {
+  visibility: hidden;
 }
 
 .echo-feed-end {

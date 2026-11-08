@@ -465,7 +465,10 @@
     "loadMoreFailed": "Weitere Daten konnten nicht geladen werden",
     "loadFailed": "Die Zeitleiste konnte nicht geladen werden",
     "retry": "Erneut versuchen",
-    "allLoaded": "Das war alles"
+    "allLoaded": "Das war alles",
+    "earlier": "Früher",
+    "later": "Später",
+    "pagerLabel": "Zeitleisten-Seiten"
   },
   "dateTime": {
     "justNow": "Gerade eben",
