@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.8] - 2026-11-09
+
 ### Changed
 
 - **The home timeline is paged every 100 Echos.** Rows are plain DOM again: the TanStack virtualizer, its estimated row heights and the hand-written scroll compensation are gone, so scroll position and media loading are left to the browser. A page fills by infinite scroll and stops at 100 Echos; a "previous / next page" control then steps through the feed on keyset cursors, and a reload restores the page and the anchored Echo in one request from the stored cursor chain (a chain saved under another filter set reopens the top).
