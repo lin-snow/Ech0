@@ -32,7 +32,6 @@
     "@dicebear/core": "^10.7.0",
     "@dicebear/styles": "^10.6.0",
     "@headlessui/vue": "^1.7.23",
-    "@tanstack/vue-virtual": "^3.13.48",
     "@vueuse/core": "^15.0.0",
     "floating-vue": "^5.4.0",
     "highlight.js": "^11.12.0",

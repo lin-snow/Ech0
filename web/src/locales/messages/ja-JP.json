@@ -465,7 +465,10 @@
     "loadMoreFailed": "読み込みに失敗しました",
     "loadFailed": "タイムラインを読み込めませんでした",
     "retry": "再試行",
-    "allLoaded": "最後まで表示しました"
+    "allLoaded": "最後まで表示しました",
+    "earlier": "以前",
+    "later": "以降",
+    "pagerLabel": "タイムラインのページ"
   },
   "dateTime": {
     "justNow": "たった今",

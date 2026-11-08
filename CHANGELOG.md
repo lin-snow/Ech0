@@ -9,6 +9,18 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Changed
+
+- **The home timeline is paged every 100 Echos.** Rows are plain DOM again: the TanStack virtualizer, its estimated row heights and the hand-written scroll compensation are gone, so scroll position and media loading are left to the browser. A page fills by infinite scroll and stops at 100 Echos; a "previous / next page" control then steps through the feed on keyset cursors, and a reload restores the page and the anchored Echo in one request from the stored cursor chain (a chain saved under another filter set reopens the top).
+
+### Fixed
+
+- **A failed load-more retries on its own.** One dropped request used to stop the feed until the reader pressed retry; it now retries after 1 s and 3 s before showing the retry button.
+
+### Internal
+
+- **Timeline keyset queries are index-backed.** `echos` gains `(created_at, id)` and `(private, created_at, id)` indexes, so the plain timeline's `ORDER BY created_at, id` no longer falls back to a temporary b-tree and the private-visible feed no longer full-scans the table; the superseded `(private, created_at)` index is dropped on startup.
+
 ## [5.9.7] - 2026-11-07
 
 ### Fixed

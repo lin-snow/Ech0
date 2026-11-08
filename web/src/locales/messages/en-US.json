@@ -465,7 +465,10 @@
     "loadMoreFailed": "Could not load more",
     "loadFailed": "Could not load the timeline",
     "retry": "Retry",
-    "allLoaded": "You're all caught up"
+    "allLoaded": "You're all caught up",
+    "earlier": "Earlier",
+    "later": "Later",
+    "pagerLabel": "Timeline pages"
   },
   "dateTime": {
     "justNow": "Just now",

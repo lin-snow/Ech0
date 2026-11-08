@@ -12,16 +12,16 @@ import (
 type EchoFile = fileModel.EchoFile
 
 type Echo struct {
-	ID        string         `gorm:"type:char(36);primaryKey"                      json:"id"`
+	ID        string         `gorm:"type:char(36);primaryKey;index:idx_echos_created_id,priority:2;index:idx_echos_private_created_id,priority:3" json:"id"`
 	Content   string         `gorm:"type:text;not null"                            json:"content"`
 	Username  string         `gorm:"type:varchar(100)"                             json:"username,omitempty"`
 	EchoFiles []EchoFile     `gorm:"foreignKey:EchoID;constraint:OnDelete:CASCADE" json:"echo_files,omitempty"`
 	Layout    string         `gorm:"type:varchar(50);default:'waterfall'"          json:"layout,omitempty"`
-	Private   bool           `gorm:"default:false;index:idx_echos_private_created,priority:1" json:"private"`
+	Private   bool           `gorm:"default:false;index:idx_echos_private_created_id,priority:1" json:"private"`
 	UserID    string         `gorm:"type:char(36);not null;index"                  json:"user_id"`
 	Extension *EchoExtension `gorm:"foreignKey:EchoID;constraint:OnDelete:CASCADE" json:"extension,omitempty"`
 	Tags      []Tag          `gorm:"many2many:echo_tags;"                          json:"tags,omitempty"`
-	CreatedAt int64          `gorm:"autoCreateTime;index:idx_echos_private_created,priority:2" json:"created_at"`
+	CreatedAt int64          `gorm:"autoCreateTime;index:idx_echos_private_created_id,priority:2;index:idx_echos_created_id,priority:1" json:"created_at"`
 
 	// Reactions is a request-scoped projection hydrated by the service from
 	// echo_reactions; it is never persisted with the echo row and therefore

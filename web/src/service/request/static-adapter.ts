@@ -263,13 +263,16 @@ function queryEchos(
       start = cursorBoundary(sorted, cursor, ascending)
     }
 
-    const items = sorted.slice(start, start + pageSize)
+    // Read one row past the page, as the backend does: a cursor is issued only
+    // when another row exists, so an exactly full last page has no next page.
+    const probe = sorted.slice(start, start + pageSize + 1)
+    const items = probe.slice(0, pageSize)
     const last = items[items.length - 1]
     return ok<App.Api.Ech0.PaginationResult>({
       items,
       total: sorted.length,
       nextCursor:
-        items.length === pageSize && last
+        probe.length > pageSize && last
           ? base64UrlEncode(`${CURSOR_VERSION}${toUnixSeconds(last.created_at)}:${last.id}`)
           : null,
     })

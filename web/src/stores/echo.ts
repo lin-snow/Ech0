@@ -4,10 +4,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { fetchQueryEchos, fetchGetTags, fetchGetEchoById, fetchCreateTag } from '@/service/api'
-import { TIMELINE_BASE_PAGE_SIZE } from '@/utils/timeline'
+import { TIMELINE_BASE_PAGE_SIZE, TIMELINE_PAGE_ITEMS, timelineChunkSize } from '@/utils/timeline'
 
-/** Backend clamps to [1, 100]; mirror it so a restored depth cannot overflow. */
-const MAX_PAGE_SIZE = 100
+/** Backoff before each automatic retry of a failed load-more; past these the reader retries by hand. */
+const MORE_RETRY_DELAYS_MS = [1000, 3000]
 const PAGE_SIZE = TIMELINE_BASE_PAGE_SIZE
 
 type LoadPhase = 'first' | 'more'
@@ -31,8 +31,13 @@ export const useEchoStore = defineStore('echoStore', () => {
    */
   const nextCursor = ref<string | null | undefined>(undefined)
   const loadedSignature = ref<string | null>(null)
-  /** Page size the current stream was opened with, so a first-load retry restores the same depth. */
-  const refreshPageSize = ref<number | null>(null)
+  /** Page the feed is showing (0-based), and the cursor that opens each page walked so far. */
+  const pageIndex = ref<number>(0)
+  const pageStarts = ref<string[]>([''])
+  /** The last open request, replayed when it fails. */
+  let openRequest: { target: number; size: number } | null = null
+  let moreFailures = 0
+  let moreRetryTimer: number | undefined
   let generation = 0
 
   const searchValue = ref<string>('')
@@ -55,14 +60,32 @@ export const useEchoStore = defineStore('echoStore', () => {
   const visibilityFilter = ref<App.Api.Ech0.EchoVisibilityFilter>('all')
   const isVisibilityFilterActive = computed(() => visibilityFilter.value !== 'all')
 
+  const pageFull = computed(() => echoList.value.length >= TIMELINE_PAGE_ITEMS)
+
+  // Auto-load stops at the page boundary; the reader then steps to the next page.
   const canLoadMore = computed(
     () =>
       nextCursor.value !== undefined &&
       nextCursor.value !== null &&
+      !pageFull.value &&
       !isLoading.value &&
       !isLoadingMore.value &&
       loadError.value === null,
   )
+
+  const hasNextPage = computed(
+    () =>
+      typeof nextCursor.value === 'string' &&
+      pageFull.value &&
+      !isLoading.value &&
+      loadError.value === null,
+  )
+
+  const hasPrevPage = computed(() => pageIndex.value > 0 && !isLoading.value)
+
+  // Once the feed has left its first page the pager stays, so the reader can
+  // step back even on an empty tail page.
+  const isPaged = computed(() => pageIndex.value > 0 || pageStarts.value.length > 1)
 
   /**
    * True whenever the timeline is showing a narrowed result set. `total` and
@@ -172,14 +195,42 @@ export const useEchoStore = defineStore('echoStore', () => {
     rebuildIndex()
   }
 
-  const clampPageSize = (value: number): number =>
-    Math.max(1, Math.min(MAX_PAGE_SIZE, Math.trunc(value) || PAGE_SIZE))
+  const clearMoreRetry = () => {
+    clearTimeout(moreRetryTimer)
+    moreRetryTimer = undefined
+    moreFailures = 0
+  }
 
-  async function refreshEchos(initialPageSize?: number): Promise<void> {
+  // A failed load-more retries on a short backoff before the reader is asked
+  // to press retry. The loading state is held during the backoff, so the
+  // sentinel cannot start a second request in the meantime.
+  const failMore = (requestGeneration: number) => {
+    if (requestGeneration !== generation) return
+    const delay = MORE_RETRY_DELAYS_MS[moreFailures]
+    if (delay !== undefined) {
+      moreFailures += 1
+      moreRetryTimer = window.setTimeout(() => {
+        moreRetryTimer = undefined
+        isLoadingMore.value = false
+        void loadMore()
+      }, delay)
+      return
+    }
+    moreFailures = 0
+    isLoadingMore.value = false
+    loadError.value = 'more'
+  }
+
+  /**
+   * Opens page `target` as the current page. Pages before it that were never
+   * opened are walked first: a full-page request returns the cursor that opens
+   * the following page, so the walk costs one request per page and keeps none
+   * of the items.
+   */
+  async function openPage(target: number, size: number): Promise<void> {
     const requestGeneration = ++generation
-    const requestedPageSize = clampPageSize(initialPageSize ?? pageSize.value)
-    refreshPageSize.value = requestedPageSize
-    hasFetched.value = true
+    openRequest = { target, size }
+    clearMoreRetry()
     isLoading.value = true
     isLoadingMore.value = false
     loadError.value = null
@@ -193,16 +244,38 @@ export const useEchoStore = defineStore('echoStore', () => {
       // Describe the request with the filters it was built from, not with
       // whatever the store holds when the response lands.
       const requestSignature = querySignature()
+      let index = Math.min(target, pageStarts.value.length - 1)
+      let cursor = pageStarts.value[index] ?? ''
+      while (index < target) {
+        const walked = await fetchQueryEchos({
+          ...requestQuery,
+          pageSize: TIMELINE_PAGE_ITEMS,
+          cursor,
+        })
+        if (requestGeneration !== generation) return
+        if (walked.code !== 1 || !walked.data) {
+          loadError.value = 'first'
+          return
+        }
+        // Only a full page reports a boundary; null means the feed ends first.
+        const boundary = walked.data.nextCursor
+        if (!boundary) break
+        index += 1
+        cursor = boundary
+        pageStarts.value[index] = boundary
+      }
+
       const res = await fetchQueryEchos({
         ...requestQuery,
-        pageSize: requestedPageSize,
-        cursor: '',
+        pageSize: timelineChunkSize(size, 0),
+        cursor,
       })
       if (requestGeneration !== generation) return
       if (res.code !== 1 || !res.data) {
         loadError.value = 'first'
         return
       }
+      pageIndex.value = index
       total.value = res.data.total ?? 0
       appendDeduped(normalizeItems(res.data.items))
       nextCursor.value = res.data.nextCursor ?? null
@@ -218,6 +291,31 @@ export const useEchoStore = defineStore('echoStore', () => {
     }
   }
 
+  /** Opens a stream at page `target`, walking the cursor chain up to it when needed. */
+  async function openAt(target: number, size?: number): Promise<void> {
+    pageStarts.value = ['']
+    hasFetched.value = true
+    await openPage(target, size ?? pageSize.value)
+  }
+
+  /**
+   * Reopens page `target` from a cursor chain stored on a previous visit. A
+   * complete chain reaches the page in one request; a short one is walked from
+   * its last entry exactly like `openAt`.
+   */
+  async function openFromChain(target: number, starts: string[], size?: number): Promise<void> {
+    const depth = Math.max(0, Math.trunc(target))
+    pageStarts.value = starts.length > 0 && starts[0] === '' ? [...starts] : ['']
+    hasFetched.value = true
+    await openPage(depth, size ?? pageSize.value)
+  }
+
+  /** Reopens the feed from the top; `initialPageSize` sizes the first chunk. */
+  async function refreshEchos(initialPageSize?: number): Promise<void> {
+    await openAt(0, initialPageSize)
+  }
+
+  /** Appends the next chunk of the current page; never crosses the page boundary. */
   async function loadMore(): Promise<void> {
     const cursor = nextCursor.value
     if (!cursor || isLoading.value || isLoadingMore.value || loadError.value !== null) return
@@ -225,50 +323,70 @@ export const useEchoStore = defineStore('echoStore', () => {
       await refreshEchos()
       return
     }
+    const chunk = timelineChunkSize(pageSize.value, echoList.value.length)
+    if (chunk <= 0) return
 
     const requestGeneration = generation
     isLoadingMore.value = true
     try {
       const res = await fetchQueryEchos({
         ...buildQueryParams(),
+        pageSize: chunk,
         cursor,
       })
       if (requestGeneration !== generation) return
       if (res.code !== 1 || !res.data) {
-        loadError.value = 'more'
+        failMore(requestGeneration)
         return
       }
+      moreFailures = 0
       appendDeduped(normalizeItems(res.data.items))
       nextCursor.value = res.data.nextCursor ?? null
       total.value = res.data.total ?? total.value
     } catch {
-      if (requestGeneration === generation) {
-        loadError.value = 'more'
-      }
+      failMore(requestGeneration)
     } finally {
-      if (requestGeneration === generation) {
+      if (requestGeneration === generation && moreRetryTimer === undefined) {
         isLoadingMore.value = false
       }
     }
   }
 
+  /** Steps to the page after the full one; its opening cursor is the boundary just reached. */
+  async function nextPage(): Promise<void> {
+    const boundary = nextCursor.value
+    if (!hasNextPage.value || typeof boundary !== 'string') return
+    pageStarts.value = [...pageStarts.value.slice(0, pageIndex.value + 1), boundary]
+    await openPage(pageIndex.value + 1, pageSize.value)
+  }
+
+  /** Steps back one page; its opening cursor was recorded when the feed walked past it. */
+  async function prevPage(): Promise<void> {
+    if (!hasPrevPage.value) return
+    await openPage(pageIndex.value - 1, pageSize.value)
+  }
+
   const retryLoad = async (): Promise<void> => {
-    if (loadError.value === null) return
+    const phase = loadError.value
+    if (phase === null) return
     loadError.value = null
-    if (nextCursor.value === undefined) {
-      // Re-open at the depth the timeline was mounted with: a shallow first
-      // page would drop the restored anchor row from the result set.
-      await refreshEchos(refreshPageSize.value ?? undefined)
+    if (phase === 'first') {
+      // Re-open exactly the request that failed, at the depth it asked for.
+      if (openRequest) await openPage(openRequest.target, openRequest.size)
       return
     }
+    moreFailures = 0
     await loadMore()
   }
 
   const clearEchos = () => {
     generation++
+    clearMoreRetry()
     nextCursor.value = undefined
     loadedSignature.value = null
-    refreshPageSize.value = null
+    openRequest = null
+    pageIndex.value = 0
+    pageStarts.value = ['']
     loadError.value = null
     total.value = 0
     echoList.value = []
@@ -375,6 +493,12 @@ export const useEchoStore = defineStore('echoStore', () => {
     pageSize,
     nextCursor,
     canLoadMore,
+    pageIndex,
+    pageStarts,
+    querySignature,
+    hasNextPage,
+    hasPrevPage,
+    isPaged,
     isTimelineCurrent,
     loadedSignature,
     searchValue,
@@ -397,8 +521,12 @@ export const useEchoStore = defineStore('echoStore', () => {
     isVisibilityFilterActive,
     hasActiveQuery,
 
+    openAt,
+    openFromChain,
     refreshEchos,
     loadMore,
+    nextPage,
+    prevPage,
     retryLoad,
     clearEchos,
     resetDateRange,
