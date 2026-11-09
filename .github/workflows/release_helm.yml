@@ -77,7 +77,7 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Run Chart Releaser
-        uses: helm/chart-releaser-action@v1.8.0
+        uses: helm/chart-releaser-action@v1.9.0
         with:
           charts_dir: ./charts
           skip_existing: true
