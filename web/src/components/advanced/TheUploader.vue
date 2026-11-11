@@ -271,19 +271,31 @@ async function handleRemoveItem(item: QueueItem) {
   }
 }
 
+// A finished upload batch is delivered to the store one attachment at a time
+// (image sizing is async), so `filesToAdd` passes through partial states. Only
+// prune an uploader item whose result id was attached before and has since
+// disappeared; comparing against the current snapshot alone would drop uploads
+// that the store has not received yet.
+let attachedResultIds = new Set<string>()
+
 watch(
   () => editorStore.filesToAdd.map((f) => f.id ?? '').join('|'),
   () => {
-    const present = new Set(editorStore.filesToAdd.map((f) => f.id).filter(Boolean))
+    const present = new Set(
+      editorStore.filesToAdd.map((f) => f.id).filter((id): id is string => !!id),
+    )
     for (const item of [...items.value]) {
+      const resultId = item.result?.id
       if (
         item.status === UPLOAD_STATUS.SUCCESS &&
-        item.result?.id &&
-        !present.has(item.result.id)
+        resultId &&
+        attachedResultIds.has(resultId) &&
+        !present.has(resultId)
       ) {
         remove(item.id)
       }
     }
+    attachedResultIds = present
   },
 )
 
