@@ -57,7 +57,7 @@ import TheVideoPlayer from '@/components/advanced/media/video/TheVideoPlayer.vue
 import { getImageToAddUrl } from '@/utils/other'
 import { deleteFileById } from '@/lib/file'
 import { theToast } from '@/utils/toast'
-import { useEchoStore, useEditorStore } from '@/stores'
+import { useEditorStore } from '@/stores'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useI18n } from 'vue-i18n'
@@ -68,8 +68,6 @@ const { t } = useI18n()
 
 const fileIndex = ref<number>(0)
 const isDeleting = ref<boolean>(false)
-const echoStore = useEchoStore()
-const { echoToUpdate } = storeToRefs(echoStore)
 const editorStore = useEditorStore()
 const { filesToAdd, isUpdateMode, mediaCategory } = storeToRefs(editorStore)
 const previewItems = computed(() =>
@@ -128,7 +126,7 @@ const handleRemoveImage = () => {
         const nextLen = filesToAdd.value.length
         fileIndex.value = nextLen === 0 ? 0 : Math.min(index, nextLen - 1)
 
-        if (isUpdateMode.value && echoToUpdate.value) {
+        if (isUpdateMode.value) {
           editorStore.handleAddOrUpdateEcho(true)
         }
       } finally {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { computed, ref, watch, type Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ExtensionType } from '@/enums/enums'
 import {
   buildEchoExtension,
@@ -13,11 +13,10 @@ import { parseTweetUrl } from '@/utils/tweet'
 import type { ExtensionToAdd, LocationToAdd, Translate, TweetToAdd, WebsiteToAdd } from './types'
 
 type ExtensionModuleDeps = {
-  echoToAdd: Ref<App.Api.Ech0.EchoToAdd>
   t: Translate
 }
 
-export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
+export function useExtensionModule({ t }: ExtensionModuleDeps) {
   const websiteToAdd = ref<WebsiteToAdd>({ title: '', site: '' })
   const videoURL = ref<string>('')
   const musicURL = ref<string>('')
@@ -38,7 +37,9 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     tweetUrl: tweetToAdd.value.url,
   })
 
-  const hasExtension = computed(() => buildEchoExtension(readDraft()) !== null)
+  /** The only extension payload source: preview and submit both read this. */
+  const payload = computed(() => buildEchoExtension(readDraft()))
+  const hasExtension = computed(() => payload.value !== null)
 
   // Remote cards (music / GitHub / tweet) fetch as soon as they mount, so the
   // preview waits for the draft to settle; an invalid draft hides it at once
@@ -53,24 +54,19 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     previewTimer = null
   }
 
-  watch(
-    [extensionToAdd, websiteToAdd, locationToAdd, tweetToAdd],
-    () => {
-      const next = buildEchoExtension(readDraft())
-      if (!next || !isExtensionPreviewReady(next)) {
-        cancelPreviewTimer()
-        extensionPreview.value = null
-        return
-      }
-
+  watch(payload, (next) => {
+    if (!next || !isExtensionPreviewReady(next)) {
       cancelPreviewTimer()
-      previewTimer = setTimeout(() => {
-        previewTimer = null
-        extensionPreview.value = next
-      }, PREVIEW_DEBOUNCE_MS)
-    },
-    { deep: true },
-  )
+      extensionPreview.value = null
+      return
+    }
+
+    cancelPreviewTimer()
+    previewTimer = setTimeout(() => {
+      previewTimer = null
+      extensionPreview.value = next
+    }, PREVIEW_DEBOUNCE_MS)
+  })
 
   function handleWebsiteExtension(): boolean {
     const { title, site } = websiteToAdd.value
@@ -139,35 +135,31 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     extensionToAdd.value.extension_type = ''
     locationToAdd.value = { latitude: null, longitude: null, placeholder: '' }
     tweetToAdd.value = { url: '', username: '', statusId: '' }
-    echoToAdd.value.extension = null
   }
 
-  function checkEchoExtension() {
+  /** Normalizes the draft and reports whether it can be submitted. */
+  function checkEchoExtension(): boolean {
     const { extension_type } = extensionToAdd.value
     if (!extension_type) {
       clearExtension()
-      return
+      return true
     }
 
     switch (extension_type) {
       case ExtensionType.WEBSITE:
-        if (!handleWebsiteExtension()) return
+        if (!handleWebsiteExtension()) return false
         break
       case ExtensionType.LOCATION:
-        if (!handleLocationExtension()) return
+        if (!handleLocationExtension()) return false
         break
       case ExtensionType.TWEET:
-        if (!handleTweetExtension()) return
+        if (!handleTweetExtension()) return false
         break
       default:
         break
     }
 
-    syncEchoExtension()
-  }
-
-  function syncEchoExtension() {
-    echoToAdd.value.extension = buildEchoExtension(readDraft())
+    return true
   }
 
   function resetExtensionState() {
@@ -182,7 +174,6 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
 
   function removeExtension() {
     resetExtensionState()
-    echoToAdd.value.extension = null
   }
 
   return {
@@ -193,10 +184,10 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     extensionToAdd,
     locationToAdd,
     tweetToAdd,
+    payload,
     hasExtension,
     extensionPreview,
     checkEchoExtension,
-    syncEchoExtension,
     clearExtension,
     resetExtensionState,
     removeExtension,

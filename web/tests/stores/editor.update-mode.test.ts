@@ -4,7 +4,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useEditorStore } from '@/stores/editor'
-import { useEchoStore } from '@/stores/echo'
+import { fetchGetEchoById } from '@/service/api'
+import { ExtensionType } from '@/enums/enums'
 
 vi.mock('@/service/api', () => ({
   fetchAddEcho: vi.fn(),
@@ -22,52 +23,80 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 
-const echoToUpdate = (id: string): App.Api.Ech0.EchoToUpdate => ({
-  id,
-  content: id,
-  username: 'tester',
-  private: false,
-  user_id: 'user-1',
-  created_at: 1,
-  echo_files: [],
-})
+const fetchByIdMock = vi.mocked(fetchGetEchoById)
+
+const echo = (id: string): App.Api.Ech0.Echo =>
+  ({
+    id,
+    content: `content-${id}`,
+    username: 'tester',
+    private: false,
+    user_id: 'user-1',
+    created_at: 1,
+    echo_files: [],
+    tags: [],
+  }) as unknown as App.Api.Ech0.Echo
 
 describe('editor update session', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    fetchByIdMock.mockReset()
   })
 
-  it('seeds a new update target only once per session', () => {
+  it('loads the fetched echo into a single update session', async () => {
+    fetchByIdMock.mockResolvedValue({
+      code: 1,
+      msg: '',
+      data: echo('echo-1'),
+    })
+
     const editorStore = useEditorStore()
-    const echoStore = useEchoStore()
-    const target = echoToUpdate('echo-1')
+    await editorStore.startUpdate(echo('echo-1'))
 
-    editorStore.beginUpdate(target)
-
-    expect(echoStore.echoToUpdate?.id).toBe('echo-1')
+    expect(fetchByIdMock).toHaveBeenCalledWith('echo-1')
     expect(editorStore.isUpdateMode).toBe(true)
-    expect(editorStore.updateDraftSeeded).toBe(false)
-
-    // The editor marks the draft as seeded after populating it; remounting the
-    // editor must not reset it.
-    editorStore.updateDraftSeeded = true
-    expect(editorStore.updateDraftSeeded).toBe(true)
-
-    editorStore.beginUpdate(echoToUpdate('echo-2'))
-    expect(editorStore.updateDraftSeeded).toBe(false)
+    expect(editorStore.updateEcho?.id).toBe('echo-1')
+    expect(editorStore.echoToAdd.content).toBe('content-echo-1')
   })
 
-  it('clears the update session when exiting', () => {
+  it('seeds attachments and extension drafts from the update target', async () => {
+    const target = echo('echo-2')
+    target.echo_files = [
+      {
+        file_id: 'file-1',
+        sort_order: 0,
+        file: {
+          id: 'file-1',
+          url: 'https://example.test/a.png',
+          storage_type: 'local',
+          category: 'image',
+        },
+      },
+    ] as unknown as App.Api.Ech0.Echo['echo_files']
+    target.extension = {
+      type: ExtensionType.WEBSITE,
+      payload: { title: 'Example', site: 'https://example.com' },
+    }
+    fetchByIdMock.mockResolvedValue({ code: 1, msg: '', data: target })
+
     const editorStore = useEditorStore()
-    const echoStore = useEchoStore()
+    await editorStore.startUpdate(echo('echo-2'))
 
-    editorStore.beginUpdate(echoToUpdate('echo-1'))
-    editorStore.updateDraftSeeded = true
+    expect(editorStore.filesToAdd.map((file) => file.id)).toEqual(['file-1'])
+    expect(editorStore.extensionToAdd.extension_type).toBe(ExtensionType.WEBSITE)
+    expect(editorStore.websiteToAdd.title).toBe('Example')
+    expect(editorStore.websiteToAdd.site).toBe('https://example.com')
+  })
 
+  it('returns to compose after exiting the update session', async () => {
+    fetchByIdMock.mockResolvedValue({ code: 1, msg: '', data: echo('echo-3') })
+
+    const editorStore = useEditorStore()
+    await editorStore.startUpdate(echo('echo-3'))
     editorStore.handleExitUpdateMode()
 
     expect(editorStore.isUpdateMode).toBe(false)
-    expect(editorStore.updateDraftSeeded).toBe(false)
-    expect(echoStore.echoToUpdate).toBeNull()
+    expect(editorStore.updateEcho).toBeNull()
+    expect(editorStore.echoToAdd.content).toBe('')
   })
 })

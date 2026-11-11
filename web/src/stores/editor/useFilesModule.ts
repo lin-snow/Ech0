@@ -15,7 +15,6 @@ type FilesModuleDeps = {
 
 export function useFilesModule({ t }: FilesModuleDeps) {
   const fileUploading = ref<boolean>(false)
-  const fileIndex = ref<number>(0)
 
   const fileToAdd = ref<App.Api.Ech0.FileToAdd>({
     url: '',
@@ -182,7 +181,6 @@ export function useFilesModule({ t }: FilesModuleDeps) {
     fileUploading,
     fileToAdd,
     filesToAdd,
-    fileIndex,
     selectedCategory,
     hasFile,
     mediaCategory,

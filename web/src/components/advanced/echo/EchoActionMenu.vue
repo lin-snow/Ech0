@@ -75,7 +75,7 @@ import EditEcho from '@/components/icons/editecho.vue'
 import Lock from '@/components/icons/lock.vue'
 import More from '@/components/icons/more.vue'
 import Roll from '@/components/icons/roll.vue'
-import { fetchDeleteEcho, fetchGetEchoById } from '@/service/api'
+import { fetchDeleteEcho } from '@/service/api'
 import { useEchoStore, useEditorStore } from '@/stores'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { theToast } from '@/utils/toast'
@@ -232,12 +232,12 @@ onBeforeUnmount(() => {
 })
 
 const startUpdate = async (echo: Echo) => {
-  const res = await fetchGetEchoById(String(echo.id))
-  editorStore.beginUpdate(res.code === 1 && res.data ? res.data : echo)
+  await editorStore.startUpdate(echo)
   await router.push({
     name: 'home',
     query: { ...router.currentRoute.value.query, tab: 'publish' },
   })
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const onUpdate = () => {

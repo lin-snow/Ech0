@@ -23,10 +23,9 @@ import TheEditorButtons from './TheEditor/TheEditorButtons.vue'
 
 import { theToast } from '@/utils/toast'
 import { defineAsyncComponent, watch } from 'vue'
-import { useEchoStore, useEditorStore } from '@/stores'
+import { useEditorStore } from '@/stores'
 import { storeToRefs } from 'pinia'
-import { Mode, ExtensionType, ImageLayout } from '@/enums/enums'
-import { getEchoFiles } from '@/utils/echo'
+import { Mode } from '@/enums/enums'
 import { useI18n } from 'vue-i18n'
 
 const TheMdEditor = defineAsyncComponent(() => import('@/components/advanced/md/TheMdEditor.vue'))
@@ -35,22 +34,8 @@ const TheMediaEditor = defineAsyncComponent(() => import('./TheEditor/TheMediaEd
 const TheExtensionEditor = defineAsyncComponent(() => import('./TheEditor/TheExtensionEditor.vue'))
 const TheTagsManager = defineAsyncComponent(() => import('./TheEditor/TheTagsManager.vue'))
 
-const echoStore = useEchoStore()
 const editorStore = useEditorStore()
-const { echoToUpdate } = storeToRefs(echoStore)
-const {
-  ShowEditor,
-  currentMode,
-  isUpdateMode,
-  echoToAdd,
-  videoURL,
-  extensionToAdd,
-  websiteToAdd,
-  locationToAdd,
-  tweetToAdd,
-  tagToAdd,
-  currentExtensionType,
-} = storeToRefs(editorStore)
+const { ShowEditor, currentMode, videoURL, extensionToAdd } = storeToRefs(editorStore)
 const { t } = useI18n()
 
 watch(
@@ -72,108 +57,6 @@ watch(
         }
       }
     }
-  },
-)
-
-const fillEditorFromEchoToUpdate = () => {
-  editorStore.clearEditor()
-  echoToAdd.value.content = echoToUpdate.value?.content || ''
-
-  const existingMedia = getEchoFiles(echoToUpdate.value)
-  if (existingMedia.length > 0) {
-    editorStore.setFilesToAdd(
-      existingMedia.map((f) => ({
-        id: String(f.id || ''),
-        url: f.url || '',
-        storage_type: f.storage_type || 'local',
-        category: f.category,
-        content_type: f.content_type,
-        key: f.key || '',
-        size: f.size,
-        width: f.width,
-        height: f.height,
-      })),
-    )
-  } else {
-    editorStore.setFilesToAdd([])
-  }
-
-  if (echoToUpdate.value?.extension) {
-    currentExtensionType.value = echoToUpdate.value.extension.type as ExtensionType
-    extensionToAdd.value.extension_type = echoToUpdate.value.extension.type
-    switch (echoToUpdate.value.extension.type) {
-      case ExtensionType.MUSIC:
-        extensionToAdd.value.extension = echoToUpdate.value.extension.payload.url || ''
-        break
-      case ExtensionType.VIDEO:
-        extensionToAdd.value.extension = echoToUpdate.value.extension.payload.videoId || ''
-        videoURL.value = echoToUpdate.value.extension.payload.videoId || ''
-        break
-      case ExtensionType.GITHUBPROJ:
-        extensionToAdd.value.extension = echoToUpdate.value.extension.payload.repoUrl || ''
-        break
-      case ExtensionType.WEBSITE:
-        websiteToAdd.value.title = echoToUpdate.value.extension.payload.title || ''
-        websiteToAdd.value.site = echoToUpdate.value.extension.payload.site || ''
-        break
-      case ExtensionType.LOCATION: {
-        const payload = echoToUpdate.value.extension.payload
-        locationToAdd.value = {
-          latitude: typeof payload.latitude === 'number' ? payload.latitude : null,
-          longitude: typeof payload.longitude === 'number' ? payload.longitude : null,
-          placeholder: payload.placeholder || '',
-        }
-        extensionToAdd.value.extension =
-          typeof payload.latitude === 'number' && typeof payload.longitude === 'number'
-            ? `${payload.latitude},${payload.longitude}`
-            : ''
-        break
-      }
-      case ExtensionType.TWEET: {
-        const payload = echoToUpdate.value.extension.payload
-        tweetToAdd.value = {
-          url: payload.url || '',
-          username: payload.username || '',
-          statusId: payload.statusId || '',
-        }
-        extensionToAdd.value.extension = payload.url || ''
-        break
-      }
-    }
-  }
-
-  const tags = echoToUpdate.value?.tags
-  tagToAdd.value = Array.isArray(tags)
-    ? tags.map((tag) => tag?.name).filter((name): name is string => !!name)
-    : []
-  echoToAdd.value.private = echoToUpdate.value?.private || false
-  echoToAdd.value.layout = echoToUpdate.value?.layout || ImageLayout.WATERFALL
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-  theToast.info(String(t('editor.enteredUpdateMode')))
-}
-
-const seedUpdateDraft = () => {
-  if (!isUpdateMode.value || !echoToUpdate.value || editorStore.updateDraftSeeded) return
-  fillEditorFromEchoToUpdate()
-  editorStore.updateDraftSeeded = true
-}
-
-watch(
-  () => isUpdateMode.value,
-  (active) => {
-    if (active) {
-      seedUpdateDraft()
-    } else {
-      echoToUpdate.value = null
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  () => echoStore.echoToUpdate,
-  () => {
-    if (isUpdateMode.value) seedUpdateDraft()
   },
 )
 </script>

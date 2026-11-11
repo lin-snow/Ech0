@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
   <div>
-    <div v-if="editorStore.currentExtensionType === ExtensionType.MUSIC">
+    <div v-if="editorStore.extensionToAdd.extension_type === ExtensionType.MUSIC">
       <h2 class="text-[var(--color-text-secondary)] font-bold mb-1">
         {{ t('editor.musicShare') }}
       </h2>
@@ -31,7 +31,7 @@
         <span v-else class="text-[var(--color-danger)]">{{ t('editor.parseFailed') }}</span>
       </div>
     </div>
-    <div v-if="editorStore.currentExtensionType === ExtensionType.VIDEO">
+    <div v-if="editorStore.extensionToAdd.extension_type === ExtensionType.VIDEO">
       <div class="text-[var(--color-text-secondary)] font-bold mb-1">
         {{ t('editor.videoShare') }}
       </div>
@@ -45,7 +45,7 @@
         {{ t('editor.videoId') }}: {{ editorStore.extensionToAdd.extension }}
       </div>
     </div>
-    <div v-if="editorStore.currentExtensionType === ExtensionType.GITHUBPROJ">
+    <div v-if="editorStore.extensionToAdd.extension_type === ExtensionType.GITHUBPROJ">
       <div class="text-[var(--color-text-secondary)] font-bold mb-1">
         {{ t('editor.githubShare') }}
       </div>
@@ -55,7 +55,7 @@
         :placeholder="t('editor.githubUrlPlaceholder')"
       />
     </div>
-    <div v-if="editorStore.currentExtensionType === ExtensionType.TWEET">
+    <div v-if="editorStore.extensionToAdd.extension_type === ExtensionType.TWEET">
       <div class="text-[var(--color-text-secondary)] font-bold mb-1">
         {{ t('editor.tweetShare') }}
       </div>
@@ -76,7 +76,7 @@
         <span v-else class="text-[var(--color-danger)]">{{ t('editor.tweetUrlInvalid') }}</span>
       </div>
     </div>
-    <div v-if="editorStore.currentExtensionType === ExtensionType.WEBSITE">
+    <div v-if="editorStore.extensionToAdd.extension_type === ExtensionType.WEBSITE">
       <div class="text-[var(--color-text-secondary)] font-bold mb-1">
         {{ t('editor.websiteShare') }}
       </div>
@@ -100,7 +100,7 @@
         </BaseButton>
       </div>
     </div>
-    <div v-if="editorStore.currentExtensionType === ExtensionType.LOCATION">
+    <div v-if="editorStore.extensionToAdd.extension_type === ExtensionType.LOCATION">
       <div class="text-[var(--color-text-secondary)] font-bold mb-1">
         {{ t('editor.locationShare') }}
       </div>
@@ -210,7 +210,7 @@ const { displayName, isFetching: isFetchingGeocoding } = useReverseGeocoding(lat
 
 watch(displayName, (name) => {
   if (!name) return
-  if (editorStore.currentExtensionType !== ExtensionType.LOCATION) return
+  if (editorStore.extensionToAdd.extension_type !== ExtensionType.LOCATION) return
   editorStore.locationToAdd.placeholder = name
 })
 
@@ -279,7 +279,7 @@ const handleFetchWebsiteTitle = async () => {
 watch(
   () => editorStore.extensionToAdd.extension,
   (newValue: string) => {
-    if (editorStore.currentExtensionType !== ExtensionType.MUSIC || !newValue) {
+    if (editorStore.extensionToAdd.extension_type !== ExtensionType.MUSIC || !newValue) {
       return
     }
 
