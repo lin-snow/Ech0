@@ -9,6 +9,8 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.9] - 2026-11-11
+
 ### Added
 
 - **The editor previews the post while it is written.** The media strip below the editor is now one framed preview area with Text, Files and Extension tabs: the text tab renders the draft as Markdown, the files tab reuses the timeline's image/audio/video players, and the extension tab renders the actual card (music, video, GitHub repo, website, tweet or location). The tab switch only lists the previews that exist, follows a newly added file or extension instead of staying on an empty tab, and the extension card waits 350 ms for the draft to settle and stays hidden until its payload can render, so a half-typed URL never leaves a stale card. An extension can be removed from the preview after confirmation; in update mode that removal is synced to the server immediately.
