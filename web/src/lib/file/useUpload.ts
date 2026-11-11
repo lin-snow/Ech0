@@ -9,6 +9,7 @@ import { useUserStore } from '@/stores/user'
 import { theToast } from '@/utils/toast'
 import { formatBytes } from '@/utils/file'
 import { getImageSize } from '@/utils/image'
+import { getFileToAddUrl } from '@/utils/other'
 import { compressImage, inferFileExtFromType } from './compress'
 import { getPresign, updateFileMeta } from './api/adapter'
 import { globalFileRegistry } from './registry/file-registry'
@@ -56,6 +57,8 @@ export interface QueueItem {
   result?: App.Api.Ech0.FileToAdd
   abort?: AbortController
   delivered?: boolean
+  /** Row is an attachment that already exists server-side (update mode/draft). */
+  hydrated?: boolean
 }
 
 export interface UseUploadOptions {
@@ -171,6 +174,48 @@ export function useUpload(opts: UseUploadOptions) {
     }
 
     pump()
+  }
+
+  function hydratedName(file: App.Api.Ech0.FileToAdd): string {
+    const keyName = String(file.key || '')
+      .split('/')
+      .pop()
+    if (keyName) return keyName
+    try {
+      const urlName = decodeURIComponent(new URL(file.url).pathname.split('/').pop() || '')
+      if (urlName) return urlName
+    } catch {}
+    return String(file.id || 'file')
+  }
+
+  /**
+   * Shows attachments that already belong to the echo (update mode, restored
+   * draft) in the same list as new uploads, so both can be reordered together.
+   */
+  function hydrate(files: App.Api.Ech0.FileToAdd[]) {
+    const known = new Set(
+      items.value.map((item) => item.result?.id).filter((id): id is string => !!id),
+    )
+
+    for (const file of files) {
+      if (!file.id || known.has(file.id)) continue
+      const viewFile = new File([], hydratedName(file), {
+        type: file.content_type || '',
+      })
+      items.value.push({
+        id: `existing:${file.id}`,
+        file: viewFile,
+        originalFile: viewFile,
+        originalSize: file.size ?? 0,
+        status: UPLOAD_STATUS.SUCCESS,
+        progress: 100,
+        preview: getFileToAddUrl(file),
+        result: file,
+        delivered: true,
+        hydrated: true,
+      })
+      known.add(file.id)
+    }
   }
 
   function pump() {
@@ -424,6 +469,7 @@ export function useUpload(opts: UseUploadOptions) {
     isUploading,
     totalActive,
     addFiles,
+    hydrate,
     retry,
     remove,
     moveItem,

@@ -78,7 +78,7 @@
             </span>
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="text-xs text-[var(--color-text-muted)]">
-                {{ formatBytes(item.file.size) }}
+                {{ formatBytes(itemSize(item)) }}
               </span>
               <template v-for="badge in [compressionBadge(item)]" :key="badge?.label">
                 <span
@@ -170,6 +170,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEditorStore } from '@/stores'
+import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useUpload, UPLOAD_STATUS, type QueueItem, type UploadStatus } from '@/lib/file/useUpload'
 import { formatBytes } from '@/utils/file'
 import { theToast } from '@/utils/toast'
@@ -195,6 +196,7 @@ const props = withDefaults(
 
 const editorStore = useEditorStore()
 const { t } = useI18n()
+const { openConfirm } = useBaseDialog()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDropOverZone = ref(false)
@@ -226,8 +228,8 @@ const dropHintText = computed(() =>
     : t('uploader.dropHint', { max: maxFiles.value }),
 )
 
-const { items, isUploading, totalActive, addFiles, retry, remove, moveItem, cancelAll } = useUpload(
-  {
+const { items, isUploading, totalActive, addFiles, hydrate, retry, remove, moveItem, cancelAll } =
+  useUpload({
     storageType: toRef(props, 'fileStorageType'),
     enableCompressor: toRef(props, 'EnableCompressor'),
     category: props.fileCategory,
@@ -238,8 +240,7 @@ const { items, isUploading, totalActive, addFiles, retry, remove, moveItem, canc
     onAllComplete: (results) => {
       editorStore.handleUppyUploaded(results)
     },
-  },
-)
+  })
 
 watch(
   isUploading,
@@ -249,7 +250,7 @@ watch(
   { immediate: true },
 )
 
-async function handleRemoveItem(item: QueueItem) {
+async function deleteQueueItem(item: QueueItem) {
   const fileId = item.result?.id
   const storageType = item.result?.storage_type
   remove(item.id)
@@ -271,16 +272,35 @@ async function handleRemoveItem(item: QueueItem) {
   }
 }
 
+function handleRemoveItem(item: QueueItem) {
+  // Attachments loaded from the server already exist elsewhere: deleting the
+  // remote file is destructive, so mirror the preview's confirmation flow.
+  if (item.hydrated) {
+    openConfirm({
+      title: String(t('editor.removeImageConfirmTitle')),
+      description: '',
+      onConfirm: () => {
+        void deleteQueueItem(item)
+      },
+    })
+    return
+  }
+  void deleteQueueItem(item)
+}
+
 // A finished upload batch is delivered to the store one attachment at a time
 // (image sizing is async), so `filesToAdd` passes through partial states. Only
 // prune an uploader item whose result id was attached before and has since
 // disappeared; comparing against the current snapshot alone would drop uploads
 // that the store has not received yet.
-let attachedResultIds = new Set<string>()
+let attachedResultIds = new Set<string>(
+  editorStore.filesToAdd.map((f) => f.id).filter((id): id is string => !!id),
+)
 
 watch(
   () => editorStore.filesToAdd.map((f) => f.id ?? '').join('|'),
   () => {
+    hydrate(editorStore.filesToAdd)
     const present = new Set(
       editorStore.filesToAdd.map((f) => f.id).filter((id): id is string => !!id),
     )
@@ -297,6 +317,7 @@ watch(
     }
     attachedResultIds = present
   },
+  { immediate: true },
 )
 
 const hasReorderable = computed(
@@ -308,11 +329,21 @@ function isReorderable(item: QueueItem): boolean {
 }
 
 function isImageItem(item: QueueItem): boolean {
-  return item.file.type.startsWith('image/')
+  return (
+    item.result?.category === FILE_CATEGORY.IMAGE ||
+    (item.result?.content_type || item.file.type).startsWith('image/')
+  )
 }
 
 function isVideoItem(item: QueueItem): boolean {
-  return item.file.type.startsWith('video/')
+  return (
+    item.result?.category === FILE_CATEGORY.VIDEO ||
+    (item.result?.content_type || item.file.type).startsWith('video/')
+  )
+}
+
+function itemSize(item: QueueItem): number {
+  return item.result?.size ?? item.file.size
 }
 
 function openFilePicker() {
@@ -415,7 +446,14 @@ function onItemDrop(target: QueueItem) {
   const orderedIds = items.value
     .filter((i) => i.status === UPLOAD_STATUS.SUCCESS && i.result?.id)
     .map((i) => i.result!.id!)
-  if (orderedIds.length > 0) editorStore.reorderFilesByIds(orderedIds)
+  if (orderedIds.length > 0) {
+    editorStore.reorderFilesByIds(orderedIds)
+    // Uploads already sync in update mode; keep that guarantee when the user
+    // only changes the order, otherwise leaving the editor loses it.
+    if (editorStore.isUpdateMode && !isUploading.value) {
+      void editorStore.handleAddOrUpdateEcho(true)
+    }
+  }
 }
 
 function onItemDragEnd() {

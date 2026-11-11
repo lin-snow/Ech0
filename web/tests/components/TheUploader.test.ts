@@ -91,9 +91,13 @@ vi.mock('@/utils/toast', () => ({
   theToast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
 }))
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}))
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: () => ({ t: (key: string) => key }),
+  }
+})
 
 const wrappers: VueWrapper[] = []
 
@@ -104,6 +108,9 @@ const flushTicks = async (count = 12) => {
 describe('TheUploader', () => {
   beforeEach(() => {
     shared.editorState.filesToAdd.splice(0)
+    shared.editorState.isUpdateMode = false
+    vi.mocked(shared.editorState.handleAddOrUpdateEcho).mockClear()
+    vi.mocked(shared.editorState.reorderFilesByIds).mockClear()
     URL.createObjectURL = vi.fn(() => 'blob:preview')
     URL.revokeObjectURL = vi.fn()
   })
@@ -144,6 +151,80 @@ describe('TheUploader', () => {
 
     expect(shared.editorState.filesToAdd).toHaveLength(3)
     expect(wrapper.findAll('li')).toHaveLength(3)
+  })
+
+  it('lists existing attachments so they can be reordered', async () => {
+    shared.editorState.filesToAdd.push({
+      id: 'existing-1',
+      url: 'https://example.test/a.png',
+      key: 'images/a.png',
+      storage_type: FILE_STORAGE_TYPE.LOCAL,
+      category: 'image',
+      content_type: 'image/png',
+      size: 123,
+    } as FileToAdd)
+
+    const wrapper = mount(TheUploader, {
+      props: {
+        fileStorageType: FILE_STORAGE_TYPE.LOCAL,
+        EnableCompressor: false,
+        allowedFileTypes: ['image/*'],
+        maxFiles: 9,
+      },
+    })
+    wrappers.push(wrapper)
+    await flushTicks()
+
+    const rows = wrapper.findAll('li')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.text()).toContain('a.png')
+  })
+
+  it('persists the new order when updating an existing echo', async () => {
+    shared.editorState.filesToAdd.push(
+      {
+        id: 'existing-1',
+        url: 'https://example.test/a.png',
+        key: 'images/a.png',
+        storage_type: FILE_STORAGE_TYPE.LOCAL,
+        category: 'image',
+        content_type: 'image/png',
+        size: 123,
+      } as FileToAdd,
+      {
+        id: 'existing-2',
+        url: 'https://example.test/b.png',
+        key: 'images/b.png',
+        storage_type: FILE_STORAGE_TYPE.LOCAL,
+        category: 'image',
+        content_type: 'image/png',
+        size: 456,
+      } as FileToAdd,
+    )
+    shared.editorState.isUpdateMode = true
+
+    const wrapper = mount(TheUploader, {
+      props: {
+        fileStorageType: FILE_STORAGE_TYPE.LOCAL,
+        EnableCompressor: false,
+        allowedFileTypes: ['image/*'],
+        maxFiles: 9,
+      },
+    })
+    wrappers.push(wrapper)
+    await flushTicks()
+
+    const rows = wrapper.findAll('li')
+    expect(rows).toHaveLength(2)
+
+    await rows[0]!.trigger('dragstart', {
+      dataTransfer: { setData: vi.fn(), effectAllowed: '' },
+    })
+    await rows[1]!.trigger('drop')
+    await flushTicks()
+
+    expect(shared.editorState.reorderFilesByIds).toHaveBeenCalled()
+    expect(shared.editorState.handleAddOrUpdateEcho).toHaveBeenCalledWith(true)
   })
 
   it('drops the queue item when its attachment leaves the store', async () => {
