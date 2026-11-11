@@ -37,6 +37,8 @@
     "preview": "プレビュー",
     "showPreview": "プレビューを表示",
     "hidePreview": "プレビューを非表示",
+    "previewFiles": "ファイル",
+    "previewExtension": "拡張",
     "imageLayoutPlaceholder": "レイアウトを選択してください",
     "imageUrlPlaceholder": "添付ファイルのURLを入力...",
     "mediaSectionTitle": "メディアを挿入（画像 / 音声 / 動画）",

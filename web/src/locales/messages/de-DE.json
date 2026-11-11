@@ -37,6 +37,8 @@
     "preview": "Vorschau",
     "showPreview": "Vorschau einblenden",
     "hidePreview": "Vorschau ausblenden",
+    "previewFiles": "Dateien",
+    "previewExtension": "Erweiterung",
     "imageLayoutPlaceholder": "Layout wählen",
     "imageUrlPlaceholder": "Anhang-URL eingeben…",
     "mediaSectionTitle": "Medien einfügen (Bild / Audio / Video)",

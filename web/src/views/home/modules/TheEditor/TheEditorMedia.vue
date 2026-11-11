@@ -1,14 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div
-    v-if="
-      filesToAdd &&
-      filesToAdd.length > 0 &&
-      (currentMode === Mode.ECH0 || currentMode === Mode.Media)
-    "
-    class="relative w-11/12 mx-auto my-7"
-  >
+  <div v-if="filesToAdd && filesToAdd.length > 0" class="relative w-11/12 mx-auto my-7">
     <button
       @click="handleRemoveImage"
       :disabled="isDeleting"
@@ -65,7 +58,6 @@ import { getImageToAddUrl } from '@/utils/other'
 import { deleteFileById } from '@/lib/file'
 import { theToast } from '@/utils/toast'
 import { useEchoStore, useEditorStore } from '@/stores'
-import { Mode } from '@/enums/enums'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useI18n } from 'vue-i18n'
@@ -79,7 +71,7 @@ const isDeleting = ref<boolean>(false)
 const echoStore = useEchoStore()
 const { echoToUpdate } = storeToRefs(echoStore)
 const editorStore = useEditorStore()
-const { filesToAdd, currentMode, isUpdateMode, mediaCategory } = storeToRefs(editorStore)
+const { filesToAdd, isUpdateMode, mediaCategory } = storeToRefs(editorStore)
 const previewItems = computed(() =>
   filesToAdd.value.map((image, idx) => ({
     src: getImageToAddUrl(image),

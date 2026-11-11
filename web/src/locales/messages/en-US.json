@@ -37,6 +37,8 @@
     "preview": "Preview",
     "showPreview": "Show preview",
     "hidePreview": "Hide preview",
+    "previewFiles": "Files",
+    "previewExtension": "Extension",
     "imageLayoutPlaceholder": "Select layout",
     "imageUrlPlaceholder": "Enter attachment URL...",
     "mediaSectionTitle": "Insert media (image / audio / video)",

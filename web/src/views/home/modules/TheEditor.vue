@@ -12,13 +12,13 @@
       </div>
 
       <TheEditorButtons />
-      <TheEditorMedia />
+      <TheEditorPreview />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import TheEditorMedia from './TheEditor/TheEditorMedia.vue'
+import TheEditorPreview from './TheEditor/TheEditorPreview.vue'
 import TheEditorButtons from './TheEditor/TheEditorButtons.vue'
 
 import { theToast } from '@/utils/toast'
