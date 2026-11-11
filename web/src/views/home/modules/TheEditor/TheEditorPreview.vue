@@ -18,7 +18,7 @@
       <article
         v-if="activePreview === 'content' && hasContentPreview"
         data-test="content-preview"
-        class="markdown-preview-card max-h-[28rem]"
+        class="markdown-preview-card preview-content-card max-h-[28rem]"
       >
         <div class="preview-card-body">
           <MarkdownRenderer :content="editorStore.echoToAdd.content" />
@@ -163,3 +163,11 @@ const handleRemoveExtension = () => {
   })
 }
 </script>
+
+<style scoped>
+/* The dashed preview frame is the only container here; a second shadow on the
+   text card makes it read as a floating dialog. */
+.preview-content-card {
+  box-shadow: none;
+}
+</style>
