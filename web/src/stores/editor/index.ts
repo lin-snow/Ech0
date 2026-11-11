@@ -31,6 +31,10 @@ export const useEditorStore = defineStore('editorStore', () => {
   const currentExtensionType = ref<ExtensionType>()
   const isSubmitting = ref<boolean>(false)
   const isUpdateMode = ref<boolean>(false)
+  // Set once the editor has been populated for the current update session, so
+  // remounting the editor (route changes) does not reset the draft. It is
+  // cleared by `beginUpdate` whenever a new update target is loaded.
+  const updateDraftSeeded = ref<boolean>(false)
 
   const echoToAdd = ref<App.Api.Ech0.EchoToAdd>({
     content: '',
@@ -236,14 +240,17 @@ export const useEditorStore = defineStore('editorStore', () => {
           return
         }
 
-        echoStore.echoToUpdate.content = echoToAdd.value.content
-        echoStore.echoToUpdate.private = echoToAdd.value.private
-        echoStore.echoToUpdate.layout = echoToAdd.value.layout
-        echoStore.echoToUpdate.echo_files = echoToAdd.value.echo_files
-        echoStore.echoToUpdate.extension = echoToAdd.value.extension
-        echoStore.echoToUpdate.tags = echoToAdd.value.tags
+        const payload: App.Api.Ech0.EchoToUpdate = {
+          ...echoStore.echoToUpdate,
+          content: echoToAdd.value.content,
+          private: echoToAdd.value.private,
+          layout: echoToAdd.value.layout,
+          echo_files: echoToAdd.value.echo_files,
+          extension: echoToAdd.value.extension,
+          tags: echoToAdd.value.tags,
+        }
 
-        theToast.promise(fetchUpdateEcho(echoStore.echoToUpdate), {
+        theToast.promise(fetchUpdateEcho(payload), {
           loading: justSyncFiles ? t('editor.syncingFiles') : t('editor.updating'),
           success: (res) => {
             if (res.code === 1 && !justSyncFiles) {
@@ -252,6 +259,7 @@ export const useEditorStore = defineStore('editorStore', () => {
               }
               clearEditor()
               isUpdateMode.value = false
+              updateDraftSeeded.value = false
               echoStore.echoToUpdate = null
               setMode(Mode.ECH0)
               echoStore.getTags()
@@ -275,8 +283,15 @@ export const useEditorStore = defineStore('editorStore', () => {
     handleAddOrUpdateEcho(false)
   }
 
+  const beginUpdate = (echo: App.Api.Ech0.EchoToUpdate) => {
+    echoStore.echoToUpdate = echo
+    updateDraftSeeded.value = false
+    isUpdateMode.value = true
+  }
+
   const handleExitUpdateMode = () => {
     isUpdateMode.value = false
+    updateDraftSeeded.value = false
     echoStore.echoToUpdate = null
     clearEditor()
     setMode(Mode.ECH0)
@@ -295,6 +310,7 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     isSubmitting,
     isUpdateMode,
+    updateDraftSeeded,
     fileUploading: files.fileUploading,
 
     echoToAdd,
@@ -329,6 +345,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     handleAddOrUpdateEcho,
     handleAddOrUpdate,
     handleExitUpdateMode,
+    beginUpdate,
     checkIsEmptyEcho,
     checkEchoExtension: extension.checkEchoExtension,
     syncEchoExtension: extension.syncEchoExtension,

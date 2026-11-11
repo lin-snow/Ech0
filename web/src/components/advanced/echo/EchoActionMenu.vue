@@ -233,8 +233,7 @@ onBeforeUnmount(() => {
 
 const startUpdate = async (echo: Echo) => {
   const res = await fetchGetEchoById(String(echo.id))
-  echoStore.echoToUpdate = res.code === 1 && res.data ? res.data : echo
-  editorStore.isUpdateMode = true
+  editorStore.beginUpdate(res.code === 1 && res.data ? res.data : echo)
   await router.push({
     name: 'home',
     query: { ...router.currentRoute.value.query, tab: 'publish' },
