@@ -30,7 +30,7 @@ type DraftModuleDeps = {
   locationToAdd: Ref<LocationToAdd>
   tweetToAdd: Ref<TweetToAdd>
   tagToAdd: Ref<string[]>
-  isUpdateMode: Ref<boolean>
+  isUpdateMode: Readonly<Ref<boolean>>
   resetAttachments: (files: App.Api.Ech0.FileToAdd[]) => void
   t: Translate
 }

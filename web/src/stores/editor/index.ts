@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { theToast } from '@/utils/toast'
-import { fetchAddEcho, fetchUpdateEcho } from '@/service/api'
+import { fetchAddEcho, fetchGetEchoById, fetchUpdateEcho } from '@/service/api'
 import { Mode, ExtensionType, ImageLayout, VideoLayout, AudioLayout } from '@/enums/enums'
 import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import {
@@ -13,6 +13,7 @@ import {
   HOME_TIMELINE_PAGE_KEY,
 } from '@/utils/timeline'
 import { useEchoStore } from '@/stores'
+import { getEchoFiles } from '@/utils/echo'
 import { localStg } from '@/utils/storage'
 import { globalFileRegistry } from '@/lib/file'
 import { i18n } from '@/locales'
@@ -20,7 +21,7 @@ import router from '@/router'
 import { useExtensionModule } from './useExtensionModule'
 import { useFilesModule } from './useFilesModule'
 import { useDraftModule } from './useDraftModule'
-import type { Translate } from './types'
+import type { EditorSession, Translate } from './types'
 
 export const useEditorStore = defineStore('editorStore', () => {
   const echoStore = useEchoStore()
@@ -30,11 +31,9 @@ export const useEditorStore = defineStore('editorStore', () => {
   const currentMode = ref<Mode>(Mode.ECH0)
   const currentExtensionType = ref<ExtensionType>()
   const isSubmitting = ref<boolean>(false)
-  const isUpdateMode = ref<boolean>(false)
-  // Set once the editor has been populated for the current update session, so
-  // remounting the editor (route changes) does not reset the draft. It is
-  // cleared by `beginUpdate` whenever a new update target is loaded.
-  const updateDraftSeeded = ref<boolean>(false)
+  const session = ref<EditorSession>({ kind: 'compose' })
+  const isUpdateMode = computed(() => session.value.kind === 'update')
+  const updateEcho = computed(() => (session.value.kind === 'update' ? session.value.echo : null))
 
   const echoToAdd = ref<App.Api.Ech0.EchoToAdd>({
     content: '',
@@ -118,6 +117,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
     files.resetFilesState()
     extension.resetExtensionState()
+    currentExtensionType.value = undefined
     tagToAdd.value = []
     draft.clearLocalDraft()
   }
@@ -155,7 +155,7 @@ export const useEditorStore = defineStore('editorStore', () => {
       await files.handleAddMoreFile()
     }
 
-    if (isUpdateMode.value && echoStore.echoToUpdate) {
+    if (isUpdateMode.value) {
       await handleAddOrUpdateEcho(true)
     }
   }
@@ -235,13 +235,14 @@ export const useEditorStore = defineStore('editorStore', () => {
       }
 
       if (isUpdateMode.value) {
-        if (!echoStore.echoToUpdate) {
+        const target = updateEcho.value
+        if (!target) {
           theToast.error(t('editor.noEchoToUpdate'))
           return
         }
 
         const payload: App.Api.Ech0.EchoToUpdate = {
-          ...echoStore.echoToUpdate,
+          ...target,
           content: echoToAdd.value.content,
           private: echoToAdd.value.private,
           layout: echoToAdd.value.layout,
@@ -258,9 +259,7 @@ export const useEditorStore = defineStore('editorStore', () => {
                 echoStore.replaceEcho(res.data)
               }
               clearEditor()
-              isUpdateMode.value = false
-              updateDraftSeeded.value = false
-              echoStore.echoToUpdate = null
+              session.value = { kind: 'compose' }
               setMode(Mode.ECH0)
               echoStore.getTags()
               backToTimelineTab()
@@ -283,17 +282,89 @@ export const useEditorStore = defineStore('editorStore', () => {
     handleAddOrUpdateEcho(false)
   }
 
-  const beginUpdate = (echo: App.Api.Ech0.EchoToUpdate) => {
-    echoStore.echoToUpdate = echo
-    updateDraftSeeded.value = false
-    isUpdateMode.value = true
+  const seedUpdateDraft = (echo: App.Api.Ech0.Echo) => {
+    echoToAdd.value.content = echo.content || ''
+
+    files.setFilesToAdd(
+      getEchoFiles(echo).map((file) => ({
+        id: String(file.id || ''),
+        url: file.url || '',
+        storage_type: file.storage_type || 'local',
+        category: file.category,
+        content_type: file.content_type,
+        key: file.key || '',
+        size: file.size,
+        width: file.width,
+        height: file.height,
+      })),
+    )
+
+    const echoExtension = echo.extension
+    if (echoExtension) {
+      currentExtensionType.value = echoExtension.type as ExtensionType
+      extension.extensionToAdd.value.extension_type = echoExtension.type
+      switch (echoExtension.type) {
+        case ExtensionType.MUSIC:
+          extension.extensionToAdd.value.extension = echoExtension.payload.url || ''
+          break
+        case ExtensionType.VIDEO:
+          extension.extensionToAdd.value.extension = echoExtension.payload.videoId || ''
+          extension.videoURL.value = echoExtension.payload.videoId || ''
+          break
+        case ExtensionType.GITHUBPROJ:
+          extension.extensionToAdd.value.extension = echoExtension.payload.repoUrl || ''
+          break
+        case ExtensionType.WEBSITE:
+          extension.websiteToAdd.value.title = echoExtension.payload.title || ''
+          extension.websiteToAdd.value.site = echoExtension.payload.site || ''
+          break
+        case ExtensionType.LOCATION: {
+          const payload = echoExtension.payload
+          extension.locationToAdd.value = {
+            latitude: typeof payload.latitude === 'number' ? payload.latitude : null,
+            longitude: typeof payload.longitude === 'number' ? payload.longitude : null,
+            placeholder: payload.placeholder || '',
+          }
+          extension.extensionToAdd.value.extension =
+            typeof payload.latitude === 'number' && typeof payload.longitude === 'number'
+              ? `${payload.latitude},${payload.longitude}`
+              : ''
+          break
+        }
+        case ExtensionType.TWEET: {
+          const payload = echoExtension.payload
+          extension.tweetToAdd.value = {
+            url: payload.url || '',
+            username: payload.username || '',
+            statusId: payload.statusId || '',
+          }
+          extension.extensionToAdd.value.extension = payload.url || ''
+          break
+        }
+      }
+    }
+
+    const tags = echo.tags
+    tagToAdd.value = Array.isArray(tags)
+      ? tags.map((tag) => tag?.name).filter((name): name is string => !!name)
+      : []
+    echoToAdd.value.private = echo.private || false
+    echoToAdd.value.layout = echo.layout || ImageLayout.WATERFALL
+  }
+
+  const startUpdate = async (echo: App.Api.Ech0.Echo) => {
+    const res = await fetchGetEchoById(String(echo.id))
+    const target = res.code === 1 && res.data ? res.data : echo
+
+    session.value = { kind: 'update', echo: target }
+    clearEditor()
+    seedUpdateDraft(target)
+    theToast.info(t('editor.enteredUpdateMode'))
   }
 
   const handleExitUpdateMode = () => {
-    isUpdateMode.value = false
-    updateDraftSeeded.value = false
-    echoStore.echoToUpdate = null
     clearEditor()
+    session.value = { kind: 'compose' }
     setMode(Mode.ECH0)
     theToast.info(t('editor.exitUpdateModeSuccess'))
   }
@@ -309,8 +380,9 @@ export const useEditorStore = defineStore('editorStore', () => {
     currentExtensionType,
 
     isSubmitting,
+    session,
     isUpdateMode,
-    updateDraftSeeded,
+    updateEcho,
     fileUploading: files.fileUploading,
 
     echoToAdd,
@@ -345,7 +417,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     handleAddOrUpdateEcho,
     handleAddOrUpdate,
     handleExitUpdateMode,
-    beginUpdate,
+    startUpdate,
     checkIsEmptyEcho,
     checkEchoExtension: extension.checkEchoExtension,
     syncEchoExtension: extension.syncEchoExtension,

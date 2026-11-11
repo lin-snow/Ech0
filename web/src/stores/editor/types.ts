@@ -23,6 +23,8 @@ export type TweetToAdd = {
   statusId: string
 }
 
+export type EditorSession = { kind: 'compose' } | { kind: 'update'; echo: App.Api.Ech0.Echo }
+
 export type EditorDraft = {
   savedAt: number
   echoToAdd: Pick<App.Api.Ech0.EchoToAdd, 'content' | 'private' | 'layout' | 'extension'>

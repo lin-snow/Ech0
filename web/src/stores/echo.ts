@@ -42,7 +42,6 @@ export const useEchoStore = defineStore('echoStore', () => {
 
   const searchValue = ref<string>('')
   const searchingMode = computed(() => searchValue.value.length > 0)
-  const echoToUpdate = ref<App.Api.Ech0.EchoToUpdate | null>(null)
 
   const tagList = ref<App.Api.Ech0.Tag[]>([])
   const tagOptions = computed<string[]>(() => tagList.value.map((tag) => tag.name))
@@ -503,7 +502,6 @@ export const useEchoStore = defineStore('echoStore', () => {
     loadedSignature,
     searchValue,
     searchingMode,
-    echoToUpdate,
     tagList,
     tagOptions,
 
