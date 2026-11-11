@@ -2,14 +2,15 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TheEditorPreview from '@/views/home/modules/TheEditor/TheEditorPreview.vue'
 import { ExtensionType, Mode } from '@/enums/enums'
 
 type Preview = App.Api.Ech0.EchoExtension | null
 
 type StoreState = {
+  echoToAdd: { content: string }
   filesToAdd: Array<{ id: string }>
   extensionPreview: Preview
   currentMode: Mode
@@ -27,6 +28,7 @@ vi.mock('@/stores', async () => {
   // inside the factory; a static import would be uninitialized here.
   const { reactive } = await import('vue')
   const store = reactive({
+    echoToAdd: { content: '' },
     filesToAdd: [],
     extensionPreview: null,
     currentMode: 0,
@@ -61,7 +63,13 @@ const websitePreview = (title: string): Preview => ({
   payload: { title, site: 'https://example.com' },
 })
 
-const mountPreview = () => mount(TheEditorPreview, { global: { directives: { tooltip: {} } } })
+const wrappers: VueWrapper[] = []
+
+const mountPreview = () => {
+  const wrapper = mount(TheEditorPreview, { global: { directives: { tooltip: {} } } })
+  wrappers.push(wrapper)
+  return wrapper
+}
 
 const flush = async () => {
   await nextTick()
@@ -69,7 +77,14 @@ const flush = async () => {
 }
 
 describe('TheEditorPreview', () => {
+  afterEach(async () => {
+    // Let lazily imported preview cards settle before jsdom is torn down.
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    wrappers.splice(0).forEach((wrapper) => wrapper.unmount())
+  })
+
   beforeEach(() => {
+    shared.store.echoToAdd.content = ''
     shared.store.isUpdateMode = false
     vi.mocked(shared.store.removeExtension).mockClear()
     vi.mocked(shared.store.handleAddOrUpdateEcho).mockClear()
@@ -121,6 +136,58 @@ describe('TheEditorPreview', () => {
 
     expect(wrapper.find('[data-test="media"]').exists()).toBe(false)
     expect(wrapper.find('.sketch-frame').exists()).toBe(true)
+  })
+
+  it('shows the text preview by default when only content exists', async () => {
+    shared.store.echoToAdd.content = 'Hello **world**'
+    shared.store.filesToAdd = []
+    shared.store.extensionPreview = null
+    shared.store.currentMode = Mode.ECH0
+
+    const wrapper = mountPreview()
+    await flush()
+
+    expect(wrapper.find('[data-test="content-preview"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media"]').exists()).toBe(false)
+    expect(wrapper.find('.seg').exists()).toBe(false)
+  })
+
+  it('switches to files when an attachment is added', async () => {
+    shared.store.echoToAdd.content = 'Hello'
+    shared.store.filesToAdd = []
+    shared.store.extensionPreview = null
+    shared.store.currentMode = Mode.ECH0
+
+    const wrapper = mountPreview()
+    await flush()
+    expect(wrapper.find('[data-test="content-preview"]').exists()).toBe(true)
+
+    shared.store.filesToAdd = [{ id: 'file-1' }]
+    await flush()
+
+    expect(wrapper.find('[data-test="media"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="content-preview"]').exists()).toBe(false)
+    expect(wrapper.findAll('.seg__btn')).toHaveLength(2)
+  })
+
+  it('offers text and files tabs and can switch back to text', async () => {
+    shared.store.echoToAdd.content = 'Hello'
+    shared.store.filesToAdd = [{ id: 'file-1' }]
+    shared.store.extensionPreview = null
+    shared.store.currentMode = Mode.ECH0
+
+    const wrapper = mountPreview()
+    await flush()
+
+    const tabs = wrapper.findAll('.seg__btn')
+    expect(tabs.map((tab) => tab.text())).toEqual(['editor.previewContent', 'editor.previewFiles'])
+    expect(wrapper.find('[data-test="media"]').exists()).toBe(true)
+
+    await tabs[0]!.trigger('click')
+    await flush()
+
+    expect(wrapper.find('[data-test="content-preview"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media"]').exists()).toBe(false)
   })
 
   it('removes the extension from its preview', async () => {

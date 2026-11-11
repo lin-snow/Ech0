@@ -38,6 +38,7 @@
     "showPreview": "显示预览",
     "hidePreview": "隐藏预览",
     "previewFiles": "文件",
+    "previewContent": "文本",
     "previewExtension": "扩展",
     "imageLayoutPlaceholder": "请选择布局方式",
     "imageUrlPlaceholder": "请输入附件链接...",

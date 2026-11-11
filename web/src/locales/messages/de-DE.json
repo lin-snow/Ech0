@@ -38,6 +38,7 @@
     "showPreview": "Vorschau einblenden",
     "hidePreview": "Vorschau ausblenden",
     "previewFiles": "Dateien",
+    "previewContent": "Text",
     "previewExtension": "Erweiterung",
     "imageLayoutPlaceholder": "Layout wählen",
     "imageUrlPlaceholder": "Anhang-URL eingeben…",

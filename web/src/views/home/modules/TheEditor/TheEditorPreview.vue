@@ -8,16 +8,26 @@
           {{ t('editor.preview') }}
         </span>
         <BaseSegmented
-          v-if="hasMediaPreview && hasExtensionPreview"
+          v-if="previewOptions.length > 1"
           v-model="activePreview"
           :options="previewOptions"
           compact
         />
       </div>
 
-      <TheEditorMedia v-if="activePreview === 'media' && hasMediaPreview" />
+      <article
+        v-if="activePreview === 'content' && hasContentPreview"
+        data-test="content-preview"
+        class="markdown-preview-card max-h-[28rem]"
+      >
+        <div class="preview-card-body">
+          <MarkdownRenderer :content="editorStore.echoToAdd.content" />
+        </div>
+      </article>
 
-      <div v-else-if="hasExtensionPreview" class="relative">
+      <TheEditorMedia v-else-if="activePreview === 'media' && hasMediaPreview" />
+
+      <div v-else-if="activePreview === 'extension' && hasExtensionPreview" class="relative">
         <button
           type="button"
           class="absolute -top-2.5 -right-2.5 z-[2] w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--color-danger)] hover:text-white hover:border-[var(--color-danger)]"
@@ -50,44 +60,90 @@ import TheEditorMedia from './TheEditorMedia.vue'
 const TheExtensionRenderer = defineAsyncComponent(
   () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
 )
+const MarkdownRenderer = defineAsyncComponent(
+  () => import('@/editor/components/MarkdownRenderer.vue'),
+)
 
 const { t } = useI18n()
 const { openConfirm } = useBaseDialog()
 const editorStore = useEditorStore()
 
+type PreviewTab = 'content' | 'media' | 'extension'
+
+const hasContentPreview = computed(() => !!editorStore.echoToAdd.content?.trim())
 const hasMediaPreview = computed(() => editorStore.filesToAdd.length > 0)
 const hasExtensionPreview = computed(() => editorStore.extensionPreview !== null)
-const hasAnyPreview = computed(() => hasMediaPreview.value || hasExtensionPreview.value)
+const hasAnyPreview = computed(
+  () => hasContentPreview.value || hasMediaPreview.value || hasExtensionPreview.value,
+)
 
-const activePreview = ref<string>(editorStore.currentMode === Mode.EXTEN ? 'extension' : 'media')
+const preferredPreview = (): PreviewTab => {
+  if (editorStore.currentMode === Mode.EXTEN && hasExtensionPreview.value) return 'extension'
+  if (editorStore.currentMode === Mode.Media && hasMediaPreview.value) return 'media'
+  if (hasMediaPreview.value) return 'media'
+  if (hasExtensionPreview.value) return 'extension'
+  return 'content'
+}
 
-// Keep the switch on a usable tab: force the only available preview, and when
-// both exist prefer the one for the mode the user is editing.
+const activePreview = ref<PreviewTab>(preferredPreview())
+
+// Keep the switch on a usable tab: new files/extensions take focus, a single
+// available preview is forced, and manual choices survive until the draft or
+// the editing mode changes.
 watch(
   [
-    () => editorStore.filesToAdd.length > 0,
-    () => editorStore.extensionPreview !== null,
+    () => hasContentPreview.value,
+    () => hasMediaPreview.value,
+    () => hasExtensionPreview.value,
     () => editorStore.currentMode,
   ],
-  () => {
-    if (!hasMediaPreview.value && hasExtensionPreview.value) {
-      activePreview.value = 'extension'
+  ([content, media, extension, mode], previous) => {
+    const available: PreviewTab[] = []
+    if (content) available.push('content')
+    if (media) available.push('media')
+    if (extension) available.push('extension')
+    if (available.length === 0) return
+    if (available.length === 1) {
+      activePreview.value = available[0]!
       return
     }
-    if (hasMediaPreview.value && !hasExtensionPreview.value) {
-      activePreview.value = 'media'
+
+    const previousSources = previous && previous.length > 0 ? previous : null
+    const [, prevMedia, prevExtension] = previousSources ?? []
+    if (previousSources) {
+      if (media && !prevMedia) {
+        activePreview.value = 'media'
+        return
+      }
+      if (extension && !prevExtension) {
+        activePreview.value = 'extension'
+        return
+      }
+    }
+    if (previousSources && mode !== previousSources[3]) {
+      activePreview.value = preferredPreview()
       return
     }
-    if (!hasMediaPreview.value) return
-    activePreview.value = editorStore.currentMode === Mode.EXTEN ? 'extension' : 'media'
+    if (!available.includes(activePreview.value)) {
+      activePreview.value = preferredPreview()
+    }
   },
   { immediate: true },
 )
 
-const previewOptions = computed(() => [
-  { label: String(t('editor.previewFiles')), value: 'media' },
-  { label: String(t('editor.previewExtension')), value: 'extension' },
-])
+const previewOptions = computed(() => {
+  const options: { label: string; value: string }[] = []
+  if (hasContentPreview.value) {
+    options.push({ label: String(t('editor.previewContent')), value: 'content' })
+  }
+  if (hasMediaPreview.value) {
+    options.push({ label: String(t('editor.previewFiles')), value: 'media' })
+  }
+  if (hasExtensionPreview.value) {
+    options.push({ label: String(t('editor.previewExtension')), value: 'extension' })
+  }
+  return options
+})
 
 const previewKey = computed(() => {
   const extension = editorStore.extensionPreview
