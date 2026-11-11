@@ -152,26 +152,46 @@
         :placeholder="t('editor.locationPlaceholderInput')"
       />
     </div>
+
+    <TheSketchFrame v-if="extensionPreview" class="mt-3">
+      <section class="px-3 py-2.5">
+        <p class="mb-2 text-[11px] font-semibold text-[var(--color-text-muted)]">
+          {{ t('editor.preview') }}
+        </p>
+        <TheExtensionRenderer :key="previewKey" :echo="{ extension: extensionPreview }" />
+      </section>
+    </TheSketchFrame>
   </div>
 </template>
 
 <script setup lang="ts">
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import TheSketchFrame from '@/components/common/TheSketchFrame.vue'
 import LocationPicker from '@/components/advanced/extension/shared/LocationPicker.vue'
 import { useReverseGeocoding } from '@/components/advanced/extension/shared/useReverseGeocoding'
 import { ExtensionType } from '@/enums/enums'
 import { parseMusicURL, extractAndCleanMusicURL } from '@/utils/other'
 import { parseTweetUrl } from '@/utils/tweet'
 import { useEditorStore } from '@/stores'
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { fetchGetWebsiteTitle } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { useI18n } from 'vue-i18n'
 
+const TheExtensionRenderer = defineAsyncComponent(
+  () => import('@/components/advanced/extension/TheExtensionRenderer.vue'),
+)
+
 const editorStore = useEditorStore()
 const isFetchingWebsiteTitle = ref(false)
 const { t } = useI18n()
+
+const extensionPreview = computed(() => editorStore.extensionPreview)
+const previewKey = computed(() => {
+  const extension = extensionPreview.value
+  return extension ? `${extension.type}:${JSON.stringify(extension.payload)}` : ''
+})
 
 const parsedTweet = computed(() => parseTweetUrl(editorStore.tweetToAdd.url))
 

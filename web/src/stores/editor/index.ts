@@ -317,6 +317,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     extensionToAdd: extension.extensionToAdd,
     locationToAdd: extension.locationToAdd,
     tweetToAdd: extension.tweetToAdd,
+    extensionPreview: extension.extensionPreview,
     tagToAdd,
 
     init,
