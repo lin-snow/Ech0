@@ -4,7 +4,7 @@ This guide covers local development for **Ech0** — environment setup, hot relo
 
 ## Backend Requirements
 
-📌 **Go 1.27.3+**
+📌 **Go 1.27.4+**
 
 📌 **C Compiler**
 When using CGO-dependent libraries such as `go-sqlite3`, install:

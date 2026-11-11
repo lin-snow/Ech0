@@ -16,7 +16,7 @@ VERSION_PKG   := "github.com/lin-snow/ech0/internal/version"
 LDFLAGS       := "-X " + VERSION_PKG + ".Commit=" + GIT_COMMIT + " -X " + VERSION_PKG + ".BuildTime=" + BUILD_TIME
 
 # mockery reads package export data via x/tools; it must know the unified-IR export
-# data version the pinned Go toolchain writes (Go 1.27.3 writes v5, v3.7.4 tops out at v4).
+# data version the pinned Go toolchain writes (Go 1.27.4 writes v5, v3.7.4 tops out at v4).
 MOCKERY_VERSION := env_var_or_default("MOCKERY_VERSION", "v3.8.1")
 
 COVER_EXCLUDE := 'internal/test/mocks/|/wire_gen\.go:'

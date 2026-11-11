@@ -13,7 +13,7 @@ COPY web/ .
 
 RUN pnpm run build --mode production
 
-FROM golang:1.27.3-alpine AS backend-builder
+FROM golang:1.27.4-alpine AS backend-builder
 
 RUN apk add --no-cache git ca-certificates gcc musl-dev
 

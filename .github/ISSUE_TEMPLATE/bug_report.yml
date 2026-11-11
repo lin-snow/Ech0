@@ -95,7 +95,7 @@ body:
     attributes:
       label: Environment
       description: OS, browser (for UI bugs), Go version if building from source.
-      placeholder: macOS 14.5 / Chrome 124 / Go 1.27.2
+      placeholder: macOS 14.5 / Chrome 124 / Go 1.27.4
 
   - type: textarea
     id: logs

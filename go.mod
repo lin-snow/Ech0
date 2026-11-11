@@ -1,6 +1,6 @@
 module github.com/lin-snow/ech0
 
-go 1.27.3
+go 1.27.4
 
 require (
 	charm.land/huh/v2 v2.0.3

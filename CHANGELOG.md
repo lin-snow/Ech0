@@ -9,9 +9,31 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Added
+
+- **The editor previews the post while it is written.** The media strip below the editor is now one framed preview area with Text, Files and Extension tabs: the text tab renders the draft as Markdown, the files tab reuses the timeline's image/audio/video players, and the extension tab renders the actual card (music, video, GitHub repo, website, tweet or location). The tab switch only lists the previews that exist, follows a newly added file or extension instead of staying on an empty tab, and the extension card waits 350 ms for the draft to settle and stays hidden until its payload can render, so a half-typed URL never leaves a stale card. An extension can be removed from the preview after confirmation; in update mode that removal is synced to the server immediately.
+
+### Changed
+
+- **Editing an Echo opens a draft loaded from the server.** Entering update mode now fetches the Echo by id before seeding the editor, so content, attachments, extension, tags, privacy and layout always come from the stored post rather than from the timeline card. Attachments that already belong to the Echo appear in the uploader list next to new uploads, can be reordered with them, and a reorder is synced right away, so leaving the editor cannot lose it. Removing an existing attachment asks for confirmation because it also deletes the file on the backend. The draft now lives in the editor store's session, so remounting the editor no longer clears it, and submitting builds the payload from the current drafts instead of mutating a shared `echoToAdd` object.
+
 ### Fixed
 
+- **Batch uploads no longer drop finished files from the uploader list.** A completed batch is handed to the editor store one attachment at a time (image sizing is async), while the uploader pruned any item whose result id was missing from the current store snapshot — so several files uploaded together could disappear from the list before the store had received them. The uploader now only removes an item whose id was attached earlier and has since disappeared.
+
 - **Location cards show a real basemap again.** The CARTO raster tiles Ech0 used stopped being served without an API key on 25 September 2026, so every location map showed the "API KEY REQUIRED" watermark. Tiles now come from the keyless OpenStreetMap raster endpoint; dark mode filters the tile pane instead of loading a second tile style.
+
+### Security
+
+- **Go 1.27.4 closes twelve toolchain CVEs.** The release fixes an HTTP/1 server panic in `net/http`: when `MaxBytesReader`'s limit is exceeded, the automatic `Connection: close` header races with a header set by the handler (CVE-2026-97054). The other eleven harden `cmd/go`, `cmd/cgo`, `cmd/compile` and `cmd/link` so a malicious package cannot execute code or inject linker flags while building — split `-Wl,` flags, `#cgo` sysroot/target flags, GCC spec files, `.syso` files and `//go:cgo_*` directives (CVE-2026-97033 through CVE-2026-97043). No application code, API or schema changes; `govulncheck ./...` reports no reachable vulnerabilities.
+
+### Internal
+
+- **Go 1.27.4 is now required.** `go.mod`, the Docker builder image, CI workflows, the issue template example and the development docs target Go 1.27.4.
+
+- **The editor is an explicit session with derived payloads.** `stores/editor/index.ts` models compose/update as an `EditorSession` (fetch by id, draft seeding, payload merge on submit), `utils/extension.ts` owns `buildEchoExtension`/`isExtensionPreviewReady`, `useUpload.hydrate` turns stored attachments into queue items, and `TheEditorPreview.vue` owns preview tab selection. The duplicated `echoStore.echoToUpdate`, `updateDraftSeeded`, `currentExtensionType`, `syncEchoExtension` and `checkIsEmptyEcho` state is gone; editor payloads, update mode, extension preview and uploader queue behavior are covered by new vitest suites.
+
+- **Dependencies updated.** Go: `openai-go/v3` 3.90.0 → 3.96.0, AWS SDK v2 (S3, config, credentials, `smithy-go`, indirect packages) and `caarlos0/env/v11` 11.4.1 → 11.4.2. Web: `vue` 3.5.45, `vue-i18n` 11.4.18, `eslint` 10.14, `vite` 8.3.6, `vitest` 5.1.0, `sass-embedded` 1.108, `jsdom` 31. CI: `helm/chart-releaser-action` 1.8.0 → 1.9.0.
 
 ## [5.9.8] - 2026-11-09
 
