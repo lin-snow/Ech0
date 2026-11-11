@@ -12,17 +12,17 @@
       </div>
 
       <TheEditorButtons />
-      <TheEditorMedia />
+      <TheEditorPreview />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import TheEditorMedia from './TheEditor/TheEditorMedia.vue'
+import TheEditorPreview from './TheEditor/TheEditorPreview.vue'
 import TheEditorButtons from './TheEditor/TheEditorButtons.vue'
 
 import { theToast } from '@/utils/toast'
-import { defineAsyncComponent, onMounted, watch } from 'vue'
+import { defineAsyncComponent, watch } from 'vue'
 import { useEchoStore, useEditorStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { Mode, ExtensionType, ImageLayout } from '@/enums/enums'
@@ -152,22 +152,30 @@ const fillEditorFromEchoToUpdate = () => {
   theToast.info(String(t('editor.enteredUpdateMode')))
 }
 
+const seedUpdateDraft = () => {
+  if (!isUpdateMode.value || !echoToUpdate.value || editorStore.updateDraftSeeded) return
+  fillEditorFromEchoToUpdate()
+  editorStore.updateDraftSeeded = true
+}
+
 watch(
   () => isUpdateMode.value,
-  (newVal) => {
-    if (newVal) {
-      fillEditorFromEchoToUpdate()
+  (active) => {
+    if (active) {
+      seedUpdateDraft()
     } else {
       echoToUpdate.value = null
     }
   },
+  { immediate: true },
 )
 
-onMounted(() => {
-  if (isUpdateMode.value) {
-    fillEditorFromEchoToUpdate()
-  }
-})
+watch(
+  () => echoStore.echoToUpdate,
+  () => {
+    if (isUpdateMode.value) seedUpdateDraft()
+  },
+)
 </script>
 
 <style scoped>

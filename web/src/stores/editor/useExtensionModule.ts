@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { computed, ref, type Ref } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { ExtensionType } from '@/enums/enums'
+import {
+  buildEchoExtension,
+  isExtensionPreviewReady,
+  type EchoExtensionDraft,
+} from '@/utils/extension'
 import { theToast } from '@/utils/toast'
 import { parseTweetUrl } from '@/utils/tweet'
 import type { ExtensionToAdd, LocationToAdd, Translate, TweetToAdd, WebsiteToAdd } from './types'
@@ -25,37 +30,47 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
   })
   const tweetToAdd = ref<TweetToAdd>({ url: '', username: '', statusId: '' })
 
-  const hasExtension = computed(() => {
-    const ext = extensionToAdd.value.extension
-    const extType = extensionToAdd.value.extension_type
-
-    if (extType === ExtensionType.WEBSITE) {
-      const { title, site } = websiteToAdd.value
-      return !!title && !!site
-    }
-
-    if (extType === ExtensionType.LOCATION) {
-      const { latitude, longitude, placeholder } = locationToAdd.value
-      return (
-        typeof latitude === 'number' &&
-        typeof longitude === 'number' &&
-        Number.isFinite(latitude) &&
-        Number.isFinite(longitude) &&
-        latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180 &&
-        !!placeholder.trim()
-      )
-    }
-
-    if (extType === ExtensionType.TWEET) {
-      const { url, username, statusId } = tweetToAdd.value
-      return !!url && !!username && !!statusId
-    }
-
-    return !!ext && !!extType
+  const readDraft = (): EchoExtensionDraft => ({
+    extensionType: extensionToAdd.value.extension_type,
+    extension: extensionToAdd.value.extension,
+    website: websiteToAdd.value,
+    location: locationToAdd.value,
+    tweetUrl: tweetToAdd.value.url,
   })
+
+  const hasExtension = computed(() => buildEchoExtension(readDraft()) !== null)
+
+  // Remote cards (music / GitHub / tweet) fetch as soon as they mount, so the
+  // preview waits for the draft to settle; an invalid draft hides it at once
+  // instead of leaving a stale card behind.
+  const PREVIEW_DEBOUNCE_MS = 350
+  const extensionPreview = ref<App.Api.Ech0.EchoExtension | null>(null)
+  let previewTimer: ReturnType<typeof setTimeout> | null = null
+
+  const cancelPreviewTimer = () => {
+    if (previewTimer === null) return
+    clearTimeout(previewTimer)
+    previewTimer = null
+  }
+
+  watch(
+    [extensionToAdd, websiteToAdd, locationToAdd, tweetToAdd],
+    () => {
+      const next = buildEchoExtension(readDraft())
+      if (!next || !isExtensionPreviewReady(next)) {
+        cancelPreviewTimer()
+        extensionPreview.value = null
+        return
+      }
+
+      cancelPreviewTimer()
+      previewTimer = setTimeout(() => {
+        previewTimer = null
+        extensionPreview.value = next
+      }, PREVIEW_DEBOUNCE_MS)
+    },
+    { deep: true },
+  )
 
   function handleWebsiteExtension(): boolean {
     const { title, site } = websiteToAdd.value
@@ -152,82 +167,7 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
   }
 
   function syncEchoExtension() {
-    const { extension, extension_type } = extensionToAdd.value
-    if (!extension_type) {
-      echoToAdd.value.extension = null
-      return
-    }
-
-    switch (extension_type) {
-      case ExtensionType.MUSIC:
-        if (!extension) {
-          echoToAdd.value.extension = null
-          return
-        }
-        echoToAdd.value.extension = {
-          type: ExtensionType.MUSIC,
-          payload: { url: extension },
-        }
-        return
-      case ExtensionType.VIDEO:
-        if (!extension) {
-          echoToAdd.value.extension = null
-          return
-        }
-        echoToAdd.value.extension = {
-          type: ExtensionType.VIDEO,
-          payload: { videoId: extension },
-        }
-        return
-      case ExtensionType.GITHUBPROJ:
-        if (!extension) {
-          echoToAdd.value.extension = null
-          return
-        }
-        echoToAdd.value.extension = {
-          type: ExtensionType.GITHUBPROJ,
-          payload: { repoUrl: extension },
-        }
-        return
-      case ExtensionType.WEBSITE: {
-        const { title, site } = websiteToAdd.value
-        if (!title || !site) {
-          echoToAdd.value.extension = null
-          return
-        }
-        echoToAdd.value.extension = {
-          type: ExtensionType.WEBSITE,
-          payload: { title, site },
-        }
-        return
-      }
-      case ExtensionType.LOCATION: {
-        const { latitude, longitude, placeholder } = locationToAdd.value
-        if (latitude === null || longitude === null || !placeholder.trim()) {
-          echoToAdd.value.extension = null
-          return
-        }
-        echoToAdd.value.extension = {
-          type: ExtensionType.LOCATION,
-          payload: { latitude, longitude, placeholder: placeholder.trim() },
-        }
-        return
-      }
-      case ExtensionType.TWEET: {
-        const { url, username, statusId } = tweetToAdd.value
-        if (!url || !username || !statusId) {
-          echoToAdd.value.extension = null
-          return
-        }
-        echoToAdd.value.extension = {
-          type: ExtensionType.TWEET,
-          payload: { url, username, statusId },
-        }
-        return
-      }
-      default:
-        echoToAdd.value.extension = null
-    }
+    echoToAdd.value.extension = buildEchoExtension(readDraft())
   }
 
   function resetExtensionState() {
@@ -240,6 +180,11 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     tweetToAdd.value = { url: '', username: '', statusId: '' }
   }
 
+  function removeExtension() {
+    resetExtensionState()
+    echoToAdd.value.extension = null
+  }
+
   return {
     websiteToAdd,
     videoURL,
@@ -249,9 +194,11 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     locationToAdd,
     tweetToAdd,
     hasExtension,
+    extensionPreview,
     checkEchoExtension,
     syncEchoExtension,
     clearExtension,
     resetExtensionState,
+    removeExtension,
   }
 }
