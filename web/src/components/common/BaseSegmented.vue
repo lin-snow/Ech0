@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div class="seg" role="tablist">
+  <div class="seg" :class="{ 'seg--compact': compact }" role="tablist">
     <button
       v-for="opt in options"
       :key="opt.value"
@@ -21,6 +21,8 @@
 defineProps<{
   modelValue: string
   options: { label: string; value: string }[]
+  /** Tighter pill for toolbars; keeps the inline width on small screens. */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -71,6 +73,32 @@ const emit = defineEmits<{
     flex: 1;
     text-align: center;
     padding: 0.4rem 0.5rem;
+  }
+}
+
+.seg.seg--compact {
+  gap: 0.125rem;
+  padding: 0.125rem;
+  margin-bottom: 0;
+  border-radius: var(--radius-sm);
+}
+
+.seg.seg--compact .seg__btn {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+@media (width < 640px) {
+  .seg.seg--compact {
+    display: inline-flex;
+    width: auto;
+  }
+
+  .seg.seg--compact .seg__btn {
+    flex: 0 0 auto;
+    padding: 0.1rem 0.5rem;
   }
 }
 </style>

@@ -11,7 +11,7 @@
           v-if="hasMediaPreview && hasExtensionPreview"
           v-model="activePreview"
           :options="previewOptions"
-          class="mb-0!"
+          compact
         />
       </div>
 

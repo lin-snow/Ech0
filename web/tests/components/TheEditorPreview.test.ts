@@ -113,6 +113,7 @@ describe('TheEditorPreview', () => {
 
     const tabs = wrapper.findAll('.seg__btn')
     expect(tabs).toHaveLength(2)
+    expect(wrapper.find('.seg').classes()).toContain('seg--compact')
     expect(wrapper.find('[data-test="media"]').exists()).toBe(true)
 
     await tabs[1]!.trigger('click')
