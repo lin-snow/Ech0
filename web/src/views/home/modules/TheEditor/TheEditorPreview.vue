@@ -3,7 +3,7 @@
 <template>
   <TheSketchFrame v-if="hasAnyPreview" class="mx-auto my-7 w-11/12">
     <section class="px-3 py-2.5">
-      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <span class="text-[11px] font-semibold tracking-wide text-[var(--color-text-muted)]">
           {{ t('editor.preview') }}
         </span>
