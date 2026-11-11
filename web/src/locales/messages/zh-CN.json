@@ -143,6 +143,8 @@
     "removeImage": "移除附件",
     "invalidImageIndex": "当前附件索引无效，无法删除！",
     "removeImageConfirmTitle": "确定要移除附件吗？",
+    "removeExtension": "移除扩展",
+    "removeExtensionConfirmTitle": "确定要移除这个扩展吗？",
     "removeImageRemoteFailed": "附件已从编辑器移除，但服务器删除失败，可能存在残留文件",
     "restoreDraftTitle": "恢复本地草稿",
     "restoreDraftDesc": "检测到你有未发布的本地草稿，是否恢复？",

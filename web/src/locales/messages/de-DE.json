@@ -143,6 +143,8 @@
     "removeImage": "Anhang entfernen",
     "invalidImageIndex": "Ungültiger Anhang-Index – Entfernen nicht möglich",
     "removeImageConfirmTitle": "Diesen Anhang entfernen?",
+    "removeExtension": "Erweiterung entfernen",
+    "removeExtensionConfirmTitle": "Diese Erweiterung entfernen?",
     "removeImageRemoteFailed": "Anhang aus dem Editor entfernt, aber serverseitiges Löschen fehlgeschlagen – die Datei könnte auf dem Backend zurückbleiben",
     "restoreDraftTitle": "Lokalen Entwurf wiederherstellen",
     "restoreDraftDesc": "Es wurde ein unveröffentlichter Entwurf gefunden. Wiederherstellen?",

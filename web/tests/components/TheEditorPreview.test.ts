@@ -3,7 +3,7 @@
 
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TheEditorPreview from '@/views/home/modules/TheEditor/TheEditorPreview.vue'
 import { ExtensionType, Mode } from '@/enums/enums'
 
@@ -13,6 +13,9 @@ type StoreState = {
   filesToAdd: Array<{ id: string }>
   extensionPreview: Preview
   currentMode: Mode
+  isUpdateMode: boolean
+  removeExtension: () => void
+  handleAddOrUpdateEcho: (syncOnly: boolean) => Promise<void>
 }
 
 const shared = vi.hoisted(() => ({
@@ -23,13 +26,26 @@ vi.mock('@/stores', async () => {
   // vi.mock factories are hoisted above static imports, so Vue must be loaded
   // inside the factory; a static import would be uninitialized here.
   const { reactive } = await import('vue')
-  const store = reactive({ filesToAdd: [], extensionPreview: null, currentMode: 0 })
+  const store = reactive({
+    filesToAdd: [],
+    extensionPreview: null,
+    currentMode: 0,
+    isUpdateMode: false,
+    removeExtension: vi.fn(),
+    handleAddOrUpdateEcho: vi.fn(async () => {}),
+  })
   shared.store = store as unknown as StoreState
   return { useEditorStore: () => store }
 })
 
 vi.mock('@/views/home/modules/TheEditor/TheEditorMedia.vue', () => ({
   default: { name: 'TheEditorMedia', template: '<div data-test="media" />' },
+}))
+
+vi.mock('@/composables/useBaseDialog', () => ({
+  useBaseDialog: () => ({
+    openConfirm: (options: { onConfirm?: () => void }) => options.onConfirm?.(),
+  }),
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -45,7 +61,7 @@ const websitePreview = (title: string): Preview => ({
   payload: { title, site: 'https://example.com' },
 })
 
-const mountPreview = () => mount(TheEditorPreview)
+const mountPreview = () => mount(TheEditorPreview, { global: { directives: { tooltip: {} } } })
 
 const flush = async () => {
   await nextTick()
@@ -53,6 +69,12 @@ const flush = async () => {
 }
 
 describe('TheEditorPreview', () => {
+  beforeEach(() => {
+    shared.store.isUpdateMode = false
+    vi.mocked(shared.store.removeExtension).mockClear()
+    vi.mocked(shared.store.handleAddOrUpdateEcho).mockClear()
+  })
+
   it('shows only the file preview without a switch', async () => {
     shared.store.filesToAdd = [{ id: 'file-1' }]
     shared.store.extensionPreview = null
@@ -64,6 +86,7 @@ describe('TheEditorPreview', () => {
     expect(wrapper.find('[data-test="media"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="renderer"]').exists()).toBe(false)
     expect(wrapper.find('.seg').exists()).toBe(false)
+    expect(wrapper.text()).toContain('editor.preview')
   })
 
   it('shows only the extension preview without a switch', async () => {
@@ -96,6 +119,19 @@ describe('TheEditorPreview', () => {
 
     expect(wrapper.find('[data-test="media"]').exists()).toBe(false)
     expect(wrapper.find('.sketch-frame').exists()).toBe(true)
+  })
+
+  it('removes the extension from its preview', async () => {
+    shared.store.filesToAdd = []
+    shared.store.extensionPreview = websitePreview('Example')
+    shared.store.currentMode = Mode.ECH0
+
+    const wrapper = mountPreview()
+    await flush()
+
+    await wrapper.find('button[aria-label="editor.removeExtension"]').trigger('click')
+
+    expect(shared.store.removeExtension).toHaveBeenCalledTimes(1)
   })
 
   it('defaults to the extension preview while editing an extension', async () => {

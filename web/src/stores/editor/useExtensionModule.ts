@@ -180,6 +180,11 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     tweetToAdd.value = { url: '', username: '', statusId: '' }
   }
 
+  function removeExtension() {
+    resetExtensionState()
+    echoToAdd.value.extension = null
+  }
+
   return {
     websiteToAdd,
     videoURL,
@@ -194,5 +199,6 @@ export function useExtensionModule({ echoToAdd, t }: ExtensionModuleDeps) {
     syncEchoExtension,
     clearExtension,
     resetExtensionState,
+    removeExtension,
   }
 }

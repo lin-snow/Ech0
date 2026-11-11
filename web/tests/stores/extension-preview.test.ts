@@ -78,6 +78,38 @@ describe('useExtensionModule extension preview', () => {
     })
   })
 
+  it('removes the extension draft and clears every derived field', async () => {
+    const {
+      echoToAdd,
+      extensionToAdd,
+      websiteToAdd,
+      locationToAdd,
+      tweetToAdd,
+      videoURL,
+      extensionPreview,
+      removeExtension,
+    } = setup()
+
+    extensionToAdd.value = { extension: 'BV1xx411c7mD', extension_type: ExtensionType.VIDEO }
+    websiteToAdd.value = { title: 'Example', site: 'https://example.com' }
+    Object.assign(locationToAdd.value, { latitude: 1, longitude: 2, placeholder: 'Somewhere' })
+    tweetToAdd.value.url = 'https://x.com/lin_snow/status/1234567890'
+    videoURL.value = 'https://www.bilibili.com/video/BV1xx411c7mD'
+    await settle()
+    expect(extensionPreview.value).not.toBeNull()
+
+    removeExtension()
+    await nextTick()
+
+    expect(extensionPreview.value).toBeNull()
+    expect(echoToAdd.value.extension).toBeNull()
+    expect(extensionToAdd.value).toEqual({ extension: '', extension_type: '' })
+    expect(websiteToAdd.value).toEqual({ title: '', site: '' })
+    expect(locationToAdd.value).toEqual({ latitude: null, longitude: null, placeholder: '' })
+    expect(tweetToAdd.value).toEqual({ url: '', username: '', statusId: '' })
+    expect(videoURL.value).toBe('')
+  })
+
   it('keeps the submit payload equal to the previewed payload', async () => {
     const { echoToAdd, extensionToAdd, locationToAdd, extensionPreview, syncEchoExtension } =
       setup()

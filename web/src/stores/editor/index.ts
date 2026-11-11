@@ -333,6 +333,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     checkEchoExtension: extension.checkEchoExtension,
     syncEchoExtension: extension.syncEchoExtension,
     clearExtension: extension.clearExtension,
+    removeExtension: extension.removeExtension,
     handleUppyUploaded,
     setFilesToAdd: files.setFilesToAdd,
     reorderFilesByIds: files.reorderFilesByIds,
