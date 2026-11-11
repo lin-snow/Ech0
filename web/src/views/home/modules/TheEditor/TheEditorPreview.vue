@@ -1,41 +1,39 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Copyright (C) 2025-2026 lin-snow -->
 <template>
-  <div v-if="hasAnyPreview" class="w-11/12 mx-auto my-7">
-    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-      <span class="text-[11px] font-semibold tracking-wide text-[var(--color-text-muted)]">
-        {{ t('editor.preview') }}
-      </span>
-      <BaseSegmented
-        v-if="hasMediaPreview && hasExtensionPreview"
-        v-model="activePreview"
-        :options="previewOptions"
-        class="mb-0!"
-      />
-    </div>
+  <TheSketchFrame v-if="hasAnyPreview" class="mx-auto my-7 w-11/12">
+    <section class="px-3 py-2.5">
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[11px] font-semibold tracking-wide text-[var(--color-text-muted)]">
+          {{ t('editor.preview') }}
+        </span>
+        <BaseSegmented
+          v-if="hasMediaPreview && hasExtensionPreview"
+          v-model="activePreview"
+          :options="previewOptions"
+          class="mb-0!"
+        />
+      </div>
 
-    <TheEditorMedia v-if="activePreview === 'media' && hasMediaPreview" />
+      <TheEditorMedia v-if="activePreview === 'media' && hasMediaPreview" />
 
-    <div v-else-if="hasExtensionPreview" class="relative">
-      <button
-        type="button"
-        class="absolute -top-2.5 -right-2.5 z-[2] w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--color-danger)] hover:text-white hover:border-[var(--color-danger)]"
-        v-tooltip="t('editor.removeExtension')"
-        :aria-label="t('editor.removeExtension')"
-        @click="handleRemoveExtension"
-      >
-        <Close color="currentColor" class="w-4 h-4" />
-      </button>
-      <TheSketchFrame>
-        <section class="px-3 py-2.5">
-          <TheExtensionRenderer
-            :key="previewKey"
-            :echo="{ extension: editorStore.extensionPreview }"
-          />
-        </section>
-      </TheSketchFrame>
-    </div>
-  </div>
+      <div v-else-if="hasExtensionPreview" class="relative">
+        <button
+          type="button"
+          class="absolute -top-2.5 -right-2.5 z-[2] w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--color-danger)] hover:text-white hover:border-[var(--color-danger)]"
+          v-tooltip="t('editor.removeExtension')"
+          :aria-label="t('editor.removeExtension')"
+          @click="handleRemoveExtension"
+        >
+          <Close color="currentColor" class="w-4 h-4" />
+        </button>
+        <TheExtensionRenderer
+          :key="previewKey"
+          :echo="{ extension: editorStore.extensionPreview }"
+        />
+      </div>
+    </section>
+  </TheSketchFrame>
 </template>
 
 <script setup lang="ts">

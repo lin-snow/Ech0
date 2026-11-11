@@ -85,6 +85,7 @@ describe('TheEditorPreview', () => {
 
     expect(wrapper.find('[data-test="media"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="renderer"]').exists()).toBe(false)
+    expect(wrapper.find('.sketch-frame').exists()).toBe(true)
     expect(wrapper.find('.seg').exists()).toBe(false)
     expect(wrapper.text()).toContain('editor.preview')
   })
