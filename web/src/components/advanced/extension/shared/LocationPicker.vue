@@ -3,7 +3,11 @@
 <template>
   <div
     class="location-picker"
-    :class="[readonly ? 'location-picker--readonly' : 'location-picker--editable', customClass]"
+    :class="[
+      readonly ? 'location-picker--readonly' : 'location-picker--editable',
+      customClass,
+      { 'location-picker--dark': theme === 'dark' },
+    ]"
   >
     <div ref="mapEl" class="location-picker__map"></div>
 
@@ -100,12 +104,9 @@ const hasLatLng = computed(() => !!props.latLng)
 
 const DEFAULT_CENTER: LatLng = { lat: 48.8584, lng: 2.2945 }
 
-const LIGHT_TILE = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-const DARK_TILE = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-
-const currentTileUrl = () => (theme.value === 'dark' ? DARK_TILE : LIGHT_TILE)
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
 const pinIcon = () =>
   L.divIcon({
@@ -158,7 +159,7 @@ onMounted(() => {
     L.DomEvent.disableScrollPropagation(controlsEl.value)
   }
 
-  tileLayer = L.tileLayer(currentTileUrl(), {
+  tileLayer = L.tileLayer(TILE_URL, {
     maxZoom: 19,
     attribution: TILE_ATTRIBUTION,
   }).addTo(mapInstance)
@@ -205,11 +206,6 @@ watch(
   },
   { deep: true },
 )
-
-watch(theme, () => {
-  if (!mapInstance || !tileLayer) return
-  tileLayer.setUrl(currentTileUrl())
-})
 
 function handleZoomIn() {
   mapInstance?.zoomIn()
@@ -264,6 +260,10 @@ onBeforeUnmount(() => {
   height: 100%;
   background: var(--color-bg-muted);
   font-family: inherit;
+}
+
+.location-picker--dark .location-picker__map :deep(.leaflet-tile-pane) {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.85);
 }
 
 .location-picker__map :deep(.leaflet-control-attribution) {

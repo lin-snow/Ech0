@@ -9,6 +9,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Fixed
+
+- **Location cards show a real basemap again.** The CARTO raster tiles Ech0 used stopped being served without an API key on 25 September 2026, so every location map showed the "API KEY REQUIRED" watermark. Tiles now come from the keyless OpenStreetMap raster endpoint; dark mode filters the tile pane instead of loading a second tile style.
+
 ## [5.9.8] - 2026-11-09
 
 ### Changed
