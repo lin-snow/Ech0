@@ -83,7 +83,7 @@ describe('editor update session', () => {
     await editorStore.startUpdate(echo('echo-2'))
 
     expect(editorStore.filesToAdd.map((file) => file.id)).toEqual(['file-1'])
-    expect(editorStore.currentExtensionType).toBe(ExtensionType.WEBSITE)
+    expect(editorStore.extensionToAdd.extension_type).toBe(ExtensionType.WEBSITE)
     expect(editorStore.websiteToAdd.title).toBe('Example')
     expect(editorStore.websiteToAdd.site).toBe('https://example.com')
   })

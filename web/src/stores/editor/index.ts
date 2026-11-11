@@ -29,7 +29,6 @@ export const useEditorStore = defineStore('editorStore', () => {
 
   const ShowEditor = ref<boolean>(true)
   const currentMode = ref<Mode>(Mode.ECH0)
-  const currentExtensionType = ref<ExtensionType>()
   const isSubmitting = ref<boolean>(false)
   const session = ref<EditorSession>({ kind: 'compose' })
   const isUpdateMode = computed(() => session.value.kind === 'update')
@@ -37,16 +36,14 @@ export const useEditorStore = defineStore('editorStore', () => {
 
   const echoToAdd = ref<App.Api.Ech0.EchoToAdd>({
     content: '',
-    echo_files: [],
     private: false,
     layout: ImageLayout.WATERFALL,
-    extension: null,
   })
   const tagToAdd = ref<string[]>([])
 
   const hasContent = computed(() => !!echoToAdd.value.content?.trim())
 
-  const extension = useExtensionModule({ echoToAdd, t })
+  const extension = useExtensionModule({ t })
   const files = useFilesModule({ t })
   const draft = useDraftModule({
     echoToAdd,
@@ -103,11 +100,8 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     echoToAdd.value = {
       content: '',
-      echo_files: [],
       private: false,
       layout: ImageLayout.WATERFALL,
-      extension: null,
-      tags: [],
     }
     files.fileToAdd.value = {
       id: undefined,
@@ -117,7 +111,6 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
     files.resetFilesState()
     extension.resetExtensionState()
-    currentExtensionType.value = undefined
     tagToAdd.value = []
     draft.clearLocalDraft()
   }
@@ -160,11 +153,41 @@ export const useEditorStore = defineStore('editorStore', () => {
     }
   }
 
-  function checkIsEmptyEcho(echo: App.Api.Ech0.EchoToAdd): boolean {
-    return (
-      !echo.content?.trim() && (!echo.echo_files || echo.echo_files.length === 0) && !echo.extension
-    )
+  const buildEchoFiles = () =>
+    files.filesToAdd.value
+      .filter((file) => file.id)
+      .map((file, index) => ({ file_id: String(file.id), sort_order: index }))
+
+  const buildEchoTags = () =>
+    (tagToAdd.value ?? [])
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0)
+      .map((name) => ({ name }))
+
+  /** Builds the canonical submit payload; nothing is duplicated in `echoToAdd`. */
+  const buildEchoPayload = (): App.Api.Ech0.EchoToAdd => {
+    const mediaCat = files.mediaCategory.value
+    let layout = echoToAdd.value.layout
+    if (mediaCat === FILE_CATEGORY.VIDEO) {
+      layout = VideoLayout.DEFAULT
+    } else if (mediaCat === FILE_CATEGORY.AUDIO) {
+      layout = AudioLayout.DEFAULT
+    } else if (!Object.values(ImageLayout).includes(layout as ImageLayout)) {
+      layout = ImageLayout.WATERFALL
+    }
+
+    return {
+      content: echoToAdd.value.content,
+      echo_files: buildEchoFiles(),
+      private: echoToAdd.value.private,
+      layout,
+      extension: extension.payload.value,
+      tags: buildEchoTags(),
+    }
   }
+
+  const isEchoPayloadEmpty = (payload: App.Api.Ech0.EchoToAdd) =>
+    !payload.content?.trim() && (payload.echo_files?.length ?? 0) === 0 && !payload.extension
 
   const handleAddOrUpdateEcho = async (justSyncFiles: boolean) => {
     if (isSubmitting.value) return
@@ -182,37 +205,18 @@ export const useEditorStore = defineStore('editorStore', () => {
         return
       }
 
-      extension.checkEchoExtension()
+      if (!extension.checkEchoExtension() && !justSyncFiles) return
 
-      echoToAdd.value.echo_files = files.filesToAdd.value
-        .filter((file) => file.id)
-        .map((file, index) => ({
-          file_id: String(file.id),
-          sort_order: index,
-        }))
+      const payload = buildEchoPayload()
 
-      const mediaCat = files.mediaCategory.value
-      if (mediaCat === FILE_CATEGORY.VIDEO) {
-        echoToAdd.value.layout = VideoLayout.DEFAULT
-      } else if (mediaCat === FILE_CATEGORY.AUDIO) {
-        echoToAdd.value.layout = AudioLayout.DEFAULT
-      } else if (!Object.values(ImageLayout).includes(echoToAdd.value.layout as ImageLayout)) {
-        echoToAdd.value.layout = ImageLayout.WATERFALL
-      }
-
-      echoToAdd.value.tags = (tagToAdd.value ?? [])
-        .map((name) => name.trim())
-        .filter((name) => name.length > 0)
-        .map((name) => ({ name }))
-
-      if (checkIsEmptyEcho(echoToAdd.value)) {
+      if (isEchoPayloadEmpty(payload)) {
         const errMsg = isUpdateMode.value ? t('editor.updateEchoEmpty') : t('editor.addEchoEmpty')
         theToast.error(errMsg)
         return
       }
 
       if (!isUpdateMode.value) {
-        theToast.promise(fetchAddEcho(echoToAdd.value), {
+        theToast.promise(fetchAddEcho(payload), {
           loading: t('editor.publishing'),
           success: (res) => {
             if (res.code === 1) {
@@ -241,17 +245,9 @@ export const useEditorStore = defineStore('editorStore', () => {
           return
         }
 
-        const payload: App.Api.Ech0.EchoToUpdate = {
-          ...target,
-          content: echoToAdd.value.content,
-          private: echoToAdd.value.private,
-          layout: echoToAdd.value.layout,
-          echo_files: echoToAdd.value.echo_files,
-          extension: echoToAdd.value.extension,
-          tags: echoToAdd.value.tags,
-        }
+        const updatePayload: App.Api.Ech0.EchoToUpdate = { ...target, ...payload }
 
-        theToast.promise(fetchUpdateEcho(payload), {
+        theToast.promise(fetchUpdateEcho(updatePayload), {
           loading: justSyncFiles ? t('editor.syncingFiles') : t('editor.updating'),
           success: (res) => {
             if (res.code === 1 && !justSyncFiles) {
@@ -301,7 +297,6 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     const echoExtension = echo.extension
     if (echoExtension) {
-      currentExtensionType.value = echoExtension.type as ExtensionType
       extension.extensionToAdd.value.extension_type = echoExtension.type
       switch (echoExtension.type) {
         case ExtensionType.MUSIC:
@@ -377,7 +372,6 @@ export const useEditorStore = defineStore('editorStore', () => {
     ShowEditor,
 
     currentMode,
-    currentExtensionType,
 
     isSubmitting,
     session,
@@ -393,7 +387,6 @@ export const useEditorStore = defineStore('editorStore', () => {
 
     fileToAdd: files.fileToAdd,
     filesToAdd: files.filesToAdd,
-    fileIndex: files.fileIndex,
     selectedCategory: files.selectedCategory,
     mediaCategory: files.mediaCategory,
     effectiveCategory: files.effectiveCategory,
@@ -418,9 +411,7 @@ export const useEditorStore = defineStore('editorStore', () => {
     handleAddOrUpdate,
     handleExitUpdateMode,
     startUpdate,
-    checkIsEmptyEcho,
     checkEchoExtension: extension.checkEchoExtension,
-    syncEchoExtension: extension.syncEchoExtension,
     clearExtension: extension.clearExtension,
     removeExtension: extension.removeExtension,
     handleUppyUploaded,

@@ -197,7 +197,7 @@ onMounted(() => {
 type TooltipLine = { label: string; icon?: Component }
 
 const infoTooltipLines = computed<TooltipLine[]>(() => {
-  const extType = extensionToAdd.value.extension_type || echoToAdd.value.extension?.type
+  const extType = extensionToAdd.value.extension_type
   const extMap: Record<ExtensionType, { label: string; icon: Component }> = {
     [ExtensionType.MUSIC]: { label: String(t('editor.extMusic')), icon: Music },
     [ExtensionType.VIDEO]: { label: String(t('editor.extVideo')), icon: Video },

@@ -1,20 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { nextTick, ref } from 'vue'
+import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useExtensionModule } from '@/stores/editor/useExtensionModule'
 import { ExtensionType } from '@/enums/enums'
 
 const PREVIEW_DEBOUNCE_MS = 350
 
-const setup = () => {
-  const echoToAdd = ref({ extension: null } as App.Api.Ech0.EchoToAdd)
-  return {
-    echoToAdd,
-    ...useExtensionModule({ echoToAdd, t: (key) => String(key) }),
-  }
-}
+const setup = () => useExtensionModule({ t: (key) => String(key) })
 
 const settle = async () => {
   await nextTick()
@@ -80,13 +74,13 @@ describe('useExtensionModule extension preview', () => {
 
   it('removes the extension draft and clears every derived field', async () => {
     const {
-      echoToAdd,
       extensionToAdd,
       websiteToAdd,
       locationToAdd,
       tweetToAdd,
       videoURL,
       extensionPreview,
+      payload,
       removeExtension,
     } = setup()
 
@@ -102,7 +96,7 @@ describe('useExtensionModule extension preview', () => {
     await nextTick()
 
     expect(extensionPreview.value).toBeNull()
-    expect(echoToAdd.value.extension).toBeNull()
+    expect(payload.value).toBeNull()
     expect(extensionToAdd.value).toEqual({ extension: '', extension_type: '' })
     expect(websiteToAdd.value).toEqual({ title: '', site: '' })
     expect(locationToAdd.value).toEqual({ latitude: null, longitude: null, placeholder: '' })
@@ -111,8 +105,7 @@ describe('useExtensionModule extension preview', () => {
   })
 
   it('keeps the submit payload equal to the previewed payload', async () => {
-    const { echoToAdd, extensionToAdd, locationToAdd, extensionPreview, syncEchoExtension } =
-      setup()
+    const { extensionToAdd, locationToAdd, extensionPreview, payload } = setup()
 
     extensionToAdd.value.extension_type = ExtensionType.LOCATION
     Object.assign(locationToAdd.value, {
@@ -122,12 +115,10 @@ describe('useExtensionModule extension preview', () => {
     })
     await settle()
 
-    syncEchoExtension()
-
-    expect(echoToAdd.value.extension).toEqual({
+    expect(payload.value).toEqual({
       type: ExtensionType.LOCATION,
       payload: { latitude: 31.2, longitude: 121.4, placeholder: 'Shanghai' },
     })
-    expect(echoToAdd.value.extension).toEqual(extensionPreview.value)
+    expect(payload.value).toEqual(extensionPreview.value)
   })
 })

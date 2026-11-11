@@ -103,7 +103,6 @@ export function useDraftModule(deps: DraftModuleDeps) {
         content: echoToAdd.value.content || '',
         private: !!echoToAdd.value.private,
         layout: echoToAdd.value.layout || ImageLayout.WATERFALL,
-        extension: echoToAdd.value.extension || null,
       },
       filesToAdd: filesToAdd.value.map((file) => ({
         id: file.id,
@@ -169,11 +168,8 @@ export function useDraftModule(deps: DraftModuleDeps) {
         try {
           echoToAdd.value = {
             content: draft.echoToAdd?.content || '',
-            echo_files: [],
             private: !!draft.echoToAdd?.private,
             layout: draft.echoToAdd?.layout || ImageLayout.WATERFALL,
-            extension: draft.echoToAdd?.extension || null,
-            tags: [],
           }
           resetAttachments(draft.filesToAdd || [])
           websiteToAdd.value = {

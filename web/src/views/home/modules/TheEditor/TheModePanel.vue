@@ -66,7 +66,6 @@ const { t } = useI18n()
 
 const handleAddExtension = (extensiontype: ExtensionType) => {
   editorStore.currentMode = Mode.EXTEN
-  editorStore.currentExtensionType = extensiontype
   editorStore.extensionToAdd.extension_type = extensiontype
 }
 </script>
