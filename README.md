@@ -170,6 +170,9 @@ Or download `ech0-cli-<os>-<arch>.tar.gz` from [Releases](https://github.com/lin
 
 ## Deployment & Upgrading
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/ech0)
+
+
 Detailed instructions for **Docker Compose**, **script install**, **Kubernetes (Helm)**, and **upgrading** an existing instance live in **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 For the simplest path, the [Try in 60 Seconds](#try-in-60-seconds) snippet above is enough to get a single Docker container running.
