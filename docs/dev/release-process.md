@@ -127,7 +127,7 @@ Pushing the tag is the act that commits to the release publicly:
 
 - [`.github/workflows/release.yml`](../../.github/workflows/release.yml) fires on `tags: v*`.
 - `verify-version` runs first; if `Version != tag`, the workflow fails fast.
-- `build` then produces `linux/amd64` and `linux/arm64` static binaries with `Commit` and `BuildTime` ldflags-injected.
+- `build` then produces `linux/amd64` and `linux/arm64` static binaries with `Commit` and `BuildTime` ldflags-injected. The **CPU floor is a release contract**: x86-64 baseline (SSE2, i.e. every x86-64 CPU ever shipped) and arm64 `v8.0`. Every input that can move that floor is pinned in the workflow — `ZIG_VERSION` (not `latest`), `GOAMD64: v1`, `GOARM64: v8.0` — and both arches are cross-compiled with `zig cc` against musl at `-mcpu=baseline`, never with the runner's `gcc`, whose `-static` link bakes the runner image's glibc (and that glibc's x86-64 ISA baseline) into the artifact. v5.9.10 shipped `x86-64-v3` code this way (the `ubuntu-latest` glibc had dropped every SSE2 fallback) and died with `SIGILL` on a pre-Haswell Xeon, so the amd64 job now parses the ELF directly: it fails if the binary has a `PT_INTERP` (not static) or an `GNU_PROPERTY_X86_ISA_1_NEEDED` mask above `x86-64-baseline`, then smoke-runs `ech0 version`.
 - `prepare-release` packages them as `tar.gz` and creates a **draft** GitHub release.
 - `build-docker` pushes multi-arch images to GHCR and Docker Hub, tagged `vX.Y.Z` and `latest`.
 

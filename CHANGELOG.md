@@ -9,6 +9,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Fixed
+
+- **`linux/amd64` release binaries run on pre-Haswell CPUs again.** The v5.9.10 tarball was linked with the CI runner's `gcc -static`, and that runner's glibc now targets `x86-64-v3`, so the binary took a `SIGILL` on any CPU without AVX2 (an Ivy Bridge Xeon, for example) before it printed its first log line. Both release architectures are now cross-compiled with `zig cc` against musl at the baseline ISA, independent of the runner image, and CI fails if the amd64 ELF declares `x86-64-v2` or newer as required.
+
 ## [5.9.10] - 2026-11-17
 
 ### Added

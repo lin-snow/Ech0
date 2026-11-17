@@ -12,7 +12,13 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   ARM64_TOOLCHAIN: "zigcc"
-  ZIG_VERSION: "latest"
+  # Pin the toolchain that decides the artifact's ISA baseline: "latest" re-rolls
+  # codegen without a commit here, exactly how v5.9.10 broke.
+  ZIG_VERSION: "0.17.1"
+  # Go's own stdlib asm targets v1/v8.0 (SSE2-only); pin so a future GOAMD64 bump
+  # cannot silently raise the floor the same way the runner's glibc did.
+  GOAMD64: "v1"
+  GOARM64: "v8.0"
   MUSL_TOOLCHAIN_VERSION: "2025-6-20"
   MUSL_TOOLCHAIN_ARCHIVE: "aarch64-linux-musl-cross.tgz"
   MUSL_TOOLCHAIN_SHA256: ""
@@ -83,8 +89,8 @@ jobs:
       - name: Set Go proxy
         run: go env -w GOPROXY=https://proxy.golang.org,direct
 
-      - name: Setup Zig for ARM64 Cross-compilation
-        if: matrix.goarch == 'arm64' && env.ARM64_TOOLCHAIN == 'zigcc'
+      - name: Setup Zig for Cross-compilation
+        if: matrix.goarch == 'amd64' || env.ARM64_TOOLCHAIN == 'zigcc'
         uses: mlugg/setup-zig@v2
         with:
           version: ${{ env.ZIG_VERSION }}
@@ -111,29 +117,103 @@ jobs:
           STATIC_LDFLAGS="-linkmode external -extldflags '-static' -X ${VERSION_PKG}.Commit=${GIT_COMMIT} -X ${VERSION_PKG}.BuildTime=${BUILD_TIME}"
           OUTPUT_NAME="ech0-${{ matrix.goos }}-${{ matrix.goarch }}"
 
-          if [ "${{ matrix.goarch }}" = "arm64" ]; then
-            if [ "${ARM64_TOOLCHAIN}" = "zigcc" ]; then
-              export CC="zig cc -target aarch64-linux-musl"
-              export CXX="zig c++ -target aarch64-linux-musl"
-            else
-              export CC="aarch64-linux-musl-gcc"
-            fi
-            SQLITE_INC="${RUNNER_TEMP}/sqlite-include"
-            mkdir -p "${SQLITE_INC}"
-            go mod download github.com/mattn/go-sqlite3
-            MATTN_DIR="$(go list -m -f '{{.Dir}}' github.com/mattn/go-sqlite3)"
-            if [ -z "${MATTN_DIR}" ] || [ ! -f "${MATTN_DIR}/sqlite3-binding.h" ]; then
-              echo "::error::could not locate go-sqlite3 header (MATTN_DIR='${MATTN_DIR}')" >&2
-              exit 1
-            fi
-            cp "${MATTN_DIR}/sqlite3-binding.h" "${SQLITE_INC}/sqlite3.h"
-            export CGO_CFLAGS="-I${SQLITE_INC} -Du_int8_t=uint8_t -Du_int16_t=uint16_t -Du_int64_t=uint64_t -Wno-typedef-redefinition -fno-sanitize=undefined"
+          # Released binaries must run on pre-Haswell x86-64 CPUs (no AVX2/BMI/FMA) and
+          # on the oldest arm64 cores, so they never link the runner's system libc.
+          # gcc + `-static` bakes the runner image's glibc into the binary and its ISA
+          # baseline drifts with `ubuntu-latest`: v5.9.10 was linked against a glibc
+          # built for x86-64-v3 and SIGILL'd on an Ivy Bridge Xeon. zig cc ships its
+          # own musl and a CPU baseline that does not depend on the runner image.
+          case "${{ matrix.goarch }}" in
+            amd64) ZIG_TARGET="x86_64-linux-musl" ;;
+            arm64) ZIG_TARGET="aarch64-linux-musl" ;;
+            *) echo "::error::unsupported matrix.goarch '${{ matrix.goarch }}'"; exit 1 ;;
+          esac
+
+          if [ "${{ matrix.goarch }}" = "arm64" ] && [ "${ARM64_TOOLCHAIN}" != "zigcc" ]; then
+            export CC="aarch64-linux-musl-gcc"
           else
-            export CC="gcc"
+            export CC="zig cc -target ${ZIG_TARGET} -mcpu=baseline"
+            export CXX="zig c++ -target ${ZIG_TARGET} -mcpu=baseline"
           fi
+
+          # go-sqlite3 only ships sqlite3-binding.h, which sqlite-vec includes as
+          # sqlite3.h, and musl headers lack the BSD u_int*_t aliases it uses.
+          SQLITE_INC="${RUNNER_TEMP}/sqlite-include"
+          mkdir -p "${SQLITE_INC}"
+          go mod download github.com/mattn/go-sqlite3
+          MATTN_DIR="$(go list -m -f '{{.Dir}}' github.com/mattn/go-sqlite3)"
+          if [ -z "${MATTN_DIR}" ] || [ ! -f "${MATTN_DIR}/sqlite3-binding.h" ]; then
+            echo "::error::could not locate go-sqlite3 header (MATTN_DIR='${MATTN_DIR}')" >&2
+            exit 1
+          fi
+          cp "${MATTN_DIR}/sqlite3-binding.h" "${SQLITE_INC}/sqlite3.h"
+          export CGO_CFLAGS="-I${SQLITE_INC} -Du_int8_t=uint8_t -Du_int16_t=uint16_t -Du_int64_t=uint64_t -Wno-typedef-redefinition -fno-sanitize=undefined"
 
           test -f cmd/ech0/main.go
           go build -tags netgo -ldflags "$STATIC_LDFLAGS" -o "${OUTPUT_NAME}" ./cmd/ech0/main.go
+
+      - name: Verify static link and x86-64 ISA baseline
+        if: matrix.goarch == 'amd64'
+        run: |
+          set -euo pipefail
+          BIN="ech0-${{ matrix.goos }}-${{ matrix.goarch }}"
+          file "${BIN}"
+          python3 - "${BIN}" <<'PY'
+          import struct, sys
+
+          path = sys.argv[1]
+          d = open(path, 'rb').read()
+          if d[:4] != b'\x7fELF' or d[4] != 2 or d[5] != 1:
+              sys.exit(f'{path}: not a 64-bit little-endian ELF')
+
+          e_phoff, = struct.unpack_from('<Q', d, 0x20)
+          e_shoff, = struct.unpack_from('<Q', d, 0x28)
+          e_phentsize, = struct.unpack_from('<H', d, 0x36)
+          e_phnum, = struct.unpack_from('<H', d, 0x38)
+          e_shentsize, = struct.unpack_from('<H', d, 0x3a)
+          e_shnum, = struct.unpack_from('<H', d, 0x3c)
+
+          for i in range(e_phnum):
+              p_type, = struct.unpack_from('<I', d, e_phoff + i * e_phentsize)
+              if p_type == 3:
+                  sys.exit('::error::binary is dynamically linked (PT_INTERP present)')
+
+          masks = set()
+          for i in range(e_shnum):
+              sh = e_shoff + i * e_shentsize
+              sh_type, = struct.unpack_from('<I', d, sh + 4)
+              if sh_type != 7:
+                  continue
+              sh_off, sh_size = struct.unpack_from('<QQ', d, sh + 24)
+              pos, end = sh_off, sh_off + sh_size
+              while pos + 12 <= end:
+                  namesz, descsz, ntype = struct.unpack_from('<III', d, pos)
+                  pos += 12
+                  name = d[pos:pos + namesz].rstrip(b'\0')
+                  pos = (pos + namesz + 3) & ~3
+                  desc = d[pos:pos + descsz]
+                  pos = (pos + descsz + 3) & ~3
+                  if name != b'GNU' or ntype != 5:
+                      continue
+                  q = 0
+                  while q + 8 <= len(desc):
+                      ptype, psz = struct.unpack_from('<II', desc, q)
+                      q += 8
+                      if ptype == 0xC0008002 and psz >= 4:
+                          masks.add(struct.unpack_from('<I', desc, q)[0])
+                      q = (q + psz + 7) & ~7
+
+          print(f'static: yes, GNU_PROPERTY_X86_ISA_1_NEEDED: {sorted(masks) or "absent"}')
+          over = sorted(m for m in masks if m & ~1)
+          if over:
+              sys.exit(f'::error::binary requires x86-64 ISA mask 0x{over[0]:x}; it would SIGILL on a CPU without AVX2, as v5.9.10 did')
+          PY
+
+      - name: Smoke test
+        if: matrix.goarch == 'amd64'
+        run: |
+          set -euo pipefail
+          ./ech0-${{ matrix.goos }}-${{ matrix.goarch }} version
 
       - name: List output files
         run: ls -lh .
