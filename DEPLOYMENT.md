@@ -75,6 +75,7 @@ curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh
 ### ☸️ Kubernetes (Helm)
 
 If you want to deploy Ech0 in a Kubernetes cluster, use the Helm Chart provided by this project.
+The chart is also listed on [Artifact Hub](https://artifacthub.io/packages/helm/ech0/ech0).
 
 **Use the online Helm repository:**
 
@@ -94,6 +95,12 @@ If you want to deploy Ech0 in a Kubernetes cluster, use the Helm Chart provided 
     ```shell
     helm install my-ech0 ech0/ech0 --namespace my-namespace --create-namespace
     ```
+
+**Or pull the chart as an OCI artifact from GitHub Container Registry:**
+
+```shell
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
+```
 
 **Local installation from source:**
 

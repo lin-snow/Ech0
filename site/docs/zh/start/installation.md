@@ -105,7 +105,8 @@ curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh
 
 ## Kubernetes（Helm）
 
-推荐使用在线 Helm 仓库安装：
+推荐使用在线 Helm 仓库安装（该 Chart 也已收录到
+[Artifact Hub](https://artifacthub.io/packages/helm/ech0/ech0)）：
 
 ```bash
 helm repo add ech0 https://lin-snow.github.io/Ech0
@@ -117,6 +118,12 @@ helm install ech0 ech0/ech0
 
 ```bash
 helm install my-ech0 ech0/ech0 --namespace my-namespace --create-namespace
+```
+
+该 Chart 同时以 OCI 制品形式发布，可免添加仓库直接安装：
+
+```bash
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
 `JWT_SECRET` 等可通过 `values.yaml` 或 `--set` 传入，详见 Chart 目录内说明。

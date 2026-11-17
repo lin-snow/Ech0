@@ -105,7 +105,8 @@ curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh
 
 ## Kubernetes (Helm)
 
-Installing from the online Helm repository is recommended:
+Installing from the online Helm repository is recommended (the chart is also listed on
+[Artifact Hub](https://artifacthub.io/packages/helm/ech0/ech0)):
 
 ```bash
 helm repo add ech0 https://lin-snow.github.io/Ech0
@@ -117,6 +118,12 @@ You can customize the release name and namespace, for example:
 
 ```bash
 helm install my-ech0 ech0/ech0 --namespace my-namespace --create-namespace
+```
+
+The chart is also published as an OCI artifact, so it can be installed without adding a repository:
+
+```bash
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
 `JWT_SECRET` and other values can be passed via `values.yaml` or `--set`; see the notes in the chart directory for details.

@@ -1,0 +1,10 @@
+# Artifact Hub repository metadata. `release_helm.yml` publishes this file to the
+# root of gh-pages, so it is served next to index.yaml at
+# https://lin-snow.github.io/Ech0/artifacthub-repo.yml — Artifact Hub reads it on
+# every rescan and uses `repositoryID` to grant the "Verified publisher" badge to
+# the owners listed below. Reference:
+# https://artifacthub.io/docs/topics/repositories/#verified-publisher
+repositoryID: b1f55900-d0c8-4c2e-b052-e4f1ebe10f75
+owners:
+  - name: lin-snow
+    email: l1nsn0w@qq.com
