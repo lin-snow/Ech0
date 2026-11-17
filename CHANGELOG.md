@@ -9,6 +9,22 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+## [5.9.10] - 2026-11-17
+
+### Added
+
+- **A privacy policy page is published from the admin panel.** `SystemSetting.privacy_policy` (Markdown) renders at `/privacy`; while the policy is empty the server answers 404 instead of handing back the SPA shell, so the URL can never be indexed as an empty page. `show_privacy_footer` adds the footer entry on the home timeline, the policy body supplies the document description for link previews, and the system settings page gains a Markdown editor with a plain-text preview — the page exists exactly when a policy has been written.
+
+### Changed
+
+- **Loading looks like the startup screen everywhere.** The twelve-segment spinner in the timeline, the white poster spinner in video cards, the ring in the music play button, the arc beside the dashboard's version check and the spinner in the chat send button are replaced by the landing page's hopping **E-c-h-0** wordmark, sized 12/16/22 px. Plain loading text on the Echo detail page, in the comment list, on the OAuth consent page and in the user, webhook and MCP panels now renders the same wordmark above its existing label. The letters stay letters at every size, the hop stops under `prefers-reduced-motion`, and a parent class can resize or recolor it with `--spinner-size` / `--spinner-color`. Image and extension skeletons, upload/migration progress and the file browser's inline states are unchanged.
+
+### Internal
+
+- **The Helm chart is listed on Artifact Hub and published as a GHCR OCI artifact.** `Chart.yaml` gained the metadata and `artifacthub.io` annotations the listing needs (icon, `kubeVersion`, home/sources/keywords/maintainers, image tags, links, screenshot), `charts/artifacthub-repo.yml` is published to the gh-pages root by the release workflow, and `release_helm.yml` now lints and templates the chart before packaging, keeps the `artifacthub.io/images` tag in sync with the release tag and fails on drift. The same workflow pushes the packaged chart to `ghcr.io` as an OCI artifact after Chart Releaser, skipping versions that are already published, so `index.yaml` and the OCI repository stay in sync. DEPLOYMENT.md, the chart README and both installation guides document the OCI install path.
+
+- **Dependencies updated.** Go: `lipgloss` 2.1.1, AWS SDK v2 config 1.33.19 and credentials 1.21.1, `gomarkdown`, `openai-go` 3.100.0. Web: `vue-i18n` 11.4.20, `vue-router` 5.5.1, `unocss` 66.13.0, `eslint` 10.15.0, `jsdom` 31.0.1, `@vue/test-utils` 2.6.0, `postcss-html` 2.0.1. `minimatch` is forced to ≥11.0.1 in `web`, `hub` and `site` to clear a moderate globparts-amplification DoS advisory.
+
 ## [5.9.9] - 2026-11-11
 
 ### Added
