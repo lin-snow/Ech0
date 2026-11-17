@@ -35,6 +35,10 @@ type Site struct {
 	MetingAPI     string `yaml:"meting_api,omitempty"`
 	CustomCSS     string `yaml:"custom_css,omitempty"`
 	CustomJS      string `yaml:"custom_js,omitempty"`
+	// PrivacyPolicy is site content: a capsule restores the /privacy page.
+	PrivacyPolicy string `yaml:"privacy_policy,omitempty"`
+	// ShowPrivacyFooter is the footer entry that links to it.
+	ShowPrivacyFooter bool `yaml:"show_privacy_footer,omitempty"`
 }
 
 type Owner struct {

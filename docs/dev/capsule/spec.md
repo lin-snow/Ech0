@@ -52,11 +52,13 @@
 | `site.footer_content` / `site.footer_link` | string | 可选 | 自定义页脚 |
 | `site.meting_api` | string(URL) | 可选 | 音乐扩展渲染所需 |
 | `site.custom_css` / `site.custom_js` | string | 可选 | 非空时 `check` **应当**告警（第三方胶囊 = 执行对方代码） |
+| `site.privacy_policy` | string | 可选 | 隐私政策正文（Markdown），公开页 `/privacy` 的渲染源；空串 = 页面未配置 |
+| `site.show_privacy_footer` | bool | 可选 | 页脚隐私政策入口开关；import 仅在接收方仍为默认 `false` 时置 `true` |
 | `owner.username` | string | **必须** | 归属兜底：Echo 未标 `username` 时的默认作者 |
 | `connects` | list | 可选 | 互联实例快照，元素为 `{url: string}` |
 | `files` | list | 可选 | **未挂在任何 Echo 上的文件行**，元素形状与 §4.2 的 `files[]` 完全一致。见下 |
 
-- `site.*` 子集遵循「渲染所需皆入，运维行为皆弃」：`AllowRegister` 等行为开关**禁止**入胶囊。
+- `site.*` 子集遵循「渲染所需皆入，运维行为皆弃」：`AllowRegister`、`DisableAgentDiscovery` 等运维开关**禁止**入胶囊；纯渲染开关（如 `show_privacy_footer`）随内容入胶囊。
 - `site.*` 键名 = `SystemSetting` 的 json tag **原样**（`site_title`/`server_logo`/`ICP_number`…）：import 时整块直接反序列化进 `SystemSetting`，零映射代码（「导出即转储」原则，见 §11）。
 - 凭据（密码哈希、token、OAuth/Passkey、S3 密钥、SMTP、Agent 配置）**禁止**出现在胶囊任何位置。
 - **`files` 块的存在理由**：库中 `files` 是独立表，而 frontmatter 只能表达「挂在这条 Echo 上的文件」。站点 logo、以及上传后没用上的附件，其字节会随记录驱动导出进 `files/`，元数据却无处安放——没有这个块，导入侧就还原不出这些行，最直接的后果是**搬家之后 `site.server_logo` 变成死链**。生产者**必须**把这类行写入 `files`；消费者**必须**为其建行并落字节，但**禁止**建立任何 Echo 关联。归属跟随执行导入的 owner（胶囊不携带 `user_id`）。

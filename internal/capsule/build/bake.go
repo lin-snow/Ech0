@@ -95,6 +95,9 @@ func bake(in bakeInput) (*dataset, error) {
 			MetingAPI:     site.MetingAPI,
 			CustomCSS:     site.CustomCSS,
 			CustomJS:      site.CustomJS,
+
+			PrivacyPolicy:     site.PrivacyPolicy,
+			ShowPrivacyFooter: site.ShowPrivacyFooter,
 		},
 		Hello: hello{
 			Hello:     title,

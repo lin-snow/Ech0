@@ -13,7 +13,7 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ### Added
 
-- **A privacy policy page is published from the admin panel.** `SystemSetting.privacy_policy` (Markdown) renders at `/privacy`; while the policy is empty the server answers 404 instead of handing back the SPA shell, so the URL can never be indexed as an empty page. `show_privacy_footer` adds the footer entry on the home timeline, the policy body supplies the document description for link previews, and the system settings page gains a Markdown editor with a plain-text preview — the page exists exactly when a policy has been written.
+- **A privacy policy page is published from the admin panel.** `SystemSetting.privacy_policy` (Markdown) renders at `/privacy`; while the policy is empty the server answers 404 instead of handing back the SPA shell, so the URL can never be indexed as an empty page. `show_privacy_footer` adds the footer entry on the home timeline, the policy body supplies the document description for link previews, and the system settings page gains a Markdown editor with a plain-text preview — the page exists exactly when a policy has been written, and a content capsule carries both the policy and its footer switch.
 
 ### Changed
 

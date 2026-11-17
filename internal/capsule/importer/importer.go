@@ -473,6 +473,7 @@ func (s *session) applySite(ctx context.Context) error {
 		{"meting_api", &current.MetingAPI, site.MetingAPI},
 		{"custom_css", &current.CustomCSS, site.CustomCSS},
 		{"custom_js", &current.CustomJS, site.CustomJS},
+		{"privacy_policy", &current.PrivacyPolicy, site.PrivacyPolicy},
 	}
 	pristine := coreSetting.System.Pristine()
 	defaults := map[string]string{
@@ -487,6 +488,7 @@ func (s *session) applySite(ctx context.Context) error {
 		"meting_api":     pristine.MetingAPI,
 		"custom_css":     pristine.CustomCSS,
 		"custom_js":      pristine.CustomJS,
+		"privacy_policy": pristine.PrivacyPolicy,
 	}
 
 	filled := make([]string, 0, len(fields))
@@ -497,6 +499,13 @@ func (s *session) applySite(ctx context.Context) error {
 		}
 		*f.target = f.capsule
 		filled = append(filled, f.name)
+	}
+
+	// Switches fill only while the receiver still holds its default: a capsule
+	// can turn the footer entry on, never off.
+	if !current.ShowPrivacyFooter && site.ShowPrivacyFooter {
+		current.ShowPrivacyFooter = true
+		filled = append(filled, "show_privacy_footer")
 	}
 	if len(filled) == 0 {
 		return nil

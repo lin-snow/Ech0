@@ -186,6 +186,9 @@ func collectSite(ctx context.Context, deps Deps, data *dataset) error {
 		MetingAPI:     system.MetingAPI,
 		CustomCSS:     system.CustomCSS,
 		CustomJS:      system.CustomJS,
+
+		PrivacyPolicy:     system.PrivacyPolicy,
+		ShowPrivacyFooter: system.ShowPrivacyFooter,
 	}
 	return nil
 }

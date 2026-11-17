@@ -29,18 +29,20 @@ type initStatus struct {
 }
 
 type settings struct {
-	SiteTitle     string `json:"site_title"`
-	ServerLogo    string `json:"server_logo"`
-	ServerName    string `json:"server_name"`
-	ServerURL     string `json:"server_url"`
-	AllowRegister bool   `json:"allow_register"`
-	DefaultLocale string `json:"default_locale"`
-	ICPNumber     string `json:"ICP_number"`
-	FooterContent string `json:"footer_content"`
-	FooterLink    string `json:"footer_link"`
-	MetingAPI     string `json:"meting_api"`
-	CustomCSS     string `json:"custom_css"`
-	CustomJS      string `json:"custom_js"`
+	SiteTitle         string `json:"site_title"`
+	ServerLogo        string `json:"server_logo"`
+	ServerName        string `json:"server_name"`
+	ServerURL         string `json:"server_url"`
+	AllowRegister     bool   `json:"allow_register"`
+	DefaultLocale     string `json:"default_locale"`
+	ICPNumber         string `json:"ICP_number"`
+	FooterContent     string `json:"footer_content"`
+	FooterLink        string `json:"footer_link"`
+	MetingAPI         string `json:"meting_api"`
+	CustomCSS         string `json:"custom_css"`
+	CustomJS          string `json:"custom_js"`
+	PrivacyPolicy     string `json:"privacy_policy"`
+	ShowPrivacyFooter bool   `json:"show_privacy_footer"`
 }
 
 type hello struct {
