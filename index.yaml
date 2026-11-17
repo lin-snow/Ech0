@@ -1,6 +1,50 @@
 apiVersion: v1
 entries:
   ech0:
+  - annotations:
+      artifacthub.io/images: |
+        - name: ech0
+          image: sn0wl1n/ech0:5.9.10
+          platforms:
+            - linux/amd64
+            - linux/arm64
+      artifacthub.io/license: AGPL-3.0-only
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://ech0.app/docs
+        - name: Source
+          url: https://github.com/lin-snow/Ech0
+        - name: Support
+          url: https://github.com/lin-snow/Ech0/issues
+      artifacthub.io/screenshots: |
+        - title: Ech0 timeline
+          url: https://raw.githubusercontent.com/lin-snow/Ech0/main/docs/imgs/screenshot.png
+    apiVersion: v2
+    appVersion: 5.9.10
+    created: "2026-11-17T13:42:06.051075791Z"
+    description: Ech0 is a self-hosted, lightweight personal microblog (timeline)
+      platform shipped as a single binary.
+    digest: f2e2a4cab67d664e56e8e9eb6272b2ad7a2aea86476c8e0cffb7074395ce4bdc
+    home: https://github.com/lin-snow/Ech0
+    icon: https://raw.githubusercontent.com/lin-snow/Ech0/main/docs/imgs/logo.svg
+    keywords:
+    - ech0
+    - microblog
+    - blog
+    - timeline
+    - self-hosted
+    - notes
+    kubeVersion: '>=1.23.0-0'
+    maintainers:
+    - name: lin-snow
+      url: https://github.com/lin-snow
+    name: ech0
+    sources:
+    - https://github.com/lin-snow/Ech0
+    type: application
+    urls:
+    - https://github.com/lin-snow/Ech0/releases/download/ech0-5.9.10/ech0-5.9.10.tgz
+    version: 5.9.10
   - apiVersion: v2
     appVersion: 5.9.9
     created: "2026-11-11T10:17:19.709482034Z"
@@ -617,4 +661,4 @@ entries:
     urls:
     - https://lin-snow.github.io/Ech0/ech0-0.1.0.tgz
     version: 0.1.0
-generated: "2026-11-11T10:17:19.709665294Z"
+generated: "2026-11-17T13:42:06.051246545Z"
