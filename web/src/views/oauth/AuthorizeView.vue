@@ -12,6 +12,7 @@ import {
   type OAuthConsentContext,
 } from '@/service/api/oauthserver'
 import ScopeAccordion from '@/components/common/ScopeAccordion.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { useUserStore } from '@/stores'
 
 const { t } = useI18n()
@@ -105,8 +106,8 @@ onMounted(load)
         {{ loadError }}
       </p>
 
-      <section v-if="loading" class="mt-10 text-center text-sm text-[var(--color-text-muted)]">
-        {{ t('oauthConsent.loading') }}
+      <section v-if="loading" class="mt-10">
+        <TheLoadingIndicator center :label="t('oauthConsent.loading')" />
       </section>
 
       <section v-else-if="consent" class="mt-6 space-y-5">

@@ -149,9 +149,12 @@
           </div>
         </form>
 
-        <div v-if="loading" class="text-sm text-[var(--color-text-muted)]">
-          {{ t('commentSection.loading') }}
-        </div>
+        <TheLoadingIndicator
+          v-if="loading"
+          size="sm"
+          :center="false"
+          :label="t('commentSection.loading')"
+        />
         <div
           v-else-if="comments.length === 0 && !commentFormExpanded"
           class="text-sm text-[var(--color-text-muted)]"
@@ -297,6 +300,7 @@ import { useUserStore } from '@/stores'
 import { theToast } from '@/utils/toast'
 import { formatDate } from '@/utils/other'
 import BaseAvatar from '@/components/common/BaseAvatar.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { TheMdPreview } from '@/components/advanced/md'
 import Verified from '../icons/verified.vue'
 import MarkdownIcon from '../icons/markdown.vue'

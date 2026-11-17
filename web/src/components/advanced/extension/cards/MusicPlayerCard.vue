@@ -133,7 +133,12 @@
           :disabled="audioFailed"
           @click="togglePlayback"
         >
-          <span v-if="isAudioLoading" class="loading-dot" aria-hidden="true"></span>
+          <TheLoadingIndicator
+            v-if="isAudioLoading"
+            class="loading-dot"
+            size="sm"
+            aria-hidden="true"
+          />
           <Pause v-else-if="isPlaying" color="currentColor" />
           <Play v-else color="currentColor" />
         </button>
@@ -157,6 +162,7 @@ import { useI18n } from 'vue-i18n'
 import Music from '@/components/icons/music.vue'
 import Pause from '@/components/icons/pause.vue'
 import Play from '@/components/icons/play.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { ExtensionType, MusicProvider } from '@/enums/enums'
 import { useSettingStore } from '@/stores'
 import { parseMusicURL } from '@/utils/other'
@@ -796,12 +802,8 @@ onBeforeUnmount(() => {
 }
 
 .loading-dot {
-  width: 0.95rem;
-  height: 0.95rem;
-  border: 2px solid var(--color-border-subtle);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: music-loading 0.8s linear infinite;
+  --spinner-size: 0.75rem;
+  --spinner-color: currentColor;
 }
 
 .extension-card-invalid {
@@ -874,12 +876,6 @@ onBeforeUnmount(() => {
   transform: translateY(-100%);
 }
 
-@keyframes music-loading {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (width <= 420px) {
   .music-player {
     gap: 0.55rem;
@@ -904,10 +900,6 @@ onBeforeUnmount(() => {
   .lyric-scroll-enter-active,
   .lyric-scroll-leave-active {
     transition: none;
-  }
-
-  .loading-dot {
-    animation: none;
   }
 }
 </style>

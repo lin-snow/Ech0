@@ -12,7 +12,7 @@
           <TheMdPreview :content="recent" />
         </div>
         <div v-else>
-          <div class="recent-loading">{{ t('recentCard.generating') }}</div>
+          <TheLoadingIndicator size="sm" :center="false" :label="t('recentCard.generating')" />
         </div>
       </div>
     </div>
@@ -22,6 +22,7 @@
 import { fetchGetRecent } from '@/service/api'
 import { onMounted, ref } from 'vue'
 import RecentIcon from '@/components/icons/recent.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import WidgetShell from './WidgetShell.vue'
 import { TheMdPreview } from '@/components/advanced/md'
 import { useSettingStore } from '@/stores'
@@ -97,11 +98,6 @@ onMounted(() => {
   line-height: 1.65;
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-.recent-loading {
-  color: var(--color-text-secondary);
-  font-size: 13px;
 }
 
 :deep(.echo-markdown p) {

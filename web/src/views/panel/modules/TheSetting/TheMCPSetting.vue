@@ -16,8 +16,8 @@
         </BaseButton>
       </div>
 
-      <div v-if="isLoading" class="mt-6 text-center text-sm text-[var(--color-text-muted)]">
-        {{ t('commonUi.loading') }}
+      <div v-if="isLoading" class="mt-6">
+        <TheLoadingIndicator center :label="t('commonUi.loading')" />
       </div>
 
       <div v-else-if="!manifest" class="mt-6 text-center text-sm text-[var(--color-text-muted)]">
@@ -172,6 +172,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import PanelCard from '@/layout/PanelCard.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import Clipboard from '@/components/icons/clipboard.vue'
 import Close from '@/components/icons/close.vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'

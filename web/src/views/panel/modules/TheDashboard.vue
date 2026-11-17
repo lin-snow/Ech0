@@ -12,6 +12,7 @@ import Box from '@/components/icons/box.vue'
 import ConnectedIcon from '@/components/icons/connected-icon.vue'
 import DateIcon from '@/components/icons/date-icon.vue'
 import TotalIcon from '@/components/icons/total.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 
 type StatCard = {
   key: string
@@ -194,20 +195,12 @@ onMounted(() => {
               class="update-dot"
               :title="t('dashboard.updateAvailable', { version: latestVersion })"
             />
-            <svg
+            <TheLoadingIndicator
               v-if="item.key === 'version' && checkingUpdate"
-              class="stat-spinner"
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-            >
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            </svg>
+              class="stat-inline-loader"
+              size="sm"
+              :center="false"
+            />
           </p>
           <p class="stat-label">{{ item.label }}</p>
         </div>
@@ -335,12 +328,9 @@ onMounted(() => {
   animation: dot-pulse 2s ease-in-out infinite;
 }
 
-.stat-spinner {
-  display: inline-block;
+.stat-inline-loader {
+  --spinner-size: 13px;
   margin-left: 0.25em;
-  vertical-align: middle;
-  color: var(--color-text-muted);
-  animation: spin 0.8s linear infinite;
 }
 
 .dashboard-panels {
@@ -367,12 +357,6 @@ onMounted(() => {
 
   50% {
     opacity: 0.35;
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 

@@ -7,8 +7,8 @@
         <TheEchoDetail :echo="echo" />
         <TheEchoInteractions />
       </div>
-      <div v-else class="w-full sm:mt-1 text-[var(--color-text-muted)]">
-        <p class="text-center">{{ t('echoPage.loadingDetail') }}</p>
+      <div v-else class="w-full sm:mt-1">
+        <TheLoadingIndicator center :label="t('echoPage.loadingDetail')" />
       </div>
     </div>
   </div>
@@ -19,6 +19,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import TheEchoDetail from '@/components/advanced/echo/cards/TheEchoDetail.vue'
 import TheEchoInteractions from '@/components/advanced/echo/cards/TheEchoInteractions.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { clearSeoOverride, setSeoOverride } from '@/composables/useSeoOverride'
 import { DEFAULT_SEO_DESCRIPTION } from '@/composables/useSeoHead'
 import { DEFAULT_SITE_TITLE } from '@/constants/site'

@@ -9,8 +9,8 @@
       <div class="flex flex-row items-center justify-end gap-2 w-14"></div>
     </div>
 
-    <div v-if="loading" class="flex justify-center py-4 text-[var(--color-text-muted)]">
-      {{ t('userManager.loading') }}
+    <div v-if="loading" class="flex justify-center py-4">
+      <TheLoadingIndicator :label="t('userManager.loading')" />
     </div>
 
     <div v-else>
@@ -77,6 +77,7 @@ import PanelCard from '@/layout/PanelCard.vue'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/BaseButton.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import Deluser from '@/components/icons/deluser.vue'
 import { theToast } from '@/utils/toast'

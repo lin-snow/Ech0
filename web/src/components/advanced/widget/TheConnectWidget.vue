@@ -41,9 +41,7 @@
       </div>
     </div>
     <div v-else>
-      <div class="text-[var(--color-text-secondary)] text-sm mb-2">
-        {{ t('connectWidget.loading') }}
-      </div>
+      <TheLoadingIndicator size="sm" :center="false" :label="t('connectWidget.loading')" />
     </div>
   </WidgetShell>
   <div
@@ -61,6 +59,7 @@
 
 <script setup lang="ts">
 import Connect from '@/components/icons/connect.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import WidgetShell from './WidgetShell.vue'
 import { useConnectStore } from '@/stores'
 import { storeToRefs } from 'pinia'

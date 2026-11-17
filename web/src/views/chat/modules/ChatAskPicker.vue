@@ -112,7 +112,13 @@
         :disabled="pending || picked.size === 0"
         @click="commitMulti"
       >
-        <span v-if="pending" class="ask__spinner" aria-hidden="true" />
+        <TheLoadingIndicator
+          v-if="pending"
+          class="ask__spinner"
+          size="sm"
+          :center="false"
+          aria-hidden="true"
+        />
         {{ pending ? t('chatPanel.askSending') : t('chatPanel.askConfirm') }}
       </button>
       <button
@@ -135,6 +141,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 
 const props = defineProps<{
   ask: App.Api.Chat.ChatAsk
@@ -588,18 +595,7 @@ onBeforeUnmount(clearAdvance)
 }
 
 .ask__spinner {
-  width: 0.7rem;
-  height: 0.7rem;
-  border: 1.5px solid currentcolor;
-  border-top-color: transparent;
-  border-radius: 999px;
-  animation: ask-spin 0.7s linear infinite;
-}
-
-@keyframes ask-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  --spinner-size: 12px;
 }
 
 .ask__back {
@@ -676,10 +672,6 @@ onBeforeUnmount(clearAdvance)
   .ask-swap-leave-to {
     transform: none;
     filter: none;
-  }
-
-  .ask__spinner {
-    animation: none;
   }
 }
 </style>

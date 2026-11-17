@@ -16,9 +16,7 @@
         :class="{ 'is-loaded': isLoaded(idx) }"
         aria-hidden="true"
       >
-        <span class="video-media__spinner">
-          <i v-for="seg in spinnerSegments" :key="seg" :style="{ '--seg': seg - 1 }"></i>
-        </span>
+        <TheLoadingIndicator class="video-media__spinner" :center="false" />
       </span>
       <video
         class="video-media__frame"
@@ -75,6 +73,7 @@ import { formatMediaTime } from '../shared/time'
 import Video from '@/components/icons/video.vue'
 import Pause from '@/components/icons/pause.vue'
 import Full from '@/components/icons/full.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import TheVideoLightbox from './TheVideoLightbox.vue'
 
 type VideoMeta = { duration: number; width: number; height: number }
@@ -88,8 +87,6 @@ const props = withDefaults(
 )
 
 const { t } = useI18n()
-
-const spinnerSegments = Array.from({ length: 12 }, (_, index) => index + 1)
 
 const items = computed(() =>
   (props.files || []).map((file) => ({
@@ -436,34 +433,8 @@ function close() {
 }
 
 .video-media__spinner {
-  position: relative;
-  width: 26px;
-  height: 26px;
-  color: rgb(255 255 255 / 82%);
-}
-
-.video-media__spinner i {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 2.4px;
-  height: 6.4px;
-  border-radius: 999px;
-  background: currentColor;
-  transform-origin: center 13px;
-  transform: translateX(-50%) rotate(calc(var(--seg) * 30deg));
-  animation: video-spinner-fade 1.1s linear infinite;
-  animation-delay: calc(var(--seg) * -0.0916s);
-}
-
-@keyframes video-spinner-fade {
-  0% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0.12;
-  }
+  --spinner-size: 24px;
+  --spinner-color: rgb(255 255 255 / 88%);
 }
 
 .video-media__tag {
@@ -560,11 +531,6 @@ function close() {
   .video-media__fullscreen,
   .video-media__tag {
     transition: none;
-  }
-
-  .video-media__spinner i {
-    animation: none;
-    opacity: 0.5;
   }
 }
 </style>

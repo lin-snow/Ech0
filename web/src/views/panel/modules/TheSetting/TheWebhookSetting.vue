@@ -164,9 +164,9 @@
         <div class="mt-4">
           <div
             v-if="webhooksLoading"
-            class="rounded-lg border border-[var(--color-border-subtle)] px-4 py-6 text-center text-sm text-[var(--color-text-muted)]"
+            class="rounded-lg border border-[var(--color-border-subtle)] px-4 py-6"
           >
-            {{ t('webhookSetting.loading') }}
+            <TheLoadingIndicator center :label="t('webhookSetting.loading')" />
           </div>
 
           <div
@@ -272,6 +272,7 @@
 
 <script setup lang="ts">
 import BaseButton from '@/components/common/BaseButton.vue'
+import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import EditIcon from '@/components/icons/edit.vue'
