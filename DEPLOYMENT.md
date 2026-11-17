@@ -96,6 +96,12 @@ The chart is also listed on [Artifact Hub](https://artifacthub.io/packages/helm/
     helm install my-ech0 ech0/ech0 --namespace my-namespace --create-namespace
     ```
 
+**Or pull the chart as an OCI artifact from GitHub Container Registry:**
+
+```shell
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
+```
+
 **Local installation from source:**
 
 ```shell

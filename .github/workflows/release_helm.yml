@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  # Required to publish the chart to ghcr.io as an OCI artifact.
+  packages: write
 
 jobs:
   release-helm:
@@ -98,6 +100,39 @@ jobs:
           skip_existing: true
         env:
           CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # OCI mirror of the same chart package, for consumers that pull charts from
+      # registries instead of an index.yaml: helm install ech0 oci://ghcr.io/lin-snow/charts/ech0
+      - name: Push chart to GHCR (OCI)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          chart_version="$(awk -F': ' '$1 == "version" {print $2}' charts/ech0/Chart.yaml | tr -d '"' | tr -d '[:space:]')"
+          if [ -z "${chart_version}" ]; then
+            echo "Chart version is empty in charts/ech0/Chart.yaml"
+            exit 1
+          fi
+
+          chart_ref="oci://ghcr.io/${OWNER}/charts/ech0"
+
+          if helm show chart "${chart_ref}" --version "${chart_version}" >/dev/null 2>&1; then
+            echo "Chart ${chart_version} is already published at ${chart_ref}; skip."
+            exit 0
+          fi
+
+          echo "${GH_TOKEN}" | helm registry login ghcr.io --username "${ACTOR}" --password-stdin
+
+          pkg_dir="$(mktemp -d)"
+          helm package charts/ech0 --destination "${pkg_dir}" >/dev/null
+          tgz="${pkg_dir}/ech0-${chart_version}.tgz"
+          test -f "${tgz}"
+
+          helm push "${tgz}" "oci://ghcr.io/${OWNER}/charts"
+          echo "Pushed ech0-${chart_version}.tgz to oci://ghcr.io/${OWNER}/charts/ech0:${chart_version}"
 
       - name: Reset latest release pointer to app release
         env:
@@ -249,6 +284,11 @@ jobs:
             echo "- [ ] Verify gh-pages branch contains \`.nojekyll\` and \`index.yaml\`"
             echo "- [ ] Verify \`https://lin-snow.github.io/Ech0/artifacthub-repo.yml\` is served"
             echo "- [ ] Verify the package appears at \`https://artifacthub.io/packages/helm/ech0/ech0\` (Artifact Hub rescans roughly every 30 minutes)"
+            echo "- [ ] Verify the OCI chart is pullable without credentials:"
+            echo "  \`\`\`bash"
+            echo "  helm show chart oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>"
+            echo "  \`\`\`"
+            echo "  (On the very first publish the GHCR package is private; set it to public under package settings → Change visibility.)"
             echo "- [ ] Verify release has chart package \`ech0-<version>.tgz\`"
             echo "- [ ] Verify install works:"
             echo "  \`\`\`bash"

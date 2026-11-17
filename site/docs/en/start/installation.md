@@ -120,6 +120,12 @@ You can customize the release name and namespace, for example:
 helm install my-ech0 ech0/ech0 --namespace my-namespace --create-namespace
 ```
 
+The chart is also published as an OCI artifact, so it can be installed without adding a repository:
+
+```bash
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
+```
+
 `JWT_SECRET` and other values can be passed via `values.yaml` or `--set`; see the notes in the chart directory for details.
 
 If you need to install from local source, you can also keep the old approach:

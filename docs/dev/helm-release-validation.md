@@ -21,7 +21,16 @@ helm install ech0 ech0/ech0
 helm upgrade ech0 ech0/ech0
 ```
 
+8. Verify the OCI mirror (same package, published to GHCR by the `Push chart to GHCR (OCI)` step):
+
+```bash
+helm show chart oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
+```
+
+The first publish creates the GHCR package as private; set it public under the package settings → Change visibility, otherwise anonymous `helm pull` fails.
+
 Notes:
+- `release_helm.yml` publishes each chart twice: as a release asset + `index.yaml` entry (chart-releaser) and as an OCI artifact at `oci://ghcr.io/lin-snow/charts/ech0:<version>` (uses the automatic `GITHUB_TOKEN`, hence `permissions: packages: write`). Artifact Hub lists the chart from the gh-pages repository, not from GHCR, so metadata stays single-sourced in `Chart.yaml`.
 - `release_helm.yml` sets `version`, `appVersion`, and the `artifacthub.io/images` tag in `charts/ech0/Chart.yaml` from the release tag (e.g. `v4.4.5` → chart `4.4.5`), so each app release produces a new `ech0-4.4.5.tgz` for `helm upgrade` and the Artifact Hub package page advertises the matching image. A validation step fails the run when the annotation tag drifts from the chart version.
 - Artifact Hub listing metadata lives in `charts/artifacthub-repo.yml` (repository ID + owner email); the workflow publishes it to the gh-pages root next to `index.yaml`, where Artifact Hub reads it on every rescan. Registration and ownership-claim rules: https://artifacthub.io/docs/topics/repositories/#verified-publisher.
 - Committed values in `Chart.yaml` are defaults for local `helm install ./charts/ech0`; published chart versions follow tags.

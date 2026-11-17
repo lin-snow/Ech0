@@ -11,8 +11,16 @@ helm repo update
 helm install ech0 ech0/ech0 --set config.JWT_SECRET="$(openssl rand -hex 32)"
 ```
 
-`config.JWT_SECRET` defaults to a placeholder. If you leave it unset, the server generates an ephemeral
-secret on start, so **every pod restart invalidates all issued tokens** — always set it in production.
+The same package is also published as an OCI artifact to GitHub Container Registry:
+
+```bash
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 \
+  --version <chart-version> \
+  --set config.JWT_SECRET="$(openssl rand -hex 32)"
+```
+
+`config.JWT_SECRET` defaults to a placeholder (`Hello Echos`) that is public in this repository, so
+**always override it in production** — tokens signed with the default are forgeable.
 
 ## Configuration
 
