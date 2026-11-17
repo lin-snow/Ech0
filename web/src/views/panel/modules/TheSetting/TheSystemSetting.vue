@@ -234,12 +234,9 @@
           {{ t('systemSetting.privacyPolicy') }}:
         </h2>
         <div class="flex-1 min-w-0">
-          <span
-            v-if="!editMode"
-            class="block truncate"
-            v-tooltip="SystemSetting.privacy_policy"
-            >{{ privacyPolicyPreview || t('commonUi.none') }}</span
-          >
+          <span v-if="!editMode" class="block truncate" v-tooltip="SystemSetting.privacy_policy">{{
+            privacyPolicyPreview || t('commonUi.none')
+          }}</span>
           <MarkdownEditor
             v-else
             v-model="SystemSetting.privacy_policy"
