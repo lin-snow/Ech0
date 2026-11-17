@@ -131,8 +131,22 @@ jobs:
           tgz="${pkg_dir}/ech0-${chart_version}.tgz"
           test -f "${tgz}"
 
-          helm push "${tgz}" "oci://ghcr.io/${OWNER}/charts"
-          echo "Pushed ech0-${chart_version}.tgz to oci://ghcr.io/${OWNER}/charts/ech0:${chart_version}"
+          # A re-run can hit an existing tag when the probe above failed for another
+          # reason (e.g. the package is still private right after the first publish).
+          if push_log="$(helm push "${tgz}" "oci://ghcr.io/${OWNER}/charts" 2>&1)"; then
+            printf '%s\n' "${push_log}"
+            echo "Pushed ech0-${chart_version}.tgz to oci://ghcr.io/${OWNER}/charts/ech0:${chart_version}"
+          else
+            printf '%s\n' "${push_log}"
+            case "${push_log}" in
+              *"already exists"*)
+                echo "Chart ${chart_version} already exists in the registry; treating as published."
+                ;;
+              *)
+                exit 1
+                ;;
+            esac
+          fi
 
       - name: Reset latest release pointer to app release
         env:
