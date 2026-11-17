@@ -34,6 +34,8 @@
 
 `/panel` 前缀与 `/oauth/` 前缀按前缀匹配；`/echo/{id}` 单独处理。
 
+`/privacy` 是唯一由设置决定是否存在的公开页：`SystemSetting.privacy_policy` 为空（或仅空白）时服务端直接返回 404，因此它不在 `spaRoutes` 中，而是在 `serveRoute` 里单独判断。页脚入口由 `show_privacy_footer` 与内容非空共同决定。
+
 ## 2. URL 规则
 
 - canonical 与 `og:url` 一律 `绝对 URL`，origin 取**本次请求**的 origin（`internal/util/reqinfo`，支持 `X-Forwarded-Proto/Host`）。

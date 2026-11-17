@@ -226,6 +226,35 @@
           class="w-full py-1!"
         />
       </div>
+      <div class="flex flex-row justify-start text-[var(--color-text-secondary)] gap-2 mb-1">
+        <h2
+          v-tooltip="t('systemSetting.privacyPolicyHint')"
+          class="font-semibold min-w-28 md:min-w-32 shrink-0 break-words leading-5"
+        >
+          {{ t('systemSetting.privacyPolicy') }}:
+        </h2>
+        <div class="flex-1 min-w-0">
+          <span
+            v-if="!editMode"
+            class="block truncate"
+            v-tooltip="SystemSetting.privacy_policy"
+            >{{ privacyPolicyPreview || t('commonUi.none') }}</span
+          >
+          <MarkdownEditor
+            v-else
+            v-model="SystemSetting.privacy_policy"
+            :placeholder="t('systemSetting.privacyPolicyPlaceholder')"
+            class="w-full"
+          />
+          <BaseSwitch
+            v-model="SystemSetting.show_privacy_footer"
+            :disabled="!editMode"
+            class="mt-2 -ml-2 text-xs"
+          >
+            {{ t('systemSetting.showPrivacyFooter') }}
+          </BaseSwitch>
+        </div>
+      </div>
       <div
         class="flex flex-row items-center justify-start text-[var(--color-text-secondary)] gap-2 mb-1"
       >
@@ -269,6 +298,7 @@ import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseTextArea from '@/components/common/BaseTextArea.vue'
 import BaseEditCapsule from '@/components/common/BaseEditCapsule.vue'
+import { MarkdownEditor } from '@/editor'
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fetchUpdateSettings } from '@/service/api'
@@ -288,6 +318,15 @@ const { SystemSetting } = storeToRefs(settingStore)
 const editMode = ref<boolean>(false)
 const saving = ref<boolean>(false)
 const systemLogoSrc = computed(() => resolveAvatarUrl(SystemSetting.value?.server_logo))
+// View mode shows a readable line, not raw Markdown syntax.
+const privacyPolicyPreview = computed(() =>
+  (SystemSetting.value?.privacy_policy ?? '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/[*_`>~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim(),
+)
 // The stored flag is an opt-out; the panel shows the positive reading.
 const agentDiscoveryEnabled = computed({
   get: () => !SystemSetting.value?.disable_agent_discovery,

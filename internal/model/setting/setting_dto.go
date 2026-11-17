@@ -17,6 +17,8 @@ type SystemSettingDto struct {
 	MetingAPI             string `json:"meting_api"`
 	CustomCSS             string `json:"custom_css"`
 	CustomJS              string `json:"custom_js"`
+	PrivacyPolicy         string `json:"privacy_policy"`
+	ShowPrivacyFooter     bool   `json:"show_privacy_footer"`
 	DisableAgentDiscovery bool   `json:"disable_agent_discovery"`
 }
 

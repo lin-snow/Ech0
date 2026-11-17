@@ -111,15 +111,27 @@
         <TheBackTop class="h-8 w-8 p-1" :target="scrollTarget ?? null" />
       </div>
 
-      <div v-if="footerContent" class="mt-6 text-center">
-        <a v-if="footerLink" :href="footerLink" target="_blank" rel="noopener noreferrer">
+      <div v-if="footerContent || privacyLinkVisible" class="mt-6 text-center">
+        <a
+          v-if="footerContent && footerLink"
+          :href="footerLink"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <span class="text-[var(--color-text-muted)] text-sm">
             {{ footerContent }}
           </span>
         </a>
-        <span v-else class="text-[var(--color-text-muted)] text-sm">
+        <span v-else-if="footerContent" class="text-[var(--color-text-muted)] text-sm">
           {{ footerContent }}
         </span>
+        <RouterLink
+          v-if="privacyLinkVisible"
+          to="/privacy"
+          class="text-[var(--color-text-muted)] text-sm hover:text-[var(--color-text-primary)] transition-colors"
+        >
+          {{ footerContent ? '· ' : '' }}{{ t('privacy.footerLink') }}
+        </RouterLink>
       </div>
     </div>
   </div>
@@ -200,6 +212,13 @@ const footerContent = computed(
   () => SystemSetting.value.footer_content || SystemSetting.value.ICP_number,
 )
 const footerLink = computed(() => SystemSetting.value.footer_link)
+// The link only ever points at a page that exists: no policy content means
+// /privacy answers 404, so a footer link there would be a dead end.
+const privacyLinkVisible = computed(
+  () =>
+    SystemSetting.value.show_privacy_footer &&
+    (SystemSetting.value.privacy_policy?.trim() ?? '') !== '',
+)
 
 const liveMessage = computed(() => {
   if (echoStore.isLoadingMore) return t('homeFeed.loadingMore')

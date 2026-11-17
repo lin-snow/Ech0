@@ -113,6 +113,8 @@ func (settingService *SettingService) UpdateSetting(
 		setting.MetingAPI = urlUtil.TrimURL(newSetting.MetingAPI)
 		setting.CustomCSS = newSetting.CustomCSS
 		setting.CustomJS = newSetting.CustomJS
+		setting.PrivacyPolicy = newSetting.PrivacyPolicy
+		setting.ShowPrivacyFooter = newSetting.ShowPrivacyFooter
 		setting.DisableAgentDiscovery = newSetting.DisableAgentDiscovery
 
 		if err := coreSetting.System.Set(ctx, settingService.durableKV, setting); err != nil {

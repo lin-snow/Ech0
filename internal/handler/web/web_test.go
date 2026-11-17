@@ -194,6 +194,38 @@ func TestTemplates_UnknownRouteIsNotFound(t *testing.T) {
 	}
 }
 
+func TestTemplates_PrivacyPageRequiresConfiguredPolicy(t *testing.T) {
+	rec := get(newTemplatesRouterWith(stubSettings{}, stubEchoes{}), "/privacy")
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected %d for an unconfigured policy, got %d", http.StatusNotFound, rec.Code)
+	}
+	if got := rec.Header().Get("X-Robots-Tag"); got != robotsNoIndex {
+		t.Fatalf("expected X-Robots-Tag %q, got %q", robotsNoIndex, got)
+	}
+
+	r := newTemplatesRouterWith(stubSettings{setting: settingModel.SystemSetting{
+		SiteTitle:     "My Blog",
+		PrivacyPolicy: "# Privacy\n\nWe collect nothing.",
+	}}, stubEchoes{})
+	rec = get(r, "/privacy")
+	body := rec.Body.String()
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected %d for a configured policy, got %d", http.StatusOK, rec.Code)
+	}
+	for _, want := range []string{
+		`<title>Privacy Policy | My Blog</title>`,
+		`<meta name="description" content="Privacy We collect nothing." />`,
+		`<link rel="canonical" href="http://blog.example.com/privacy" />`,
+		`<meta name="robots" content="index,follow,max-image-preview:large" />`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected body to contain %q\nbody:\n%s", want, body)
+		}
+	}
+}
+
 func TestSPAShell_RenderReplacesMarkers(t *testing.T) {
 	doc := []byte(`<!doctype html><html lang="zh-CN"><head>` +
 		`<!--ECH0_SEO_START--><title>old</title><!--ECH0_SEO_END-->` +

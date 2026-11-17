@@ -611,6 +611,10 @@
     "customCssPlaceholder": "Eigenes CSS eingeben",
     "customJs": "Eigenes JS",
     "customJsPlaceholder": "Eigenes Script eingeben",
+    "privacyPolicy": "Datenschutzerklärung",
+    "privacyPolicyPlaceholder": "Datenschutzerklärung in Markdown verfassen. Leer lassen, um die Seite /privacy zu schließen.",
+    "privacyPolicyHint": "Wird unter /privacy veröffentlicht. Bei leerem Inhalt antwortet die Seite mit 404.",
+    "showPrivacyFooter": "Link im Footer anzeigen",
     "allowRegister": "Registrierung erlauben",
     "agentDiscovery": "Agent-Erkennung",
     "agentDiscoveryHint": "Veröffentlicht /llms.txt, den AI-Katalog und die MCP-Server-Card, damit KI-Agenten die Feeds, die API und den MCP-Endpunkt dieser Instanz finden",
@@ -1076,6 +1080,9 @@
     "viewSource": "Quellcode auf GitHub ansehen",
     "viewSourceAtCommit": "Quellcode {'@'} {commit} auf GitHub ansehen",
     "poweredBy": "Powered by Ech0"
+  },
+  "privacy": {
+    "footerLink": "Datenschutzerklärung"
   },
   "echoPage": {
     "loadingDetail": "Echo-Details werden geladen…"

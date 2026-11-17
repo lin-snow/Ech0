@@ -611,6 +611,10 @@
     "customCssPlaceholder": "请输入自定义 CSS",
     "customJs": "自定义 JS",
     "customJsPlaceholder": "请输入自定义 Script",
+    "privacyPolicy": "隐私政策",
+    "privacyPolicyPlaceholder": "使用 Markdown 编写隐私政策，留空则不开放 /privacy 页面",
+    "privacyPolicyHint": "展示在 /privacy，留空时该页面返回 404",
+    "showPrivacyFooter": "在页脚显示链接",
     "allowRegister": "允许注册",
     "agentDiscovery": "智能体发现",
     "agentDiscoveryHint": "向 AI 智能体公开 /llms.txt、AI catalog 与 MCP server card，使其能自动发现本实例的订阅源、API 与 MCP 端点",
@@ -1076,6 +1080,9 @@
     "viewSource": "在 GitHub 上查看源代码",
     "viewSourceAtCommit": "在 GitHub 上查看 commit {'@'} {commit} 的源代码",
     "poweredBy": "Powered by Ech0"
+  },
+  "privacy": {
+    "footerLink": "隐私政策"
   },
   "echoPage": {
     "loadingDetail": "正在加载 Echo 详情..."

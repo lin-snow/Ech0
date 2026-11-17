@@ -36,6 +36,8 @@ var (
 				MetingAPI:             urlUtil.TrimURL(c.MetingAPI),
 				CustomCSS:             c.CustomCSS,
 				CustomJS:              c.CustomJS,
+				PrivacyPolicy:         "",
+				ShowPrivacyFooter:     false,
 				DisableAgentDiscovery: false,
 			}
 		},

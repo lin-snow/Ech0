@@ -611,6 +611,10 @@
     "customCssPlaceholder": "カスタム CSS を入力してください",
     "customJs": "カスタム JS",
     "customJsPlaceholder": "カスタム Script を入力してください",
+    "privacyPolicy": "プライバシーポリシー",
+    "privacyPolicyPlaceholder": "Markdown でプライバシーポリシーを記述します。空欄の場合は /privacy ページを公開しません。",
+    "privacyPolicyHint": "/privacy に表示されます。空欄の場合、このページは 404 を返します。",
+    "showPrivacyFooter": "フッターにリンクを表示",
     "allowRegister": "登録を許可",
     "agentDiscovery": "エージェント検出",
     "agentDiscoveryHint": "/llms.txt、AI カタログ、MCP サーバーカードを公開し、AI エージェントがこのインスタンスのフィード・API・MCP エンドポイントを検出できるようにします",
@@ -1076,6 +1080,9 @@
     "viewSource": "GitHub でソースを見る",
     "viewSourceAtCommit": "GitHub で commit {'@'} {commit} のソースを見る",
     "poweredBy": "Powered by Ech0"
+  },
+  "privacy": {
+    "footerLink": "プライバシーポリシー"
   },
   "echoPage": {
     "loadingDetail": "Echo の詳細を読み込み中..."

@@ -134,6 +134,13 @@ var panelRoute = spaRoute{
 	noindex:     true,
 }
 
+// privacyRoute is rendered only when a policy is configured; an empty policy
+// must answer 404 so a soft-404 never gets indexed.
+var privacyRoute = spaRoute{
+	title:       "Privacy Policy",
+	description: "Privacy policy for this Ech0 instance.",
+}
+
 var (
 	codeFencePattern   = regexp.MustCompile("(?s)```.*?```")
 	htmlTagPattern     = regexp.MustCompile(`(?s)</?[a-zA-Z][^>]*>|<!--.*?-->`)
@@ -263,6 +270,11 @@ func (webHandler *WebHandler) serveRoute(ctx *gin.Context, routePath string) {
 		return
 	}
 
+	if routePath == "/privacy" {
+		webHandler.servePrivacyPage(ctx, routePath)
+		return
+	}
+
 	if route, ok := lookupRoute(routePath); ok {
 		webHandler.servePage(ctx, routePath, http.StatusOK, nil, route)
 		return
@@ -276,6 +288,23 @@ func (webHandler *WebHandler) serveRoute(ctx *gin.Context, routePath string) {
 	}
 
 	webHandler.servePage(ctx, routePath, http.StatusNotFound, nil, notFoundRoute)
+}
+
+// servePrivacyPage keeps the public /privacy announcement honest: no policy,
+// no page. The description is derived from the policy body so link unfurls
+// show real text instead of a generic placeholder.
+func (webHandler *WebHandler) servePrivacyPage(ctx *gin.Context, routePath string) {
+	settings := webHandler.siteSettings()
+	if strings.TrimSpace(settings.PrivacyPolicy) == "" {
+		webHandler.servePage(ctx, routePath, http.StatusNotFound, nil, notFoundRoute)
+		return
+	}
+
+	route := privacyRoute
+	if description := strings.ReplaceAll(plainText(settings.PrivacyPolicy), "\n", " "); description != "" {
+		route.description = truncateRunes(description, echoDescriptionMaxLen)
+	}
+	webHandler.servePage(ctx, routePath, http.StatusOK, nil, route)
 }
 
 func (webHandler *WebHandler) servePage(

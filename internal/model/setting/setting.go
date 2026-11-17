@@ -27,6 +27,12 @@ type SystemSetting struct {
 	MetingAPI     string `json:"meting_api"`
 	CustomCSS     string `json:"custom_css"`
 	CustomJS      string `json:"custom_js"`
+	// PrivacyPolicy is Markdown served on the public /privacy page. Empty means
+	// the page is not configured and answers 404.
+	PrivacyPolicy string `json:"privacy_policy"`
+	// ShowPrivacyFooter only controls the footer link; the page itself stays
+	// reachable whenever PrivacyPolicy is non-empty.
+	ShowPrivacyFooter bool `json:"show_privacy_footer"`
 	// DisableAgentDiscovery opts out of the discovery documents; stored inverted,
 	// so a settings blob written before the field existed keeps them enabled.
 	DisableAgentDiscovery bool `json:"disable_agent_discovery"`

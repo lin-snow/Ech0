@@ -18,6 +18,8 @@ declare namespace App {
         meting_api: string
         custom_css: string
         custom_js: string
+        privacy_policy: string
+        show_privacy_footer: boolean
         disable_agent_discovery: boolean
       }
 
