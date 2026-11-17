@@ -1,5 +1,6 @@
 overrides:
   'serialize-javascript@<7.0.5': ^7.0.5
+  'minimatch@>=7.0.0 <11.0.1': '11.0.8'
 peerDependencyRules:
   allowedVersions:
     'vite-plugin-pwa>vite': '8'
