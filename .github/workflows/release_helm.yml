@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Sync chart version and appVersion from release tag
+      - name: Sync chart version, appVersion and image tag from release tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
@@ -59,7 +59,10 @@ jobs:
 
           sed -i -E 's|^version: .*|version: '"${app_version}"'|' charts/ech0/Chart.yaml
           sed -i -E 's/^appVersion: .*/appVersion: "'"${app_version}"'"/' charts/ech0/Chart.yaml
-          echo "Synced chart version and appVersion to ${app_version} from tag ${release_tag}"
+          # Keep the Artifact Hub image annotation on the released tag, otherwise the
+          # package page advertises the image of whichever release last edited it.
+          sed -i -E 's|^([[:space:]]*image: sn0wl1n/ech0:).*|\1'"${app_version}"'|' charts/ech0/Chart.yaml
+          echo "Synced chart version, appVersion and image annotation to ${app_version} from tag ${release_tag}"
 
       - name: Validate chart version metadata
         run: |
@@ -69,7 +72,19 @@ jobs:
             echo "Chart version is empty in charts/ech0/Chart.yaml"
             exit 1
           fi
+
+          image_tag="$(sed -n -E 's|^[[:space:]]*image: sn0wl1n/ech0:(.*)$|\1|p' charts/ech0/Chart.yaml | head -n1 | tr -d '"' | tr -d '[:space:]')"
+          if [ "${image_tag}" != "${chart_version}" ]; then
+            echo "artifacthub.io/images tag (${image_tag}) does not match chart version (${chart_version})"
+            exit 1
+          fi
           echo "Chart package will be ech0-${chart_version}.tgz"
+
+      - name: Lint chart
+        run: |
+          set -euo pipefail
+          helm lint charts/ech0
+          helm template ech0 charts/ech0 >/dev/null
 
       - name: Configure Git
         run: |
@@ -211,10 +226,12 @@ jobs:
           cp _site/logo.svg "$tmpdir/logo.svg"
           cp _site/favicon.svg "$tmpdir/favicon.svg"
           cp _site/.nojekyll "$tmpdir/.nojekyll"
+          # Artifact Hub reads this from the repository URL root, next to index.yaml.
+          cp charts/artifacthub-repo.yml "$tmpdir/artifacthub-repo.yml"
 
           (
             cd "$tmpdir"
-            git add index.html logo.svg favicon.svg .nojekyll
+            git add index.html logo.svg favicon.svg .nojekyll artifacthub-repo.yml
             if git diff --cached --quiet; then
               echo "Release page unchanged; skip commit."
               exit 0
@@ -230,6 +247,8 @@ jobs:
             echo ""
             echo "- [ ] Verify release page is available at \`https://lin-snow.github.io/Ech0/\`"
             echo "- [ ] Verify gh-pages branch contains \`.nojekyll\` and \`index.yaml\`"
+            echo "- [ ] Verify \`https://lin-snow.github.io/Ech0/artifacthub-repo.yml\` is served"
+            echo "- [ ] Verify the package appears at \`https://artifacthub.io/packages/helm/ech0/ech0\` (Artifact Hub rescans roughly every 30 minutes)"
             echo "- [ ] Verify release has chart package \`ech0-<version>.tgz\`"
             echo "- [ ] Verify install works:"
             echo "  \`\`\`bash"

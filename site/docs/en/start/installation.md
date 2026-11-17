@@ -105,7 +105,8 @@ curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh
 
 ## Kubernetes (Helm)
 
-Installing from the online Helm repository is recommended:
+Installing from the online Helm repository is recommended (the chart is also listed on
+[Artifact Hub](https://artifacthub.io/packages/helm/ech0/ech0)):
 
 ```bash
 helm repo add ech0 https://lin-snow.github.io/Ech0

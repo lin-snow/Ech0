@@ -105,7 +105,8 @@ curl -fsSL "https://raw.githubusercontent.com/lin-snow/Ech0/main/scripts/ech0.sh
 
 ## Kubernetes（Helm）
 
-推荐使用在线 Helm 仓库安装：
+推荐使用在线 Helm 仓库安装（该 Chart 也已收录到
+[Artifact Hub](https://artifacthub.io/packages/helm/ech0/ech0)）：
 
 ```bash
 helm repo add ech0 https://lin-snow.github.io/Ech0
