@@ -169,6 +169,8 @@ Alternativ `ech0-cli-<os>-<arch>.tar.gz` von den [Releases](https://github.com/l
 
 ## Deployment & Aktualisierung
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/ech0)
+
 Ausführliche Anleitungen für **Docker Compose**, **Skript-Installation**, **Kubernetes (Helm)** sowie das **Upgrade** einer bestehenden Instanz findest du in **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 Für den schnellsten Einstieg reicht der oben gezeigte [In 60 Sekunden ausprobieren](#in-60-sekunden-ausprobieren)-Befehl bereits aus.

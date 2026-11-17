@@ -169,6 +169,8 @@ npm install -g @useech0/cli
 
 ## デプロイとアップグレード
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/ech0)
+
 **Docker Compose**、**スクリプトインストール**、**Kubernetes (Helm)** の詳細な手順、そして既存インスタンスの**アップグレード**手順は **[DEPLOYMENT.md](./DEPLOYMENT.md)** にまとめています。
 
 最短で起動したい場合は、上の [60 秒で試す](#60-秒で試す) のコマンド一つで十分です。

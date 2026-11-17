@@ -171,6 +171,8 @@ npm install -g @useech0/cli
 
 ## 部署与更新
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/ech0)
+
 完整的 **Docker Compose**、**脚本安装**、**Kubernetes (Helm)** 部署说明以及**版本更新**操作流程详见 **[DEPLOYMENT.md](./DEPLOYMENT.md)**。
 
 如果只是想最快跑起来，上面的 [1 分钟上手](#1-分钟上手) 已经足够 — 一条 `docker run` 命令即可启动。
