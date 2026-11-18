@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ech0 — Slides</title>
+<style>
+  :root {
+    --canvas: #08090a;
+    --ink: #ffffff;
+    --ink-2: #9b968f;
+    --ink-3: #6b6660;
+    --line: rgba(255, 255, 255, 0.13);
+    --accent: #ff4d00;
+    --font-en: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 12vh 6vw 8vh;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-en);
+    -webkit-font-smoothing: antialiased;
+  }
+  .mark { font: 700 22px/1 var(--font-en); letter-spacing: -0.01em; }
+  h1 {
+    margin: 56px 0 0;
+    font-size: clamp(48px, 7vw, 92px);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 700;
+  }
+  .lede { margin: 26px 0 0; max-width: 34em; font-size: 20px; line-height: 1.6; color: var(--ink-2); }
+  ul { list-style: none; margin: 74px 0 0; padding: 0; max-width: 900px; }
+  li { border-top: 1px solid var(--line); }
+  li:last-child { border-bottom: 1px solid var(--line); }
+  a { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: baseline; padding: 24px 4px; color: var(--ink); text-decoration: none; }
+  a:hover .title { color: var(--accent); }
+  .title { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; transition: color 0.15s; }
+  .sub { display: block; margin-top: 8px; font: 400 13px/1.4 var(--font-mono); color: var(--ink-3); }
+  .meta { font: 400 13px/1 var(--font-mono); color: var(--ink-2); white-space: nowrap; }
+  footer { margin-top: 72px; font: 400 13px/1.6 var(--font-mono); color: var(--ink-3); }
+  footer a { display: inline; padding: 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+  <p class="mark">Ech0</p>
+  <h1>Slides.</h1>
+  <p class="lede">Talks and decks, written as plain HTML. Every deck is a directory that runs offline — open it, present it, print it to PDF.</p>
+
+  <ul>
+    <li>
+      <a href="./deck/">
+        <span><span class="title">Ech0 — Product &amp; Engineering Showcase</span>
+        <span class="sub">Let your thoughts flow · 14 slides · Simplified Chinese</span></span>
+        <span class="meta">2026 →</span>
+      </a>
+    </li>
+    <li>
+      <a href="./deck/ech0-deck.pdf">
+        <span><span class="title">The same deck, as PDF</span>
+        <span class="sub">1600 × 900 per page · 14 pages</span></span>
+        <span class="meta">PDF →</span>
+      </a>
+    </li>
+    <li>
+      <a href="./_template/">
+        <span><span class="title">Layout template</span>
+        <span class="sub">Cover, points, two-column, code, quote, closing</span></span>
+        <span class="meta">copy →</span>
+      </a>
+    </li>
+  </ul>
+
+  <footer>
+    Source: <a href="https://github.com/lin-snow/Ech0/tree/main/docs/assets/keynotes">docs/assets/keynotes</a> · License: AGPL-3.0-or-later
+  </footer>
+</body>
+</html>

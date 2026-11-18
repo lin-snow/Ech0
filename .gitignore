@@ -88,3 +88,6 @@ quality-report.md
 .cache/
 .worktrees/
 .pnpm-store/vecspike
+
+# wrangler local cache (see docs/assets/keynotes/wrangler.jsonc)
+.wrangler/

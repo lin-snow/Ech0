@@ -97,5 +97,6 @@
 | `assets/social-preview/` | GitHub 社交预览模板：`social-preview.html` + 1280×640 的 png/jpg |
 | `assets/carousel/` | 六帧宣传图 `1-6.jpeg` 与设计渲染页 `Ech0_carousel/index.html` |
 | `assets/video/` | 品牌宣传片成片、关键帧与可复现出片工程，说明见 [assets/video/README.md](assets/video/README.md) |
+| `assets/keynotes/` | 演讲稿（HTML）：一份 deck 一个目录，共用 `deck.css` / `deck.js`，无构建；`_template/` 是全部版式的范例，`deck/` 是已做好的 Ech0 发布会 deck（暗场 14 页 + PDF）。用法见 [assets/keynotes/README.md](assets/keynotes/README.md) |
 
 `docs/imgs/` 只保留 4 个对外契约文件：`logo.svg`、`screenshot.png`、`pay.jpeg`、`qq.png`。

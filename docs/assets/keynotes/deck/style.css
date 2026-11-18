@@ -1,0 +1,503 @@
+/* Ech0 deck · D2 黑场：整页压到近黑，字是唯一的高光，橙色只落在数据与圆点上。
+   叙事：Story 01-03 / Product 04-07 / Engineering 08-11 / Impact 12-14。
+   三种声音：英文标题用无衬线（品牌），中文短句用宋体，正文用黑体，标签用等宽。 */
+
+:root,
+:root[data-theme='dark'],
+:root[data-theme='light'] {
+  --canvas: #08090a;
+  --surface: #0d0e10;
+  --surface-2: #121316;
+  --ink: #ffffff;
+  --ink-2: #9b968f;
+  --ink-3: #6b6660;
+  --line: rgba(255, 255, 255, 0.13);
+  --line-strong: rgba(255, 255, 255, 0.28);
+  --code: #cfcac4;
+  --accent: #ff4d00;
+  --accent-ink: #0b0b0b;
+  --frame: #000000;
+  --font-en: "Helvetica Neue", Helvetica, Arial, "PingFang SC", sans-serif;
+  --font-cn: "Songti SC", "STSongti-SC-Bold", "Noto Serif SC",
+    "Source Han Serif SC", serif;
+}
+
+/* ------------------------------------------------------------------ 共用 */
+
+.slide { padding: 92px; }
+
+.eyebrow {
+  font: 400 17px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+
+h1,
+h2 {
+  font-family: var(--font-en);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+h1 { font-size: 108px; line-height: 1.04; }
+
+h2 { font-size: 84px; line-height: 1.1; }
+
+.cn,
+h2.cn {
+  font-family: var(--font-cn);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.lede {
+  font-size: 34px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.lede.cn { font-size: 44px; line-height: 1.45; color: var(--ink-2); }
+
+.bullets {
+  display: grid;
+  gap: 26px;
+  list-style: none;
+  font-size: 29px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.bullets.lg { font-size: 35px; gap: 32px; }
+
+.bullets li,
+.panel li,
+.rows dd {
+  position: relative;
+}
+
+.bullets li { padding-left: 34px; }
+
+.bullets li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.footnote {
+  position: absolute;
+  left: 92px;
+  right: 92px;
+  bottom: 56px;
+  font: 400 19px/1.6 var(--font-mono);
+  color: var(--ink-2);
+}
+
+.verdict {
+  position: absolute;
+  left: 92px;
+  right: 92px;
+  bottom: 56px;
+  font: 700 30px/1.4 var(--font-en);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+code {
+  font: 400 0.94em/1 var(--font-mono);
+  color: var(--code);
+  background: none;
+  padding: 0;
+}
+
+/* 光晕用渐变层画，不用 box-shadow：大半径模糊在缩放画布上会露矩形接缝。 */
+.orb {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.orb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #ffa055 0%, #ff5a1f 32%, #ef4a12 62%, #cc3a0e 100%);
+}
+
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: -340px;
+  z-index: -1;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 90, 31, 0.28) 0%,
+    rgba(255, 90, 31, 0.15) 34%,
+    rgba(255, 90, 31, 0.05) 56%,
+    rgba(255, 90, 31, 0) 72%
+  );
+}
+
+/* ------------------------------------------------------------------ 01 封面 */
+
+.cover { justify-content: center; }
+
+.cover .mark {
+  font: 600 34px/1 var(--font-en);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.cover h1 { margin-top: 40px; max-width: 1240px; }
+
+.cover .lede { margin-top: 42px; }
+
+.cover .meta-line {
+  margin-top: 26px;
+  font: 400 19px/1 var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+.cover .foot {
+  position: absolute;
+  left: 92px;
+  bottom: 64px;
+  font: 400 19px/1 var(--font-mono);
+  color: var(--ink-3);
+}
+
+.cover .orb { right: -300px; bottom: -360px; width: 760px; height: 760px; }
+
+/* ------------------------------------------------------------------ 02 需求 */
+
+.need { justify-content: center; }
+
+.need h2 { margin-top: 34px; max-width: 1200px; font-size: 92px; }
+
+.need .bullets { margin-top: 96px; max-width: 1100px; }
+
+/* ------------------------------------------------------------------ 03 定义 */
+
+.own h2 { margin-top: 28px; }
+
+.own .lede { margin-top: 26px; max-width: 1100px; }
+
+.quad {
+  flex: 1;
+  margin-top: 92px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 48px;
+  align-content: start;
+}
+
+.own .quad {
+  grid-template-columns: 1fr 1fr;
+  gap: 64px 96px;
+  align-content: start;
+}
+
+.quad .k {
+  font: 400 20px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.quad .d {
+  margin-top: 18px;
+  max-width: 520px;
+  font-size: 32px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------ 04 体验 */
+
+.flow h2 { max-width: 1200px; font-size: 76px; }
+
+.chain {
+  margin-top: 34px;
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  font: 400 28px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+.chain i { color: var(--accent); font-style: normal; }
+
+.flow .bullets {
+  margin-top: 74px;
+  max-width: 700px;
+  font-size: 30px;
+  gap: 24px;
+}
+
+.flow .shot {
+  position: absolute;
+  right: -60px;
+  bottom: -70px;
+  margin: 0;
+}
+
+.flow .shot img {
+  display: block;
+  width: 830px;
+  border: 1px solid var(--line-strong);
+}
+
+/* ------------------------------------------------------------------ 05 数据 */
+
+.data h2 { margin-top: 28px; }
+
+.data .lede { margin-top: 30px; max-width: 1150px; }
+
+.data .bullets { margin-top: 66px; max-width: 1150px; }
+
+/* ------------------------------------------------------------------ 06 部署 */
+
+.run h2 { margin-top: 26px; font-size: 80px; }
+
+.run-body {
+  margin-top: 56px;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 72px;
+  align-items: start;
+}
+
+.term {
+  padding: 36px 42px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  font: 400 33px/1.9 var(--font-mono);
+  color: var(--ink);
+  white-space: pre;
+}
+
+.term .p { color: var(--accent); }
+
+.facts { display: grid; gap: 26px; }
+
+.facts b {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.facts div {
+  font-size: 21px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------ 07 生态 */
+
+.open h2 { margin-top: 26px; }
+
+.rows {
+  margin-top: 64px;
+  display: grid;
+  gap: 34px;
+}
+
+.rows > div {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 40px;
+  align-items: baseline;
+}
+
+.rows dt {
+  font: 400 19px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.rows dd {
+  font-size: 28px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.rows.tight { margin-top: 56px; gap: 36px; }
+
+.rows.tight dd { font-size: 28px; }
+
+/* ------------------------------------------------------------------ 08 架构 */
+
+.arch h2 { margin-top: 26px; font-size: 74px; }
+
+.bands {
+  flex: 1;
+  margin-top: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 78px;
+}
+
+.band {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 40px;
+  align-items: baseline;
+  padding: 20px 26px;
+  border: 1px solid var(--line);
+}
+
+.band .k {
+  font: 400 19px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.band .d {
+  font: 400 20px/1.4 var(--font-mono);
+  color: var(--ink-2);
+  text-align: right;
+}
+
+.band:first-child { border-color: var(--line-strong); }
+
+/* ------------------------------------------------------------------ 09-11 工程 */
+
+.foundations h2,
+.reliability h2,
+.ai h2 { margin-top: 26px; font-size: 68px; }
+
+.cols {
+  flex: 1;
+  margin-top: 64px;
+  margin-bottom: 86px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-content: stretch;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  padding: 46px 48px 40px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.panel .k {
+  font: 700 34px/1.2 var(--font-en);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.panel .k span {
+  display: block;
+  margin-top: 10px;
+  font: 400 16px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.panel ul {
+  flex: 1;
+  margin-top: 30px;
+  display: grid;
+  align-content: space-between;
+  gap: 22px;
+  list-style: none;
+  font-size: 25px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.panel ul li { padding-left: 26px; }
+
+.panel ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+/* ------------------------------------------------------------------ 12 影响力 */
+
+.traction h2 { margin-top: 26px; font-size: 72px; }
+
+.stats {
+  flex: 1;
+  margin-top: 46px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 36px 88px;
+  align-content: space-between;
+  padding-bottom: 96px;
+}
+
+.stat .num {
+  font: 700 132px/1 var(--font-en);
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+
+.stat .cap {
+  margin-top: 16px;
+  font: 400 20px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+
+.traction .note {
+  position: absolute;
+  left: 92px;
+  right: 92px;
+  bottom: 52px;
+  font: 400 18px/1.6 var(--font-mono);
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------ 13  Owner */
+
+.ownership h2 { margin-top: 26px; font-size: 76px; }
+
+/* ------------------------------------------------------------------ 14 收尾 */
+
+.closing { justify-content: center; }
+
+.closing h2 { margin-top: 30px; font-size: 96px; }
+
+.closing .lede { margin-top: 32px; }
+
+.closing .links { margin-top: 64px; display: grid; gap: 18px; }
+
+.closing .links p {
+  font: 400 24px/1 var(--font-mono);
+  color: var(--ink);
+}
+
+.closing .links span {
+  display: inline-block;
+  width: 140px;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.closing .orb { right: -220px; bottom: -250px; width: 700px; height: 700px; }
