@@ -12,7 +12,6 @@ keynotes/
 ├── deck.js             翻页 / 深链 / 备注 / 主题 / 全屏
 ├── _template/          所有版式的范例，复制它开始写
 ├── deck/               参考实现：Ech0 发布会 deck（暗场，14 页，含 PDF）
-├── design-demos/       选型时做的三个方向样张（留档，不再维护）
 └── <slug>/index.html   一份 deck
 ```
 
