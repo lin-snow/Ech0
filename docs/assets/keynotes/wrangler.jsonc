@@ -1,8 +1,9 @@
 {
   // 纯静态：整份 keynotes 目录直接当作 Worker 的静态资源，
-  // 没有 Worker 脚本、没有构建步骤。部署：
+  // 没有 Worker 脚本、没有构建步骤。部署由 .github/workflows/deploy-slides.yml
+  // 在 main 分支上自动完成；本地要预览同一份产物时：
   //   npx wrangler deploy --config docs/assets/keynotes/wrangler.jsonc
-  "$schema": "./node_modules/wrangler/config-schema.json",
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
   "name": "ech0-slides",
   "compatibility_date": "2026-11-18",
   "assets": {

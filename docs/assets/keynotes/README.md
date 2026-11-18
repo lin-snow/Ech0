@@ -10,14 +10,17 @@
 keynotes/
 ├── deck.css            版式与主题（1600×900 逻辑画布，自动缩放）
 ├── deck.js             翻页 / 深链 / 备注 / 主题 / 全屏
-├── _template/          所有版式的范例，复制它开始写
+├── _template/          所有版式的范例，复制它开始写（不发布）
 ├── deck/               参考实现：Ech0 发布会 deck（暗场，14 页，含 PDF）
+├── wrangler.jsonc      把 deck/ 发布成 slides.ech0.sn0w.fyi
+├── _redirects          站点根 302 到 /deck/
+├── .assetsignore       上传白名单的反面（模板、md 不上网）
 └── <slug>/index.html   一份 deck
 ```
 
 `_template/` 同时是版式清单：封面、要点列表、两栏卡片、代码页、大字引语。复制目录、删掉不要的页、改文案即可。
 
-`deck/` 是完整做出来的一份：`script.md`（**内容稿，先改这里**）+ `index.html`（14 页）+ `style.css`（各页版式）+ `ech0-deck.pdf`（打印产物）+ `shots/`（逐页截图）+ `contact.png`（14 页缩略图，一眼看完）+ `direction-approved.md`（为什么是暗场）+ `polish-log.md`（逐轮改了什么）。新 deck 想做发布会那种语气，从它抄；想要中性版式，从 `_template/` 抄。
+`deck/` 是完整做出来的一份：`index.html`（14 页）+ `style.css`（各页版式）+ `ech0-deck.pdf`（打印产物）。新 deck 想做发布会那种语气，从它抄；想要中性版式，从 `_template/` 抄。
 
 ## 写一份新的
 
@@ -85,17 +88,20 @@ Chrome 打开 `index.html` → 打印 → 目标「另存为 PDF」→ 边距「
 
 仓库里 `docs/assets/architecture/`、`carousel/`、`social-preview/`，以及 `site/public/arch/` 都是零依赖单文件 HTML，keynote 是同一体裁的产物，不值得为它引入第二套前端工具链。需要深链、备注、全屏、PDF 的，`deck.js` 168 行已经给全；真正把版式做复杂时，最终还是写 HTML，中间那层只会挡路。
 
-需要公开讲稿时，把成品目录拷进 `site/public/keynotes/<slug>/` 随站点发布（先例：`site/public/arch/index.html` 服务于 `ech0.app/arch`）；这一步不是默认动作。
+要公开展示时不用往 `site/public/` 里搬：`deck/` 直接发布到 `slides.ech0.sn0w.fyi`（见下节）。
 
 ## 发布到 slides.ech0.sn0w.fyi
 
-这个目录同时是一个 Cloudflare Worker 的静态资源根（[`wrangler.jsonc`](wrangler.jsonc)）：没有 Worker 脚本、没有构建、没有 `package.json`，`wrangler` 把整个目录原样上传，`routes[].custom_domain` 负责 DNS 与证书。
+站点只有 deck 一件事。[`_redirects`](_redirects) 把 `/` 302 到 `/deck/`，所以 `https://slides.ech0.sn0w.fyi/` 打开就是 deck 第一页；[`.assetsignore`](.assetsignore) 把 `_template/`、`wrangler.jsonc` 与所有 `*.md` 挡在上传之外。`wrangler.jsonc` 把整个目录当静态资源，没有 Worker 脚本、没有构建、没有 `package.json`，`routes[].custom_domain` 负责 DNS 与证书。
+
+**改完 deck 只需合并到 `main`。** [`.github/workflows/deploy-slides.yml`](../../../.github/workflows/deploy-slides.yml) 在 `docs/assets/keynotes/**` 有改动时自动部署，用的是仓库已有的 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`（与 `deploy-hub.yml` 同一组 secrets）。
+
+本地要预览同一份产物时，跑同一条命令：
 
 ```bash
 npx wrangler deploy --config docs/assets/keynotes/wrangler.jsonc
 ```
 
-- 站点根 `index.html` 是讲稿索引，`/deck/` 是发布会 deck，`/deck/ech0-deck.pdf` 是打印产物。
-- `.assetsignore` 把 `*.md` 与配置本身排除在上传之外——讲稿正文留在仓库里，不上网。
+- `/deck.css`、`/deck.js` 必须在包里——deck 用 `../deck.css` 引用它们，所以不能只发布 `deck/`。
+- 打印产物在 `/deck/ech0-deck.pdf`。
 - 首次部署时 `slides.ech0.sn0w.fyi` 会自动建 DNS 记录；证书由 Cloudflare 签发，深层子域需要等几分钟。
-- 改了 deck 只需重新跑一次上面那条命令；`contact.png` / `shots/` 会一并更新。
