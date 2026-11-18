@@ -91,6 +91,10 @@ Chrome 打开 `index.html` → 打印 → 目标「另存为 PDF」→ 边距「
 
 这个目录同时是一个 Cloudflare Worker 的静态资源根（[`wrangler.jsonc`](wrangler.jsonc)）：没有 Worker 脚本、没有构建、没有 `package.json`，`wrangler` 把整个目录原样上传，`routes[].custom_domain` 负责 DNS 与证书。
 
+**改完 deck 只需合并到 `main`。** [`.github/workflows/deploy-slides.yml`](../../../.github/workflows/deploy-slides.yml) 在 `docs/assets/keynotes/**` 有改动时自动部署，用的是仓库已有的 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`（与 `deploy-hub.yml` 同一组 secrets）。
+
+本地要预览同一份产物时，跑同一条命令：
+
 ```bash
 npx wrangler deploy --config docs/assets/keynotes/wrangler.jsonc
 ```
