@@ -1,5 +1,6 @@
-# 部署到 Cloudflare Workers 时不上传的东西（md 与配置本身）
+# Cloudflare Worker 上传白名单的反面：这些不进包
+_template/
 *.md
+**/*.md
 wrangler.jsonc
 .assetsignore
-**/*.md
