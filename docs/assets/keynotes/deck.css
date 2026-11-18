@@ -336,11 +336,13 @@ pre + .body {
 
 .counter {
   position: absolute;
-  right: 28px;
-  bottom: 18px;
+  right: 30px;
+  bottom: 16px;
   font-family: var(--font-mono);
-  font-size: 22px;
-  color: var(--ink-3);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: #fff;
+  mix-blend-mode: difference;
   z-index: 10;
 }
 

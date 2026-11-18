@@ -26,12 +26,6 @@
 
 .slide { padding: 92px; }
 
-.eyebrow {
-  font: 400 17px/1 var(--font-mono);
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
-}
-
 h1,
 h2 {
   font-family: var(--font-en);
@@ -180,13 +174,11 @@ code {
 
 .need { justify-content: center; }
 
-.need h2 { margin-top: 34px; max-width: 1200px; font-size: 92px; }
+.need h2 { max-width: 1200px; font-size: 92px; }
 
 .need .bullets { margin-top: 96px; max-width: 1100px; }
 
 /* ------------------------------------------------------------------ 03 定义 */
-
-.own h2 { margin-top: 28px; }
 
 .own .lede { margin-top: 26px; max-width: 1100px; }
 
@@ -244,20 +236,18 @@ code {
 
 .flow .shot {
   position: absolute;
-  right: -60px;
+  right: -50px;
   bottom: -70px;
   margin: 0;
 }
 
 .flow .shot img {
   display: block;
-  width: 830px;
+  width: 700px;
   border: 1px solid var(--line-strong);
 }
 
 /* ------------------------------------------------------------------ 05 数据 */
-
-.data h2 { margin-top: 28px; }
 
 .data .lede { margin-top: 30px; max-width: 1150px; }
 
@@ -265,7 +255,7 @@ code {
 
 /* ------------------------------------------------------------------ 06 部署 */
 
-.run h2 { margin-top: 26px; font-size: 80px; }
+.run h2 { font-size: 80px; }
 
 .run-body {
   margin-top: 56px;
@@ -305,8 +295,6 @@ code {
 
 /* ------------------------------------------------------------------ 07 生态 */
 
-.open h2 { margin-top: 26px; }
-
 .rows {
   margin-top: 64px;
   display: grid;
@@ -338,7 +326,7 @@ code {
 
 /* ------------------------------------------------------------------ 08 架构 */
 
-.arch h2 { margin-top: 26px; font-size: 74px; }
+.arch h2 { font-size: 74px; }
 
 .bands {
   flex: 1;
@@ -376,7 +364,7 @@ code {
 
 .foundations h2,
 .reliability h2,
-.ai h2 { margin-top: 26px; font-size: 68px; }
+.ai h2 { font-size: 68px; }
 
 .cols {
   flex: 1;
@@ -438,7 +426,7 @@ code {
 
 /* ------------------------------------------------------------------ 12 影响力 */
 
-.traction h2 { margin-top: 26px; font-size: 72px; }
+.traction h2 { font-size: 72px; }
 
 .stats {
   flex: 1;
@@ -474,13 +462,13 @@ code {
 
 /* ------------------------------------------------------------------ 13  Owner */
 
-.ownership h2 { margin-top: 26px; font-size: 76px; }
+.ownership h2 { font-size: 76px; }
 
 /* ------------------------------------------------------------------ 14 收尾 */
 
 .closing { justify-content: center; }
 
-.closing h2 { margin-top: 30px; font-size: 96px; }
+.closing h2 { font-size: 96px; }
 
 .closing .lede { margin-top: 32px; }
 
