@@ -1,0 +1,90 @@
+/* 三个方向共用的运行时：画布、缩放、外壳、印刷。视觉全部在各目录的 style.css。 */
+:root {
+  --slide-w: 1600px;
+  --slide-h: 900px;
+  --scale: 1;
+  --ox: 0px;
+  --oy: 0px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  background: var(--void, #000);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  transform: translate(var(--ox), var(--oy)) scale(var(--scale));
+  transform-origin: 0 0;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+  padding: var(--pad);
+}
+
+.slide.is-active { display: flex; flex-direction: column; }
+
+.slide > .notes { display: none; }
+
+.counter {
+  position: absolute;
+  right: 40px;
+  bottom: 32px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+.notes-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 30vh;
+  overflow: auto;
+  padding: 18px 30px;
+  background: rgba(12, 12, 12, 0.96);
+  color: #d8d2cb;
+  font: 15px/1.6 var(--font);
+}
+
+@media print {
+  @page { size: 1600px 900px; margin: 0; }
+
+  html, body { height: auto; background: #fff; }
+
+  .stage {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    transform: none;
+  }
+
+  .slide {
+    position: static;
+    display: flex !important;
+    width: var(--slide-w);
+    height: var(--slide-h);
+    break-after: page;
+  }
+
+  .counter, .notes-panel { display: none; }
+}

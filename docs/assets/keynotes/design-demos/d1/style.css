@@ -1,0 +1,105 @@
+/* D1 · 白纸巨字：黑字压白底，一块实心橙压住右边缘；产品图带硬投影。 */
+:root {
+  --void: #e8e6e2;
+  --bg: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #4a4744;
+  --accent: #ff3a00;
+  --accent-ink: #ffffff;
+  --pad: 88px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------ 封面 */
+
+.cover { justify-content: center; gap: 0; }
+
+.mark {
+  position: absolute;
+  top: 76px;
+  left: var(--pad);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  max-width: 1130px;
+  font-size: 176px;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+}
+
+.lede {
+  max-width: 780px;
+  margin-top: 56px;
+  font-size: 34px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.counter { left: var(--pad); right: auto; }
+
+.cover .orb {
+  position: absolute;
+  top: 50%;
+  right: -230px;
+  width: 780px;
+  height: 780px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: radial-gradient(circle at 36% 30%, #ffa055 0%, #ff5a1f 34%, #e8451a 64%, #c93a12 100%);
+  box-shadow: 0 0 200px 70px rgba(255, 90, 31, 0.4);
+}
+
+/* ------------------------------------------------------------------ 产品 */
+
+.product.is-active { display: block; padding: 0; }
+
+.product h2 {
+  position: absolute;
+  top: 96px;
+  left: var(--pad);
+  max-width: 860px;
+  font-size: 78px;
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+.copy {
+  position: absolute;
+  top: 300px;
+  left: var(--pad);
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 540px;
+}
+
+.copy p {
+  font-size: 30px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.label {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.shot {
+  position: absolute;
+  right: -70px;
+  bottom: -56px;
+}
+
+.shot img {
+  display: block;
+  width: 860px;
+}

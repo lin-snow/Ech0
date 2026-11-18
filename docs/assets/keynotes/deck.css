@@ -1,0 +1,413 @@
+/*
+ * Ech0 keynote runtime — shared by every deck under docs/assets/keynotes/.
+ * No build step: <link rel="stylesheet" href="../deck.css">.
+ *
+ * The canvas is a fixed 1600×900 box scaled to the viewport, so a deck authored
+ * once reads at the same size on a laptop, a projector and in the exported PDF.
+ * Palette mirrors design/src/styles/tokens.css (warm paper, hairlines, one accent).
+ */
+
+:root {
+  --canvas: #f4f1ec;
+  --surface: #ffffff;
+  --surface-2: #fdf9f4;
+  --muted: #f0e9e0;
+  --ink: #33251d;
+  --ink-2: #5b4f46;
+  --ink-3: #8e847d;
+  --line: #e4dfdb;
+  --line-strong: #c2b9b2;
+  --accent: #b84200;
+  --accent-ink: #fffdfa;
+  --frame: #2a2926;
+
+  --font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", "SF Mono",
+    Menlo, Consolas, monospace;
+
+  --slide-w: 1600px;
+  --slide-h: 900px;
+  --pad: 96px;
+  --scale: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #333333;
+    --surface: #201d1b;
+    --surface-2: #292623;
+    --muted: #2b2724;
+    --ink: #f0e9e0;
+    --ink-2: #cfcac4;
+    --ink-3: #a29e99;
+    --line: #3e3c3a;
+    --line-strong: #5e5a57;
+    --accent: #e7b063;
+    --accent-ink: #201d1b;
+    --frame: #141413;
+  }
+}
+
+:root[data-theme="dark"] {
+  --canvas: #333333;
+  --surface: #201d1b;
+  --surface-2: #292623;
+  --muted: #2b2724;
+  --ink: #f0e9e0;
+  --ink-2: #cfcac4;
+  --ink-3: #a29e99;
+  --line: #3e3c3a;
+  --line-strong: #5e5a57;
+  --accent: #e7b063;
+  --accent-ink: #201d1b;
+  --frame: #141413;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  position: relative;
+  overflow: hidden;
+  background: var(--frame);
+  font-family: var(--font-ui);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------- stage */
+
+/* The stage keeps its logical 1600×900 layout box and is scaled + offset by
+   deck.js. Centering it in CSS would not work: the un-scaled box overflows the
+   viewport, so the browser aligns the overflow at the start instead of centering. */
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  overflow: hidden;
+  background: var(--canvas);
+  transform-origin: 0 0;
+  transform: translate(var(--ox, 0px), var(--oy, 0px)) scale(var(--scale, 1));
+  box-shadow: 0 40px 120px rgb(0 0 0 / 0.45);
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding: var(--pad);
+  background: var(--canvas);
+}
+
+.slide.is-active {
+  display: flex;
+}
+
+.slide > .notes {
+  display: none;
+}
+
+/* ------------------------------------------------------------- typography */
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  font-size: 92px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+h2 {
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+h3 {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.lede {
+  font-size: 44px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* `:where` keeps this at element specificity, so .kicker / .lede / .meta win. */
+.body,
+:where(.slide) p {
+  font-size: 30px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.body + .body {
+  margin-top: 20px;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--ink-3);
+}
+
+em,
+.hl {
+  font-style: normal;
+  color: var(--accent);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--ink);
+  background: var(--muted);
+  padding: 0.08em 0.34em;
+}
+
+/* ---------------------------------------------------------------- lists */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  list-style: none;
+  margin-top: 12px;
+}
+
+.list > li {
+  position: relative;
+  padding-left: 46px;
+  font-size: 32px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.list > li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.62em;
+  width: 14px;
+  height: 2px;
+  background: var(--accent);
+}
+
+.list > li b,
+.list > li strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.list.tight {
+  gap: 14px;
+}
+
+.list.tight > li {
+  font-size: 26px;
+}
+
+/* --------------------------------------------------------------- layouts */
+
+.slide.center {
+  justify-content: center;
+}
+
+.slide.cover {
+  justify-content: center;
+  gap: 34px;
+}
+
+.slide.cover h1 {
+  max-width: 1180px;
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  margin-top: 56px;
+  align-items: start;
+}
+
+.cols.asym {
+  grid-template-columns: 1.15fr 0.85fr;
+}
+
+.card {
+  padding: 36px 40px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.card h3 {
+  margin-bottom: 16px;
+}
+
+.card p,
+.card li {
+  font-size: 24px;
+  line-height: 1.55;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.rule {
+  height: 1px;
+  background: var(--line);
+  margin: 34px 0;
+}
+
+/* ------------------------------------------------------------------ code */
+
+pre {
+  margin-top: 40px;
+  padding: 34px 40px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+pre code {
+  display: block;
+  padding: 0;
+  background: none;
+  font-size: 26px;
+  line-height: 1.62;
+  color: var(--ink);
+  white-space: pre;
+}
+
+pre .c {
+  color: var(--ink-3);
+}
+
+pre .k {
+  color: var(--accent);
+}
+
+pre + p,
+pre + .body {
+  margin-top: 34px;
+}
+
+/* --------------------------------------------------------------- chrome */
+
+.progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 3px;
+  background: var(--accent);
+  transition: width 160ms linear;
+  z-index: 10;
+}
+
+.counter {
+  position: absolute;
+  right: 28px;
+  bottom: 18px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--ink-3);
+  z-index: 10;
+}
+
+.notes-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 42vh;
+  overflow: auto;
+  padding: 22px 28px 30px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  z-index: 20;
+}
+
+.notes-panel[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------------- print */
+
+@page {
+  size: 1600px 900px;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    display: block;
+    overflow: visible;
+    background: #fff;
+  }
+
+  .stage {
+    position: static;
+    width: auto;
+    height: auto;
+    transform: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .slide,
+  .slide.is-active {
+    position: static;
+    display: flex !important;
+    width: var(--slide-w);
+    height: var(--slide-h);
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .slide:last-of-type {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .progress,
+  .counter,
+  .notes-panel,
+  .notes {
+    display: none !important;
+  }
+}

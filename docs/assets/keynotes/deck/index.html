@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ech0 — Product &amp; Engineering Showcase</title>
+<link rel="stylesheet" href="../deck.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="stage">
+
+  <section class="slide cover">
+    <p class="mark">Ech0</p>
+    <h1>Let your thoughts flow.</h1>
+    <p class="lede cn">一个属于自己的个人时间线。</p>
+    <p class="meta-line">Self-hosted · Open Source · Personal Timeline</p>
+    <p class="foot">github.com/lin-snow/Ech0</p>
+    <span class="orb" aria-hidden="true"></span>
+    <aside class="notes">三十秒立住：开源、自托管、个人时间线。这句话说完就翻页。</aside>
+  </section>
+
+  <section class="slide need">
+    <p class="eyebrow">02 — The Story</p>
+    <h2 class="cn">表达应该持续发生，<br>而不只是被记录。</h2>
+    <ul class="bullets lg">
+      <li>内容需要一个长期存在的归属地</li>
+      <li>时间线应该由发布者掌控</li>
+      <li>分享与互动不应该依赖单一平台</li>
+    </ul>
+    <p class="footnote">笔记擅长保存，平台擅长分发，中间缺一个属于自己的空间。</p>
+    <aside class="notes">只讲「记录之后」：发布、被访问、被回应，以及长期留在自己手里。</aside>
+  </section>
+
+  <section class="slide own">
+    <p class="eyebrow">03 — The Story</p>
+    <h2>A Timeline You Own</h2>
+    <p class="lede cn">Ech0 是一台装在你服务器上的个人时间线。</p>
+    <div class="quad">
+      <div><p class="k">Personal</p><p class="d">围绕个人表达与内容积累</p></div>
+      <div><p class="k">Publishable</p><p class="d">公开或按权限分享内容</p></div>
+      <div><p class="k">Interactive</p><p class="d">评论、Reactions 与分享</p></div>
+      <div><p class="k">Self-hosted</p><p class="d">数据与运行环境由自己掌控</p></div>
+    </div>
+    <p class="footnote">不是又一个笔记工具，也不是又一个社交网络。</p>
+    <aside class="notes">四个词讲完产品边界；强调自托管是体验的基础，不是附加选项。</aside>
+  </section>
+
+  <section class="slide flow">
+    <p class="eyebrow">04 — The Product</p>
+    <h2>One timeline. Many ways to express.</h2>
+    <p class="chain"><span>Write</span><i>→</i><span>Enrich</span><i>→</i><span>Publish</span><i>→</i><span>Interact</span><i>→</i><span>Discover</span></p>
+    <ul class="bullets">
+      <li>Markdown 内容编辑</li>
+      <li>图片、音频、视频与链接卡片</li>
+      <li>时间线、评论、Reactions 与分享</li>
+      <li>标签、搜索与 RSS</li>
+    </ul>
+    <figure class="shot">
+      <img src="assets/product.png" alt="Ech0 时间线界面">
+    </figure>
+    <aside class="notes">先让观众看到产品：编辑、时间线、互动三个场景，功能一句带过。</aside>
+  </section>
+
+  <section class="slide data">
+    <p class="eyebrow">05 — The Product</p>
+    <h2>Your Data, Your Rules</h2>
+    <p class="lede cn">自托管不只是「服务跑在自己机器上」，<br>更要紧的是数据能被理解、备份、带走。</p>
+    <ul class="bullets lg">
+      <li>数据运行在自己的基础设施上</li>
+      <li>内容与附件可导出、备份、迁移</li>
+      <li>本地文件系统与 S3 兼容存储，同一套接口</li>
+      <li>RSS 与开放接口，为内容保留出口</li>
+    </ul>
+    <aside class="notes">SQLite 存核心数据，VireFS 统一存储；快照、Capsule、Memos 迁移都在这一页之后。</aside>
+  </section>
+
+  <section class="slide run">
+    <p class="eyebrow">06 — The Product</p>
+    <h2>Simple to Run, Easy to Keep</h2>
+    <div class="run-body">
+      <pre class="term"><code><span class="p">$</span> docker run -d \
+    -p 6277:6277 \
+    -v ./data:/app/data \
+    sn0wl1n/ech0:latest</code></pre>
+      <div class="facts">
+        <div><b>单二进制</b>前端资源内嵌</div>
+        <div><b>三种编排</b>Docker · Compose · Helm</div>
+        <div><b>三种平台</b>Linux · Windows · ARM</div>
+        <div><b>三个入口</b>Web · CLI · TUI</div>
+      </div>
+    </div>
+    <p class="footnote">目标不是最小镜像，是让安装、升级、备份形成一条清晰的路径。</p>
+    <aside class="notes">不要背参数，只说一句：一条命令起来，升级是换镜像。</aside>
+  </section>
+
+  <section class="slide open">
+    <p class="eyebrow">07 — The Product</p>
+    <h2>Open by Default</h2>
+    <dl class="rows">
+      <div><dt>REST API</dt><dd>集成与自动化</dd></div>
+      <div><dt>Webhook</dt><dd>事件通知与外部工作流</dd></div>
+      <div><dt>CLI / TUI</dt><dd>终端管理与脚本操作</dd></div>
+      <div><dt>MCP</dt><dd>连接外部 AI 客户端</dd></div>
+      <div><dt>Copilot</dt><dd>面向个人内容的检索与问答</dd></div>
+    </dl>
+    <p class="footnote">开放的价值不在接口数量，在你能否用别的方式管理自己的时间线。</p>
+    <aside class="notes">MCP 和 Copilot 的区别一句话带过，第 11 页再展开。</aside>
+  </section>
+
+  <section class="slide arch">
+    <p class="eyebrow">08 — The Engineering</p>
+    <h2>A modular application,<br>designed for a small footprint.</h2>
+    <div class="bands">
+      <div class="band"><p class="k">Clients</p><p class="d">Vue 3 Web · CLI · TUI · External clients</p></div>
+      <div class="band"><p class="k">Application</p><p class="d">Gin / HTTP · SSH · MCP</p></div>
+      <div class="band"><p class="k">Core</p><p class="d">Handler · Service · Repository</p></div>
+      <div class="band"><p class="k">Data</p><p class="d">SQLite · VireFS · Full-text / Vector Index</p></div>
+      <div class="band"><p class="k">Infrastructure</p><p class="d">Busen · Async Tasks · Webhooks</p></div>
+    </div>
+    <p class="verdict">Clear boundaries. One deployable application.</p>
+    <aside class="notes">模块化单体：对用户是一个应用，对开发者是一组边界。</aside>
+  </section>
+
+  <section class="slide foundations">
+    <p class="eyebrow">09 — The Engineering</p>
+    <h2>Extract abstractions from real product needs.</h2>
+    <div class="cols">
+      <div class="panel">
+        <p class="k">Busen <span>Event Bus</span></p>
+        <ul>
+          <li>统一业务事件分发</li>
+          <li>类型化订阅，同步与异步分流</li>
+          <li>业务流程与下游消费者解耦</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="k">VireFS <span>Storage Abstraction</span></p>
+        <ul>
+          <li>本地文件与 S3 兼容存储同一套接口</li>
+          <li>业务侧只认一致的文件标识</li>
+          <li>切换后端不改业务代码</li>
+        </ul>
+      </div>
+    </div>
+    <p class="verdict">两个抽象都来自重复成本，不是为了多加一层。</p>
+    <aside class="notes">先说两处重复：事件有多个消费者，存储有两种后端。再说抽象。</aside>
+  </section>
+
+  <section class="slide reliability">
+    <p class="eyebrow">10 — The Engineering</p>
+    <h2>Long-running software<br>needs reliable boundaries.</h2>
+    <div class="cols">
+      <div class="panel">
+        <p class="k">Reliability <span>长期运行</span></p>
+        <ul>
+          <li>异步任务与明确的任务状态</li>
+          <li>取消、失败处理与重试</li>
+          <li>数据快照、导入与迁移</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="k">Security <span>访问控制</span></p>
+        <ul>
+          <li>OIDC / OAuth 2.0 / Passkey</li>
+          <li>Scoped Token 与细粒度授权</li>
+          <li>MCP / API 统一入口校验</li>
+          <li>出站请求安全控制，降低 SSRF 风险</li>
+        </ul>
+      </div>
+    </div>
+    <p class="verdict">能恢复、能控权，才算真的拥有。</p>
+    <aside class="notes">举例：导出是分钟级操作，所以进任务队列，不挂在 HTTP 请求上。</aside>
+  </section>
+
+  <section class="slide ai">
+    <p class="eyebrow">11 — The Engineering</p>
+    <h2>Bring AI to your timeline —<br>without losing control.</h2>
+    <div class="cols">
+      <div class="panel">
+        <p class="k">Copilot <span>In-product</span></p>
+        <ul>
+          <li>面向个人内容的检索与问答</li>
+          <li>RAG 检索增强生成</li>
+          <li>ReAct 工具调用与多轮处理</li>
+          <li>SSE 流式响应</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="k">MCP <span>External integration</span></p>
+        <ul>
+          <li>为外部 AI 客户端提供标准化工具入口</li>
+          <li>令牌与作用域控制访问范围</li>
+          <li>授权边界延伸到每一次工具调用</li>
+        </ul>
+      </div>
+    </div>
+    <p class="verdict">两者都不是「把数据库交给模型」。</p>
+    <aside class="notes">一个在产品内，一个对外；共同点是都走授权边界。</aside>
+  </section>
+
+  <section class="slide traction">
+    <p class="eyebrow">12 — The Impact</p>
+    <h2>Built in the open.<br>Used by a growing community.</h2>
+    <div class="stats">
+      <div class="stat"><p class="num">2,100</p><p class="cap">GitHub Stars</p></div>
+      <div class="stat"><p class="num">164</p><p class="cap">Forks</p></div>
+      <div class="stat"><p class="num">91,829</p><p class="cap">Docker Pulls</p></div>
+      <div class="stat"><p class="num">26</p><p class="cap">Contributors</p></div>
+    </div>
+    <p class="note">HelloGitHub 2025 · Go 类项目 Top 1　|　《科技爱好者周刊》收录推荐　|　数据截至 2026-11-18</p>
+    <aside class="notes">数字之外只说一句：有人部署、有人提 issue、有人提交代码。</aside>
+  </section>
+
+  <section class="slide ownership">
+    <p class="eyebrow">13 — The Impact</p>
+    <h2>End-to-end ownership,<br>from idea to operation.</h2>
+    <dl class="rows tight">
+      <div><dt>Product</dt><dd>产品定位、需求分析、功能边界</dd></div>
+      <div><dt>Architecture</dt><dd>系统设计、模块拆分、技术选型</dd></div>
+      <div><dt>Engineering</dt><dd>Go 后端、Vue 前端、CLI / TUI、基础设施</dd></div>
+      <div><dt>Delivery</dt><dd>CI/CD、部署、版本发布与迁移</dd></div>
+      <div><dt>Community</dt><dd>Issue、PR Review、文档与用户反馈</dd></div>
+    </dl>
+    <p class="verdict">Creator · Maintainer · Full-stack Engineer</p>
+    <aside class="notes">不讲简历，讲一个循环：发现问题 → 定义方案 → 实现 → 发布 → 反馈。</aside>
+  </section>
+
+  <section class="slide closing">
+    <p class="eyebrow">14 — The Impact</p>
+    <h2>Your thoughts.<br>Your timeline.</h2>
+    <p class="lede cn">让想法自然流动。</p>
+    <div class="links">
+      <p><span>Website</span>ech0.app</p>
+      <p><span>GitHub</span>github.com/lin-snow/Ech0</p>
+      <p><span>License</span>AGPL-3.0-or-later</p>
+    </div>
+    <span class="orb" aria-hidden="true"></span>
+    <aside class="notes">收在「不需要加入新的社交网络」：部署自己的实例就够了。</aside>
+  </section>
+
+</div>
+<div class="counter"></div>
+<script src="../deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# 部署到 Cloudflare Workers 时不上传的东西（md 与配置本身）
+*.md
+wrangler.jsonc
+.assetsignore
+**/*.md

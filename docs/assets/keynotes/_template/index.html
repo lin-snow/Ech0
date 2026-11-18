@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>版式范例 — Ech0 keynote</title>
+<link rel="stylesheet" href="../deck.css">
+</head>
+<body>
+
+<div class="stage">
+
+  <section class="slide cover">
+    <p class="kicker">Ech0 · Keynote</p>
+    <h1>一份用 HTML 写的演讲稿</h1>
+    <p class="lede">没有构建步骤，没有依赖。<br>打开 <code>index.html</code> 就能讲。</p>
+    <p class="meta">这份文件同时是版式清单：复制它，删掉不要的页</p>
+    <aside class="notes">按 n 显示这段备注。讲稿只给讲者看，屏幕上不出现，也不进 PDF。</aside>
+  </section>
+
+  <section class="slide center">
+    <p class="kicker">为什么不是 Slidev / Marp</p>
+    <h2>仓库里已经有四个同一体裁的产物</h2>
+    <div class="rule"></div>
+    <ul class="list">
+      <li><b>成本</b>：框架要一份 pnpm workspace、一个 lockfile、一条 CI 和版本跟随；换来的只是 Markdown 写稿。</li>
+      <li><b>交付</b>：会议要 PDF。<code>@page</code> + <code>@media print</code> 就是导出器，一行命令不用写。</li>
+      <li><b>真相</b>：真需要代码高亮、复杂构图时，最后还是落回 HTML —— 中间那层只会挡路。</li>
+    </ul>
+    <aside class="notes">要点：不要为一个季度讲一次的产物引入第二个前端工具链。</aside>
+  </section>
+
+  <section class="slide center">
+    <p class="kicker">版式 · 两栏</p>
+    <h2>左讲判断，右放证据</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>单二进制</h3>
+        <p>Go 服务端 + 被 <code>go:embed</code> 吃掉的 SPA，部署只有一个文件和一个 <code>data/</code>。</p>
+      </div>
+      <div class="card">
+        <h3>可搬走</h3>
+        <p>Capsule 导出成静态站，搬去任何静态托管；快照走 <code>zip</code>，能原样回来。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide center">
+    <p class="kicker">版式 · 代码</p>
+    <h2>代码页别超过 18 行</h2>
+<pre><code><span class="c">// 事件出站：生产者只认识事件类型</span>
+eventbus.Notify(ctx, bus, event.EchoCreated{Echo: echo})
+
+<span class="c">// 订阅者自己登记，handler 不知道 webhook 存在</span>
+bus.On(ctx, func(ctx context.Context, e event.EchoCreated) error {
+    <span class="k">return</span> dispatcher.Dispatch(ctx, e)
+})</code></pre>
+    <p class="body">投影仪上 26px 等宽是下限；再长就拆两页。</p>
+  </section>
+
+  <section class="slide center">
+    <p class="lede">“一个人维护的产品，<em>架构的复杂度</em>必须留在能一眼看完的地方。”</p>
+    <p class="meta" style="margin-top: 40px">版式 · 大字引语</p>
+  </section>
+
+  <section class="slide cover">
+    <p class="kicker">谢谢</p>
+    <h1>ech0.app</h1>
+    <p class="meta">按 <code>f</code> 全屏 · 按 <code>t</code> 换主题 · 按 <code>n</code> 看备注</p>
+  </section>
+
+  <div class="progress"></div>
+  <div class="counter"></div>
+
+</div>
+
+<div class="notes-panel" hidden></div>
+
+<script src="../deck.js"></script>
+</body>
+</html>
