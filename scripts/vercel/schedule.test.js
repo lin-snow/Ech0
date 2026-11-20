@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { scheduleHours } from '../../api/schedule.js'
+import { scheduleHours } from '../../deployment/queue/api/schedule.js'
 
 test('daily reconciliation covers the latest possible following cron and deduplicates overlapping hours', async () => {
   const first = Date.UTC(2026, 10, 1)

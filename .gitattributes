@@ -5,3 +5,4 @@ docs/** linguist-documentation
 # 忽略前端资源
 *.js linguist-language=Vue
 *.css linguist-language=Vue
+scripts/vercel/*.sh text eol=lf

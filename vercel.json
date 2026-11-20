@@ -1,13 +1,29 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/deliver.js": {
-      "experimentalTriggers": [
-        { "type": "queue/v2beta", "topic": "ech0-maintenance" }
-      ]
+  "services": {
+    "backend": {
+      "root": ".",
+      "framework": "go",
+      "entrypoint": "cmd/api/main.go",
+      "buildCommand": "sh scripts/vercel/build.sh"
+    },
+    "queue": {
+      "root": "deployment/queue",
+      "bindings": [
+        { "type": "service", "service": "backend", "format": "url", "env": "ECH0_SERVICE_URL" }
+      ],
+      "functions": {
+        "api/deliver.js": {
+          "experimentalTriggers": [
+            { "type": "queue/v2beta", "topic": "ech0-maintenance" }
+          ]
+        }
+      }
     }
   },
-  "crons": [
-    { "path": "/api/schedule", "schedule": "0 0 * * *" }
-  ]
+  "rewrites": [
+    { "source": "/api/schedule", "destination": { "service": "queue" } },
+    { "source": "/(.*)", "destination": { "service": "backend" } }
+  ],
+  "crons": [{ "path": "/api/schedule", "schedule": "0 0 * * *" }]
 }

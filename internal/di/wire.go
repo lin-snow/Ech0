@@ -26,6 +26,7 @@ import (
 	"github.com/lin-snow/ech0/internal/repository"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	"github.com/lin-snow/ech0/internal/server"
+	"github.com/lin-snow/ech0/internal/serverless"
 	"github.com/lin-snow/ech0/internal/service"
 	copilotService "github.com/lin-snow/ech0/internal/service/copilot"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
@@ -333,4 +334,10 @@ func ProvideSubscriptionProviders(
 	disp *webhook.Dispatcher,
 ) []eventbus.Subscriber {
 	return []eventbus.Subscriber{ap, ep, disp}
+}
+
+func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless.Runtime, error) {
+	wire.Build(eventbus.ProvideProvider, cache.ProviderSet, transaction.ProviderSet, VisitorSet, StorageSet,
+		BuildJobManager, BuildHandlers, BuildMiddlewares, BuildEventRegistrar, server.ProviderSet, serverless.New)
+	return nil, nil
 }

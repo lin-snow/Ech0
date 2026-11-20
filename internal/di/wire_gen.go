@@ -54,6 +54,7 @@ import (
 	repository13 "github.com/lin-snow/ech0/internal/repository/visitor"
 	repository3 "github.com/lin-snow/ech0/internal/repository/webhook"
 	"github.com/lin-snow/ech0/internal/server"
+	"github.com/lin-snow/ech0/internal/serverless"
 	service13 "github.com/lin-snow/ech0/internal/service"
 	"github.com/lin-snow/ech0/internal/service/auth"
 	service7 "github.com/lin-snow/ech0/internal/service/comment"
@@ -257,6 +258,42 @@ func BuildTasker(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transacti
 		return nil, err
 	}
 	return manager, nil
+}
+
+func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless.Runtime, error) {
+	engine := server.ProvideGinEngine()
+	cacheCache, err := cache.ProvideCache()
+	if err != nil {
+		return nil, err
+	}
+	gormTransactor := transaction.NewGormTransactor(dbProvider)
+	v := bus.ProvideProvider()
+	tracker := visitor.NewTracker()
+	keyValueRepository := keyvalue.NewKeyValueRepository(dbProvider, cacheCache)
+	store := ProvideStorageKV(keyValueRepository)
+	manager := storage.ProvideStorageManager(store)
+	jobManager, err := BuildJobManager(dbProvider, cacheCache, manager, v, gormTransactor)
+	if err != nil {
+		return nil, err
+	}
+	bundle, err := BuildHandlers(dbProvider, cacheCache, gormTransactor, v, tracker, jobManager, manager)
+	if err != nil {
+		return nil, err
+	}
+	deps, err := BuildMiddlewares(dbProvider, cacheCache)
+	if err != nil {
+		return nil, err
+	}
+	serverServer := server.ProvideHTTPServer(engine, bundle, deps)
+	eventRegistrar, err := BuildEventRegistrar(dbProvider, v, cacheCache, gormTransactor)
+	if err != nil {
+		return nil, err
+	}
+	runtime, err := serverless.New(ctx, serverServer, eventRegistrar, gormTransactor, store, manager)
+	if err != nil {
+		return nil, err
+	}
+	return runtime, nil
 }
 
 // wire.go:
