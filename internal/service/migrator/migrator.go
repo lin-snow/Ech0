@@ -70,22 +70,25 @@ func (s *MigratorService) DownloadExport(ctx *gin.Context, reqCtx context.Contex
 	}
 
 	if format == migratorModel.ExportFormatSnapshot && config.Config().Database.Type == "libsql" && s.storage != nil && s.storage.GetSelector().ObjectEnabled() {
-		var url string
+		var download snapshot.Download
 		if platform.IsFunction(reqCtx) {
-			url, err = snapshot.PublishedDownload(reqCtx, database.GetDB(), s.storage.GetStorageConfig(reqCtx))
+			download, err = snapshot.PublishedDownload(reqCtx, database.GetDB(), s.storage.GetStorageConfig(reqCtx))
 		} else {
-			url, err = snapshot.LatestDownloadURL(reqCtx, s.storage.GetStorageConfig(reqCtx))
+			download, err = snapshot.LatestDownload(reqCtx, s.storage.GetStorageConfig(reqCtx))
 		}
 		if err != nil {
+			return err
+		}
+		if err := eventbus.Emit(reqCtx, s.bus, event.SystemExport{Info: "System export completed", Size: download.Size}); err != nil {
 			return err
 		}
 		ctx.Header("Cache-Control", "private, no-store")
 		ctx.Header("Referrer-Policy", "no-referrer")
 		if ctx.Query("link") == "1" {
-			ctx.JSON(200, commonModel.OK(url))
+			ctx.JSON(200, commonModel.OK(download.URL))
 			return nil
 		}
-		ctx.Redirect(302, url)
+		ctx.Redirect(302, download.URL)
 		ctx.Writer.WriteHeaderNow()
 		return nil
 	}

@@ -335,12 +335,18 @@ def verify_web_export(first, second, token, root, storage_port, db_port, cron_se
     else:
         raise TimeoutError("snapshot did not finish")
 
+    sql(db_port, "INSERT INTO webhooks(id,url,is_active) VALUES('download-fixture','https://example.invalid/',1)")
     request = Request(f"http://127.0.0.1:{second}/api/migration/export/download", headers=header)
     location = signed_location(request, 302)
     assert urlsplit(location).port == storage_port and "X-Amz-Expires=300" in location
     link = json.loads(call(second, "/api/migration/export/download?format=snapshot&link=1", headers=header))
     assert link["code"] == 1 and urlsplit(link["data"]).path == urlsplit(location).path
+    exported = sql(db_port, "SELECT json_extract(CAST(payload AS TEXT),'$.payload.Size') FROM ech0_deliveries "
+                   "WHERE subject='download-fixture' AND json_extract(CAST(payload AS TEXT),'$.topic')='system.export'")
+    assert len(exported) == 2
+    sql(db_port, "DELETE FROM webhooks WHERE id='download-fixture'")
     with urlopen(location, timeout=10) as response, zipfile.ZipFile(io.BytesIO(response.read())) as archive:
+        assert all(int(row[0]["value"]) == int(response.headers["Content-Length"]) for row in exported)
         assert archive.getinfo("ech0.db").file_size > 8 << 20
         assert archive.namelist() == ["ech0.db"]
         path = Path(root) / "restored.db"

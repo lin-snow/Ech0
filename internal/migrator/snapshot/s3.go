@@ -229,32 +229,41 @@ func (r contextReader) Read(b []byte) (int, error) {
 	return r.reader.Read(b)
 }
 
-func LatestDownloadURL(ctx context.Context, cfg config.StorageConfig) (string, error) {
+type Download struct {
+	URL  string
+	Size int64
+}
+
+func LatestDownload(ctx context.Context, cfg config.StorageConfig) (Download, error) {
 	fs, err := BuildS3FS(cfg)
 	if err != nil {
-		return "", err
+		return Download{}, err
 	}
 	files, err := fs.List(ctx, s3SnapshotPrefix)
 	if err != nil {
-		return "", err
+		return Download{}, err
 	}
-	var latest string
+	var latest virefs.FileInfo
 	for _, item := range files.Files {
 		key := item.Key
-		if !item.IsDir && strings.HasPrefix(key, s3SnapshotPrefix+"ech0_snapshot_") && strings.HasSuffix(key, ".zip") && key > latest {
-			latest = key
+		if !item.IsDir && strings.HasPrefix(key, s3SnapshotPrefix+"ech0_snapshot_") && strings.HasSuffix(key, ".zip") && key > latest.Key {
+			latest = item
 		}
 	}
-	if latest == "" {
-		return "", ErrNoSnapshot
+	if latest.Key == "" {
+		return Download{}, ErrNoSnapshot
 	}
+	return signDownload(ctx, fs, latest.Key, latest.Size)
+}
+
+func signDownload(ctx context.Context, fs virefs.FS, key string, size int64) (Download, error) {
 	signer, ok := fs.(virefs.Presigner)
 	if !ok {
-		return "", fmt.Errorf("object store cannot sign a snapshot download")
+		return Download{}, fmt.Errorf("object store cannot sign a snapshot download")
 	}
-	signed, err := signer.PresignGet(ctx, latest, 5*time.Minute)
+	signed, err := signer.PresignGet(ctx, key, 5*time.Minute)
 	if err != nil {
-		return "", err
+		return Download{}, err
 	}
-	return signed.URL, nil
+	return Download{URL: signed.URL, Size: size}, nil
 }

@@ -378,30 +378,31 @@ func (c *checkpoint) uploadPart(ctx context.Context, db *gorm.DB, cfg config.Sto
 	return false, nil
 }
 
-func PublishedDownload(ctx context.Context, db *gorm.DB, cfg config.StorageConfig) (string, error) {
-	if !db.WithContext(ctx).Migrator().HasTable("ech0_export_latest") {
-		return LatestDownloadURL(ctx, cfg)
+func PublishedDownload(ctx context.Context, db *gorm.DB, cfg config.StorageConfig) (Download, error) {
+	var hasPointer bool
+	if err := db.WithContext(ctx).Raw("SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='ech0_export_latest')").Row().Scan(&hasPointer); err != nil {
+		return Download{}, err
+	}
+	if !hasPointer {
+		return LatestDownload(ctx, cfg)
 	}
 	var name string
 	if err := db.WithContext(ctx).Raw("SELECT name FROM ech0_export_latest WHERE slot=1").Row().Scan(&name); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", ErrNoSnapshot
+			return Download{}, ErrNoSnapshot
 		}
-		return "", err
+		return Download{}, err
 	}
 	fs, err := BuildS3FS(cfg)
 	if err != nil {
-		return "", err
+		return Download{}, err
 	}
-	signer, ok := fs.(virefs.Presigner)
-	if !ok {
-		return "", errors.New("object store cannot sign a snapshot download")
-	}
-	signed, err := signer.PresignGet(ctx, s3SnapshotPrefix+name, 5*time.Minute)
+	key := s3SnapshotPrefix + name
+	info, err := fs.Stat(ctx, key)
 	if err != nil {
-		return "", err
+		return Download{}, err
 	}
-	return signed.URL, nil
+	return signDownload(ctx, fs, key, info.Size)
 }
 
 func CancelDurableExport(ctx context.Context, db *gorm.DB, cfg config.StorageConfig) (bool, error) {
