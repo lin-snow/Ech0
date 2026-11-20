@@ -8,6 +8,7 @@ import (
 	"fmt"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
+	copilotRepository "github.com/lin-snow/ech0/internal/repository/copilot"
 	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	"gorm.io/driver/sqlite"
 	"net"
@@ -72,6 +73,7 @@ func TestLibSQLPersistence(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	require.NoError(t, checkRemoteSchema(b))
+	testCopilotRounds(t, a, b)
 	for i, db := range []*gorm.DB{a, b, a, b} {
 		now := time.Unix(100, 0)
 		if i == 3 {
@@ -247,4 +249,37 @@ func testSnapshotHistory(t *testing.T, a, b *gorm.DB) {
 	}))
 	require.NoError(t, h.Finish(ctx, b))
 	require.Error(t, h.check(a))
+}
+
+func testCopilotRounds(t *testing.T, a, b *gorm.DB) {
+	t.Helper()
+	ctx := t.Context()
+	first := copilotRepository.NewRounds(func() *gorm.DB { return a })
+	second := copilotRepository.NewRounds(func() *gorm.DB { return b })
+	require.NoError(t, first.Register(ctx, "ask", "owner", time.Now().Add(time.Minute)))
+	payload, err := second.Read(ctx, "ask")
+	require.NoError(t, err)
+	require.Nil(t, payload)
+	ok, err := second.Reply(ctx, "ask", "someone-else", []byte("other"))
+	require.NoError(t, err)
+	require.False(t, ok)
+	type result struct {
+		applied bool
+		err     error
+	}
+	results := make(chan result, 2)
+	for _, r := range []*copilotRepository.Rounds{first, second} {
+		go func() { ok, err := r.Reply(ctx, "ask", "owner", []byte("confirmed")); results <- result{ok, err} }()
+	}
+	x, y := <-results, <-results
+	require.NoError(t, x.err)
+	require.NoError(t, y.err)
+	require.NotEqual(t, x.applied, y.applied)
+	payload, err = first.Read(ctx, "ask")
+	require.NoError(t, err)
+	require.Equal(t, []byte("confirmed"), payload)
+	require.NoError(t, first.Close(ctx, "ask"))
+	ok, err = second.Reply(ctx, "ask", "owner", []byte("late"))
+	require.NoError(t, err)
+	require.False(t, ok)
 }

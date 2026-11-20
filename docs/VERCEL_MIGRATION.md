@@ -131,7 +131,8 @@ Configurer une règle R2 d’abandon des uploads multipart incomplets pour couvr
 - [x] Raccorder la rétention des statistiques au worker et tester la planification avec chevauchement.
 - [ ] Raccorder une boîte d’envoi transactionnelle pour les effets métier et étendre les baux et les reprises aux autres jobs.
 - [ ] Valider les volumes proches des quotas hébergés et achever les imports web de grosses archives Ech0, Memos et Capsule.
-- [ ] Partager les journaux et les interactions Copilot entre instances et valider les flux de sécurité en navigateur.
+- [x] Acheminer les réponses aux confirmations Copilot entre instances via libSQL. Une écriture conditionnelle accepte une seule réponse du propriétaire. Les slots expirent avec le flux et sont exclus des snapshots.
+- [ ] Partager les journaux entre instances et valider les flux de sécurité en navigateur.
 - [ ] Tester Docker, la preview Hobby, R2 et Turso hébergés, les limites de durée, les streams, les budgets réels et l’ensemble des accès privés.
 
 Pour synchroniser l’amont, intégrer les révisions sur une branche de travail, vérifier les nouveaux modèles, routes, effets asynchrones et accès disque, régénérer Wire et OpenAPI, puis répéter la matrice SQLite/libSQL. Mettre à jour la révision de référence après la recette.

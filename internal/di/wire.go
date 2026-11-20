@@ -24,6 +24,7 @@ import (
 	"github.com/lin-snow/ech0/internal/migrator"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	"github.com/lin-snow/ech0/internal/repository"
+	copilotRepository "github.com/lin-snow/ech0/internal/repository/copilot"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	"github.com/lin-snow/ech0/internal/server"
@@ -190,6 +191,8 @@ var HandlerSet = wire.NewSet(
 	handler.EmbeddingSet,
 
 	service.CopilotSet,
+	copilotRepository.NewRounds,
+	wire.Bind(new(copilotService.RoundStore), new(*copilotRepository.Rounds)),
 	wire.Bind(new(copilotService.UserReader), new(*userService.UserService)),
 	handler.CopilotSet,
 

@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strconv"
@@ -94,11 +95,9 @@ type askEvent struct {
 
 // askRegistry is where a parked run and the request carrying its answer meet.
 //
-// One process, one map. Ech0 is a single binary and a run dies with the request
-// that started it, so the rendezvous never has to outlive either — there is no
-// second replica to reach and no stream left to resume on. A durable slot would
-// buy nothing and would have to be swept by something.
+// Local installations use a channel. Function instances exchange replies in libSQL.
 type askRegistry struct {
+	shared  RoundStore
 	mu      sync.Mutex
 	pending map[string]*pendingAsk
 }
@@ -177,24 +176,28 @@ func (a *asker) Ask(ctx context.Context, questions []AskQuestion) ([]AskAnswer, 
 	}
 
 	ask := Ask{AskID: uuidUtil.NewV7(), Questions: questions}
-	pending := a.registry.open(ask.AskID, a.userID)
-	defer a.registry.close(ask.AskID)
+	waitCtx, cancel := context.WithTimeout(ctx, a.budget)
+	defer cancel()
+	wait, closeRound, err := a.registry.register(waitCtx, ask.AskID, a.userID)
+	if err != nil {
+		return nil, err
+	}
+	defer closeRound()
 
 	if !a.emit(ctx, askEvent{Open: &ask}) {
 		return nil, ctx.Err()
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, a.budget)
-	defer cancel()
-
-	select {
-	case answers := <-pending.answers:
-		a.record(AskExchange{Questions: questions, Answers: answers})
-		return answers, nil
-	case <-waitCtx.Done():
+	answers, err := wait()
+	if err != nil {
 		a.emit(ctx, askEvent{Closed: ask.AskID})
-		return nil, errors.New(a.strs.Unanswered)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, errors.New(a.strs.Unanswered)
+		}
+		return nil, err
 	}
+	a.record(AskExchange{Questions: questions, Answers: answers})
+	return answers, nil
 }
 
 func (a *asker) emit(ctx context.Context, ev askEvent) bool {
@@ -302,6 +305,20 @@ func (s *CopilotService) AnswerAsk(ctx context.Context, askID string, answers []
 	user, err := s.requireAdmin(ctx)
 	if err != nil {
 		return err
+	}
+	if s.asks.shared != nil {
+		payload, err := json.Marshal(answers)
+		if err != nil {
+			return err
+		}
+		applied, err := s.asks.shared.Reply(ctx, askID, user.ID, payload)
+		if err != nil {
+			return err
+		}
+		if !applied {
+			return errors.New(commonModel.CHAT_ASK_NOT_PENDING)
+		}
+		return nil
 	}
 	return s.asks.answer(askID, user.ID, answers)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/lin-snow/ech0/internal/securitystate"
 	"net/url"
 	"strings"
 	"sync"
@@ -15,16 +14,18 @@ import (
 
 	"github.com/lin-snow/ech0/internal/config"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"github.com/tursodatabase/libsql-client-go/libsql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-const remoteSchemaVersion = 8
+const remoteSchemaVersion = 9
 
 func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, error) {
 	endpoint, err := url.Parse(cfg.URL)
@@ -176,6 +177,12 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		}
 		if version == 7 {
 			if err := tx.AutoMigrate(&authModel.DeviceGrant{}); err != nil {
+				return err
+			}
+			version = 8
+		}
+		if version == 8 {
+			if err := tx.AutoMigrate(&copilotModel.Round{}); err != nil {
 				return err
 			}
 			return tx.Exec("UPDATE ech0_schema SET version = ? WHERE id = 1", remoteSchemaVersion).Error

@@ -6,6 +6,7 @@ package database
 import (
 	"context"
 	"errors"
+	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	"os"
 	"path/filepath"
@@ -215,6 +216,7 @@ func migrateModels(db *gorm.DB) error {
 		&authModel.RevokedToken{},
 		&authModel.Challenge{},
 		&securitystate.Entry{},
+		&copilotModel.Round{},
 		&authModel.DeviceGrant{},
 		&oauthserverModel.Client{},
 		&oauthserverModel.ConsumedCode{},

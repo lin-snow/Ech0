@@ -9,8 +9,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
+	copilotRepository "github.com/lin-snow/ech0/internal/repository/copilot"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -415,4 +421,36 @@ func TestRoundTrip_AskUserAnsweredWithTypedText(t *testing.T) {
 	if body := w.body(); !strings.Contains(body, "好，用「工程」。") {
 		t.Fatalf("the run did not resume with the typed answer:\n%s", body)
 	}
+}
+
+func TestConfirmationOnAnotherInstance(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rounds.db")
+	service := func() *CopilotService {
+		s := newRoundTripService(t, &recordingEchoSvc{}, "")
+		db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+		require.NoError(t, err)
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = sqlDB.Close() })
+		require.NoError(t, db.AutoMigrate(&copilotModel.Round{}))
+		s.asks.shared = copilotRepository.NewRounds(func() *gorm.DB { return db })
+		return s
+	}
+	stream, receiver := service(), service()
+	a, events := newTestAsker(5 * time.Second)
+	a.registry = stream.asks
+	done := make(chan error, 1)
+	want := []AskAnswer{{QuestionID: "q", Custom: "allow"}}
+	go func() { _, err := a.Ask(t.Context(), []AskQuestion{{ID: "q", Text: "Proceed?"}}); done <- err }()
+	select {
+	case msg := <-events:
+		require.NotNil(t, msg.Open)
+		id := msg.Open.AskID
+		require.NoError(t, receiver.AnswerAsk(helpers.CtxAsUser("u1"), id, want))
+		require.Error(t, stream.AnswerAsk(helpers.CtxAsUser("u1"), id, want))
+	case <-time.After(5 * time.Second):
+		t.Fatal("missing ask event")
+	}
+	require.NoError(t, <-done)
+	require.Equal(t, want, a.exchanges()[0].Answers)
 }

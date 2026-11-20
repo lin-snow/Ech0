@@ -4,6 +4,7 @@
 package service
 
 import (
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/storage"
 	"golang.org/x/sync/singleflight"
@@ -35,13 +36,18 @@ func NewCopilotService(
 	userReader UserReader,
 	durableKV kvstore.Store,
 	storageManager *storage.Manager,
+	rounds RoundStore,
 ) *CopilotService {
+	asks := newAskRegistry()
+	if config.Config().Database.Type == "libsql" {
+		asks.shared = rounds
+	}
 	return &CopilotService{
 		echoService: echoService,
 		embedding:   embedding,
 		userReader:  userReader,
 		durableKV:   durableKV,
 		storage:     storageManager,
-		asks:        newAskRegistry(),
+		asks:        asks,
 	}
 }
