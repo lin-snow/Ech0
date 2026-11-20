@@ -102,7 +102,19 @@ func SnapshotTo(dstPath string) error {
 
 func SnapshotToContext(ctx context.Context, dstPath string) error {
 	if config.Config().Database.Type == "libsql" {
-		return writeRemoteSnapshot(ctx, GetDB(), dstPath)
+		db := GetDB()
+		history, err := StartSnapshotHistory(ctx, db)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+			defer cancel()
+			_ = history.finish(cleanup, db)
+		}()
+		return publishSnapshot(dstPath, func(staging string) error {
+			return materializeSnapshot(ctx, db, staging, &history)
+		})
 	}
 	return GetDB().WithContext(ctx).Exec("VACUUM INTO ?", dstPath).Error
 }

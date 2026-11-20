@@ -35,6 +35,10 @@ func BackupLibSQL(ctx context.Context, cfg config.DatabaseConfig, output string)
 }
 
 func writeRemoteSnapshot(ctx context.Context, source *gorm.DB, output string) error {
+	return publishSnapshot(output, func(staging string) error { return materializeSnapshot(ctx, source, staging, nil) })
+}
+
+func publishSnapshot(output string, write func(string) error) error {
 	if err := enableLocalSQLite(); err != nil {
 		return err
 	}
@@ -44,7 +48,7 @@ func writeRemoteSnapshot(ctx context.Context, source *gorm.DB, output string) er
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 	staging := filepath.Join(dir, "ech0.db")
-	if err := materializeSnapshot(ctx, source, staging); err != nil {
+	if err := write(staging); err != nil {
 		return err
 	}
 	if err := os.Chmod(staging, 0600); err != nil {
@@ -55,7 +59,7 @@ func writeRemoteSnapshot(ctx context.Context, source *gorm.DB, output string) er
 
 var remoteVecType = regexp.MustCompile(`(?i)^F32_BLOB\(([0-9]+)\)$`)
 
-func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) error {
+func materializeSnapshot(ctx context.Context, source *gorm.DB, file string, history *SnapshotHistory) error {
 	target, err := gorm.Open(sqlite.Open(file), buildGormConfig(logger.Silent))
 	if err != nil {
 		return err
@@ -68,12 +72,12 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) erro
 	if err := migrateModels(target.WithContext(ctx)); err != nil {
 		return err
 	}
-	return source.WithContext(ctx).Transaction(func(src *gorm.DB) error {
+	copyRows := func(src *gorm.DB) error {
 		if err := checkRemoteSchema(src); err != nil {
 			return err
 		}
 		var tables []string
-		if err := src.Raw("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_litestream_*' AND name NOT GLOB 'libsql_*' AND name <> 'ech0_schema' ORDER BY name").Scan(&tables).Error; err != nil {
+		if err := src.Raw(remoteTablesSQL).Scan(&tables).Error; err != nil {
 			return err
 		}
 		dest, err := pool.BeginTx(ctx, nil)
@@ -81,7 +85,7 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) erro
 			return err
 		}
 		defer func() { _ = dest.Rollback() }()
-		for _, table := range tables {
+		for n, table := range tables {
 			if table == "vec_echo" {
 				var typ string
 				if err := src.Raw("SELECT type FROM pragma_table_info('vec_echo') WHERE name='embedding'").Row().Scan(&typ); err != nil {
@@ -99,7 +103,11 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) erro
 					return err
 				}
 			}
-			if err := copyTable(ctx, src, dest, table); err != nil {
+			readTable, cursor, selectCols := quoteIdentifier(table), "rowid", "rowid,*"
+			if history != nil {
+				readTable, cursor, selectCols = historyPrefix(n)+"_rows", "_ech0_id", "*"
+			}
+			if err := copyTable(ctx, src, dest, table, readTable, cursor, selectCols); err != nil {
 				return fmt.Errorf("copy table %s: %w", table, err)
 			}
 		}
@@ -108,17 +116,29 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) erro
 		if _, err := dest.ExecContext(ctx, "INSERT INTO key_values(key,value) VALUES(?,?) ON CONFLICT(key) DO NOTHING", commonModel.EchosPrivateCreatedDroppedKey, "current schema exported from libSQL"); err != nil {
 			return err
 		}
+		if history != nil {
+			if err := history.check(src); err != nil {
+				return err
+			}
+		}
 		return dest.Commit()
-	})
+	}
+	source = source.WithContext(ctx)
+	if history != nil {
+		// Every SELECT finishes independently of the next page. The final
+		// generation and schema check governs publication of the finished file.
+		return copyRows(source)
+	}
+	return source.Transaction(copyRows)
 }
 
 func quoteIdentifier(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 
 // Seek by rowid inside a single remote transaction. Each response is bounded
 // to avoid downloading the entire database into the function's heap.
-func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name string) error {
+func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name, readTable, cursor, selectCols string) error {
 	table := quoteIdentifier(name)
-	query := "SELECT rowid,* FROM " + table
+	query := "SELECT " + selectCols + " FROM " + readTable
 	const pageSize = 64
 	var last int64
 	var insert *sql.Stmt
@@ -126,9 +146,9 @@ func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name string) err
 		var rows *sql.Rows
 		var err error
 		if first {
-			rows, err = src.Raw(query+" ORDER BY rowid LIMIT ?", pageSize).Rows()
+			rows, err = src.Raw(query+" ORDER BY "+cursor+" LIMIT ?", pageSize).Rows()
 		} else {
-			rows, err = src.Raw(query+" WHERE rowid > ? ORDER BY rowid LIMIT ?", last, pageSize).Rows()
+			rows, err = src.Raw(query+" WHERE "+cursor+" > ? ORDER BY "+cursor+" LIMIT ?", last, pageSize).Rows()
 		}
 		if err != nil {
 			return err

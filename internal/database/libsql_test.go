@@ -153,6 +153,7 @@ func TestLibSQLPersistence(t *testing.T) {
 	hits, err = reader.Search(ctx, []float32{0, 0}, 1, "another")
 	require.NoError(t, err)
 	require.Empty(t, hits)
+	testSnapshotHistory(t, a, b)
 	backup := filepath.Join(t.TempDir(), "ech0.db")
 	require.NoError(t, writeRemoteSnapshot(ctx, b, backup))
 	local, err := gorm.Open(sqlite.Open(backup), buildGormConfig(logger.Silent))
@@ -181,4 +182,31 @@ func TestLibSQLConfiguration(t *testing.T) {
 	}
 	_, err := openLibSQL(config.DatabaseConfig{URL: "libsql://example.com"}, logger.Silent)
 	require.ErrorContains(t, err, "TURSO_AUTH_TOKEN")
+}
+
+func testSnapshotHistory(t *testing.T, a, b *gorm.DB) {
+	t.Helper()
+	ctx := t.Context()
+	require.NoError(t, a.Exec("INSERT INTO key_values(key,value) VALUES ('capture_old','original'), ('capture_deleted','deleted')").Error)
+	h, err := StartSnapshotHistory(ctx, a)
+	require.NoError(t, err)
+	require.NoError(t, h.check(b))
+	_, err = StartSnapshotHistory(ctx, b)
+	require.Error(t, err)
+	require.NoError(t, b.Exec("UPDATE key_values SET value='after' WHERE key='capture_old'").Error)
+	require.NoError(t, b.Exec("UPDATE key_values SET value='latest' WHERE key='capture_old'").Error)
+	require.NoError(t, b.Exec("DELETE FROM key_values WHERE key='capture_deleted'").Error)
+	require.NoError(t, b.Exec("INSERT INTO key_values(key,value) VALUES('capture_new','later')").Error)
+	backup := filepath.Join(t.TempDir(), "captured.db")
+	require.NoError(t, materializeSnapshot(ctx, b, backup, &h))
+	native, err := gorm.Open(sqlite.Open(backup), buildGormConfig(logger.Silent))
+	require.NoError(t, err)
+	pool, err := native.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+	var values []string
+	require.NoError(t, native.Raw("SELECT value FROM key_values WHERE key LIKE 'capture_%' ORDER BY key").Scan(&values).Error)
+	require.Equal(t, []string{"deleted", "original"}, values)
+	require.NoError(t, h.finish(ctx, b))
+	require.Error(t, h.check(a))
 }
