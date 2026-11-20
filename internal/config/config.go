@@ -71,9 +71,11 @@ type OpenAPIConfig struct {
 }
 
 type DatabaseConfig struct {
-	Type    string `env:"ECH0_DB_TYPE"`
-	Path    string `env:"ECH0_DB_PATH"`
-	LogMode string `env:"ECH0_DB_LOGMODE"`
+	URL       string `env:"TURSO_DATABASE_URL"`
+	AuthToken string `env:"TURSO_AUTH_TOKEN" json:"-"`
+	Type      string `env:"ECH0_DB_TYPE"`
+	Path      string `env:"ECH0_DB_PATH"`
+	LogMode   string `env:"ECH0_DB_LOGMODE"`
 }
 
 type LogConfig struct {

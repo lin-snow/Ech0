@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 	"github.com/lin-snow/ech0/internal/config"
 	dbMigration "github.com/lin-snow/ech0/internal/database/migration"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -104,10 +103,25 @@ func InitDatabase() {
 	dbType := config.Config().Database.Type
 	dbPath := config.Config().Database.Path
 
+	if dbType == "libsql" {
+		remote, err := openLibSQL(config.Config().Database, configLogLevel())
+		if err == nil {
+			err = checkRemoteSchema(remote)
+			if err != nil {
+				pool, _ := remote.DB()
+				_ = pool.Close()
+			}
+		}
+		if err != nil {
+			util.HandlePanicError(&commonModel.ServerError{Msg: commonModel.INIT_DATABASE_PANIC, Err: err})
+		}
+		SetDB(remote)
+		return
+	}
 	if dbType != "sqlite" {
 		util.HandlePanicError(&commonModel.ServerError{
 			Msg: commonModel.INIT_DATABASE_PANIC,
-			Err: errors.New("unsupported ECH0_DB_TYPE " + strconv.Quote(dbType) + ` (only "sqlite" is supported)`),
+			Err: errors.New("unsupported ECH0_DB_TYPE " + strconv.Quote(dbType) + ` (expected "sqlite" or "libsql")`),
 		})
 	}
 
@@ -118,7 +132,9 @@ func InitDatabase() {
 		})
 	}
 
-	sqlite_vec.Auto()
+	if err := enableLocalSQLite(); err != nil {
+		util.HandlePanicError(&commonModel.ServerError{Msg: commonModel.INIT_DATABASE_PANIC, Err: err})
+	}
 	SQLiteDB, err := openSQLite(dbPath, configLogLevel())
 	if err != nil {
 		util.HandlePanicError(&commonModel.ServerError{
@@ -157,7 +173,9 @@ func InitDatabase() {
 	)
 }
 
-func MigrateDB() error {
+func MigrateDB() error { return migrateModels(GetDB()) }
+
+func migrateModels(db *gorm.DB) error {
 	models := []any{
 		&userModel.User{},
 		&userModel.UserLocalAuth{},
@@ -183,7 +201,7 @@ func MigrateDB() error {
 		&visitorModel.DailyStat{},
 	}
 
-	return GetDB().AutoMigrate(
+	return db.AutoMigrate(
 		models...,
 	)
 }

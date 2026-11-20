@@ -13,6 +13,7 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	model "github.com/lin-snow/ech0/internal/model/embedding"
 	"github.com/lin-snow/ech0/internal/transaction"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -31,7 +32,12 @@ func (r *EmbeddingRepository) getDB(ctx context.Context) *gorm.DB {
 	if tx, ok := transaction.TxFromContext(ctx); ok {
 		return tx
 	}
-	return r.db()
+	return r.db().WithContext(ctx)
+}
+
+func usesLibSQL(db *gorm.DB) bool {
+	dialector, ok := db.Dialector.(*sqlite.Dialector)
+	return ok && dialector.DriverName == "libsql"
 }
 
 func (r *EmbeddingRepository) EnsureVecTable(ctx context.Context, dim int) error {
@@ -42,7 +48,11 @@ func (r *EmbeddingRepository) EnsureVecTable(ctx context.Context, dim int) error
 		"CREATE VIRTUAL TABLE IF NOT EXISTS %s USING vec0(echo_id TEXT PRIMARY KEY, embedding FLOAT[%d])",
 		vecTable, dim,
 	)
-	return r.getDB(ctx).Exec(ddl).Error
+	db := r.getDB(ctx).WithContext(ctx)
+	if usesLibSQL(db) {
+		ddl = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s(echo_id TEXT PRIMARY KEY, embedding F32_BLOB(%d) NOT NULL CHECK(length(embedding) = %d))", vecTable, dim, dim*4)
+	}
+	return db.Exec(ddl).Error
 }
 
 func (r *EmbeddingRepository) DropVecTable(ctx context.Context) error {
@@ -89,8 +99,12 @@ func (r *EmbeddingRepository) Upsert(ctx context.Context, meta *model.EchoEmbedd
 		if err := tx.Exec("DELETE FROM "+vecTable+" WHERE echo_id = ?", meta.EchoID).Error; err != nil {
 			return err
 		}
+		insert := "INSERT INTO " + vecTable + "(echo_id, embedding) VALUES (?, ?)"
+		if usesLibSQL(tx) {
+			insert = "INSERT INTO " + vecTable + "(echo_id, embedding) VALUES (?, vector32(?))"
+		}
 		return tx.Exec(
-			"INSERT INTO "+vecTable+"(echo_id, embedding) VALUES (?, ?)",
+			insert,
 			meta.EchoID, vecToJSON(vector),
 		).Error
 	})
@@ -145,8 +159,12 @@ func (r *EmbeddingRepository) Search(ctx context.Context, vector []float32, k in
 		Distance float64
 	}
 	var rows []knnRow
-	if err := r.getDB(ctx).Raw(
-		"SELECT echo_id, distance FROM "+vecTable+" WHERE embedding MATCH ? ORDER BY distance LIMIT ?",
+	db := r.getDB(ctx)
+	query := "SELECT echo_id, distance FROM " + vecTable + " WHERE embedding MATCH ? ORDER BY distance LIMIT ?"
+	if usesLibSQL(db) {
+		query = "SELECT echo_id, vector_distance_l2(embedding, vector32(?)) AS distance FROM " + vecTable + " ORDER BY distance, echo_id LIMIT ?"
+	}
+	if err := db.Raw(query,
 		vecToJSON(vector), fetch,
 	).Scan(&rows).Error; err != nil {
 		return nil, err
