@@ -141,7 +141,8 @@ func (s *FileService) MediaDownload(ctx context.Context, key string) (string, er
 	}
 	if !public {
 		v := viewer.MustFromContext(ctx)
-		if v.UserID() == "" || (v.TokenType() != authModel.TokenTypeSession && !(authz.Has(v.Scopes(), authz.ScopeFileRead) && authz.Has(v.Scopes(), authz.ScopeEchoPrivate))) {
+		hasPrivateScope := authz.Has(v.Scopes(), authz.ScopeFileRead) && authz.Has(v.Scopes(), authz.ScopeEchoPrivate)
+		if v.UserID() == "" || (v.TokenType() != authModel.TokenTypeSession && !hasPrivateScope) {
 			return "", gorm.ErrRecordNotFound
 		}
 		user, err := s.commonRepository.GetUserByUserId(ctx, v.UserID())

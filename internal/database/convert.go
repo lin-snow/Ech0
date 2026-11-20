@@ -43,7 +43,7 @@ func ConvertSQLite(ctx context.Context, source, output string) error {
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 
 	var marker commonModel.KeyValue
 	if err := src.WithContext(ctx).Where("key = ?", commonModel.EchosPrivateCreatedDroppedKey).First(&marker).Error; err != nil || marker.Value == "" {
@@ -53,7 +53,7 @@ func ConvertSQLite(ctx context.Context, source, output string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	file := filepath.Join(dir, "converted.db")
 	if err := src.WithContext(ctx).Exec("VACUUM INTO ?", file).Error; err != nil {
 		return err
@@ -79,7 +79,7 @@ func prepareConvertedFile(ctx context.Context, file string) error {
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 	db = db.WithContext(ctx)
 	if err := db.Exec("PRAGMA journal_mode=DELETE").Error; err != nil {
 		return err

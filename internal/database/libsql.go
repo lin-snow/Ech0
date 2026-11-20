@@ -90,7 +90,7 @@ func PrepareRemoteSchema(ctx context.Context, cfg config.DatabaseConfig) error {
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 	return prepareRemoteSchema(db.WithContext(ctx))
 }
 

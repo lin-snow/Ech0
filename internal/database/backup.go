@@ -30,7 +30,7 @@ func BackupLibSQL(ctx context.Context, cfg config.DatabaseConfig, output string)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 	return writeRemoteSnapshot(ctx, db, output)
 }
 
@@ -42,7 +42,7 @@ func writeRemoteSnapshot(ctx context.Context, source *gorm.DB, output string) er
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	staging := filepath.Join(dir, "ech0.db")
 	if err := materializeSnapshot(ctx, source, staging); err != nil {
 		return err
@@ -64,7 +64,7 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) erro
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	defer func() { _ = pool.Close() }()
 	if err := migrateModels(target.WithContext(ctx)); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string) erro
 		if err != nil {
 			return err
 		}
-		defer dest.Rollback()
+		defer func() { _ = dest.Rollback() }()
 		for _, table := range tables {
 			if table == "vec_echo" {
 				var typ string
@@ -135,7 +135,7 @@ func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name string) err
 		}
 		cols, err := rows.Columns()
 		if err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		if insert == nil {
@@ -148,10 +148,10 @@ func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name string) err
 			}
 			insert, err = dest.PrepareContext(ctx, "INSERT INTO "+table+"("+strings.Join(fields, ",")+") VALUES("+strings.Join(bind, ",")+")")
 			if err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return err
 			}
-			defer insert.Close()
+			defer func() { _ = insert.Close() }()
 		}
 		n := 0
 		values := make([]any, len(cols)-1)
@@ -172,7 +172,7 @@ func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name string) err
 		if err == nil {
 			err = rows.Err()
 		}
-		rows.Close()
+		_ = rows.Close()
 		if err != nil {
 			return err
 		}

@@ -48,8 +48,7 @@ func TestLibSQLPersistence(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		c.Close()
-		return true
+		return c.Close() == nil
 	}, 10*time.Second, 50*time.Millisecond)
 	cfg := config.DatabaseConfig{URL: "http://" + address}
 	open := func() *gorm.DB {
@@ -160,7 +159,7 @@ func TestLibSQLPersistence(t *testing.T) {
 	require.NoError(t, err)
 	localPool, err := local.DB()
 	require.NoError(t, err)
-	defer localPool.Close()
+	defer func() { require.NoError(t, localPool.Close()) }()
 	native := embeddingRepository.NewEmbeddingRepository(func() *gorm.DB { return local })
 	restoredHits, err := native.Search(ctx, []float32{0, 0}, 1, "owner")
 	require.NoError(t, err)

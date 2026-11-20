@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -375,7 +376,9 @@ func TestRoundTrip_ForeignUserCannotAnswer(t *testing.T) {
 
 	// Let the parked run go rather than waiting out its ask budget.
 	cancel()
-	<-streamDone
+	if err := <-streamDone; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream cancellation: %v", err)
+	}
 }
 
 // ask_user over the wire: a plain question, answered with typed text, resumes the

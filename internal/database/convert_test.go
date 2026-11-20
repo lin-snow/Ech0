@@ -22,7 +22,7 @@ func TestConvertSQLite(t *testing.T) {
 	src, err := openSQLite(source, logger.Silent)
 	require.NoError(t, err)
 	db, _ := src.DB()
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	require.NoError(t, migrateModels(src))
 	require.NoError(t, src.Create(&commonModel.KeyValue{Key: commonModel.EchosPrivateCreatedDroppedKey, Value: "done"}).Error)
 	require.NoError(t, src.Exec("CREATE VIRTUAL TABLE vec_echo USING vec0(echo_id TEXT PRIMARY KEY, embedding FLOAT[2])").Error)
@@ -33,7 +33,7 @@ func TestConvertSQLite(t *testing.T) {
 	dest, err := gorm.Open(sqlite.Open(target), buildGormConfig(logger.Silent))
 	require.NoError(t, err)
 	destPool, _ := dest.DB()
-	t.Cleanup(func() { destPool.Close() })
+	t.Cleanup(func() { require.NoError(t, destPool.Close()) })
 	require.NoError(t, checkRemoteSchema(dest))
 	var value string
 	require.NoError(t, dest.Raw("SELECT hex(embedding) FROM vec_echo WHERE echo_id='v'").Row().Scan(&value))

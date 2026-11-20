@@ -77,7 +77,7 @@ func TestVerifiedDirectUpload(t *testing.T) {
 	put.Header.Set("If-None-Match", "*")
 	resp, err := target.Client().Do(put)
 	require.NoError(t, err)
-	resp.Body.Close()
+	require.NoError(t, resp.Body.Close())
 	require.Equal(t, 200, resp.StatusCode)
 	_, err = fix.svc.UpdateFileMeta(ctx, signed.ID, commonModel.UpdateFileMetaDto{Size: size + 1})
 	require.Error(t, err)

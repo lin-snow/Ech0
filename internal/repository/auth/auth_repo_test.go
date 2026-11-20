@@ -345,7 +345,7 @@ func TestAuthRepository_RevokeToken(t *testing.T) {
 	repo, _ := newAuthRepo(t)
 
 	t.Run("revoked token is reported", func(t *testing.T) {
-		repo.RevokeToken("jti-1", time.Minute)
+		require.NoError(t, repo.RevokeToken("jti-1", time.Minute))
 		assert.True(t, repo.IsTokenRevoked("jti-1"))
 	})
 
@@ -354,12 +354,12 @@ func TestAuthRepository_RevokeToken(t *testing.T) {
 	})
 
 	t.Run("empty jti never revokes or reports", func(t *testing.T) {
-		repo.RevokeToken("", time.Minute)
+		require.NoError(t, repo.RevokeToken("", time.Minute))
 		assert.False(t, repo.IsTokenRevoked(""))
 	})
 
 	t.Run("non-positive ttl is a no-op", func(t *testing.T) {
-		repo.RevokeToken("jti-zero", 0)
+		require.NoError(t, repo.RevokeToken("jti-zero", 0))
 		assert.False(t, repo.IsTokenRevoked("jti-zero"))
 	})
 }

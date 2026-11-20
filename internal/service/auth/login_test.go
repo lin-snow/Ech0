@@ -186,7 +186,7 @@ func TestRevokeToken_Delegates(t *testing.T) {
 	svc, _, authRepo, _ := newSvc(t, kvstore.NewMemory())
 
 	authRepo.EXPECT().RevokeToken("jti-1", 5*time.Minute).Return(nil).Once()
-	svc.RevokeToken("jti-1", 5*time.Minute)
+	require.NoError(t, svc.RevokeToken("jti-1", 5*time.Minute))
 }
 
 func TestIsTokenRevoked_Delegates(t *testing.T) {
