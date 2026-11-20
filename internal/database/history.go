@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const remoteTablesSQL = "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_litestream_*' AND name NOT GLOB 'libsql_*' AND name NOT GLOB 'ech0_history_*' AND name NOT GLOB 'ech0_export_*' AND name NOT IN ('ech0_schema','copilot_rounds') ORDER BY name"
+const remoteTablesSQL = "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_litestream_*' AND name NOT GLOB 'libsql_*' AND name NOT GLOB 'ech0_history_*' AND name NOT GLOB 'ech0_export_*' AND name NOT IN ('ech0_schema','copilot_rounds','ech0_deliveries') ORDER BY name"
 
 // SnapshotHistory identifies a point in time. The database owns the old rows
 // and triggers, so the connection that started the capture can disappear.

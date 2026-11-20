@@ -6,6 +6,7 @@ package handler
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"github.com/lin-snow/ech0/internal/event/outbox"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
@@ -37,8 +38,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	var message struct {
 		Due int64 `json:"due"`
 		snapshot.Wake
+		outbox.Ticket
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&message); err != nil || (message.Run == "" && message.Cleanup == "" && message.SnapshotDue == 0 && (message.Due <= 0 || message.Due%3600 != 0 || message.Due > time.Now().Unix())) {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&message); err != nil || (message.ID == "" && message.Run == "" && message.Cleanup == "" && message.SnapshotDue == 0 && (message.Due <= 0 || message.Due%3600 != 0 || message.Due > time.Now().Unix())) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -52,6 +54,24 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	db := database.GetDB()
+	if message.ID != "" {
+		if err := runtime.Effects.Advance(r.Context(), message.Ticket); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		next, err := runtime.Effects.Next(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if next == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(next)
+		return
+	}
 	if message.Cleanup != "" {
 		next, err := snapshot.CleanupExport(r.Context(), db, runtime.Objects.GetStorageConfig(r.Context()), message.Wake)
 		if err != nil {
@@ -117,6 +137,22 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	gc, err := snapshot.PendingCleanup(r.Context(), db)
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	effect, err := runtime.Effects.Next(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if effect != nil {
+		messages := []any{effect}
+		for _, wake := range []*snapshot.Wake{next, planned, gc} {
+			if wake != nil {
+				messages = append(messages, wake)
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(messages)
 		return
 	}
 	writeWake(w, next, planned, gc)

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/lin-snow/ech0/internal/event"
+	"github.com/lin-snow/ech0/internal/transaction"
 	"github.com/lin-snow/ech0/pkg/busen"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
@@ -30,4 +31,14 @@ func Notify[T any](ctx context.Context, b *busen.Bus, evt T) {
 		}
 		logUtil.GetLogger().Warn("event publish failed", slog.String("event", name), logUtil.Err(err))
 	}
+}
+
+// Record participates in the mutation transaction on Vercel. Local subscribers
+// receive the event only once the outermost transaction has committed.
+func Record[T any](ctx context.Context, b *busen.Bus, evt T) error {
+	if transaction.Durable(ctx) {
+		return Emit(ctx, b, evt)
+	}
+	transaction.AfterCommit(ctx, func() { Notify(context.Background(), b, evt) })
+	return nil
 }

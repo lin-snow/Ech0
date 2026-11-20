@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lin-snow/ech0/internal/bootstrap"
 	"github.com/lin-snow/ech0/internal/config"
@@ -61,7 +62,15 @@ func Ech0(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ech0 initialization unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	handler.Server.GinEngine.ServeHTTP(w, r.WithContext(platform.WithRequest(r.Context(), r)))
+	ctx := platform.WithRequest(r.Context(), r)
+	handler.Server.GinEngine.ServeHTTP(w, r.WithContext(ctx))
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+		// The hourly reconciler repairs the gap if this request dies after its
+		// database commit and before Vercel has accepted the wake-up message.
+		if t, err := handler.Effects.Next(ctx); err == nil && t != nil {
+			_ = platform.Publish(ctx, t, t.Key(), max(int64(0), t.Due-time.Now().Unix()))
+		}
+	}
 }
 
 // These routes may address objects (including indirectly during an Echo,

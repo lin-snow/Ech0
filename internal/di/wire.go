@@ -14,6 +14,7 @@ import (
 	"github.com/lin-snow/ech0/internal/cache"
 	"github.com/lin-snow/ech0/internal/database"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
+	"github.com/lin-snow/ech0/internal/event/outbox"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
 	"github.com/lin-snow/ech0/internal/handler"
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
@@ -341,7 +342,7 @@ func ProvideSubscriptionProviders(
 }
 
 func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless.Runtime, error) {
-	wire.Build(eventbus.ProvideProvider, cache.ProviderSet, transaction.ProviderSet, visitorRepository.NewVisitorRepository, visitor.NewSharedTracker, StorageSet,
-		BuildJobManager, BuildHandlers, BuildMiddlewares, BuildEventRegistrar, server.ProviderSet, serverless.New)
+	wire.Build(eventbus.ProvideProvider, cache.ProviderSet, transaction.NewFunctionTransactor, wire.Bind(new(transaction.Transactor), new(*transaction.GormTransactor)), visitorRepository.NewVisitorRepository, visitor.NewSharedTracker, StorageSet,
+		BuildJobManager, BuildHandlers, BuildMiddlewares, repository.EchoSet, repository.EmbeddingSet, service.EmbeddingSet, webhook.NewSender, outbox.New, server.ProviderSet, serverless.New)
 	return nil, nil
 }

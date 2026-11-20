@@ -124,12 +124,13 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			return err
 		}
 
-		return userService.userRepository.MarkInitialized(ctx)
+		if err := userService.userRepository.MarkInitialized(ctx); err != nil {
+			return err
+		}
+		return eventbus.Record(ctx, userService.bus, event.UserCreated{User: owner})
 	}); err != nil {
 		return err
 	}
-
-	eventbus.Notify(context.Background(), userService.bus, event.UserCreated{User: owner})
 
 	return nil
 }
@@ -189,16 +190,17 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		if err := userService.userRepository.CreateUser(ctx, &newUser); err != nil {
 			return err
 		}
-		return userService.userRepository.UpsertLocalAuth(ctx, &model.UserLocalAuth{
+		if err := userService.userRepository.UpsertLocalAuth(ctx, &model.UserLocalAuth{
 			UserID:       newUser.ID,
 			PasswordHash: passwordHash,
 			PasswordAlgo: cryptoUtil.AlgoBcrypt,
-		})
+		}); err != nil {
+			return err
+		}
+		return eventbus.Record(ctx, userService.bus, event.UserCreated{User: newUser})
 	}); err != nil {
 		return err
 	}
-
-	eventbus.Notify(context.Background(), userService.bus, event.UserCreated{User: newUser})
 
 	return nil
 }
@@ -252,13 +254,15 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 			return err
 		}
 		if newPasswordHash != "" {
-			return userService.userRepository.UpsertLocalAuth(txCtx, &model.UserLocalAuth{
+			if err := userService.userRepository.UpsertLocalAuth(txCtx, &model.UserLocalAuth{
 				UserID:       user.ID,
 				PasswordHash: newPasswordHash,
 				PasswordAlgo: cryptoUtil.AlgoBcrypt,
-			})
+			}); err != nil {
+				return err
+			}
 		}
-		return nil
+		return eventbus.Record(txCtx, userService.bus, event.UserUpdated{User: user})
 	}); err != nil {
 		return err
 	}
@@ -267,8 +271,6 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 			logUtil.GetLogger().Warn("confirm temp avatar file failed", logUtil.Err(err))
 		}
 	}
-
-	eventbus.Notify(context.Background(), userService.bus, event.UserUpdated{User: user})
 
 	return nil
 }
@@ -295,12 +297,13 @@ func (userService *UserService) UpdateUserAdmin(ctx context.Context, id string) 
 	user.IsAdmin = !user.IsAdmin
 
 	if err := userService.transactor.Run(ctx, func(txCtx context.Context) error {
-		return userService.userRepository.UpdateUser(txCtx, &user)
+		if err := userService.userRepository.UpdateUser(txCtx, &user); err != nil {
+			return err
+		}
+		return eventbus.Record(txCtx, userService.bus, event.UserUpdated{User: user})
 	}); err != nil {
 		return err
 	}
-
-	eventbus.Notify(context.Background(), userService.bus, event.UserUpdated{User: user})
 
 	return nil
 }
@@ -346,7 +349,6 @@ func (userService *UserService) GetOwner() (model.User, error) {
 
 func (userService *UserService) DeleteUser(ctx context.Context, id string) error {
 	userid := viewer.MustFromContext(ctx).UserID()
-	var deletedUser model.User
 	err := userService.transactor.Run(ctx, func(txCtx context.Context) error {
 		operator, err := userService.userRepository.GetUserByID(txCtx, userid)
 		if err != nil {
@@ -365,18 +367,16 @@ func (userService *UserService) DeleteUser(ctx context.Context, id string) error
 			return errors.New(commonModel.INVALID_PARAMS_BODY)
 		}
 
-		deletedUser = user
 		if err := userService.userRepository.DeleteUser(txCtx, id); err != nil {
 			return err
 		}
 
-		return nil
+		return eventbus.Record(txCtx, userService.bus, event.UserDeleted{User: user})
 	})
 	if err != nil {
 		return err
 	}
 
-	eventbus.Notify(context.Background(), userService.bus, event.UserDeleted{User: deletedUser})
 	return nil
 }
 

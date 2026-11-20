@@ -17,6 +17,7 @@ import (
 	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
+	outboxModel "github.com/lin-snow/ech0/internal/model/outbox"
 	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	"github.com/tursodatabase/libsql-client-go/libsql"
@@ -25,7 +26,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const remoteSchemaVersion = 9
+const remoteSchemaVersion = 10
 
 func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, error) {
 	endpoint, err := url.Parse(cfg.URL)
@@ -183,6 +184,12 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		}
 		if version == 8 {
 			if err := tx.AutoMigrate(&copilotModel.Round{}); err != nil {
+				return err
+			}
+			version = 9
+		}
+		if version == 9 {
+			if err := tx.AutoMigrate(&outboxModel.Delivery{}); err != nil {
 				return err
 			}
 			return tx.Exec("UPDATE ech0_schema SET version = ? WHERE id = 1", remoteSchemaVersion).Error

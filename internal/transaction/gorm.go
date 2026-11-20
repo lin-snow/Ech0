@@ -11,12 +11,36 @@ import (
 
 type GormTransactor struct {
 	dbProvider func() *gorm.DB
+	durable    bool
 }
 
 func NewGormTransactor(dbProvider func() *gorm.DB) *GormTransactor {
 	return &GormTransactor{
 		dbProvider: dbProvider,
 	}
+}
+
+func NewFunctionTransactor(db func() *gorm.DB) *GormTransactor {
+	return &GormTransactor{dbProvider: db, durable: true}
+}
+
+type commitKey struct{}
+type commitHooks struct {
+	durable bool
+	hooks   []func()
+}
+
+func Durable(ctx context.Context) bool {
+	h, _ := ctx.Value(commitKey{}).(*commitHooks)
+	return h != nil && h.durable
+}
+
+func AfterCommit(ctx context.Context, fn func()) {
+	if h, _ := ctx.Value(commitKey{}).(*commitHooks); h != nil {
+		h.hooks = append(h.hooks, fn)
+		return
+	}
+	fn()
 }
 
 func (tx *GormTransactor) Run(ctx context.Context, fn func(ctx context.Context) error) error {
@@ -28,9 +52,16 @@ func (tx *GormTransactor) Run(ctx context.Context, fn func(ctx context.Context) 
 	if !ok {
 		db = tx.dbProvider()
 	}
-	return db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
+	hooks := &commitHooks{durable: tx.durable}
+	err := db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
 		txCtx := context.WithValue(ctx, TxKey, gormTx)
 
-		return fn(txCtx)
+		return fn(context.WithValue(txCtx, commitKey{}, hooks))
 	})
+	if err == nil {
+		for _, fn := range hooks.hooks {
+			AfterCommit(ctx, fn)
+		}
+	}
+	return err
 }

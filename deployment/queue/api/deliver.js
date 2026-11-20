@@ -20,10 +20,10 @@ export default queue.handleNodeCallback(async (message) => {
     const result = await response.json()
     for (const next of Array.isArray(result) ? result : [result]) {
       const scheduled = Boolean(next.snapshot_due)
-      const key = next.cleanup ? `cleanup-${next.cleanup}-${next.revision}` : scheduled ? `schedule-${next.schedule}-${next.snapshot_due}` : `snapshot-${next.run}-${next.revision}`
+      const key = next.effect ? `effect-${next.effect}-${next.attempt}-${next.effect_due}` : next.cleanup ? `cleanup-${next.cleanup}-${next.revision}` : scheduled ? `schedule-${next.schedule}-${next.snapshot_due}` : `snapshot-${next.run}-${next.revision}`
       await send('ech0-maintenance', next, {
         idempotencyKey: !scheduled && message.due ? `${key}-reconcile-${message.due}` : key,
-        delaySeconds: scheduled ? Math.max(0, next.snapshot_due - Math.floor(Date.now() / 1000)) : 0,
+        delaySeconds: Math.max(0, (next.snapshot_due || next.effect_due || 0) - Math.floor(Date.now() / 1000)),
         retentionSeconds: 3 * 86400,
       })
     }

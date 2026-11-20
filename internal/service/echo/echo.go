@@ -91,27 +91,38 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		return nil, err
 	}
 
+	var savedEcho *model.Echo
+	readSaved := func(readCtx context.Context) error {
+		var err error
+		savedEcho, err = echoService.echoRepository.GetEchosById(readCtx, newEcho.ID)
+		if err != nil {
+			return err
+		}
+		if savedEcho == nil {
+			savedEcho = newEcho
+			return nil
+		}
+		return eventbus.Record(readCtx, echoService.bus, event.EchoCreated{Echo: *savedEcho, User: user})
+	}
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
 		if err := echoService.ProcessEchoTags(txCtx, newEcho); err != nil {
 			return err
 		}
-		return echoService.echoRepository.CreateEcho(txCtx, newEcho)
+		if err := echoService.echoRepository.CreateEcho(txCtx, newEcho); err != nil {
+			return err
+		}
+		if transaction.Durable(txCtx) {
+			return readSaved(txCtx)
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-
 	echoService.echoRepository.InvalidateEchoCaches()
-
-	savedEcho, fetchErr := echoService.echoRepository.GetEchosById(ctx, newEcho.ID)
-	if fetchErr != nil {
-		return nil, fetchErr
-	}
-	if savedEcho != nil {
-		eventbus.Notify(context.Background(), echoService.bus, event.EchoCreated{Echo: *savedEcho, User: user})
-	} else {
-		// The row exists (the insert succeeded); only the read-back failed to
-		// find it. Return what we wrote so the caller still gets the id.
-		savedEcho = newEcho
+	if savedEcho == nil {
+		if err := readSaved(ctx); err != nil {
+			return nil, err
+		}
 	}
 	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(newEcho)); err != nil {
 		logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
@@ -169,14 +180,15 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 			}
 		}
 
-		return echoService.echoRepository.DeleteEchoById(txCtx, id)
+		if err := echoService.echoRepository.DeleteEchoById(txCtx, id); err != nil {
+			return err
+		}
+		return eventbus.Record(txCtx, echoService.bus, event.EchoDeleted{Echo: model.Echo{ID: id}, User: user})
 	}); err != nil {
 		return err
 	}
 
 	echoService.echoRepository.InvalidateEchoCaches(id)
-
-	eventbus.Notify(context.Background(), echoService.bus, event.EchoDeleted{Echo: model.Echo{ID: id}, User: user})
 
 	for _, file := range deletableFiles {
 		if err := echoService.fileService.DeleteStoredFile(file.storageType, file.key); err != nil {
@@ -292,25 +304,38 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return nil, err
 	}
 
+	var saved *model.Echo
+	readSaved := func(readCtx context.Context) error {
+		var err error
+		saved, err = echoService.echoRepository.GetEchosById(readCtx, echo.ID)
+		if err != nil {
+			return err
+		}
+		if saved == nil {
+			saved = echo
+		}
+		return eventbus.Record(readCtx, echoService.bus, event.EchoUpdated{Echo: *saved, User: user})
+	}
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
 		if err := echoService.ProcessEchoTags(txCtx, echo); err != nil {
 			return err
 		}
-		return echoService.echoRepository.UpdateEcho(txCtx, echo)
+		if err := echoService.echoRepository.UpdateEcho(txCtx, echo); err != nil {
+			return err
+		}
+		if transaction.Durable(txCtx) {
+			return readSaved(txCtx)
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-
 	echoService.echoRepository.InvalidateEchoCaches(echo.ID)
-
-	saved, fetchErr := echoService.echoRepository.GetEchosById(ctx, echo.ID)
-	if fetchErr != nil {
-		return nil, fetchErr
-	}
 	if saved == nil {
-		saved = echo
+		if err := readSaved(ctx); err != nil {
+			return nil, err
+		}
 	}
-	eventbus.Notify(context.Background(), echoService.bus, event.EchoUpdated{Echo: *saved, User: user})
 	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(echo)); err != nil {
 		logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
 	}

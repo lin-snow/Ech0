@@ -4,6 +4,8 @@
 package webhook
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -45,4 +47,22 @@ func (s *Sender) SendTest(wh *webhookModel.Webhook) error {
 		return err
 	}
 	return sendWithRetry(s.client, wh, obs, testMaxRetries, testBackoff)
+}
+
+// DeliverOnce lets the durable worker own retries and retain the same event ID.
+func (s *Sender) DeliverOnce(ctx context.Context, hook *webhookModel.Webhook, observation event.WebhookObservation, id string) error {
+	req, err := buildRequest(hook, observation)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Ech0-Event-ID", id)
+	response, err := s.client.Do(req.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("webhook returned HTTP %d", response.StatusCode)
+	}
+	return nil
 }

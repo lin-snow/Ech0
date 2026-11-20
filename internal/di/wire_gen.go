@@ -13,6 +13,7 @@ import (
 	"github.com/lin-snow/ech0/internal/cache"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/event/bus"
+	"github.com/lin-snow/ech0/internal/event/outbox"
 	"github.com/lin-snow/ech0/internal/event/subscriber"
 	"github.com/lin-snow/ech0/internal/handler"
 	handler4 "github.com/lin-snow/ech0/internal/handler/auth"
@@ -268,7 +269,7 @@ func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless
 	if err != nil {
 		return nil, err
 	}
-	gormTransactor := transaction.NewGormTransactor(dbProvider)
+	gormTransactor := transaction.NewFunctionTransactor(dbProvider)
 	v := bus.ProvideProvider()
 	visitorRepository := repository14.NewVisitorRepository(dbProvider)
 	tracker := visitor.NewSharedTracker(visitorRepository)
@@ -288,11 +289,12 @@ func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless
 		return nil, err
 	}
 	serverServer := server.ProvideHTTPServer(engine, bundle, deps)
-	eventRegistrar, err := BuildEventRegistrar(dbProvider, v, cacheCache, gormTransactor)
-	if err != nil {
-		return nil, err
-	}
-	runtime, err := serverless.New(ctx, serverServer, eventRegistrar, gormTransactor, store, manager)
+	embeddingRepository := repository.NewEmbeddingRepository(dbProvider)
+	echoRepository := repository2.NewEchoRepository(dbProvider, cacheCache)
+	embeddingService := service.NewEmbeddingService(embeddingRepository, store, echoRepository)
+	sender := webhook.NewSender()
+	worker := outbox.New(dbProvider, embeddingService, sender)
+	runtime, err := serverless.New(ctx, serverServer, v, worker, gormTransactor, store, manager)
 	if err != nil {
 		return nil, err
 	}

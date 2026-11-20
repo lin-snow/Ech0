@@ -8,11 +8,13 @@ import (
 	"errors"
 
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
+	"github.com/lin-snow/ech0/internal/event/outbox"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
+	"github.com/lin-snow/ech0/pkg/busen"
 )
 
 // Runtime shares the same graph as the local HTTP server. The platform owns
@@ -21,9 +23,10 @@ type Runtime struct {
 	Server   *server.Server
 	Objects  *storage.Manager
 	Settings kvstore.Store
+	Effects  *outbox.Worker
 }
 
-func New(ctx context.Context, httpServer *server.Server, registrar *eventbus.EventRegistrar, tx transaction.Transactor, store kvstore.Store, objects *storage.Manager) (*Runtime, error) {
+func New(ctx context.Context, httpServer *server.Server, busProvider func() *busen.Bus, effects *outbox.Worker, tx transaction.Transactor, store kvstore.Store, objects *storage.Manager) (*Runtime, error) {
 	if err := objects.ReloadFromConfigAndDB(ctx); err != nil {
 		return nil, err
 	}
@@ -42,8 +45,9 @@ func New(ctx context.Context, httpServer *server.Server, registrar *eventbus.Eve
 	if err != nil {
 		return nil, err
 	}
+	registrar := eventbus.NewEventRegistry(busProvider, []eventbus.Subscriber{effects})
 	if err := registrar.Register(); err != nil {
 		return nil, err
 	}
-	return &Runtime{Server: httpServer, Objects: objects, Settings: store}, nil
+	return &Runtime{Server: httpServer, Objects: objects, Settings: store, Effects: effects}, nil
 }

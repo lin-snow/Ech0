@@ -44,9 +44,9 @@ def start(stack, args, env, cwd, listen):
     raise TimeoutError("test process did not start")
 
 
-def call(listen, path, body=None, expected=200, headers=None):
+def call(listen, path, body=None, expected=200, headers=None, method=None):
     data = None if body is None else json.dumps(body).encode()
-    request = Request(f"http://127.0.0.1:{listen}{path}", data=data,
+    request = Request(f"http://127.0.0.1:{listen}{path}", data=data, method=method,
                       headers={"Content-Type": "application/json", **(headers or {})})
     try:
         response = urlopen(request, timeout=15)
@@ -144,14 +144,45 @@ def object_fixture(stack):
     return server.server_port
 
 
+def sql(db_port, statement):
+    body = {"requests": [{"type": "execute", "stmt": {"sql": statement}}, {"type": "close"}]}
+    result = json.loads(call(db_port, "/v2/pipeline", body))["results"][0]
+    assert result["type"] == "ok", result
+    return result["response"]["result"]["rows"]
+
+
+def verify_effects(first, second, token, db_port, secret):
+    header = {"Authorization": "Bearer " + token}
+    worker = {"Authorization": "Bearer " + secret}
+    sql(db_port, "CREATE TRIGGER fixture_rollback BEFORE INSERT ON ech0_deliveries BEGIN SELECT RAISE(ABORT,'fixture rollback'); END")
+    call(first, "/api/echo", {"content": "rollback probe","private": True}, expected=400, headers=header)
+    assert sql(db_port, "SELECT 1 FROM echos WHERE content='rollback probe'") == []
+    sql(db_port, "DROP TRIGGER fixture_rollback")
+    created = json.loads(call(first, "/api/echo", {"content": "before", "private": True}, headers=header))
+    assert created["code"] == 1, created
+    echo_id = created["data"]["id"]
+    updated = json.loads(call(second, "/api/echo", {"content": "after", "private": True, "id": echo_id}, headers=header, method="PUT"))
+    assert updated["data"]["content"] == "after"
+    deleted = json.loads(call(first, "/api/echo/" + echo_id, headers=header, method="DELETE"))
+    assert deleted["code"] == 1
+    reconcile = {"due": int(time.time()) // 3600 * 3600}
+    result = json.loads(call(second, "/api/maintenance", reconcile, headers=worker))
+    ticket = result[0]
+    seen = set()
+    while ticket:
+        assert ticket["effect"] not in seen
+        seen.add(ticket["effect"])
+        response = call(first, "/api/maintenance", ticket, headers=worker, expected=None)
+        replay = call(second, "/api/maintenance", ticket, headers=worker, expected=None)
+        assert replay == response
+        ticket = json.loads(response) if response else None
+    assert len(seen) == 3 and sql(db_port, "SELECT 1 FROM ech0_deliveries") == []
+
+
 def verify_web_export(first, second, token, root, storage_port, db_port, cron_secret):
     header = {"Authorization": "Bearer " + token}
     # Exercise multipart and independent checkpoints without contacting any hosted database.
-    def sql(statement):
-        body = {"requests": [{"type": "execute", "stmt": {"sql": statement}}, {"type": "close"}]}
-        result = json.loads(call(db_port, "/v2/pipeline", body))["results"][0]
-        assert result["type"] == "ok", result
-    sql("WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<160) INSERT INTO key_values(key,value) SELECT 'export-fixture-'||i,hex(randomblob(32768)) FROM n")
+    sql(db_port, "WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<160) INSERT INTO key_values(key,value) SELECT 'export-fixture-'||i,hex(randomblob(32768)) FROM n")
     started = json.loads(call(first, "/api/migration/export", {"format": "snapshot"}, headers=header))
     assert started["code"] == 1, started
     worker = {"Authorization": "Bearer " + cron_secret}
@@ -171,7 +202,7 @@ def verify_web_export(first, second, token, root, storage_port, db_port, cron_se
         updated = json.loads(response)
         if index == 1:
             assert json.loads(call(process, "/api/maintenance", next_step, headers=worker)) == updated
-            sql("UPDATE key_values SET value='later' WHERE key='export-fixture-1'")
+            sql(db_port, "UPDATE key_values SET value='later' WHERE key='export-fixture-1'")
         next_step = updated
     else:
         raise AssertionError("worker did not finish the snapshot")
@@ -255,6 +286,7 @@ def run(args):
         auth = json.loads(call(second, "/api/login", account))
         assert auth["code"] == 1
         verify_device_flow(first, second, auth["data"]["access_token"])
+        verify_effects(first, second, auth["data"]["access_token"], db_port, env["CRON_SECRET"])
         verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"])
         print("OK: SPA, discovery, login and private web snapshot across two processes")
 
