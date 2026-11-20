@@ -4,6 +4,9 @@
 package middleware
 
 import (
+	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/internal/database"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"net/http"
 	"sync"
 	"time"
@@ -64,6 +67,21 @@ func (rl *rateLimiter) allow(key string) bool {
 }
 
 func RateLimit(rps, burst int) gin.HandlerFunc {
+	if config.Config().Database.Type == "libsql" {
+		return func(c *gin.Context) {
+			id := securitystate.Key(config.Config().Security.JWTSecret, "http-rate", c.Request.Method, c.FullPath(), c.ClientIP())
+			allowed, err := securitystate.Allow(c.Request.Context(), database.GetDB(), id, time.Now(), rps, burst)
+			if err != nil {
+				c.AbortWithStatus(http.StatusServiceUnavailable)
+				return
+			}
+			if !allowed {
+				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
+				return
+			}
+			c.Next()
+		}
+	}
 	limiter := newRateLimiter(rps, burst)
 	startBucketGC(limiter, 5*time.Minute, 10*time.Minute)
 

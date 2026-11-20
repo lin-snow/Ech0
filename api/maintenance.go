@@ -6,6 +6,7 @@ package handler
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"net/http"
 	"os"
 	"sync"
@@ -60,6 +61,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := database.ExpireSnapshotHistory(r.Context(), db, time.Unix(message.Due, 0)); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if err := db.WithContext(r.Context()).Where("expires <= ?", time.Unix(message.Due, 0).UnixMilli()).Delete(&securitystate.Entry{}).Error; err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}

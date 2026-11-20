@@ -6,6 +6,7 @@ package database
 import (
 	"context"
 	"errors"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -213,6 +214,7 @@ func migrateModels(db *gorm.DB) error {
 		&authModel.Passkey{},
 		&authModel.RevokedToken{},
 		&authModel.Challenge{},
+		&securitystate.Entry{},
 		&oauthserverModel.Client{},
 		&oauthserverModel.ConsumedCode{},
 		&visitorModel.DailyStat{},

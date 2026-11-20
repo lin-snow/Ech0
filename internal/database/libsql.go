@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"net/url"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const remoteSchemaVersion = 6
+const remoteSchemaVersion = 7
 
 func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, error) {
 	endpoint, err := url.Parse(cfg.URL)
@@ -129,6 +130,12 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		}
 		if version == 5 {
 			if err := tx.AutoMigrate(&visitorModel.VisitorSeen{}); err != nil {
+				return err
+			}
+			version = 6
+		}
+		if version == 6 {
+			if err := tx.AutoMigrate(&securitystate.Entry{}); err != nil {
 				return err
 			}
 			return tx.Exec("UPDATE ech0_schema SET version = ? WHERE id = 1", remoteSchemaVersion).Error

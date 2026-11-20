@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/internal/database"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"github.com/lin-snow/ech0/pkg/gocap/cap"
 )
 
@@ -75,6 +77,10 @@ func NewEngine() (*cap.Engine, error) {
 		cap.WithEnableCORS(cfg.CaptchaEnableCORS),
 		cap.WithRateLimitOnRedeem(cfg.CaptchaLimitOnRedeem),
 		cap.WithRateLimitOnSiteVerify(cfg.CaptchaLimitOnVerify),
+	}
+	if config.Config().Database.Type == "libsql" {
+		key := []byte(Secret())
+		opts = append(opts, cap.WithStore(&sharedStore{db: database.GetDB, secret: key}), cap.WithSecretPepper(securitystate.Digest(key, "captcha-pepper")))
 	}
 	if cfg.CaptchaChallengeTTL > 0 {
 		opts = append(opts, cap.WithChallengeTTL(time.Duration(cfg.CaptchaChallengeTTL)*time.Second))

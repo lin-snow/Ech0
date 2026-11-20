@@ -22,6 +22,7 @@ import (
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	embeddingRepository "github.com/lin-snow/ech0/internal/repository/embedding"
 	oauthserverRepository "github.com/lin-snow/ech0/internal/repository/oauthserver"
+	"github.com/lin-snow/ech0/internal/securitystate"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -69,6 +70,15 @@ func TestLibSQLPersistence(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	require.NoError(t, checkRemoteSchema(b))
+	for i, db := range []*gorm.DB{a, b, a, b} {
+		now := time.Unix(100, 0)
+		if i == 3 {
+			now = now.Add(500 * time.Millisecond)
+		}
+		allowed, err := securitystate.Allow(ctx, db, "test-rate", now, 2, 2)
+		require.NoError(t, err)
+		require.Equal(t, i != 2, allowed)
+	}
 	visitsA := visitorRepository.NewVisitorRepository(func() *gorm.DB { return a })
 	visitsB := visitorRepository.NewVisitorRepository(func() *gorm.DB { return b })
 	beforeMidnight := time.Date(2026, 1, 1, 23, 58, 0, 0, time.UTC)
