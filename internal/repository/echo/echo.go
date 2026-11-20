@@ -96,7 +96,9 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 				return commonModel.PageQueryResult[[]model.Echo]{}, dbErr
 			}
 
-			TrackEchoPageCacheKey(cacheKey)
+			if echoRepository.cache.RetainsReads() {
+				TrackEchoPageCacheKey(cacheKey)
+			}
 			return commonModel.PageQueryResult[[]model.Echo]{
 				Items: echos,
 				Total: total,

@@ -3,14 +3,19 @@
 
 package cache
 
-import "github.com/google/wire"
+import (
+	"github.com/google/wire"
+	"github.com/lin-snow/ech0/internal/config"
+)
 
 func ProvideCache() (*Cache, error) {
 	backend, err := NewRistrettoCache[string, any](1000000, 1000000, 100)
 	if err != nil {
 		return nil, err
 	}
-	return New(backend), nil
+	c := New(backend)
+	c.sharedDatabase = config.Config().Database.Type == "libsql"
+	return c, nil
 }
 
 var ProviderSet = wire.NewSet(ProvideCache)

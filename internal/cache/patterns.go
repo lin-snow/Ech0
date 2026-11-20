@@ -34,6 +34,9 @@ func (c *Cache) ReadThrough[T any](key string, cost int64, load func() (T, error
 // ReadThroughWithStore returns the cached T for key, or loads it once across
 // concurrent callers and hands the result to store.
 func (c *Cache) ReadThroughWithStore[T any](key string, store func(T), load func() (T, error)) (T, error) {
+	if !c.RetainsReads() {
+		return load()
+	}
 	if cached, found, err := c.lookup[T](key); err != nil || found {
 		return cached, err
 	}

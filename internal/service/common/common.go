@@ -227,7 +227,9 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 				return RSSDocument{}, err
 			}
 
-			s.commonRepository.TrackRSSCacheKey(cacheKey)
+			if s.cache.RetainsReads() {
+				s.commonRepository.TrackRSSCacheKey(cacheKey)
+			}
 			return RSSDocument{Atom: atom, HTML: body}, nil
 		},
 	)

@@ -22,9 +22,13 @@ type Backend interface {
 // read-through loading, coalesced per key. It must not be copied.
 type Cache struct {
 	Backend
-	loads singleflight.Group
+	loads          singleflight.Group
+	sharedDatabase bool
 }
 
 func New(backend Backend) *Cache {
 	return &Cache{Backend: backend}
 }
+
+// RetainsReads is false when other instances can change a value independently.
+func (c *Cache) RetainsReads() bool { return !c.sharedDatabase }
