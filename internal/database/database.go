@@ -196,6 +196,7 @@ func migrateModels(db *gorm.DB) error {
 		&oauthserverModel.Client{},
 		&oauthserverModel.ConsumedCode{},
 		&visitorModel.DailyStat{},
+		&visitorModel.VisitorSeen{},
 	}
 
 	return db.AutoMigrate(

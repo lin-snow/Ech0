@@ -114,7 +114,7 @@ func TestGetVisitorStats(t *testing.T) {
 		{Date: "2026-06-29", PV: 10, UV: 4},
 		{Date: "2026-06-30", PV: 20, UV: 7},
 	}
-	svc.EXPECT().GetVisitorStats().Return(want).Once()
+	svc.EXPECT().GetVisitorStats(context.Background()).Return(want, nil).Once()
 
 	h := dashboardHandler.NewDashboardHandler(svc)
 	out, err := h.GetVisitorStats(context.Background(), &dashboardHandler.GetVisitorStatsInput{})

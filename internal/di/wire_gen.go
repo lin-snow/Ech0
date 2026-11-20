@@ -268,7 +268,8 @@ func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless
 	}
 	gormTransactor := transaction.NewGormTransactor(dbProvider)
 	v := bus.ProvideProvider()
-	tracker := visitor.NewTracker()
+	visitorRepository := repository13.NewVisitorRepository(dbProvider)
+	tracker := visitor.NewSharedTracker(visitorRepository)
 	keyValueRepository := keyvalue.NewKeyValueRepository(dbProvider, cacheCache)
 	store := ProvideStorageKV(keyValueRepository)
 	manager := storage.ProvideStorageManager(store)

@@ -100,7 +100,11 @@ func (dashboardHandler *DashboardHandler) GetSystemLogs(ctx context.Context, in 
 }
 
 func (dashboardHandler *DashboardHandler) GetVisitorStats(ctx context.Context, _ *GetVisitorStatsInput) (VisitorStatsOutput, error) {
-	return commonModel.OK(dashboardHandler.dashboardService.GetVisitorStats()), nil
+	stats, err := dashboardHandler.dashboardService.GetVisitorStats(ctx)
+	if err != nil {
+		return VisitorStatsOutput{}, err
+	}
+	return commonModel.OK(stats), nil
 }
 
 func (dashboardHandler *DashboardHandler) WSSubscribeSystemLogs() gin.HandlerFunc {

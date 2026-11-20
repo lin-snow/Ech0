@@ -8,3 +8,9 @@ type DailyStat struct {
 	PV   int64  `gorm:"default:0" json:"pv"`
 	UV   int64  `gorm:"default:0" json:"uv"`
 }
+
+type VisitorSeen struct {
+	Hash   string `gorm:"primaryKey"`
+	Day    string `gorm:"not null;index"`
+	LastPV int64  `gorm:"not null"`
+}

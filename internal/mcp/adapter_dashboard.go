@@ -21,8 +21,11 @@ func (a *Adapter) registerDashboardResources(reg *Registry) {
 	}, a.resourceVisitorStats, authz.ScopeAdminOps)
 }
 
-func (a *Adapter) resourceVisitorStats(_ context.Context, _ string) (*ResourceReadResult, error) {
-	stats := a.dashboardSvc.GetVisitorStats()
+func (a *Adapter) resourceVisitorStats(ctx context.Context, _ string) (*ResourceReadResult, error) {
+	stats, err := a.dashboardSvc.GetVisitorStats(ctx)
+	if err != nil {
+		return nil, err
+	}
 	data, _ := json.Marshal(stats)
 	return &ResourceReadResult{
 		Contents: []ResourceContent{{URI: "ech0://stats/visitors", MimeType: "application/json", Text: string(data)}},

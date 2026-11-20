@@ -25,6 +25,7 @@ import (
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	"github.com/lin-snow/ech0/internal/repository"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
+	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/serverless"
 	"github.com/lin-snow/ech0/internal/service"
@@ -337,7 +338,7 @@ func ProvideSubscriptionProviders(
 }
 
 func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless.Runtime, error) {
-	wire.Build(eventbus.ProvideProvider, cache.ProviderSet, transaction.ProviderSet, VisitorSet, StorageSet,
+	wire.Build(eventbus.ProvideProvider, cache.ProviderSet, transaction.ProviderSet, visitorRepository.NewVisitorRepository, visitor.NewSharedTracker, StorageSet,
 		BuildJobManager, BuildHandlers, BuildMiddlewares, BuildEventRegistrar, server.ProviderSet, serverless.New)
 	return nil, nil
 }

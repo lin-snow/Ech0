@@ -61,6 +61,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 	repo := visitorRepository.NewVisitorRepository(func() *gorm.DB { return db.WithContext(r.Context()) })
 	cutoff := time.Unix(message.Due, 0).UTC().AddDate(0, 0, -6).Format(time.DateOnly)
+	if err := repo.DeleteSeenBefore(r.Context(), time.Unix(message.Due, 0).UTC().AddDate(0, 0, -1).Format(time.DateOnly)); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
 	if err := repo.DeleteOlderThan(r.Context(), cutoff); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return

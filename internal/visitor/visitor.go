@@ -4,8 +4,15 @@
 package visitor
 
 import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
+	"github.com/lin-snow/ech0/internal/config"
+	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"hash/fnv"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -24,10 +31,30 @@ type DayStat struct {
 }
 
 type Tracker struct {
+	shared   *visitorRepository.VisitorRepository
 	recordCh chan recordEvent
 	queryCh  chan chan []DayStat
 	todayCh  chan chan DayStat
 	loadCh   chan loadRequest
+}
+
+func NewSharedTracker(repo *visitorRepository.VisitorRepository) *Tracker {
+	return &Tracker{shared: repo}
+}
+
+func (s *Tracker) Stats(ctx context.Context) ([]DayStat, error) {
+	if s.shared == nil {
+		return s.Last7Days(), nil
+	}
+	rows, err := s.shared.GetRecentDays(ctx, keepDays)
+	if err != nil {
+		return nil, err
+	}
+	days := make(map[string]DayStat, len(rows))
+	for _, row := range rows {
+		days[row.Date] = DayStat(row)
+	}
+	return snapshotLast7Days(days, time.Now()), nil
 }
 
 func NewTracker() *Tracker {
@@ -43,6 +70,14 @@ func NewTracker() *Tracker {
 
 func (s *Tracker) Record(r *http.Request, ip string) {
 	if r == nil || r.Method != http.MethodGet {
+		return
+	}
+	if s.shared != nil {
+		mac := hmac.New(sha256.New, config.Config().Security.JWTSecret)
+		mac.Write([]byte("visitor:" + ip))
+		if err := s.shared.RecordVisit(r.Context(), hex.EncodeToString(mac.Sum(nil)), time.Now(), pvWindow); err != nil {
+			logUtil.GetLogger().Warn("Failed to record page view", slog.String("module", "visitor"), logUtil.Err(err))
+		}
 		return
 	}
 	event := recordEvent{

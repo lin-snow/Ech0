@@ -8,6 +8,7 @@
 package dashboardmock
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/lin-snow/ech0/internal/service/dashboard"
@@ -115,22 +116,31 @@ func (_c *MockService_GetSystemLogs_Call) RunAndReturn(run func(query service.Sy
 }
 
 // GetVisitorStats provides a mock function for the type MockService
-func (_mock *MockService) GetVisitorStats() []visitor.DayStat {
-	ret := _mock.Called()
+func (_mock *MockService) GetVisitorStats(ctx context.Context) ([]visitor.DayStat, error) {
+	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetVisitorStats")
 	}
 
 	var r0 []visitor.DayStat
-	if returnFunc, ok := ret.Get(0).(func() []visitor.DayStat); ok {
-		r0 = returnFunc()
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]visitor.DayStat, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []visitor.DayStat); ok {
+		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]visitor.DayStat)
 		}
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockService_GetVisitorStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetVisitorStats'
@@ -139,23 +149,30 @@ type MockService_GetVisitorStats_Call struct {
 }
 
 // GetVisitorStats is a helper method to define mock.On call
-func (_e *MockService_Expecter) GetVisitorStats() *MockService_GetVisitorStats_Call {
-	return &MockService_GetVisitorStats_Call{Call: _e.mock.On("GetVisitorStats")}
+//   - ctx context.Context
+func (_e *MockService_Expecter) GetVisitorStats(ctx any) *MockService_GetVisitorStats_Call {
+	return &MockService_GetVisitorStats_Call{Call: _e.mock.On("GetVisitorStats", ctx)}
 }
 
-func (_c *MockService_GetVisitorStats_Call) Run(run func()) *MockService_GetVisitorStats_Call {
+func (_c *MockService_GetVisitorStats_Call) Run(run func(ctx context.Context)) *MockService_GetVisitorStats_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
 	})
 	return _c
 }
 
-func (_c *MockService_GetVisitorStats_Call) Return(dayStats []visitor.DayStat) *MockService_GetVisitorStats_Call {
-	_c.Call.Return(dayStats)
+func (_c *MockService_GetVisitorStats_Call) Return(dayStats []visitor.DayStat, err error) *MockService_GetVisitorStats_Call {
+	_c.Call.Return(dayStats, err)
 	return _c
 }
 
-func (_c *MockService_GetVisitorStats_Call) RunAndReturn(run func() []visitor.DayStat) *MockService_GetVisitorStats_Call {
+func (_c *MockService_GetVisitorStats_Call) RunAndReturn(run func(ctx context.Context) ([]visitor.DayStat, error)) *MockService_GetVisitorStats_Call {
 	_c.Call.Return(run)
 	return _c
 }

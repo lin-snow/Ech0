@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/lin-snow/ech0/internal/visitor"
@@ -23,7 +24,7 @@ type SystemLogStreamFilter struct {
 
 type Service interface {
 	GetSystemLogs(query SystemLogQuery) ([]logUtil.LogEntry, error)
-	GetVisitorStats() []visitor.DayStat
+	GetVisitorStats(ctx context.Context) ([]visitor.DayStat, error)
 	WSSubscribeSystemLogs(w http.ResponseWriter, r *http.Request, filter SystemLogStreamFilter) error
 	SSESubscribeSystemLogs(w http.ResponseWriter, r *http.Request, filter SystemLogStreamFilter) error
 }

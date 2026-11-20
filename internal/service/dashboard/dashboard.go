@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,8 +33,8 @@ func (s *DashboardService) GetSystemLogs(query SystemLogQuery) ([]logUtil.LogEnt
 	return logUtil.QueryLogFileTail(logUtil.CurrentLogFilePath(), tail, query.Level, query.Keyword)
 }
 
-func (s *DashboardService) GetVisitorStats() []visitor.DayStat {
-	return s.visitorTracker.Last7Days()
+func (s *DashboardService) GetVisitorStats(ctx context.Context) ([]visitor.DayStat, error) {
+	return s.visitorTracker.Stats(ctx)
 }
 
 func (s *DashboardService) WSSubscribeSystemLogs(

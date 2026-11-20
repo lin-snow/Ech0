@@ -8,6 +8,7 @@ import (
 	"fmt"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
+	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
 	"net"
 	"os"
 	"os/exec"
@@ -67,6 +68,24 @@ func TestLibSQLPersistence(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	require.NoError(t, checkRemoteSchema(b))
+	visitsA := visitorRepository.NewVisitorRepository(func() *gorm.DB { return a })
+	visitsB := visitorRepository.NewVisitorRepository(func() *gorm.DB { return b })
+	beforeMidnight := time.Date(2026, 1, 1, 23, 58, 0, 0, time.UTC)
+	for _, repo := range []*visitorRepository.VisitorRepository{visitsA, visitsB} {
+		go func() { results <- repo.RecordVisit(ctx, "same", beforeMidnight, 5*time.Minute) }()
+	}
+	for range 2 {
+		require.NoError(t, <-results)
+	}
+	require.NoError(t, visitsB.RecordVisit(ctx, "same", beforeMidnight.Add(3*time.Minute), 5*time.Minute))
+	require.NoError(t, visitsA.RecordVisit(ctx, "same", beforeMidnight.Add(6*time.Minute), 5*time.Minute))
+	days, err := visitsB.GetRecentDays(ctx, 7)
+	require.NoError(t, err)
+	require.Len(t, days, 2)
+	for _, day := range days {
+		require.EqualValues(t, 1, day.PV)
+		require.EqualValues(t, 1, day.UV)
+	}
 	revokerA := authRepository.NewAuthRepository(func() *gorm.DB { return a })
 	revokerB := authRepository.NewAuthRepository(func() *gorm.DB { return b })
 	session := authModel.PasskeySession{Origin: "https://example.test"}
