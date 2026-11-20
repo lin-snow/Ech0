@@ -4,6 +4,8 @@ Detailed deployment and upgrade instructions for **Ech0**.
 
 For a 60-second quickstart, see the [main README](./README.md#try-in-60-seconds).
 
+For the Vercel fork, consult the French installation guide, local test results and outstanding compatibility work. [Vercel, Turso and R2](docs/VERCEL_MIGRATION.md)
+
 ## Table of contents
 
 - [Quick Deployment](#quick-deployment)
