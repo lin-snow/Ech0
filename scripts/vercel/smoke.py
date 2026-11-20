@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 from contextlib import ExitStack
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
@@ -53,7 +54,8 @@ def call(listen, path, body=None, expected=200, headers=None, method=None):
     except HTTPError as error:
         response = error
     with response:
-        assert response.status in ((200, 204) if expected is None else (expected,)), (path, response.status, expected)
+        allowed = (200, 204) if expected is None else expected if isinstance(expected, tuple) else (expected,)
+        assert response.status in allowed, (path, response.status, expected)
         return response.read()
 
 
@@ -97,6 +99,13 @@ def object_fixture(stack):
 
         def do_POST(self):
             parsed = urlsplit(self.path)
+            if parsed.path == "/v1/embeddings":
+                req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                assert req["model"] == "fixture" and req["dimensions"] == 2
+                embeddings = [{"object": "embedding", "embedding": [3, 4], "index": n}
+                              for n, _ in enumerate(req["input"])]
+                return self.reply(json.dumps({"object": "list", "data": embeddings}).encode(),
+                                  {"Content-Type": "application/json"})
             query = parse_qs(parsed.query, keep_blank_values=True)
             if "delete" in query:
                 root = ET.fromstring(self.rfile.read(int(self.headers["Content-Length"])))
@@ -179,7 +188,37 @@ def verify_effects(first, second, token, db_port, secret):
     assert len(seen) == 3 and sql(db_port, "SELECT 1 FROM ech0_deliveries") == []
 
 
-def verify_web_export(first, second, token, root, storage_port, db_port, cron_secret):
+def verify_reindex(first, second, token, db_port, storage_port, secret):
+    auth = {"Authorization": "Bearer " + token}
+    worker = {"Authorization": "Bearer " + secret}
+    due = int(time.time()) // 3600 * 3600
+    config = json.dumps({"model": "fixture", "enable": True, "dim": 2, "api_key": "test",
+                         "base_url": f"http://127.0.0.1:{storage_port}/v1"})
+    sql(db_port, f"UPDATE key_values SET value='{config}' WHERE key='embedding_setting'")
+    sql(db_port, "INSERT INTO echos(id,content,user_id,private) SELECT 'fixture-index','index me',id,1 FROM users")
+    def start():
+        result = json.loads(call(first, "/api/embedding/reindex", {}, headers=auth))
+        assert result["data"]["status"] == "pending", result
+        return json.loads(call(second, "/api/maintenance", {"due": due}, headers=worker))[0]
+    abandoned = start()
+    cancelled = json.loads(call(second, "/api/embedding/reindex/cancel", {}, headers=auth))
+    assert cancelled["data"]["status"] == "cancelled"
+    assert not call(first, "/api/maintenance", abandoned, headers=worker, expected=None)
+    step = start()
+    for n in range(8):
+        process = first if n % 2 else second
+        response = call(process, "/api/maintenance", step, headers=worker, expected=None)
+        assert call(first, "/api/maintenance", step, headers=worker, expected=None) == response
+        if not response:
+            break
+        step = json.loads(response)
+    state = json.loads(call(second, "/api/embedding/reindex/status", headers=auth))["data"]
+    assert state["status"] == "success" and state["payload"]["indexed"] == 1, state
+    distance = sql(db_port, "SELECT vector_distance_l2(embedding,vector32('[0,0]')) FROM vec_echo WHERE echo_id='fixture-index'")
+    assert float(distance[0][0]["value"]) == 5
+
+
+def verify_web_export(first, second, token, root, storage_port, db_port, cron_secret, username):
     header = {"Authorization": "Bearer " + token}
     # Exercise multipart and independent checkpoints without contacting any hosted database.
     sql(db_port, "WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<160) INSERT INTO key_values(key,value) SELECT 'export-fixture-'||i,hex(randomblob(32768)) FROM n")
@@ -237,7 +276,7 @@ def verify_web_export(first, second, token, root, storage_port, db_port, cron_se
         path = Path(root) / "restored.db"
         path.write_bytes(archive.read("ech0.db"))
     with sqlite3.connect(path) as restored:
-        assert restored.execute("select username from users").fetchall() == [("tester",)]
+        assert restored.execute("select username from users").fetchall() == [(username,)]
         assert restored.execute("select length(value) from key_values where key='export-fixture-1'").fetchone() == (65536,)
         assert restored.execute("pragma integrity_check").fetchone() == ("ok",)
 
@@ -281,14 +320,22 @@ def run(args):
             catalog = json.loads(call(listen, "/api/_catalog"))
             assert catalog["ops"]["file.upload"]["transport"]["request"]["direct_upload"]
         account = {"username": "tester", "password": secrets.token_hex(16), "email": "tester@example.test"}
-        assert json.loads(call(first, "/api/init/owner", account))["code"] == 1
+        other = {**account, "username": "other-owner", "email": "other@example.test"}
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            tries = [executor.submit(call, listen, "/api/init/owner", candidate, (200, 400, 403, 409))
+                     for listen, candidate in ((first, account), (second, other))]
+            accepted = [candidate for result, candidate in zip(tries, (account, other))
+                        if json.loads(result.result())["code"] == 1]
+        assert len(accepted) == 1, "concurrent initialization must produce a single owner"
+        account = accepted[0]
         assert json.loads(call(second, "/api/init/status"))["data"]["owner_exists"]
         auth = json.loads(call(second, "/api/login", account))
         assert auth["code"] == 1
         verify_device_flow(first, second, auth["data"]["access_token"])
         verify_effects(first, second, auth["data"]["access_token"], db_port, env["CRON_SECRET"])
-        verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"])
-        print("OK: SPA, discovery, login and private web snapshot across two processes")
+        verify_reindex(first, second, auth["data"]["access_token"], db_port, storage_port, env["CRON_SECRET"])
+        verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"], account["username"])
+        print("OK: concurrent ownership, login, device flow, transactional effects, reindex and private snapshot across two processes")
 
 
 if __name__ == "__main__":

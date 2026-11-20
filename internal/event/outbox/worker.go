@@ -33,11 +33,11 @@ type Worker struct {
 	mailer   commentService.Mailer
 	settings kvstore.Store
 	db       func() *gorm.DB
-	index    embeddingService.Indexer
+	index    *embeddingService.EmbeddingService
 	send     func(context.Context, *webhookModel.Webhook, event.WebhookObservation, string) error
 }
 
-func New(db func() *gorm.DB, index embeddingService.Indexer, sender *webhook.Sender, mailer *commentService.GoMailSender, settings kvstore.Store) *Worker {
+func New(db func() *gorm.DB, index *embeddingService.EmbeddingService, sender *webhook.Sender, mailer *commentService.GoMailSender, settings kvstore.Store) *Worker {
 	return &Worker{db: db, index: index, send: sender.DeliverOnce, mailer: mailer, settings: settings}
 }
 
@@ -137,6 +137,9 @@ func (w *Worker) Advance(ctx context.Context, t Ticket) error {
 	}
 	workCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
+	if d.Lane == "embedding" && d.Subject == reindexSubject {
+		return w.reindex(workCtx, db, d)
+	}
 	deliveryErr := w.deliver(workCtx, db.WithContext(workCtx), d)
 	return db.Transaction(func(tx *gorm.DB) error {
 		claim := tx.Where("id=? AND lease=?", d.ID, lease)

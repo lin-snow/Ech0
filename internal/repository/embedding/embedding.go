@@ -82,6 +82,9 @@ func vecToJSON(vec []float32) string {
 // to wait for this write and is then followed by its own RemoveEcho.
 func (r *EmbeddingRepository) Upsert(ctx context.Context, meta *model.EchoEmbedding, vector []float32) error {
 	return r.getDB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := transaction.CheckWrite(ctx, tx); err != nil {
+			return err
+		}
 		var live int64
 		if err := tx.Model(&echoModel.Echo{}).Where("id = ?", meta.EchoID).Count(&live).Error; err != nil {
 			return err

@@ -184,22 +184,9 @@ func (s *EmbeddingService) indexMatches(ctx context.Context, setting settingMode
 func (s *EmbeddingService) Backfill(ctx context.Context, onProgress func(BackfillResult)) (BackfillResult, error) {
 	var result BackfillResult
 
-	setting, err := s.getSetting(ctx)
+	setting, err := s.PrepareBackfill(ctx)
 	if err != nil {
 		return result, err
-	}
-	if !setting.Enable || setting.Model == "" || setting.Dim <= 0 {
-		return result, embedding.ErrNotEnabled
-	}
-	if err := s.ensureReady(ctx, setting); err != nil {
-		return result, err
-	}
-	if pruned, err := s.repo.PruneOrphans(ctx); err != nil {
-		logUtil.GetLogger().Warn("prune orphaned embeddings failed",
-			slog.String("module", "embedding"), logUtil.Err(err))
-	} else if pruned > 0 {
-		logUtil.GetLogger().Info("pruned orphaned embeddings",
-			slog.String("module", "embedding"), slog.Int64("count", pruned))
 	}
 
 	const pageSize = 100
@@ -216,42 +203,12 @@ func (s *EmbeddingService) Backfill(ctx context.Context, onProgress func(Backfil
 			break
 		}
 
-		texts := make([]string, 0, len(items))
-		picked := make([]echoModel.Echo, 0, len(items))
-		for _, e := range items {
-			t := buildText(e)
-			if t == "" {
-				result.Skipped++
-				continue
-			}
-			texts = append(texts, t)
-			picked = append(picked, e)
-		}
-
-		if len(texts) > 0 {
-			vecs, embErr := s.embedBatch(ctx, setting, texts)
-			for i, e := range picked {
-				if vecs[i] == nil {
-					result.Failed++
-					continue
-				}
-				if upErr := s.repo.Upsert(ctx, &model.EchoEmbedding{
-					EchoID:      e.ID,
-					ContentHash: hashContent(texts[i]),
-					Model:       setting.Model,
-					Dim:         setting.Dim,
-					Content:     e.Content,
-					Username:    e.Username,
-					EchoCreated: e.CreatedAt,
-				}, vecs[i]); upErr != nil {
-					result.Failed++
-				} else {
-					result.Indexed++
-				}
-			}
-			if embErr != nil {
-				lastErr = embErr
-			}
+		batch, err := s.IndexBatch(ctx, setting, items)
+		result.Indexed += batch.Indexed
+		result.Failed += batch.Failed
+		result.Skipped += batch.Skipped
+		if err != nil {
+			lastErr = err
 		}
 
 		if onProgress != nil {
@@ -266,6 +223,73 @@ func (s *EmbeddingService) Backfill(ctx context.Context, onProgress func(Backfil
 
 	if result.Indexed == 0 && result.Failed > 0 && lastErr != nil {
 		return result, lastErr
+	}
+
+	return result, nil
+}
+
+// PrepareBackfill initializes the configured native or remote index and prunes
+// orphan rows for both the local runner and the checkpointed Function worker.
+func (s *EmbeddingService) PrepareBackfill(ctx context.Context) (settingModel.EmbeddingSetting, error) {
+	setting, err := s.getSetting(ctx)
+	if err != nil {
+		return setting, err
+	}
+	if !setting.Enable || setting.Model == "" || setting.Dim <= 0 {
+		return setting, embedding.ErrNotEnabled
+	}
+	if err := s.ensureReady(ctx, setting); err != nil {
+		return setting, err
+	}
+	if pruned, err := s.repo.PruneOrphans(ctx); err != nil {
+		logUtil.GetLogger().Warn("prune orphaned embeddings failed",
+			slog.String("module", "embedding"), logUtil.Err(err))
+	} else if pruned > 0 {
+		logUtil.GetLogger().Info("pruned orphaned embeddings",
+			slog.String("module", "embedding"), slog.Int64("count", pruned))
+	}
+
+	return setting, nil
+}
+
+func (s *EmbeddingService) IndexBatch(ctx context.Context, setting settingModel.EmbeddingSetting, items []echoModel.Echo) (BackfillResult, error) {
+	result := BackfillResult{Total: len(items)}
+	texts := make([]string, 0, len(items))
+	picked := make([]echoModel.Echo, 0, len(items))
+	for _, e := range items {
+		t := buildText(e)
+		if t == "" {
+			result.Skipped++
+			continue
+		}
+		texts = append(texts, t)
+		picked = append(picked, e)
+	}
+
+	if len(texts) > 0 {
+		vecs, embErr := s.embedBatch(ctx, setting, texts)
+		for i, e := range picked {
+			if vecs[i] == nil {
+				result.Failed++
+				continue
+			}
+			if upErr := s.repo.Upsert(ctx, &model.EchoEmbedding{
+				EchoID:      e.ID,
+				ContentHash: hashContent(texts[i]),
+				Model:       setting.Model,
+				Dim:         setting.Dim,
+				Content:     e.Content,
+				Username:    e.Username,
+				EchoCreated: e.CreatedAt,
+			}, vecs[i]); upErr != nil {
+				result.Failed++
+			} else {
+				result.Indexed++
+			}
+		}
+		if embErr != nil {
+			return result, embErr
+		}
 	}
 
 	return result, nil
