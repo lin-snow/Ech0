@@ -370,6 +370,9 @@ def run(args):
         db_port = port()
         storage_port = object_fixture(stack)
         env = {k: v for k, v in os.environ.items() if not k.startswith(("ECH0_", "TURSO_"))}
+        first, second = port(), port()
+        env.update(ECH0_AUTH_WEBAUTHN_RP_ID="localhost",
+                   ECH0_AUTH_WEBAUTHN_ORIGINS=f"http://localhost:{second},http://localhost:{first}")
         env.update(ECH0_DB_TYPE="libsql", TURSO_DATABASE_URL=f"http://127.0.0.1:{db_port}",
                    JWT_SECRET=secrets.token_hex(32), CRON_SECRET=secrets.token_hex(32),
                    ECH0_LOG_FILE_ENABLE="false", ECH0_OBJECT_ENABLED="true",
@@ -379,7 +382,6 @@ def run(args):
                    ECH0_STORAGE_DATA_ROOT=str(Path(root) / "objects"))
         start(stack, [args.sqld, "--db-path", "test.db", "--http-listen-addr", f"127.0.0.1:{db_port}"], env, root, db_port)
         subprocess.run([args.cli, "prepare-libsql"], env=env, cwd=root, check=True)
-        first, second = port(), port()
         for listen in (first, second):
             start(stack, [args.server], {**env, "PORT": str(listen)}, root, listen)
             call(listen, "/healthz")
@@ -406,6 +408,11 @@ def run(args):
         verify_reindex(first, second, auth["data"]["access_token"], db_port, storage_port, env["CRON_SECRET"])
         verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"], account["username"])
         verify_media(first, second, auth["data"]["access_token"], db_port, env["CRON_SECRET"])
+        if args.browser_python:
+            browser = {"first": first, "second": second, "chrome": args.chrome,
+                       "token": auth["data"]["access_token"]}
+            subprocess.run([args.browser_python, "scripts/vercel/passkey_browser.py"],
+                           input=json.dumps(browser), text=True, check=True, timeout=80)
         print("OK: concurrent ownership, login, device flow, transactional effects, reindex, logs, private snapshot, direct media and orphan collection across two processes")
 
 
@@ -413,4 +420,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     for name in ("sqld", "server", "cli"):
         parser.add_argument("--" + name, required=True, type=Path)
+    parser.add_argument("--browser-python", help="Python interpreter with playwright installed")
+    parser.add_argument("--chrome", help="optional local Chromium executable for Playwright")
     run(parser.parse_args())

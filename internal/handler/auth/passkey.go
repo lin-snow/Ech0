@@ -5,6 +5,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	res "github.com/lin-snow/ech0/internal/handler/response"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/serverless/platform"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
 )
 
@@ -34,10 +36,21 @@ type (
 
 func (h *AuthHandler) getPasskeyOriginAndRPID(ctx *gin.Context) (origin string, rpID string) {
 	rpID, origins := h.authService.PasskeyBoundary(ctx.Request.Context())
-	if rpID != "" && len(origins) > 0 {
-		return strings.TrimSpace(origins[0]), rpID
-	}
 	origin = strings.TrimSpace(ctx.GetHeader("Origin"))
+	if rpID != "" && len(origins) > 0 {
+		if origin == "" {
+			return strings.TrimSpace(origins[0]), rpID
+		}
+		for _, allowed := range origins {
+			if origin == strings.TrimSpace(allowed) {
+				return origin, rpID
+			}
+		}
+		return "", ""
+	}
+	if platform.IsFunction(ctx.Request.Context()) {
+		return "", ""
+	}
 	if origin == "" {
 		return "", ""
 	}
@@ -51,7 +64,7 @@ func (h *AuthHandler) PasskeyLoginBeginV2() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Response{Err: errors.New(commonModel.INVALID_PARAMS)}
 		}
 		data, err := h.authService.PasskeyLoginBegin(rpID, origin)
 		if err != nil {
@@ -69,7 +82,7 @@ func (h *AuthHandler) PasskeyLoginFinishV2() gin.HandlerFunc {
 		}
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Response{Err: errors.New(commonModel.INVALID_PARAMS)}
 		}
 		tokenPair, err := h.authService.PasskeyLoginFinish(rpID, origin, req.Nonce, req.Credential)
 		if err != nil {
@@ -87,7 +100,7 @@ func (h *AuthHandler) PasskeyRegisterBeginV2() gin.HandlerFunc {
 		_ = ctx.ShouldBindJSON(&req)
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Response{Err: errors.New(commonModel.INVALID_PARAMS)}
 		}
 		data, err := h.authService.PasskeyRegisterBegin(ctx.Request.Context(), rpID, origin, req.DeviceName)
 		if err != nil {
@@ -105,7 +118,7 @@ func (h *AuthHandler) PasskeyRegisterFinishV2() gin.HandlerFunc {
 		}
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Response{Err: errors.New(commonModel.INVALID_PARAMS)}
 		}
 		if err := h.authService.PasskeyRegisterFinish(ctx.Request.Context(), rpID, origin, req.Nonce, req.Credential); err != nil {
 			return res.Response{Err: err}
