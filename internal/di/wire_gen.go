@@ -147,7 +147,7 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	settingRepository := repository6.NewSettingRepository(dbProvider)
 	webhookRepository := repository3.NewWebhookRepository(dbProvider)
 	sender := webhook.NewSender()
-	authRepository := repository7.NewAuthRepository(dbProvider, appCache)
+	authRepository := repository7.NewAuthRepository(dbProvider)
 	userRepository := repository8.NewUserRepository(dbProvider, appCache)
 	accessService := access.NewService(tx, settingRepository, userRepository)
 	settingService := service4.NewSettingService(tx, commonService, fileService, storageManager, persistent, settingRepository, webhookRepository, sender, authRepository, accessService, ebProvider)
@@ -208,7 +208,7 @@ func BuildJobManager(dbProvider func() *gorm.DB, appCache *cache.Cache, storageM
 }
 
 func BuildMiddlewares(dbProvider func() *gorm.DB, appCache *cache.Cache) (*middleware.Deps, error) {
-	authRepository := repository7.NewAuthRepository(dbProvider, appCache)
+	authRepository := repository7.NewAuthRepository(dbProvider)
 	deps := middleware.NewDeps(authRepository)
 	return deps, nil
 }

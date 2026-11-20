@@ -5,35 +5,19 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
-	"github.com/lin-snow/ech0/internal/cache"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
 )
 
-const (
-	oauthCodePrefix = "oauth_code:"
-)
+type AuthRepository struct{ db func() *gorm.DB }
 
-type AuthRepository struct {
-	db    func() *gorm.DB
-	cache *cache.Cache
-}
-
-func NewAuthRepository(
-	dbProvider func() *gorm.DB,
-	cache *cache.Cache,
-) *AuthRepository {
-	return &AuthRepository{
-		db:    dbProvider,
-		cache: cache,
-	}
+func NewAuthRepository(dbProvider func() *gorm.DB) *AuthRepository {
+	return &AuthRepository{db: dbProvider}
 }
 
 func (authRepository *AuthRepository) getDB(ctx context.Context) *gorm.DB {
@@ -63,33 +47,6 @@ func (authRepository *AuthRepository) IsTokenRevoked(jti string) bool {
 	var exists bool
 	err := authRepository.db().Raw("SELECT EXISTS(SELECT 1 FROM revoked_tokens WHERE jti = ? AND expires_at >= ?)", jti, time.Now().Unix()).Scan(&exists).Error
 	return err != nil || exists
-}
-
-func (authRepository *AuthRepository) StoreOAuthCode(code string, pair *authModel.TokenPair, ttl time.Duration) {
-	if code == "" || pair == nil || ttl <= 0 {
-		return
-	}
-	authRepository.cache.SetWithTTL(oauthCodePrefix+code, pair, 1, ttl)
-}
-
-func (authRepository *AuthRepository) GetAndDeleteOAuthCode(code string) (*authModel.TokenPair, error) {
-	if code == "" {
-		return nil, errors.New(commonModel.EXCHANGE_CODE_INVALID)
-	}
-
-	key := oauthCodePrefix + code
-	val, found, _ := authRepository.cache.Get(key)
-	if !found {
-		return nil, errors.New(commonModel.EXCHANGE_CODE_INVALID)
-	}
-
-	authRepository.cache.Delete(key)
-
-	pair, ok := val.(*authModel.TokenPair)
-	if !ok {
-		return nil, errors.New(commonModel.EXCHANGE_CODE_INVALID)
-	}
-	return pair, nil
 }
 
 func (authRepository *AuthRepository) GetUserByUsername(ctx context.Context, username string) (model.User, error) {
@@ -329,27 +286,4 @@ func (authRepository *AuthRepository) DeletePasskeyByID(
 	return authRepository.getDB(ctx).
 		Where("id = ? AND user_id = ?", passkeyID, userID).
 		Delete(&model.WebAuthnCredential{}).Error
-}
-
-func (authRepository *AuthRepository) CacheSetPasskeySession(
-	key string,
-	val any,
-	ttl time.Duration,
-) {
-	_ = authRepository.cache.SetWithTTL(key, val, 1, ttl)
-}
-
-func (authRepository *AuthRepository) CacheGetPasskeySession(key string) (any, error) {
-	value, found, err := authRepository.cache.Get(key)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return value, nil
-}
-
-func (authRepository *AuthRepository) CacheDeletePasskeySession(key string) {
-	authRepository.cache.Delete(key)
 }

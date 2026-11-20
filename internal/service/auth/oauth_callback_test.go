@@ -236,7 +236,7 @@ func TestHandleOAuthCallback_LoginSuccess(t *testing.T) {
 	var storedCode string
 	authRepo.EXPECT().
 		StoreOAuthCode(mock.Anything, mock.Anything, 60*time.Second).
-		Run(func(code string, _ *authModel.TokenPair, _ time.Duration) { storedCode = code }).
+		Run(func(code string, _ *authModel.TokenPair, _ time.Duration) { storedCode = code }).Return(nil).
 		Once()
 
 	out, err := svc.HandleOAuthCallback(string(commonModel.OAuth2GITHUB), "code-123", state)
@@ -336,7 +336,7 @@ func TestResolveOAuthCallback_LoginOAuthSuccess(t *testing.T) {
 			storedCode = code
 			require.NotNil(t, pair)
 			assert.NotEmpty(t, pair.AccessToken)
-		}).
+		}).Return(nil).
 		Once()
 
 	out, err := svc.resolveOAuthCallback(
@@ -362,7 +362,7 @@ func TestResolveOAuthCallback_LoginOIDCSuccess(t *testing.T) {
 		Once()
 	authRepo.EXPECT().
 		StoreOAuthCode(mock.Anything, mock.Anything, 60*time.Second).
-		Return().
+		Return(nil).
 		Once()
 
 	out, err := svc.resolveOAuthCallback(

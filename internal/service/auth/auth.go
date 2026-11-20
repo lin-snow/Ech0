@@ -439,7 +439,9 @@ func (authService *AuthService) resolveOAuthCallback(
 		}
 
 		code := cryptoUtil.GenerateRandomString(32)
-		authService.authRepo.StoreOAuthCode(code, tokenPair, 60*time.Second)
+		if err := authService.authRepo.StoreOAuthCode(code, tokenPair, 60*time.Second); err != nil {
+			return "", err
+		}
 		query := redirectURL.Query()
 		query.Set("code", code)
 		redirectURL.RawQuery = query.Encode()
@@ -580,12 +582,6 @@ const (
 	passkeyLoginKey = "passkey:login"
 )
 
-type passkeySessionCache struct {
-	Session    webauthn.SessionData
-	Origin     string
-	DeviceName string
-}
-
 type webauthnUser struct {
 	u           model.User
 	userHandle  []byte
@@ -711,15 +707,17 @@ func (authService *AuthService) PasskeyRegisterBegin(
 		return resp, err
 	}
 
-	authService.repository.CacheSetPasskeySession(
+	if err := authService.repository.StorePasskeySession(
 		getPasskeyRegisterSessionKey(nonce),
-		passkeySessionCache{
+		authModel.PasskeySession{
 			Session:    *session,
 			Origin:     origin,
 			DeviceName: deviceName,
 		},
 		passkeySessionTTL,
-	)
+	); err != nil {
+		return resp, err
+	}
 
 	resp.Nonce = nonce
 	resp.PublicKey = &creation.Response
@@ -733,14 +731,8 @@ func (authService *AuthService) PasskeyRegisterFinish(
 ) error {
 	userID := viewer.MustFromContext(ctx).UserID()
 	cacheKey := getPasskeyRegisterSessionKey(nonce)
-	cached, err := authService.repository.CacheGetPasskeySession(cacheKey)
+	sess, err := authService.repository.ConsumePasskeySession(cacheKey)
 	if err != nil {
-		return errors.New(commonModel.INVALID_PARAMS)
-	}
-	authService.repository.CacheDeletePasskeySession(cacheKey)
-
-	sess, ok := cached.(passkeySessionCache)
-	if !ok {
 		return errors.New(commonModel.INVALID_PARAMS)
 	}
 	if sess.Origin != origin {
@@ -812,14 +804,16 @@ func (authService *AuthService) PasskeyLoginBegin(
 		return resp, err
 	}
 
-	authService.repository.CacheSetPasskeySession(
+	if err := authService.repository.StorePasskeySession(
 		getPasskeyLoginSessionKey(nonce),
-		passkeySessionCache{
+		authModel.PasskeySession{
 			Session: *session,
 			Origin:  origin,
 		},
 		passkeySessionTTL,
-	)
+	); err != nil {
+		return resp, err
+	}
 
 	resp.Nonce = nonce
 	resp.PublicKey = &assertion.Response
@@ -831,14 +825,8 @@ func (authService *AuthService) PasskeyLoginFinish(
 	credential json.RawMessage,
 ) (*authModel.TokenPair, error) {
 	cacheKey := getPasskeyLoginSessionKey(nonce)
-	cached, err := authService.repository.CacheGetPasskeySession(cacheKey)
+	sess, err := authService.repository.ConsumePasskeySession(cacheKey)
 	if err != nil {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
-	}
-	authService.repository.CacheDeletePasskeySession(cacheKey)
-
-	sess, ok := cached.(passkeySessionCache)
-	if !ok {
 		return nil, errors.New(commonModel.INVALID_PARAMS)
 	}
 	if sess.Origin != origin {

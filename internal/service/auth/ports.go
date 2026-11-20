@@ -74,9 +74,8 @@ type PasskeyRepo interface {
 }
 
 type ChallengeStore interface {
-	CacheSetPasskeySession(key string, val any, ttl time.Duration)
-	CacheGetPasskeySession(key string) (any, error)
-	CacheDeletePasskeySession(key string)
+	StorePasskeySession(key string, session authModel.PasskeySession, ttl time.Duration) error
+	ConsumePasskeySession(key string) (authModel.PasskeySession, error)
 }
 
 type Repository interface {
@@ -88,7 +87,7 @@ type Repository interface {
 }
 
 type OAuthCodeStore interface {
-	StoreOAuthCode(code string, pair *authModel.TokenPair, ttl time.Duration)
+	StoreOAuthCode(code string, pair *authModel.TokenPair, ttl time.Duration) error
 	GetAndDeleteOAuthCode(code string) (*authModel.TokenPair, error)
 }
 

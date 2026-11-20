@@ -192,6 +192,7 @@ func migrateModels(db *gorm.DB) error {
 		&settingModel.AccessTokenSetting{},
 		&authModel.Passkey{},
 		&authModel.RevokedToken{},
+		&authModel.Challenge{},
 		&oauthserverModel.Client{},
 		&oauthserverModel.ConsumedCode{},
 		&visitorModel.DailyStat{},

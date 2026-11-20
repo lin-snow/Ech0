@@ -84,11 +84,11 @@ func TestPasskeyRegisterBegin_Success(t *testing.T) {
 	var cachedKey string
 	var cachedVal any
 	repo.EXPECT().
-		CacheSetPasskeySession(mock.Anything, mock.Anything, passkeySessionTTL).
-		Run(func(key string, val any, _ time.Duration) {
+		StorePasskeySession(mock.Anything, mock.Anything, passkeySessionTTL).
+		Run(func(key string, val authModel.PasskeySession, _ time.Duration) {
 			cachedKey = key
 			cachedVal = val
-		}).
+		}).Return(nil).
 		Once()
 
 	resp, err := svc.PasskeyRegisterBegin(ctx, testRPID, testOrigin, "")
@@ -97,7 +97,7 @@ func TestPasskeyRegisterBegin_Success(t *testing.T) {
 	require.NotNil(t, resp.PublicKey)
 
 	assert.Equal(t, getPasskeyRegisterSessionKey(resp.Nonce), cachedKey)
-	sess, ok := cachedVal.(passkeySessionCache)
+	sess, ok := cachedVal.(authModel.PasskeySession)
 	require.True(t, ok)
 	assert.Equal(t, testOrigin, sess.Origin)
 	assert.Equal(t, "Passkey", sess.DeviceName)
@@ -123,8 +123,8 @@ func TestPasskeyLoginBegin_Success(t *testing.T) {
 
 	var cachedKey string
 	repo.EXPECT().
-		CacheSetPasskeySession(mock.Anything, mock.Anything, passkeySessionTTL).
-		Run(func(key string, _ any, _ time.Duration) { cachedKey = key }).
+		StorePasskeySession(mock.Anything, mock.Anything, passkeySessionTTL).
+		Run(func(key string, _ authModel.PasskeySession, _ time.Duration) { cachedKey = key }).Return(nil).
 		Once()
 
 	resp, err := svc.PasskeyLoginBegin(testRPID, testOrigin)

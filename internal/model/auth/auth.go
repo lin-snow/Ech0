@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/golang-jwt/jwt/v5"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"gorm.io/gorm"
@@ -163,4 +164,17 @@ func (p *Passkey) BeforeCreate(_ *gorm.DB) error {
 		p.ID = uuidUtil.NewV7()
 	}
 	return nil
+}
+
+// Challenge records only the digest of the opaque single-use code.
+type Challenge struct {
+	ID        string `gorm:"primaryKey"`
+	Payload   []byte `gorm:"not null"`
+	ExpiresAt int64  `gorm:"index;not null"`
+}
+
+type PasskeySession struct {
+	Session    webauthn.SessionData
+	Origin     string
+	DeviceName string
 }

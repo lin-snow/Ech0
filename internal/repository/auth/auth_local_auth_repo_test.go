@@ -14,7 +14,7 @@ import (
 )
 
 func TestAuthRepository_GetLocalAuthByUserID(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	ctx := context.Background()
 
 	require.NoError(t, db.Create(&userModel.UserLocalAuth{
@@ -31,7 +31,7 @@ func TestAuthRepository_GetLocalAuthByUserID(t *testing.T) {
 }
 
 func TestAuthRepository_UpdateLocalAuthPassword(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	ctx := context.Background()
 
 	require.NoError(t, db.Create(&userModel.UserLocalAuth{

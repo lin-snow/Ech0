@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lin-snow/ech0/internal/cache"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -18,11 +17,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func newAuthRepo(t *testing.T) (*AuthRepository, *gorm.DB, *cache.Cache) {
+func newAuthRepo(t *testing.T) (*AuthRepository, *gorm.DB) {
 	t.Helper()
 	db := helpers.NewTestDB(t)
-	c := helpers.NewTestCache()
-	return NewAuthRepository(func() *gorm.DB { return db }, c), db, c
+
+	return NewAuthRepository(func() *gorm.DB { return db }), db
 }
 
 func insertUser(t *testing.T, db *gorm.DB, u userModel.User) userModel.User {
@@ -39,7 +38,7 @@ func countIdentities(t *testing.T, db *gorm.DB, userID string) int64 {
 }
 
 func TestAuthRepository_GetUserByUsername(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	insertUser(t, db, helpers.NewUser(func(u *userModel.User) {
 		u.ID = "u-name"
 		u.Username = "alice"
@@ -59,7 +58,7 @@ func TestAuthRepository_GetUserByUsername(t *testing.T) {
 }
 
 func TestAuthRepository_GetUserByID(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	insertUser(t, db, helpers.NewUser(func(u *userModel.User) {
 		u.ID = "u-id"
 		u.Username = "bob"
@@ -78,7 +77,7 @@ func TestAuthRepository_GetUserByID(t *testing.T) {
 }
 
 func TestAuthRepository_BindOAuth_CreateOAuth2(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 
 	err := repo.BindOAuth(context.Background(), "u-1", "github", "sub-1", "https://ignored", string(authModel.AuthTypeOAuth2))
 	require.NoError(t, err)
@@ -92,7 +91,7 @@ func TestAuthRepository_BindOAuth_CreateOAuth2(t *testing.T) {
 }
 
 func TestAuthRepository_BindOAuth_CreateOIDC(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 
 	err := repo.BindOAuth(context.Background(), "u-2", "keycloak", "sub-2", "  https://idp.example.com  ", string(authModel.AuthTypeOIDC))
 	require.NoError(t, err)
@@ -105,7 +104,7 @@ func TestAuthRepository_BindOAuth_CreateOIDC(t *testing.T) {
 }
 
 func TestAuthRepository_BindOAuth_UpsertUpdatesSubject(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	ctx := context.Background()
 
 	require.NoError(t, repo.BindOAuth(ctx, "u-3", "github", "old-sub", "", string(authModel.AuthTypeOAuth2)))
@@ -119,7 +118,7 @@ func TestAuthRepository_BindOAuth_UpsertUpdatesSubject(t *testing.T) {
 }
 
 func TestAuthRepository_BindOAuth_OAuth2AndOIDCAreDistinct(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	ctx := context.Background()
 
 	require.NoError(t, repo.BindOAuth(ctx, "u-4", "google", "sub-oauth2", "", string(authModel.AuthTypeOAuth2)))
@@ -129,7 +128,7 @@ func TestAuthRepository_BindOAuth_OAuth2AndOIDCAreDistinct(t *testing.T) {
 }
 
 func TestAuthRepository_GetUserByOAuthID(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	ctx := context.Background()
 	insertUser(t, db, helpers.NewUser(func(u *userModel.User) {
 		u.ID = "owner-oauth2"
@@ -157,7 +156,7 @@ func TestAuthRepository_GetUserByOAuthID(t *testing.T) {
 }
 
 func TestAuthRepository_GetUserByOIDC(t *testing.T) {
-	repo, db, _ := newAuthRepo(t)
+	repo, db := newAuthRepo(t)
 	ctx := context.Background()
 	insertUser(t, db, helpers.NewUser(func(u *userModel.User) {
 		u.ID = "owner-oidc"
@@ -178,7 +177,7 @@ func TestAuthRepository_GetUserByOIDC(t *testing.T) {
 }
 
 func TestAuthRepository_GetOAuthInfo(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.BindOAuth(ctx, "u-info", "github", "gh-sub", "", string(authModel.AuthTypeOAuth2)))
 
@@ -196,7 +195,7 @@ func TestAuthRepository_GetOAuthInfo(t *testing.T) {
 }
 
 func TestAuthRepository_GetOAuthOIDCInfo(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.BindOAuth(ctx, "u-oidc-info", "keycloak", "kc-sub", "https://idp.example.com", string(authModel.AuthTypeOIDC)))
 
@@ -234,7 +233,7 @@ func newPasskey(opts ...func(*authModel.Passkey)) *authModel.Passkey {
 }
 
 func TestAuthRepository_CreatePasskey_RoundTrip(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 
 	in := newPasskey()
@@ -254,13 +253,13 @@ func TestAuthRepository_CreatePasskey_RoundTrip(t *testing.T) {
 }
 
 func TestAuthRepository_GetPasskeyByCredentialID_NotFound(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	_, err := repo.GetPasskeyByCredentialID("does-not-exist")
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
 func TestAuthRepository_ListPasskeysByUserID(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 
 	require.NoError(t, repo.CreatePasskey(ctx, newPasskey(func(p *authModel.Passkey) {
@@ -285,14 +284,14 @@ func TestAuthRepository_ListPasskeysByUserID(t *testing.T) {
 }
 
 func TestAuthRepository_ListPasskeysByUserID_Empty(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	list, err := repo.ListPasskeysByUserID("nobody")
 	require.NoError(t, err)
 	assert.Empty(t, list)
 }
 
 func TestAuthRepository_UpdatePasskeyUsage(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.CreatePasskey(ctx, newPasskey()))
 
@@ -305,7 +304,7 @@ func TestAuthRepository_UpdatePasskeyUsage(t *testing.T) {
 }
 
 func TestAuthRepository_UpdatePasskeyDeviceName(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.CreatePasskey(ctx, newPasskey()))
 
@@ -325,7 +324,7 @@ func TestAuthRepository_UpdatePasskeyDeviceName(t *testing.T) {
 }
 
 func TestAuthRepository_DeletePasskeyByID(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.CreatePasskey(ctx, newPasskey()))
 
@@ -343,7 +342,7 @@ func TestAuthRepository_DeletePasskeyByID(t *testing.T) {
 }
 
 func TestAuthRepository_RevokeToken(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 
 	t.Run("revoked token is reported", func(t *testing.T) {
 		repo.RevokeToken("jti-1", time.Minute)
@@ -366,10 +365,10 @@ func TestAuthRepository_RevokeToken(t *testing.T) {
 }
 
 func TestAuthRepository_OAuthCode_SingleUse(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	pair := &authModel.TokenPair{AccessToken: "at", RefreshToken: "rt", ExpiresIn: 3600}
 
-	repo.StoreOAuthCode("code-1", pair, time.Minute)
+	require.NoError(t, repo.StoreOAuthCode("code-1", pair, time.Minute))
 
 	got, err := repo.GetAndDeleteOAuthCode("code-1")
 	require.NoError(t, err)
@@ -381,7 +380,7 @@ func TestAuthRepository_OAuthCode_SingleUse(t *testing.T) {
 }
 
 func TestAuthRepository_GetAndDeleteOAuthCode_Errors(t *testing.T) {
-	repo, _, c := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 
 	t.Run("empty code", func(t *testing.T) {
 		_, err := repo.GetAndDeleteOAuthCode("")
@@ -393,17 +392,10 @@ func TestAuthRepository_GetAndDeleteOAuthCode_Errors(t *testing.T) {
 		require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
 	})
 
-	t.Run("type mismatch is rejected and key consumed", func(t *testing.T) {
-		c.SetWithTTL(oauthCodePrefix+"weird", "not-a-pair", 1, time.Minute)
-		_, err := repo.GetAndDeleteOAuthCode("weird")
-		require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
-		_, found, _ := c.Get(oauthCodePrefix + "weird")
-		assert.False(t, found)
-	})
 }
 
 func TestAuthRepository_StoreOAuthCode_Guards(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 	pair := &authModel.TokenPair{AccessToken: "at"}
 
 	cases := []struct {
@@ -418,7 +410,7 @@ func TestAuthRepository_StoreOAuthCode_Guards(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo.StoreOAuthCode(tc.code, tc.pair, tc.ttl)
+			require.Error(t, repo.StoreOAuthCode(tc.code, tc.pair, tc.ttl))
 			key := tc.code
 			if key == "" {
 				key = "c"
@@ -430,24 +422,13 @@ func TestAuthRepository_StoreOAuthCode_Guards(t *testing.T) {
 }
 
 func TestAuthRepository_PasskeySession(t *testing.T) {
-	repo, _, _ := newAuthRepo(t)
+	repo, _ := newAuthRepo(t)
 
-	t.Run("miss returns ErrRecordNotFound", func(t *testing.T) {
-		_, err := repo.CacheGetPasskeySession("sess-missing")
-		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
-	})
-
-	t.Run("set then get", func(t *testing.T) {
-		repo.CacheSetPasskeySession("sess-1", "payload", time.Minute)
-		got, err := repo.CacheGetPasskeySession("sess-1")
-		require.NoError(t, err)
-		assert.Equal(t, "payload", got)
-	})
-
-	t.Run("delete removes it", func(t *testing.T) {
-		repo.CacheSetPasskeySession("sess-2", 42, time.Minute)
-		repo.CacheDeletePasskeySession("sess-2")
-		_, err := repo.CacheGetPasskeySession("sess-2")
-		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
-	})
+	session := authModel.PasskeySession{Origin: "https://example.test"}
+	require.NoError(t, repo.StorePasskeySession("sess-key", session, time.Minute))
+	got, err := repo.ConsumePasskeySession("sess-key")
+	require.NoError(t, err)
+	require.Equal(t, session, got)
+	_, err = repo.ConsumePasskeySession("sess-key")
+	require.Error(t, err)
 }

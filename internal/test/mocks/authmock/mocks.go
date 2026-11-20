@@ -1464,65 +1464,23 @@ func (_c *MockRepository_BindOAuth_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
-// CacheDeletePasskeySession provides a mock function for the type MockRepository
-func (_mock *MockRepository) CacheDeletePasskeySession(key string) {
-	_mock.Called(key)
-	return
-}
-
-// MockRepository_CacheDeletePasskeySession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CacheDeletePasskeySession'
-type MockRepository_CacheDeletePasskeySession_Call struct {
-	*mock.Call
-}
-
-// CacheDeletePasskeySession is a helper method to define mock.On call
-//   - key string
-func (_e *MockRepository_Expecter) CacheDeletePasskeySession(key any) *MockRepository_CacheDeletePasskeySession_Call {
-	return &MockRepository_CacheDeletePasskeySession_Call{Call: _e.mock.On("CacheDeletePasskeySession", key)}
-}
-
-func (_c *MockRepository_CacheDeletePasskeySession_Call) Run(run func(key string)) *MockRepository_CacheDeletePasskeySession_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepository_CacheDeletePasskeySession_Call) Return() *MockRepository_CacheDeletePasskeySession_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockRepository_CacheDeletePasskeySession_Call) RunAndReturn(run func(key string)) *MockRepository_CacheDeletePasskeySession_Call {
-	_c.Run(run)
-	return _c
-}
-
-// CacheGetPasskeySession provides a mock function for the type MockRepository
-func (_mock *MockRepository) CacheGetPasskeySession(key string) (any, error) {
+// ConsumePasskeySession provides a mock function for the type MockRepository
+func (_mock *MockRepository) ConsumePasskeySession(key string) (model.PasskeySession, error) {
 	ret := _mock.Called(key)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CacheGetPasskeySession")
+		panic("no return value specified for ConsumePasskeySession")
 	}
 
-	var r0 any
+	var r0 model.PasskeySession
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (any, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (model.PasskeySession, error)); ok {
 		return returnFunc(key)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) any); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) model.PasskeySession); ok {
 		r0 = returnFunc(key)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(any)
-		}
+		r0 = ret.Get(0).(model.PasskeySession)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
 		r1 = returnFunc(key)
@@ -1532,18 +1490,18 @@ func (_mock *MockRepository) CacheGetPasskeySession(key string) (any, error) {
 	return r0, r1
 }
 
-// MockRepository_CacheGetPasskeySession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CacheGetPasskeySession'
-type MockRepository_CacheGetPasskeySession_Call struct {
+// MockRepository_ConsumePasskeySession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConsumePasskeySession'
+type MockRepository_ConsumePasskeySession_Call struct {
 	*mock.Call
 }
 
-// CacheGetPasskeySession is a helper method to define mock.On call
+// ConsumePasskeySession is a helper method to define mock.On call
 //   - key string
-func (_e *MockRepository_Expecter) CacheGetPasskeySession(key any) *MockRepository_CacheGetPasskeySession_Call {
-	return &MockRepository_CacheGetPasskeySession_Call{Call: _e.mock.On("CacheGetPasskeySession", key)}
+func (_e *MockRepository_Expecter) ConsumePasskeySession(key any) *MockRepository_ConsumePasskeySession_Call {
+	return &MockRepository_ConsumePasskeySession_Call{Call: _e.mock.On("ConsumePasskeySession", key)}
 }
 
-func (_c *MockRepository_CacheGetPasskeySession_Call) Run(run func(key string)) *MockRepository_CacheGetPasskeySession_Call {
+func (_c *MockRepository_ConsumePasskeySession_Call) Run(run func(key string)) *MockRepository_ConsumePasskeySession_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -1556,65 +1514,13 @@ func (_c *MockRepository_CacheGetPasskeySession_Call) Run(run func(key string)) 
 	return _c
 }
 
-func (_c *MockRepository_CacheGetPasskeySession_Call) Return(anyMoqParam any, err error) *MockRepository_CacheGetPasskeySession_Call {
-	_c.Call.Return(anyMoqParam, err)
+func (_c *MockRepository_ConsumePasskeySession_Call) Return(passkeySession model.PasskeySession, err error) *MockRepository_ConsumePasskeySession_Call {
+	_c.Call.Return(passkeySession, err)
 	return _c
 }
 
-func (_c *MockRepository_CacheGetPasskeySession_Call) RunAndReturn(run func(key string) (any, error)) *MockRepository_CacheGetPasskeySession_Call {
+func (_c *MockRepository_ConsumePasskeySession_Call) RunAndReturn(run func(key string) (model.PasskeySession, error)) *MockRepository_ConsumePasskeySession_Call {
 	_c.Call.Return(run)
-	return _c
-}
-
-// CacheSetPasskeySession provides a mock function for the type MockRepository
-func (_mock *MockRepository) CacheSetPasskeySession(key string, val any, ttl time.Duration) {
-	_mock.Called(key, val, ttl)
-	return
-}
-
-// MockRepository_CacheSetPasskeySession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CacheSetPasskeySession'
-type MockRepository_CacheSetPasskeySession_Call struct {
-	*mock.Call
-}
-
-// CacheSetPasskeySession is a helper method to define mock.On call
-//   - key string
-//   - val any
-//   - ttl time.Duration
-func (_e *MockRepository_Expecter) CacheSetPasskeySession(key any, val any, ttl any) *MockRepository_CacheSetPasskeySession_Call {
-	return &MockRepository_CacheSetPasskeySession_Call{Call: _e.mock.On("CacheSetPasskeySession", key, val, ttl)}
-}
-
-func (_c *MockRepository_CacheSetPasskeySession_Call) Run(run func(key string, val any, ttl time.Duration)) *MockRepository_CacheSetPasskeySession_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 any
-		if args[1] != nil {
-			arg1 = args[1].(any)
-		}
-		var arg2 time.Duration
-		if args[2] != nil {
-			arg2 = args[2].(time.Duration)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepository_CacheSetPasskeySession_Call) Return() *MockRepository_CacheSetPasskeySession_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockRepository_CacheSetPasskeySession_Call) RunAndReturn(run func(key string, val any, ttl time.Duration)) *MockRepository_CacheSetPasskeySession_Call {
-	_c.Run(run)
 	return _c
 }
 
@@ -2346,6 +2252,69 @@ func (_c *MockRepository_ListPasskeysByUserID_Call) RunAndReturn(run func(userID
 	return _c
 }
 
+// StorePasskeySession provides a mock function for the type MockRepository
+func (_mock *MockRepository) StorePasskeySession(key string, session model.PasskeySession, ttl time.Duration) error {
+	ret := _mock.Called(key, session, ttl)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StorePasskeySession")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, model.PasskeySession, time.Duration) error); ok {
+		r0 = returnFunc(key, session, ttl)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_StorePasskeySession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StorePasskeySession'
+type MockRepository_StorePasskeySession_Call struct {
+	*mock.Call
+}
+
+// StorePasskeySession is a helper method to define mock.On call
+//   - key string
+//   - session model.PasskeySession
+//   - ttl time.Duration
+func (_e *MockRepository_Expecter) StorePasskeySession(key any, session any, ttl any) *MockRepository_StorePasskeySession_Call {
+	return &MockRepository_StorePasskeySession_Call{Call: _e.mock.On("StorePasskeySession", key, session, ttl)}
+}
+
+func (_c *MockRepository_StorePasskeySession_Call) Run(run func(key string, session model.PasskeySession, ttl time.Duration)) *MockRepository_StorePasskeySession_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 model.PasskeySession
+		if args[1] != nil {
+			arg1 = args[1].(model.PasskeySession)
+		}
+		var arg2 time.Duration
+		if args[2] != nil {
+			arg2 = args[2].(time.Duration)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_StorePasskeySession_Call) Return(err error) *MockRepository_StorePasskeySession_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_StorePasskeySession_Call) RunAndReturn(run func(key string, session model.PasskeySession, ttl time.Duration) error) *MockRepository_StorePasskeySession_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateLocalAuthPassword provides a mock function for the type MockRepository
 func (_mock *MockRepository) UpdateLocalAuthPassword(ctx context.Context, userID string, passwordHash string, passwordAlgo string) error {
 	ret := _mock.Called(ctx, userID, passwordHash, passwordAlgo)
@@ -2760,9 +2729,20 @@ func (_c *MockAuthRepo_RevokeToken_Call) RunAndReturn(run func(jti string, remai
 }
 
 // StoreOAuthCode provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) StoreOAuthCode(code string, pair *model.TokenPair, ttl time.Duration) {
-	_mock.Called(code, pair, ttl)
-	return
+func (_mock *MockAuthRepo) StoreOAuthCode(code string, pair *model.TokenPair, ttl time.Duration) error {
+	ret := _mock.Called(code, pair, ttl)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StoreOAuthCode")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, *model.TokenPair, time.Duration) error); ok {
+		r0 = returnFunc(code, pair, ttl)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
 }
 
 // MockAuthRepo_StoreOAuthCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StoreOAuthCode'
@@ -2801,12 +2781,12 @@ func (_c *MockAuthRepo_StoreOAuthCode_Call) Run(run func(code string, pair *mode
 	return _c
 }
 
-func (_c *MockAuthRepo_StoreOAuthCode_Call) Return() *MockAuthRepo_StoreOAuthCode_Call {
-	_c.Call.Return()
+func (_c *MockAuthRepo_StoreOAuthCode_Call) Return(err error) *MockAuthRepo_StoreOAuthCode_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockAuthRepo_StoreOAuthCode_Call) RunAndReturn(run func(code string, pair *model.TokenPair, ttl time.Duration)) *MockAuthRepo_StoreOAuthCode_Call {
-	_c.Run(run)
+func (_c *MockAuthRepo_StoreOAuthCode_Call) RunAndReturn(run func(code string, pair *model.TokenPair, ttl time.Duration) error) *MockAuthRepo_StoreOAuthCode_Call {
+	_c.Call.Return(run)
 	return _c
 }

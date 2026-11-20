@@ -6,6 +6,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
 	"net"
 	"os"
@@ -66,8 +67,15 @@ func TestLibSQLPersistence(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	require.NoError(t, checkRemoteSchema(b))
-	revokerA := authRepository.NewAuthRepository(func() *gorm.DB { return a }, nil)
-	revokerB := authRepository.NewAuthRepository(func() *gorm.DB { return b }, nil)
+	revokerA := authRepository.NewAuthRepository(func() *gorm.DB { return a })
+	revokerB := authRepository.NewAuthRepository(func() *gorm.DB { return b })
+	session := authModel.PasskeySession{Origin: "https://example.test"}
+	require.NoError(t, revokerA.StorePasskeySession("register:test-nonce", session, time.Minute))
+	restored, err := revokerB.ConsumePasskeySession("register:test-nonce")
+	require.NoError(t, err)
+	require.Equal(t, session, restored)
+	_, err = revokerA.ConsumePasskeySession("register:test-nonce")
+	require.Error(t, err)
 	require.False(t, revokerB.IsTokenRevoked("session"))
 	require.NoError(t, revokerA.RevokeToken("session", time.Minute))
 	require.True(t, revokerB.IsTokenRevoked("session"))
