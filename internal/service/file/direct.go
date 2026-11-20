@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/authz"
@@ -27,13 +28,25 @@ func uploadDTO(f *fileModel.File) commonModel.FileDto {
 	return commonModel.FileDto{ID: f.ID, Name: f.Name, Key: f.Key, StorageType: f.StorageType, URL: f.URL, ContentType: f.ContentType, Category: f.Category, Size: f.Size, Width: f.Width, Height: f.Height}
 }
 
-func (s *FileService) finalizedUpload(ctx context.Context, owner, id string) (commonModel.FileDto, error) {
+func (s *FileService) finalizedUpload(ctx context.Context, owner, id string, dto commonModel.UpdateFileMetaDto) (commonModel.FileDto, error) {
 	f, err := s.fileRepository.GetByID(ctx, id)
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
 	if f.UserID != owner || storage.NormalizeStorageType(f.StorageType) != storage.StorageTypeObject {
 		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+	contentType := strings.TrimSpace(dto.ContentType)
+	if dto.Size != f.Size || (contentType != "" && contentType != f.ContentType) {
+		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
+	}
+	widthChanged := dto.Width != nil && *dto.Width != f.Width
+	heightChanged := dto.Height != nil && *dto.Height != f.Height
+	if widthChanged || heightChanged {
+		f, err = s.fileRepository.UpdateMetaByID(ctx, id, f.Size, dto.Width, dto.Height, nil)
+		if err != nil {
+			return commonModel.FileDto{}, err
+		}
 	}
 	return uploadDTO(f), nil
 }
@@ -43,7 +56,7 @@ func (s *FileService) finalizeUpload(ctx context.Context, user userModel.User, i
 	var empty commonModel.FileDto
 	intent, err := s.fileRepository.GetIntent(ctx, id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return s.finalizedUpload(ctx, owner, id)
+		return s.finalizedUpload(ctx, owner, id, dto)
 	}
 	if err != nil {
 		return empty, err
@@ -96,7 +109,7 @@ func (s *FileService) finalizeUpload(ctx context.Context, user userModel.User, i
 		return eventbus.Record(tx, s.bus, event.ResourceUploaded{User: user, FileName: f.Name, URL: f.URL, Size: f.Size, Type: string(kind), Key: f.Key})
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return s.finalizedUpload(ctx, owner, id)
+		return s.finalizedUpload(ctx, owner, id, dto)
 	}
 	if err != nil {
 		return empty, err

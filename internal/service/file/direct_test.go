@@ -87,6 +87,12 @@ func TestVerifiedDirectUpload(t *testing.T) {
 		require.Equal(t, signed.ID, published.ID)
 		require.Equal(t, size, published.Size)
 	}
+	width := 42
+	updated, err := fix.svc.UpdateFileMeta(ctx, signed.ID, commonModel.UpdateFileMetaDto{Size: size, Width: &width})
+	require.NoError(t, err)
+	require.Equal(t, width, updated.Width)
+	_, err = fix.svc.UpdateFileMeta(ctx, signed.ID, commonModel.UpdateFileMetaDto{Size: size + 1})
+	require.Error(t, err)
 	_, err = fix.repo.GetIntent(ctx, signed.ID)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	require.Equal(t, "/media/"+signed.Key, signed.FileURL)
