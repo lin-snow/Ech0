@@ -9,6 +9,8 @@ import (
 	"errors"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	"net/url"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/config"
@@ -95,7 +97,39 @@ func PrepareRemoteSchema(ctx context.Context, cfg config.DatabaseConfig) error {
 	return prepareRemoteSchema(db.WithContext(ctx))
 }
 
+// Read the exact table and index DDL produced by the upstream GORM models.
+// Compiling on a private in-memory connection keeps ORM introspection outside
+// Turso's short interactive transaction window.
+var modelDDL = sync.OnceValues(func() (string, error) {
+	if err := enableLocalSQLite(); err != nil {
+		return "", nil
+	}
+	db, err := gorm.Open(sqlite.Open(":memory:"), buildGormConfig(logger.Silent))
+	if err != nil {
+		return "", err
+	}
+	pool, err := db.DB()
+	if err != nil {
+		return "", err
+	}
+	pool.SetMaxOpenConns(1)
+	defer func() { _ = pool.Close() }()
+	if err := migrateModels(db); err != nil {
+		return "", err
+	}
+	var statements []string
+	if err := db.Raw("SELECT sql FROM sqlite_schema WHERE type IN ('table','index') AND name NOT GLOB 'sqlite_*' AND sql IS NOT NULL ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END,name").Scan(&statements).Error; err != nil {
+		return "", err
+	}
+	return strings.Join(statements, ";"), nil
+})
+
 func prepareRemoteSchema(db *gorm.DB) error {
+	ddl, err := modelDDL()
+	if err != nil {
+		return err
+	}
+
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("CREATE TABLE IF NOT EXISTS ech0_schema (id INTEGER PRIMARY KEY CHECK(id = 1), version INTEGER NOT NULL)").Error; err != nil {
 			return err
@@ -150,7 +184,11 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		if existing != 0 {
 			return errors.New("remote schema preparation requires an empty database")
 		}
-		if err := migrateModels(tx); err != nil {
+		if ddl != "" {
+			if err := tx.Exec(ddl).Error; err != nil {
+				return err
+			}
+		} else if err := migrateModels(tx); err != nil {
 			return err
 		}
 		return tx.Exec("INSERT INTO ech0_schema(id, version) VALUES (1, ?)", remoteSchemaVersion).Error

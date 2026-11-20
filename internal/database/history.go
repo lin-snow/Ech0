@@ -69,27 +69,47 @@ func (h SnapshotHistory) Begin(ctx context.Context, db *gorm.DB) error {
 		if err := tx.Raw(remoteTablesSQL).Scan(&tables).Error; err != nil {
 			return err
 		}
+		// Gather metadata and maxima in two round trips. All capture DDL is
+		// sent in one Hrana batch, within the same transaction as activation.
+		var info []struct {
+			TableName  string
+			ColumnName string
+		}
+		if err := tx.Raw("SELECT t.name AS table_name,p.name AS column_name FROM (" + remoteTablesSQL + ") t JOIN pragma_table_info(t.name) p ORDER BY t.name,p.cid").Scan(&info).Error; err != nil {
+			return err
+		}
+		columns := make(map[string][]string)
+		for _, col := range info {
+			columns[col.TableName] = append(columns[col.TableName], col.ColumnName)
+		}
+		queries := make([]string, len(tables))
 		for n, name := range tables {
-			if err := installHistory(tx, name, n); err != nil {
-				return fmt.Errorf("capture %s: %w", name, err)
+			queries[n] = "SELECT max(rowid) AS high FROM " + quoteIdentifier(name)
+		}
+		var highs []struct{ High *int64 }
+		if err := tx.Raw(strings.Join(queries, " UNION ALL ")).Scan(&highs).Error; err != nil {
+			return err
+		}
+		if len(highs) != len(tables) {
+			return errors.New("snapshot source layout changed")
+		}
+		var ddl []string
+		for n, name := range tables {
+			if len(columns[name]) == 0 {
+				return errors.New("snapshot table has no columns")
 			}
+			ddl = append(ddl, historyDDL(name, n, columns[name], highs[n].High)...)
+		}
+		if err := tx.Exec(strings.Join(ddl, ";")).Error; err != nil {
+			return err
 		}
 		return tx.Exec("UPDATE ech0_history_state SET cookie=(SELECT schema_version FROM pragma_schema_version) WHERE slot=1").Error
 	})
 }
 
-func installHistory(tx *gorm.DB, name string, n int) error {
-	if err := tx.Exec("INSERT INTO ech0_history_tables VALUES(?,?)", n, name).Error; err != nil {
-		return err
-	}
-	var columns []string
-	if err := tx.Raw("SELECT name FROM pragma_table_info(?) ORDER BY cid", name).Scan(&columns).Error; err != nil {
-		return err
-	}
-	var high *int64
-	if err := tx.Raw("SELECT max(rowid) FROM " + quoteIdentifier(name)).Row().Scan(&high); err != nil {
-		return err
-	}
+func historyDDL(name string, n int, columns []string, high *int64) []string {
+	literal := "'" + strings.ReplaceAll(name, "'", "''") + "'"
+	ddl := []string{fmt.Sprintf("INSERT INTO ech0_history_tables VALUES(%d,%s)", n, literal)}
 	prefix := historyPrefix(n)
 	old := prefix + "_old"
 	table := quoteIdentifier(name)
@@ -101,9 +121,7 @@ func installHistory(tx *gorm.DB, name string, n int) error {
 	}
 	fieldsSQL := strings.Join(fields, ",")
 	// No type coercion: preserve arbitrary blobs and the storage class of values.
-	if err := tx.Exec("CREATE TABLE " + old + " (_ech0_id INTEGER PRIMARY KEY, _ech0_existed INTEGER NOT NULL," + fieldsSQL + ")").Error; err != nil {
-		return err
-	}
+	ddl = append(ddl, "CREATE TABLE "+old+" (_ech0_id INTEGER PRIMARY KEY, _ech0_existed INTEGER NOT NULL,"+fieldsSQL+")")
 	if high != nil {
 		bound := strconv.FormatInt(*high, 10)
 		// Only the first change matters. Explicit NOT EXISTS also works under
@@ -113,9 +131,7 @@ func installHistory(tx *gorm.DB, name string, n int) error {
 		for _, rule := range []struct{ suffix, event, body string }{
 			{"_delete", "BEFORE DELETE", saveOld}, {"_update", "AFTER UPDATE", saveOld + saveNew}, {"_insert", "AFTER INSERT", saveNew},
 		} {
-			if err := tx.Exec("CREATE TRIGGER " + prefix + rule.suffix + " " + rule.event + " ON " + table + " BEGIN " + rule.body + " END").Error; err != nil {
-				return err
-			}
+			ddl = append(ddl, "CREATE TRIGGER "+prefix+rule.suffix+" "+rule.event+" ON "+table+" BEGIN "+rule.body+" END")
 		}
 	}
 	limit := "0"
@@ -123,7 +139,7 @@ func installHistory(tx *gorm.DB, name string, n int) error {
 		limit = "a.rowid <= " + strconv.FormatInt(*high, 10)
 	}
 	view := "CREATE VIEW " + prefix + "_rows AS SELECT a.rowid AS _ech0_id,a.* FROM " + table + " a WHERE " + limit + " AND NOT EXISTS (SELECT 1 FROM " + old + " b WHERE b._ech0_id=a.rowid) UNION ALL SELECT _ech0_id," + fieldsSQL + " FROM " + old + " WHERE _ech0_existed=1"
-	return tx.Exec(view).Error
+	return append(ddl, view)
 }
 
 func (h SnapshotHistory) check(tx *gorm.DB) error {
@@ -170,12 +186,14 @@ func dropHistory(tx *gorm.DB) error {
 	if err := tx.Raw("SELECT name,ordinal FROM ech0_history_tables").Scan(&tables).Error; err != nil {
 		return err
 	}
+	var statements []string
 	for _, table := range tables {
 		prefix := historyPrefix(table.Ordinal)
-		for _, stmt := range []string{"DROP TRIGGER IF EXISTS " + prefix + "_delete", "DROP TRIGGER IF EXISTS " + prefix + "_update", "DROP TRIGGER IF EXISTS " + prefix + "_insert", "DROP VIEW IF EXISTS " + prefix + "_rows", "DROP TABLE IF EXISTS " + prefix + "_old"} {
-			if err := tx.Exec(stmt).Error; err != nil {
-				return err
-			}
+		statements = append(statements, "DROP TRIGGER IF EXISTS "+prefix+"_delete", "DROP TRIGGER IF EXISTS "+prefix+"_update", "DROP TRIGGER IF EXISTS "+prefix+"_insert", "DROP VIEW IF EXISTS "+prefix+"_rows", "DROP TABLE IF EXISTS "+prefix+"_old")
+	}
+	if len(statements) > 0 {
+		if err := tx.Exec(strings.Join(statements, ";")).Error; err != nil {
+			return err
 		}
 	}
 	if err := tx.Exec("DELETE FROM ech0_history_tables").Error; err != nil {

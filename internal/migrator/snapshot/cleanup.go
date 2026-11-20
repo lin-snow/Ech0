@@ -81,7 +81,7 @@ func CleanupExport(ctx context.Context, db *gorm.DB, cfg config.StorageConfig, w
 	if upload != "" {
 		_, err := store.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{Bucket: &cfg.BucketName, Key: aws.String(path.Join(cfg.PathPrefix, s3SnapshotPrefix, name)), UploadId: &upload})
 		var apiError smithy.APIError
-		if err != nil && !(errors.As(err, &apiError) && apiError.ErrorCode() == "NoSuchUpload") {
+		if err != nil && (!errors.As(err, &apiError) || apiError.ErrorCode() != "NoSuchUpload") {
 			return nil, err
 		}
 	}
