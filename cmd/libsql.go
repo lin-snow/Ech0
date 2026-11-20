@@ -11,6 +11,12 @@ import (
 
 func init() {
 	rootCmd.AddCommand(&cobra.Command{
+		Use: "convert-libsql SOURCE OUTPUT", Short: "Convert a current Ech0 SQLite snapshot to a new Turso-compatible file", Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return database.ConvertSQLite(cmd.Context(), args[0], args[1])
+		},
+	})
+	rootCmd.AddCommand(&cobra.Command{
 		Use: "prepare-libsql", Short: "Prepare a new remote libSQL database for Ech0", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return database.PrepareRemoteSchema(cmd.Context(), config.Config().Database)
