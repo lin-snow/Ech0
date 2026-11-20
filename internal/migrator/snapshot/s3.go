@@ -4,12 +4,17 @@
 package snapshot
 
 import (
+	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/lin-snow/ech0/internal/config"
@@ -163,4 +168,93 @@ func normalizeS3Endpoint(endpoint string, useSSL bool) string {
 		return "https://" + endpoint
 	}
 	return "http://" + endpoint
+}
+
+// CreateRemote writes an upstream-compatible archive for an object-backed
+// instance. Only the private temporary directory belongs to this invocation.
+func CreateRemote(ctx context.Context, cfg config.StorageConfig, copyDB func(string) error) (string, int64, error) {
+	dir, err := os.MkdirTemp("", "ech0-export-")
+	if err != nil {
+		return "", 0, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	dbPath := filepath.Join(dir, dbFileName)
+	if err := copyDB(dbPath); err != nil {
+		return "", 0, err
+	}
+	name := Slot().Name(time.Now().UTC())
+	path := filepath.Join(dir, name)
+	if err := archiveDatabase(ctx, dbPath, path); err != nil {
+		return "", 0, err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", 0, err
+	}
+	if err := UploadToS3(ctx, path, name, cfg); err != nil {
+		return "", 0, err
+	}
+	return name, info.Size(), nil
+}
+
+func archiveDatabase(ctx context.Context, source, destination string) error {
+	database, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = database.Close() }()
+	target, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	archive := zip.NewWriter(target)
+	entry, err := archive.Create(dbFileName)
+	if err == nil {
+		_, err = io.Copy(entry, contextReader{ctx, database})
+	}
+	zipErr := archive.Close()
+	closeErr := target.Close()
+	return errors.Join(err, zipErr, closeErr)
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r contextReader) Read(b []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(b)
+}
+
+func LatestDownloadURL(ctx context.Context, cfg config.StorageConfig) (string, error) {
+	fs, err := BuildS3FS(cfg)
+	if err != nil {
+		return "", err
+	}
+	files, err := fs.List(ctx, s3SnapshotPrefix)
+	if err != nil {
+		return "", err
+	}
+	var latest string
+	for _, item := range files.Files {
+		key := item.Key
+		if !item.IsDir && strings.HasPrefix(key, s3SnapshotPrefix+"ech0_snapshot_") && strings.HasSuffix(key, ".zip") && key > latest {
+			latest = key
+		}
+	}
+	if latest == "" {
+		return "", ErrNoSnapshot
+	}
+	signer, ok := fs.(virefs.Presigner)
+	if !ok {
+		return "", fmt.Errorf("object store cannot sign a snapshot download")
+	}
+	signed, err := signer.PresignGet(ctx, latest, 5*time.Minute)
+	if err != nil {
+		return "", err
+	}
+	return signed.URL, nil
 }

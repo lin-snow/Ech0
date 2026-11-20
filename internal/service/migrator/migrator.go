@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/job"
@@ -26,6 +27,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
+	"github.com/lin-snow/ech0/internal/storage"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"github.com/lin-snow/ech0/pkg/busen"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -34,6 +36,7 @@ import (
 type MigratorService struct {
 	commonService CommonService
 	jobManager    *job.Manager
+	storage       *storage.Manager
 	bus           *busen.Bus
 }
 
@@ -41,9 +44,11 @@ func NewMigratorService(
 	commonService CommonService,
 	jobManager *job.Manager,
 	busProvider func() *busen.Bus,
+	objects *storage.Manager,
 ) *MigratorService {
 	return &MigratorService{
 		commonService: commonService,
+		storage:       objects,
 		jobManager:    jobManager,
 		bus:           busProvider(),
 	}
@@ -59,6 +64,17 @@ func (s *MigratorService) DownloadExport(ctx *gin.Context, reqCtx context.Contex
 		return err
 	}
 
+	if format == migratorModel.ExportFormatSnapshot && config.Config().Database.Type == "libsql" && s.storage != nil && s.storage.GetSelector().ObjectEnabled() {
+		url, err := snapshot.LatestDownloadURL(reqCtx, s.storage.GetStorageConfig(reqCtx))
+		if err != nil {
+			return err
+		}
+		ctx.Header("Cache-Control", "private, no-store")
+		ctx.Header("Referrer-Policy", "no-referrer")
+		ctx.Redirect(302, url)
+		ctx.Writer.WriteHeaderNow()
+		return nil
+	}
 	slot := artifact.Snapshots()
 	if format == migratorModel.ExportFormatCapsule {
 		slot = artifact.Capsules()

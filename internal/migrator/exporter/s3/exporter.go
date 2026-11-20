@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/migrator/snapshot"
 	"github.com/lin-snow/ech0/internal/migrator/spec"
@@ -30,6 +31,14 @@ func New(storageManager *storage.Manager) *Exporter {
 
 func (e *Exporter) Export(ctx context.Context, req spec.ExportRequest) (spec.ExportResult, error) {
 	emit(req, migratorModel.ExportPhasePacking)
+	if config.Config().Database.Type == "libsql" {
+		name, size, err := snapshot.CreateRemote(ctx, e.storageManager.GetStorageConfig(ctx), func(path string) error { return database.SnapshotToContext(ctx, path) })
+		if err != nil {
+			return spec.ExportResult{}, err
+		}
+		emit(req, migratorModel.ExportPhaseCompleted)
+		return spec.ExportResult{FileName: name, Size: size}, nil
+	}
 	path, fileName, err := snapshot.Create(snapshot.WithConsistentDB(func(path string) error { return database.SnapshotToContext(ctx, path) }))
 	if err != nil {
 		return spec.ExportResult{}, err

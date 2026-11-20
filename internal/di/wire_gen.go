@@ -172,7 +172,7 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	connectRepository := repository11.NewConnectRepository(dbProvider)
 	connectService := service9.NewConnectService(tx, connectRepository, echoRepository, commonService, persistent)
 	connectHandler := handler11.NewConnectHandler(connectService)
-	migratorService := service10.NewMigratorService(commonService, jobManager, ebProvider)
+	migratorService := service10.NewMigratorService(commonService, jobManager, ebProvider, storageManager)
 	migrationHandler := handler12.NewMigrationHandler(migratorService)
 	dashboardService := service11.NewDashboardService(tracker)
 	dashboardHandler := handler13.NewDashboardHandler(dashboardService)

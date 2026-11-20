@@ -118,10 +118,9 @@ func (h *MigrationHandler) UploadSourceZip() gin.HandlerFunc {
 }
 
 func (h *MigrationHandler) DownloadExport() gin.HandlerFunc {
-	return response.Execute(func(ctx *gin.Context) response.Response {
+	return func(ctx *gin.Context) {
 		if err := h.migrationService.DownloadExport(ctx, ctx.Request.Context(), ctx.Query("format")); err != nil {
-			return response.Response{Msg: "", Err: err}
+			response.Execute(func(*gin.Context) response.Response { return response.Response{Err: err} })(ctx)
 		}
-		return response.Response{Msg: commonModel.EXPORT_SNAPSHOT_SUCCESS}
-	})
+	}
 }

@@ -86,7 +86,7 @@ func (r *fakeJobRepo) seed(j jobModel.Job) {
 func noopRun[P any](context.Context, P, job.ReportFunc) (any, error) { return nil, nil }
 
 func newService(common CommonService, repo *fakeJobRepo, bus *busen.Bus) *MigratorService {
-	return NewMigratorService(common, job.NewManager(repo), func() *busen.Bus { return bus })
+	return NewMigratorService(common, job.NewManager(repo), func() *busen.Bus { return bus }, nil)
 }
 
 func expectUser(t *testing.T, common *commonmock.MockService, u userModel.User, err error) {
