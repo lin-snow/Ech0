@@ -70,8 +70,8 @@ func NewAuthService(
 	}
 }
 
-func (authService *AuthService) RevokeToken(jti string, remainTTL time.Duration) {
-	authService.authRepo.RevokeToken(jti, remainTTL)
+func (authService *AuthService) RevokeToken(jti string, remainTTL time.Duration) error {
+	return authService.authRepo.RevokeToken(jti, remainTTL)
 }
 
 func (authService *AuthService) IsTokenRevoked(jti string) bool {

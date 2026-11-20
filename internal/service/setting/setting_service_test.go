@@ -256,7 +256,7 @@ func TestDeleteAccessToken_RevokesJTI(t *testing.T) {
 			Return(settingModel.AccessTokenSetting{JTI: "jti-1", Expiry: &future}, nil).
 			Once()
 		d.revoker.EXPECT().
-			RevokeToken("jti-1", mock.MatchedBy(func(ttl time.Duration) bool { return ttl > 0 })).
+			RevokeToken("jti-1", mock.MatchedBy(func(ttl time.Duration) bool { return ttl > 0 })).Return(nil).
 			Once()
 		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
 		d.settingRepo.EXPECT().DeleteAccessTokenByID(mock.Anything, "tok-1").Return(nil).Once()

@@ -69,7 +69,9 @@ func (settingService *SettingService) DeleteAccessToken(ctx context.Context, id 
 		token, getErr := settingService.settingRepository.GetAccessTokenByID(ctx, id)
 		if getErr == nil && token.JTI != "" {
 			ttl := remainingTTLForRevoke(token.Expiry)
-			settingService.tokenRevoker.RevokeToken(token.JTI, ttl)
+			if err := settingService.tokenRevoker.RevokeToken(token.JTI, ttl); err != nil {
+				return err
+			}
 		}
 	}
 

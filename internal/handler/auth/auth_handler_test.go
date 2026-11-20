@@ -36,10 +36,11 @@ func (f *fakeAuthService) IsTokenRevoked(jti string) bool {
 	return false
 }
 
-func (f *fakeAuthService) RevokeToken(jti string, ttl time.Duration) {
+func (f *fakeAuthService) RevokeToken(jti string, ttl time.Duration) error {
 	if f.revokeTokenFn != nil {
 		f.revokeTokenFn(jti, ttl)
 	}
+	return nil
 }
 
 func (f *fakeAuthService) ExchangeOAuthCode(code string) (*authModel.TokenPair, error) {

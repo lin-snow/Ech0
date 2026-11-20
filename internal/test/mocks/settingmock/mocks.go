@@ -2024,9 +2024,20 @@ func (_m *MockTokenRevoker) EXPECT() *MockTokenRevoker_Expecter {
 }
 
 // RevokeToken provides a mock function for the type MockTokenRevoker
-func (_mock *MockTokenRevoker) RevokeToken(jti string, remainTTL time.Duration) {
-	_mock.Called(jti, remainTTL)
-	return
+func (_mock *MockTokenRevoker) RevokeToken(jti string, remainTTL time.Duration) error {
+	ret := _mock.Called(jti, remainTTL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeToken")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, time.Duration) error); ok {
+		r0 = returnFunc(jti, remainTTL)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
 }
 
 // MockTokenRevoker_RevokeToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeToken'
@@ -2059,13 +2070,13 @@ func (_c *MockTokenRevoker_RevokeToken_Call) Run(run func(jti string, remainTTL 
 	return _c
 }
 
-func (_c *MockTokenRevoker_RevokeToken_Call) Return() *MockTokenRevoker_RevokeToken_Call {
-	_c.Call.Return()
+func (_c *MockTokenRevoker_RevokeToken_Call) Return(err error) *MockTokenRevoker_RevokeToken_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockTokenRevoker_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration)) *MockTokenRevoker_RevokeToken_Call {
-	_c.Run(run)
+func (_c *MockTokenRevoker_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration) error) *MockTokenRevoker_RevokeToken_Call {
+	_c.Call.Return(run)
 	return _c
 }
 

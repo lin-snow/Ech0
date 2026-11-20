@@ -191,6 +191,7 @@ func migrateModels(db *gorm.DB) error {
 		&jobModel.Job{},
 		&settingModel.AccessTokenSetting{},
 		&authModel.Passkey{},
+		&authModel.RevokedToken{},
 		&oauthserverModel.Client{},
 		&oauthserverModel.ConsumedCode{},
 		&visitorModel.DailyStat{},

@@ -42,7 +42,7 @@ type TokenIssuer interface {
 }
 
 type TokenRevoker interface {
-	RevokeToken(jti string, remainTTL time.Duration)
+	RevokeToken(jti string, remainTTL time.Duration) error
 	IsTokenRevoked(jti string) bool
 }
 

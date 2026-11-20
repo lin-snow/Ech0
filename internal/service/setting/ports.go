@@ -58,7 +58,7 @@ type SettingRepository interface {
 }
 
 type TokenRevoker interface {
-	RevokeToken(jti string, remainTTL time.Duration)
+	RevokeToken(jti string, remainTTL time.Duration) error
 }
 
 type WebhookRepository interface {

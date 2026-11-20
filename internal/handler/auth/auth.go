@@ -131,14 +131,20 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 		refreshTokenStr, _ := cookieUtil.GetRefreshTokenFromCookie(ctx)
 		if refreshTokenStr != "" {
 			if claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr); err == nil && claims.ID != "" {
-				h.authService.RevokeToken(claims.ID, remainingTTLFromClaims(claims.ExpiresAt))
+				if err := h.authService.RevokeToken(claims.ID, remainingTTLFromClaims(claims.ExpiresAt)); err != nil {
+					ctx.JSON(http.StatusServiceUnavailable, commonModel.FailWithErrorCode[any]("Session revocation unavailable", commonModel.ErrCodeInternal))
+					return
+				}
 			}
 		}
 
 		authHeader := ctx.GetHeader("Authorization")
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			if claims, err := jwtUtil.ParseToken(authHeader[7:]); err == nil && claims.ID != "" {
-				h.authService.RevokeToken(claims.ID, remainingTTLFromClaims(claims.ExpiresAt))
+				if err := h.authService.RevokeToken(claims.ID, remainingTTLFromClaims(claims.ExpiresAt)); err != nil {
+					ctx.JSON(http.StatusServiceUnavailable, commonModel.FailWithErrorCode[any]("Session revocation unavailable", commonModel.ErrCodeInternal))
+					return
+				}
 			}
 		}
 

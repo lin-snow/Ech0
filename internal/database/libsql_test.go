@@ -6,6 +6,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
 	"net"
 	"os"
 	"os/exec"
@@ -65,6 +66,11 @@ func TestLibSQLPersistence(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	require.NoError(t, checkRemoteSchema(b))
+	revokerA := authRepository.NewAuthRepository(func() *gorm.DB { return a }, nil)
+	revokerB := authRepository.NewAuthRepository(func() *gorm.DB { return b }, nil)
+	require.False(t, revokerB.IsTokenRevoked("session"))
+	require.NoError(t, revokerA.RevokeToken("session", time.Minute))
+	require.True(t, revokerB.IsTokenRevoked("session"))
 	accepted := make(chan bool, 2)
 	for _, db := range []*gorm.DB{a, b} {
 		repo := oauthserverRepository.NewClientRepository(func() *gorm.DB { return db })

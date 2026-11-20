@@ -1162,9 +1162,20 @@ func (_c *MockService_PollDeviceAuthorization_Call) RunAndReturn(run func(device
 }
 
 // RevokeToken provides a mock function for the type MockService
-func (_mock *MockService) RevokeToken(jti string, remainTTL time.Duration) {
-	_mock.Called(jti, remainTTL)
-	return
+func (_mock *MockService) RevokeToken(jti string, remainTTL time.Duration) error {
+	ret := _mock.Called(jti, remainTTL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeToken")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, time.Duration) error); ok {
+		r0 = returnFunc(jti, remainTTL)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
 }
 
 // MockService_RevokeToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeToken'
@@ -1197,13 +1208,13 @@ func (_c *MockService_RevokeToken_Call) Run(run func(jti string, remainTTL time.
 	return _c
 }
 
-func (_c *MockService_RevokeToken_Call) Return() *MockService_RevokeToken_Call {
-	_c.Call.Return()
+func (_c *MockService_RevokeToken_Call) Return(err error) *MockService_RevokeToken_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockService_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration)) *MockService_RevokeToken_Call {
-	_c.Run(run)
+func (_c *MockService_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration) error) *MockService_RevokeToken_Call {
+	_c.Call.Return(run)
 	return _c
 }
 
@@ -2692,9 +2703,20 @@ func (_c *MockAuthRepo_IsTokenRevoked_Call) RunAndReturn(run func(jti string) bo
 }
 
 // RevokeToken provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) RevokeToken(jti string, remainTTL time.Duration) {
-	_mock.Called(jti, remainTTL)
-	return
+func (_mock *MockAuthRepo) RevokeToken(jti string, remainTTL time.Duration) error {
+	ret := _mock.Called(jti, remainTTL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeToken")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, time.Duration) error); ok {
+		r0 = returnFunc(jti, remainTTL)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
 }
 
 // MockAuthRepo_RevokeToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeToken'
@@ -2727,13 +2749,13 @@ func (_c *MockAuthRepo_RevokeToken_Call) Run(run func(jti string, remainTTL time
 	return _c
 }
 
-func (_c *MockAuthRepo_RevokeToken_Call) Return() *MockAuthRepo_RevokeToken_Call {
-	_c.Call.Return()
+func (_c *MockAuthRepo_RevokeToken_Call) Return(err error) *MockAuthRepo_RevokeToken_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockAuthRepo_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration)) *MockAuthRepo_RevokeToken_Call {
-	_c.Run(run)
+func (_c *MockAuthRepo_RevokeToken_Call) RunAndReturn(run func(jti string, remainTTL time.Duration) error) *MockAuthRepo_RevokeToken_Call {
+	_c.Call.Return(run)
 	return _c
 }
 

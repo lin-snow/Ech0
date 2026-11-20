@@ -6,7 +6,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 )
 
 const (
-	blacklistPrefix = "token_blacklist:"
 	oauthCodePrefix = "oauth_code:"
 )
 
@@ -45,19 +43,26 @@ func (authRepository *AuthRepository) getDB(ctx context.Context) *gorm.DB {
 	return authRepository.db()
 }
 
-func (authRepository *AuthRepository) RevokeToken(jti string, remainTTL time.Duration) {
+func (authRepository *AuthRepository) RevokeToken(jti string, remainTTL time.Duration) error {
 	if jti == "" || remainTTL <= 0 {
-		return
+		return nil
 	}
-	authRepository.cache.SetWithTTL(fmt.Sprintf("%s%s", blacklistPrefix, jti), true, 1, remainTTL)
+	now := time.Now()
+	return authRepository.db().Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("expires_at < ?", now.Unix()).Delete(&authModel.RevokedToken{}).Error; err != nil {
+			return err
+		}
+		return tx.Exec("INSERT INTO revoked_tokens(jti,expires_at) VALUES(?,?) ON CONFLICT(jti) DO UPDATE SET expires_at = max(expires_at,excluded.expires_at)", jti, now.Add(remainTTL).Unix()).Error
+	})
 }
 
 func (authRepository *AuthRepository) IsTokenRevoked(jti string) bool {
 	if jti == "" {
 		return false
 	}
-	_, found, _ := authRepository.cache.Get(fmt.Sprintf("%s%s", blacklistPrefix, jti))
-	return found
+	var exists bool
+	err := authRepository.db().Raw("SELECT EXISTS(SELECT 1 FROM revoked_tokens WHERE jti = ? AND expires_at >= ?)", jti, time.Now().Unix()).Scan(&exists).Error
+	return err != nil || exists
 }
 
 func (authRepository *AuthRepository) StoreOAuthCode(code string, pair *authModel.TokenPair, ttl time.Duration) {
