@@ -17,7 +17,9 @@ import (
 )
 
 type Manager struct {
+	refresh    sync.Mutex
 	mu         sync.RWMutex
+	activeCfg  config.StorageConfig
 	defaultCfg config.StorageConfig
 	durableKV  kvstore.Store
 	selector   *StorageSelector
@@ -27,6 +29,7 @@ func NewStorageManager(durableKV kvstore.Store) *Manager {
 	defaultCfg := config.Config().Storage
 	m := &Manager{
 		defaultCfg: defaultCfg,
+		activeCfg:  defaultCfg,
 		durableKV:  durableKV,
 		selector:   NewStorageSelector(defaultCfg),
 	}
@@ -39,6 +42,7 @@ func NewStorageManagerForTest(dataRoot string) *Manager {
 	cfg := config.StorageConfig{DataRoot: dataRoot}
 	return &Manager{
 		defaultCfg: cfg,
+		activeCfg:  cfg,
 		durableKV:  nil,
 		selector:   NewStorageSelector(cfg),
 	}
@@ -54,39 +58,47 @@ func (m *Manager) ResolveURL(storageType, key string) string {
 	return m.GetSelector().ResolveURL(StorageType(storageType), key)
 }
 
-func (m *Manager) GetStorageConfig(ctx context.Context) config.StorageConfig {
-	return m.resolveStorageConfig(ctx)
+func (m *Manager) GetStorageConfig(_ context.Context) config.StorageConfig {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.activeCfg
 }
 
+// Serialize reads with replacements so a slower read cannot restore an
+// obsolete credential after another request has already applied a rotation.
 func (m *Manager) ReloadFromConfigAndDB(ctx context.Context) error {
-	return m.replaceSelector(m.resolveStorageConfig(ctx))
+	m.refresh.Lock()
+	defer m.refresh.Unlock()
+	setting := coreSetting.S3.Pristine()
+	if m.durableKV != nil {
+		var err error
+		setting, err = coreSetting.S3.Get(ctx, m.durableKV)
+		if err != nil {
+			return err
+		}
+	}
+	return m.replaceSelector(storageConfigFromSetting(setting, m.defaultCfg))
 }
 
 func (m *Manager) ApplyS3Setting(setting settingModel.S3Setting) error {
+	m.refresh.Lock()
+	defer m.refresh.Unlock()
 	return m.replaceSelector(storageConfigFromSetting(setting, m.defaultCfg))
 }
 
 func (m *Manager) replaceSelector(cfg config.StorageConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cfg == m.activeCfg && m.selector != nil && (!cfg.ObjectEnabled || m.selector.ObjectEnabled()) {
+		return nil
+	}
 	selector := NewStorageSelector(cfg)
 	if cfg.ObjectEnabled && !selector.ObjectEnabled() {
 		return errors.New("object storage enabled but initialization failed")
 	}
-	m.mu.Lock()
 	m.selector = selector
-	m.mu.Unlock()
+	m.activeCfg = cfg
 	return nil
-}
-
-func (m *Manager) resolveStorageConfig(ctx context.Context) config.StorageConfig {
-	return storageConfigFromSetting(m.currentS3Setting(ctx), m.defaultCfg)
-}
-
-func (m *Manager) currentS3Setting(ctx context.Context) settingModel.S3Setting {
-	if m.durableKV == nil {
-		return coreSetting.S3.Pristine()
-	}
-	s3, _ := coreSetting.S3.Get(ctx, m.durableKV)
-	return s3
 }
 
 func storageConfigFromSetting(s3 settingModel.S3Setting, defaultCfg config.StorageConfig) config.StorageConfig {

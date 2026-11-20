@@ -4,6 +4,9 @@
 package storage
 
 import (
+	"github.com/lin-snow/ech0/internal/kvstore"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/config"
@@ -88,4 +91,25 @@ func TestStorageManager_ApplyS3Setting_InvalidConfigKeepsOldSelector(t *testing.
 	if after.ObjectEnabled() {
 		t.Fatalf("expected object storage disabled after failed apply")
 	}
+}
+
+func TestSharedStorageRefresh(t *testing.T) {
+	kv := kvstore.NewMemory()
+	a, b := NewStorageManager(kv), NewStorageManager(kv)
+	cfg := settingModel.S3Setting{Enable: true, Provider: "r2", Endpoint: "objects.example.test", BucketName: "first", Region: "auto", AccessKey: "test", SecretKey: "test", UseSSL: true}
+	ctx := t.Context()
+	require.NoError(t, coreSetting.S3.Set(ctx, kv, cfg))
+	require.NoError(t, a.ReloadFromConfigAndDB(ctx))
+	require.NoError(t, b.ReloadFromConfigAndDB(ctx))
+	before := b.GetSelector()
+	require.NoError(t, b.ReloadFromConfigAndDB(ctx))
+	require.Same(t, before, b.GetSelector())
+	cfg.BucketName = "second"
+	require.NoError(t, coreSetting.S3.Set(ctx, kv, cfg))
+	require.NoError(t, b.ReloadFromConfigAndDB(ctx))
+	require.Equal(t, "second", b.GetStorageConfig(ctx).BucketName)
+	require.NotSame(t, before, b.GetSelector())
+	require.NoError(t, kv.Set(ctx, coreSetting.S3.Key, "invalid JSON"))
+	require.Error(t, b.ReloadFromConfigAndDB(ctx))
+	require.Equal(t, "second", b.GetStorageConfig(ctx).BucketName)
 }

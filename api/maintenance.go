@@ -47,6 +47,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
+	if err := runtime.Objects.ReloadFromConfigAndDB(r.Context()); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
 	db := database.GetDB()
 	if message.Cleanup != "" {
 		next, err := snapshot.CleanupExport(r.Context(), db, runtime.Objects.GetStorageConfig(r.Context()), message.Wake)

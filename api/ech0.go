@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/lin-snow/ech0/internal/bootstrap"
@@ -51,6 +52,9 @@ func functionHandler(ctx context.Context) (*serverless.Runtime, error) {
 
 func Ech0(w http.ResponseWriter, r *http.Request) {
 	handler, err := functionHandler(r.Context())
+	if err == nil && needsStorageSettings(r.URL.Path) {
+		err = handler.Objects.ReloadFromConfigAndDB(r.Context())
+	}
 	if err != nil {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Retry-After", "5")
@@ -58,4 +62,10 @@ func Ech0(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler.Server.GinEngine.ServeHTTP(w, r.WithContext(platform.WithRequest(r.Context(), r)))
+}
+
+// These routes may address objects (including indirectly during an Echo,
+// MCP or account operation). Static SPA assets never need a settings query.
+func needsStorageSettings(path string) bool {
+	return strings.HasPrefix(path, "/media/") || path == "/mcp" || strings.HasPrefix(path, "/api/") && !strings.HasPrefix(path, "/api/s3/settings")
 }

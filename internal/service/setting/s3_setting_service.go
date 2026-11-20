@@ -11,6 +11,7 @@ import (
 
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
+	"github.com/lin-snow/ech0/internal/serverless/platform"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -58,6 +59,10 @@ func (settingService *SettingService) UpdateS3Setting(
 	}
 	if !user.IsAdmin {
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+
+	if platform.IsFunction(ctx) && !newSetting.Enable {
+		return errors.New("object storage is required on Vercel")
 	}
 
 	oldRaw, _ := settingService.durableKV.Get(ctx, commonModel.S3SettingKey)

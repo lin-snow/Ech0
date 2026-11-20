@@ -24,6 +24,9 @@ type Runtime struct {
 }
 
 func New(ctx context.Context, httpServer *server.Server, registrar *eventbus.EventRegistrar, tx transaction.Transactor, store kvstore.Store, objects *storage.Manager) (*Runtime, error) {
+	if err := objects.ReloadFromConfigAndDB(ctx); err != nil {
+		return nil, err
+	}
 	if !objects.GetSelector().ObjectEnabled() {
 		return nil, errors.New("object storage is unavailable")
 	}
