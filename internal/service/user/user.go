@@ -20,7 +20,6 @@ import (
 	"github.com/lin-snow/ech0/internal/transaction"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
 	"github.com/lin-snow/ech0/pkg/busen"
-	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -262,14 +261,14 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 				return err
 			}
 		}
+		if avatarChanged && strings.TrimSpace(userdto.AvatarFileID) != "" {
+			if err := userService.fileService.ConfirmTempFiles(txCtx, []string{userdto.AvatarFileID}); err != nil {
+				return err
+			}
+		}
 		return eventbus.Record(txCtx, userService.bus, event.UserUpdated{User: user})
 	}); err != nil {
 		return err
-	}
-	if avatarChanged && strings.TrimSpace(userdto.AvatarFileID) != "" {
-		if err := userService.fileService.ConfirmTempFiles(ctx, []string{userdto.AvatarFileID}); err != nil {
-			logUtil.GetLogger().Warn("confirm temp avatar file failed", logUtil.Err(err))
-		}
 	}
 
 	return nil

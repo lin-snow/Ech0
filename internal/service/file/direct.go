@@ -104,6 +104,22 @@ func (s *FileService) finalizeUpload(ctx context.Context, user userModel.User, i
 	return uploadDTO(&f), nil
 }
 
+// CleanupExpiredObjects first turns unused finalized uploads into durable
+// deletion intents, then drains the same queue as abandoned direct uploads.
+func CleanupExpiredObjects(ctx context.Context, repo interface {
+	FileRepository
+	StageExpiredObjects(context.Context, int64, string, string) error
+}, selector *storage.StorageSelector, now int64) error {
+	if isTempCleanupDryRun() {
+		return nil
+	}
+	provider, bucket := selector.ObjectRoute()
+	if err := repo.StageExpiredObjects(ctx, now, provider, bucket); err != nil {
+		return err
+	}
+	return CleanupExpiredIntents(ctx, repo, selector, now)
+}
+
 // CleanupExpiredIntents retries interrupted deletions. Expired records cannot
 // be finalized, and S3 DeleteObject on a missing key is idempotent.
 func CleanupExpiredIntents(ctx context.Context, repo FileRepository, selector *storage.StorageSelector, now int64) error {

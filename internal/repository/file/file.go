@@ -170,7 +170,17 @@ func (r *FileRepository) CreateTemp(ctx context.Context, temp *model.TempFile) e
 }
 
 func (r *FileRepository) DeleteTempByFileID(ctx context.Context, fileID string) error {
-	return r.getDB(ctx).Where("file_id = ?", fileID).Delete(&model.TempFile{}).Error
+	db := r.getDB(ctx)
+	if transaction.Durable(ctx) {
+		var count int64
+		if err := db.Model(&model.File{}).Where("id = ?", fileID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			return gorm.ErrRecordNotFound
+		}
+	}
+	return db.Where("file_id = ?", fileID).Delete(&model.TempFile{}).Error
 }
 
 func (r *FileRepository) DeleteTempByID(ctx context.Context, id string) error {
@@ -184,6 +194,49 @@ func (r *FileRepository) ListExpiredTemps(ctx context.Context, olderThan int64) 
 		Order("created_at ASC").
 		Find(&temps).Error
 	return temps, err
+}
+
+// StageExpiredObjects removes the metadata and schedules the S3 deletion in
+// the same transaction. ConfirmTempFiles takes the same database write lock.
+func (r *FileRepository) StageExpiredObjects(ctx context.Context, now int64, provider, bucket string) error {
+	db := r.getDB(ctx).WithContext(ctx)
+	var candidates []string
+	if err := db.Model(&model.File{}).Joins("JOIN temp_files t ON t.file_id = files.id").
+		Where("t.expire_at < ? AND storage_type = ? AND provider = ? AND bucket = ?", now, "object", provider, bucket).
+		Order("t.expire_at, t.id").Limit(32).Pluck("files.id", &candidates).Error; err != nil {
+		return err
+	}
+	for _, id := range candidates {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			claim := tx.Where("file_id = ? AND expire_at < ?", id, now).Delete(&model.TempFile{})
+			if claim.Error != nil || claim.RowsAffected == 0 {
+				return claim.Error
+			}
+			var f model.File
+			if err := tx.Where("id = ? AND storage_type = ? AND provider = ? AND bucket = ?", id, "object", provider, bucket).First(&f).Error; err != nil {
+				return err
+			}
+			// Older clients may have published the file without clearing the
+			// temporary marker. Protect private echoes as well as public ones.
+			var used bool
+			if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM echo_files WHERE file_id=?)
+				OR EXISTS(SELECT 1 FROM users WHERE avatar <> '' AND avatar IN (?, (SELECT url FROM files WHERE id=?)))
+				OR EXISTS(SELECT 1 FROM key_values WHERE key='system_settings' AND json_valid(value)
+				AND json_extract(value,'$.server_logo') <> '' AND json_extract(value,'$.server_logo') IN (?, (SELECT url FROM files WHERE id=?)))`, f.ID, f.URL, f.ID, f.URL, f.ID).Scan(&used).Error; err != nil {
+				return err
+			}
+			if used {
+				return nil
+			}
+			if err := tx.Create(&model.UploadIntent{ID: f.ID, Metadata: f, ExpiresAt: 0}).Error; err != nil {
+				return err
+			}
+			return tx.Delete(&f).Error
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *FileRepository) GetByCategory(ctx context.Context, category string) ([]model.File, error) {

@@ -13,7 +13,6 @@ import (
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
-	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -117,6 +116,11 @@ func (settingService *SettingService) UpdateSetting(
 		setting.ShowPrivacyFooter = newSetting.ShowPrivacyFooter
 		setting.DisableAgentDiscovery = newSetting.DisableAgentDiscovery
 
+		if serverLogoChanged && strings.TrimSpace(newSetting.ServerLogoFileID) != "" {
+			if err := settingService.fileService.ConfirmTempFiles(ctx, []string{newSetting.ServerLogoFileID}); err != nil {
+				return err
+			}
+		}
 		if err := coreSetting.System.Set(ctx, settingService.durableKV, setting); err != nil {
 			return err
 		}
@@ -128,11 +132,6 @@ func (settingService *SettingService) UpdateSetting(
 		return nil
 	}); err != nil {
 		return err
-	}
-	if serverLogoChanged && strings.TrimSpace(newSetting.ServerLogoFileID) != "" {
-		if err := settingService.fileService.ConfirmTempFiles(ctx, []string{newSetting.ServerLogoFileID}); err != nil {
-			logUtil.GetLogger().Warn("confirm temp server logo file failed", logUtil.Err(err))
-		}
 	}
 	return nil
 }

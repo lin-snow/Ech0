@@ -45,6 +45,22 @@ def start(stack, args, env, cwd, listen):
     raise TimeoutError("test process did not start")
 
 
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args):
+        return None
+
+
+def signed_location(request, status):
+    try:
+        build_opener(NoRedirect).open(request, timeout=10)
+    except HTTPError as redirect:
+        with redirect:
+            assert redirect.code == status
+            assert "no-store" in redirect.headers["Cache-Control"]
+            return redirect.headers["Location"]
+    raise AssertionError("missing signed S3 download")
+
+
 def call(listen, path, body=None, expected=200, headers=None, method=None):
     data = None if body is None else json.dumps(body).encode()
     request = Request(f"http://127.0.0.1:{listen}{path}", data=data, method=method,
@@ -63,8 +79,10 @@ def object_fixture(stack):
     # Private local S3 test double. Verify the resulting ZIP and short signed
     # redirect separately; the hosted provider has its own acceptance test.
     objects = {}
+    content_types = {}
     uploads = {}
     fail_part_once = {1}
+    fail_media_delete_once = {True}
 
     class Objects(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -90,11 +108,28 @@ def object_fixture(stack):
                     return
                 uploads[query["uploadId"][0]][number] = body
                 return self.reply(headers={"ETag": f'"part-{number}"'})
+            if self.headers.get("If-None-Match") == "*" and parsed.path in objects:
+                self.send_error(412)
+                return
+            content_types[parsed.path] = self.headers.get("Content-Type")
             objects[parsed.path] = body
             self.reply()
 
+        def do_HEAD(self):
+            path = urlsplit(self.path).path
+            if path not in objects or not self.headers.get("Authorization", "").startswith("AWS4-"):
+                return self.send_error(404)
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(objects[path])))
+            self.send_header("Content-Type", content_types.get(path) or "application/octet-stream")
+            self.end_headers()
+
         def do_DELETE(self):
-            objects.pop(urlsplit(self.path).path, None)
+            path = urlsplit(self.path).path
+            if content_types.get(path) == "image/png" and fail_media_delete_once:
+                fail_media_delete_once.clear()
+                return self.send_error(400, "injected recoverable object deletion failure")
+            objects.pop(path, None)
             self.reply()
 
         def do_POST(self):
@@ -158,6 +193,44 @@ def sql(db_port, statement):
     result = json.loads(call(db_port, "/v2/pipeline", body))["results"][0]
     assert result["type"] == "ok", result
     return result["response"]["result"]["rows"]
+
+
+def verify_media(first, second, token, db_port, secret):
+    headers = {"Authorization": "Bearer " + token}
+    png = bytes.fromhex("89504e470d0a1a0a") + b"fixture"
+    data = {"file_name": "image.png", "content_type": "image/png", "category": "image", "size": len(png)}
+    media = []
+    for _ in range(2):
+        presign = json.loads(call(first, "/api/files/presign", data, method="PUT", headers=headers))["data"]
+        upload = Request(presign["presign_url"], png, {"Content-Type": "image/png", "If-None-Match": "*"}, method="PUT")
+        with urlopen(upload, timeout=5) as response:
+            assert response.status == 200
+        meta = "/api/file/" + presign["id"] + "/meta"
+        for target in (second, first):
+            finalized = json.loads(call(target, meta, {"size": len(png)}, method="PUT", headers=headers))
+            assert finalized["code"] == 1, finalized
+        media.append((presign["id"], "/media/" + presign["key"]))
+    orphan, kept = media
+    call(first, kept[1], expected=404)
+    private_url = signed_location(Request(f"http://127.0.0.1:{second}" + kept[1], headers=headers), 307)
+    assert "X-Amz-Expires=120" in private_url
+    with urlopen(private_url, timeout=5) as response:
+        assert response.read() == png
+    result = json.loads(call(first, "/api/echo", {"content": "media fixture", "private": False,
+                             "echo_files": [{"file_id": kept[0]}]}, headers=headers))
+    assert result["code"] == 1, result
+    assert call(second, kept[1]) == png
+    sql(db_port, "UPDATE temp_files SET expire_at=1")
+    worker = {"Authorization": "Bearer " + secret}
+    tick = {"due": int(time.time()) // 3600 * 3600}
+    call(first, "/api/maintenance", tick, expected=503, headers=worker)
+    assert sql(db_port, "SELECT 1 FROM upload_intents WHERE expires_at=0")
+    call(second, "/api/maintenance", tick, expected=None, headers=worker)
+    call(first, "/api/maintenance", tick, expected=None, headers=worker)
+    call(second, orphan[1], headers=headers, expected=404)
+    assert call(second, kept[1]) == png
+    assert sql(db_port, "SELECT 1 FROM upload_intents") == []
+    call(first, "/api/echo/" + result["data"]["id"], headers=headers, method="DELETE")
 
 
 def verify_effects(first, second, token, db_port, secret):
@@ -262,20 +335,9 @@ def verify_web_export(first, second, token, root, storage_port, db_port, cron_se
     else:
         raise TimeoutError("snapshot did not finish")
 
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self, *args):
-            return None
-
     request = Request(f"http://127.0.0.1:{second}/api/migration/export/download", headers=header)
-    try:
-        build_opener(NoRedirect).open(request, timeout=10)
-    except HTTPError as redirect:
-        with redirect:
-            assert redirect.code == 302
-            location = redirect.headers["Location"]
-            assert urlsplit(location).port == storage_port and "X-Amz-Expires=300" in location
-    else:
-        raise AssertionError("missing signed S3 download")
+    location = signed_location(request, 302)
+    assert urlsplit(location).port == storage_port and "X-Amz-Expires=300" in location
     link = json.loads(call(second, "/api/migration/export/download?format=snapshot&link=1", headers=header))
     assert link["code"] == 1 and urlsplit(link["data"]).path == urlsplit(location).path
     with urlopen(location, timeout=10) as response, zipfile.ZipFile(io.BytesIO(response.read())) as archive:
@@ -343,7 +405,8 @@ def run(args):
         verify_effects(first, second, auth["data"]["access_token"], db_port, env["CRON_SECRET"])
         verify_reindex(first, second, auth["data"]["access_token"], db_port, storage_port, env["CRON_SECRET"])
         verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"], account["username"])
-        print("OK: concurrent ownership, login, device flow, transactional effects, reindex and private snapshot across two processes")
+        verify_media(first, second, auth["data"]["access_token"], db_port, env["CRON_SECRET"])
+        print("OK: concurrent ownership, login, device flow, transactional effects, reindex, logs, private snapshot, direct media and orphan collection across two processes")
 
 
 if __name__ == "__main__":

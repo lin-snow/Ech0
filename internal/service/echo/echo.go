@@ -108,6 +108,11 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		if err := echoService.ProcessEchoTags(txCtx, newEcho); err != nil {
 			return err
 		}
+		if transaction.Durable(txCtx) {
+			if err := echoService.fileService.ConfirmTempFiles(txCtx, collectEchoFileIDs(newEcho)); err != nil {
+				return err
+			}
+		}
 		if err := echoService.echoRepository.CreateEcho(txCtx, newEcho); err != nil {
 			return err
 		}
@@ -123,9 +128,9 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		if err := readSaved(ctx); err != nil {
 			return nil, err
 		}
-	}
-	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(newEcho)); err != nil {
-		logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
+		if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(newEcho)); err != nil {
+			logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
+		}
 	}
 
 	return echoService.hydrateEchoReactions(ctx, savedEcho)
@@ -320,6 +325,11 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		if err := echoService.ProcessEchoTags(txCtx, echo); err != nil {
 			return err
 		}
+		if transaction.Durable(txCtx) {
+			if err := echoService.fileService.ConfirmTempFiles(txCtx, collectEchoFileIDs(echo)); err != nil {
+				return err
+			}
+		}
 		if err := echoService.echoRepository.UpdateEcho(txCtx, echo); err != nil {
 			return err
 		}
@@ -335,9 +345,9 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		if err := readSaved(ctx); err != nil {
 			return nil, err
 		}
-	}
-	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(echo)); err != nil {
-		logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
+		if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(echo)); err != nil {
+			logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
+		}
 	}
 
 	return echoService.hydrateEchoReactions(ctx, saved)

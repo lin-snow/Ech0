@@ -135,7 +135,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		files := fileRepository.NewFileRepository(func() *gorm.DB { return db })
-		if err := fileService.CleanupExpiredIntents(r.Context(), files, runtime.Objects.GetSelector(), message.Due); err != nil {
+		if err := fileService.CleanupExpiredObjects(r.Context(), files, runtime.Objects.GetSelector(), message.Due); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
