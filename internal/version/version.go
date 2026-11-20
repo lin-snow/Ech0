@@ -16,10 +16,11 @@ const (
 
 	Author = "L1nSn0w"
 
-	RepoURL = "https://github.com/lin-snow/Ech0"
-
 	StartYear = 2025
 )
+
+// RepoURL can be set by distributors at build time to their corresponding source.
+var RepoURL = "https://github.com/lin-snow/Ech0"
 
 var Commit = "unknown"
 
