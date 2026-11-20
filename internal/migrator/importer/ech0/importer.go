@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -144,11 +145,10 @@ func (e *Importer) Import(ctx context.Context, req spec.ImportRequest) (spec.Imp
 }
 
 func resolveSourceDBPath(payload map[string]any) (string, string, error) {
-	tmpDir, ok := payload["tmp_dir"].(string)
-	if !ok || strings.TrimSpace(tmpDir) == "" {
-		return "", "", errors.New("source_payload.tmp_dir is required")
+	sourceRoot, ok := spec.SourcePath(payload)
+	if !ok {
+		return "", "", errors.New("invalid migration source directory")
 	}
-	sourceRoot := filepath.Join("data", filepath.FromSlash(strings.TrimSpace(tmpDir)))
 	dbPath := filepath.Join(sourceRoot, "ech0.db")
 	if _, err := os.Stat(dbPath); err != nil {
 		return "", "", fmt.Errorf("source db not found: %w", err)
@@ -450,58 +450,61 @@ func isLocalStorageType(storageType string) bool {
 }
 
 func copySourceLocalFileToTargetRoot(sourceRoot string, key string) error {
-	relativePath := resolveLocalStoragePathByKey(key)
-	if relativePath == "" {
-		return errors.New("empty local file path")
+	cleanKey := strings.Trim(strings.TrimSpace(key), "/")
+	if !fs.ValidPath(cleanKey) || cleanKey == "." || strings.ContainsAny(cleanKey, `\:`) {
+		return errors.New("invalid local media key")
 	}
-
-	targetRoot := filepath.Join("data", "files")
-	targetPath := filepath.Join(targetRoot, filepath.FromSlash(relativePath))
-	if info, err := os.Stat(targetPath); err == nil && !info.IsDir() {
+	relativePath := filepath.FromSlash(resolveLocalStoragePathByKey(cleanKey))
+	source, err := os.OpenRoot(sourceRoot)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = source.Close() }()
+	target, err := os.OpenRoot(filepath.Join("data", "files"))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = target.Close() }()
+	if info, err := target.Stat(relativePath); err == nil && info.Mode().IsRegular() {
 		return nil
 	}
 
-	sourceCandidates := []string{
-		filepath.Join(sourceRoot, "files", filepath.FromSlash(relativePath)),
-		filepath.Join(sourceRoot, filepath.FromSlash(relativePath)),
-	}
-	if cleanKey := strings.Trim(strings.TrimSpace(key), "/"); cleanKey != "" {
-		sourceCandidates = append(sourceCandidates, filepath.Join(sourceRoot, "files", filepath.FromSlash(cleanKey)))
-		sourceCandidates = append(sourceCandidates, filepath.Join(sourceRoot, filepath.FromSlash(cleanKey)))
-	}
-
-	var srcPath string
-	for _, candidate := range sourceCandidates {
-		info, err := os.Stat(candidate)
-		if err == nil && !info.IsDir() {
-			srcPath = candidate
+	var src *os.File
+	for _, candidate := range []string{filepath.Join("files", relativePath), relativePath, filepath.Join("files", cleanKey), cleanKey} {
+		f, err := source.Open(candidate)
+		if err == nil {
+			src = f
 			break
 		}
 	}
-	if srcPath == "" {
+	if src == nil {
 		return errors.New("source local file not found")
 	}
-
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return err
-	}
-
-	src, err := os.Open(srcPath)
-	if err != nil {
-		return err
-	}
 	defer func() { _ = src.Close() }()
-
-	dst, err := os.Create(targetPath)
+	dir := filepath.Dir(relativePath)
+	if err := target.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	staging := filepath.Join(dir, ".import-"+uuidUtil.NewV7())
+	dst, err := target.OpenFile(staging, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = dst.Close() }()
-
-	if _, err := io.Copy(dst, src); err != nil {
+	defer func() { _ = target.Remove(staging) }()
+	_, copyErr := io.Copy(dst, src)
+	if copyErr == nil {
+		copyErr = dst.Sync()
+	}
+	if err := dst.Close(); err != nil {
 		return err
 	}
-	return dst.Sync()
+	if copyErr != nil {
+		return copyErr
+	}
+	if err := target.Link(staging, relativePath); err != nil && !errors.Is(err, fs.ErrExist) {
+		return err
+	}
+	return nil
 }
 
 func resolveLocalStoragePathByKey(key string) string {

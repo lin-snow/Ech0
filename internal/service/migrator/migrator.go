@@ -25,6 +25,7 @@ import (
 	coreMigrator "github.com/lin-snow/ech0/internal/migrator"
 	"github.com/lin-snow/ech0/internal/migrator/artifact"
 	snapshot "github.com/lin-snow/ech0/internal/migrator/snapshot"
+	"github.com/lin-snow/ech0/internal/migrator/spec"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
@@ -197,15 +198,12 @@ func (s *MigratorService) StartGlobalMigration(
 	}
 
 	sourcePayload := cloneMap(req.SourcePayload)
-	if _, ok := sourcePayload["created_by"]; !ok {
-		sourcePayload["created_by"] = adminUserID
-	}
+	sourcePayload["created_by"] = adminUserID
 	jb, err := s.jobManager.Submit(ctx, jobModel.Migration, migratorModel.MigrationPayload{
 		SourceType:    strings.TrimSpace(req.SourceType),
 		SourcePayload: sourcePayload,
 	})
 	if err != nil {
-		_ = coreMigrator.CleanupTmpDirFromPayload(req.SourcePayload)
 		if errors.Is(err, job.ErrAlreadyRunning) {
 			return migratorModel.GlobalMigrationStateDTO{}, errors.New("请先结束/清理当前迁移")
 		}
@@ -410,8 +408,7 @@ func validateStartRequest(req migratorModel.StartGlobalMigrationRequest) error {
 	if err := validateSourceType(req.SourceType); err != nil {
 		return err
 	}
-	tmpDir, ok := req.SourcePayload["tmp_dir"].(string)
-	if !ok || strings.TrimSpace(tmpDir) == "" {
+	if _, ok := spec.SourcePath(req.SourcePayload); !ok {
 		return errors.New(commonModel.INVALID_REQUEST_BODY)
 	}
 	return nil

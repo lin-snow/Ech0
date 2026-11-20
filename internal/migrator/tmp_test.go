@@ -4,6 +4,8 @@
 package migrator
 
 import (
+	"github.com/lin-snow/ech0/internal/migrator/spec"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,7 @@ import (
 
 func TestResolveTmpDir(t *testing.T) {
 	t.Run("valid tmp dir", func(t *testing.T) {
-		path, ok := resolveTmpDir(map[string]any{
+		path, ok := spec.SourcePath(map[string]any{
 			"tmp_dir": "files/tmp/ech0_v4_test",
 		})
 		if !ok {
@@ -23,8 +25,14 @@ func TestResolveTmpDir(t *testing.T) {
 		}
 	})
 
+	for _, name := range []string{"files/tmp", "files/tmp/", "files/tmp/echo/other", "files/tmp/../tmp/other"} {
+		if _, ok := spec.SourcePath(map[string]any{"tmp_dir": name}); ok {
+			t.Fatalf("expected only a single upload directory, got %q", name)
+		}
+	}
+
 	t.Run("reject path traversal", func(t *testing.T) {
-		if _, ok := resolveTmpDir(map[string]any{
+		if _, ok := spec.SourcePath(map[string]any{
 			"tmp_dir": "../outside",
 		}); ok {
 			t.Fatalf("expected traversal path to be rejected")
@@ -32,7 +40,7 @@ func TestResolveTmpDir(t *testing.T) {
 	})
 
 	t.Run("reject non tmp subtree", func(t *testing.T) {
-		if _, ok := resolveTmpDir(map[string]any{
+		if _, ok := spec.SourcePath(map[string]any{
 			"tmp_dir": "files/static",
 		}); ok {
 			t.Fatalf("expected non tmp dir to be rejected")

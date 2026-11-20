@@ -5,37 +5,16 @@ package migrator
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
+
+	"github.com/lin-snow/ech0/internal/migrator/spec"
 )
 
-const TmpRelativeDir = "files/tmp"
+const TmpRelativeDir = spec.SourceDirectory
 
 func CleanupTmpDirFromPayload(sourcePayload map[string]any) error {
-	tmpDir, ok := resolveTmpDir(sourcePayload)
+	tmpDir, ok := spec.SourcePath(sourcePayload)
 	if !ok {
 		return nil
 	}
 	return os.RemoveAll(tmpDir)
-}
-
-func resolveTmpDir(sourcePayload map[string]any) (string, bool) {
-	if len(sourcePayload) == 0 {
-		return "", false
-	}
-	tmpDirRaw, ok := sourcePayload["tmp_dir"].(string)
-	if !ok || strings.TrimSpace(tmpDirRaw) == "" {
-		return "", false
-	}
-	cleanRelPath := filepath.Clean(filepath.FromSlash(strings.TrimSpace(tmpDirRaw)))
-	if cleanRelPath == "." || cleanRelPath == "" || filepath.IsAbs(cleanRelPath) || strings.HasPrefix(cleanRelPath, "..") {
-		return "", false
-	}
-
-	allowedBaseDir := filepath.Clean(filepath.Join("data", TmpRelativeDir))
-	targetDir := filepath.Clean(filepath.Join("data", cleanRelPath))
-	if targetDir != allowedBaseDir && !strings.HasPrefix(targetDir, allowedBaseDir+string(os.PathSeparator)) {
-		return "", false
-	}
-	return targetDir, true
 }

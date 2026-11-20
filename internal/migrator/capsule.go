@@ -4,6 +4,8 @@
 package migrator
 
 import (
+	"github.com/lin-snow/ech0/internal/migrator/spec"
+
 	"context"
 	"errors"
 	"fmt"
@@ -99,7 +101,7 @@ func (e *CapsuleEngine) Import(
 		}
 	}()
 
-	dir, ok := resolveTmpDir(payload.SourcePayload)
+	dir, ok := spec.SourcePath(payload.SourcePayload)
 	if !ok {
 		return nil, errors.New("胶囊来源缺失或路径非法")
 	}

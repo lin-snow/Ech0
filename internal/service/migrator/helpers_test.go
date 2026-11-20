@@ -52,7 +52,7 @@ func TestValidateStartRequest(t *testing.T) {
 			name: "valid ech0 with tmp_dir",
 			req: migratorModel.StartGlobalMigrationRequest{
 				SourceType:    migratorModel.MigrationSourceEch0,
-				SourcePayload: map[string]any{"tmp_dir": "migration_tmp/ech0_x"},
+				SourcePayload: map[string]any{"tmp_dir": "files/tmp/ech0_x"},
 			},
 			wantErr: false,
 		},
@@ -152,7 +152,7 @@ func TestJobToDTO(t *testing.T) {
 		finished := int64(200)
 		payload, err := json.Marshal(migratorModel.MigrationPayload{
 			SourceType:    migratorModel.MigrationSourceEch0,
-			SourcePayload: map[string]any{"tmp_dir": "migration_tmp/ech0_x"},
+			SourcePayload: map[string]any{"tmp_dir": "files/tmp/ech0_x"},
 		})
 		require.NoError(t, err)
 
@@ -173,7 +173,7 @@ func TestJobToDTO(t *testing.T) {
 		assert.Equal(t, string(jobModel.StatusRunning), dto.Status)
 		assert.Equal(t, migratorModel.MigrationPhaseLoading, dto.Phase)
 		assert.Equal(t, "boom", dto.ErrorMessage)
-		assert.Equal(t, map[string]any{"tmp_dir": "migration_tmp/ech0_x"}, dto.SourcePayload)
+		assert.Equal(t, map[string]any{"tmp_dir": "files/tmp/ech0_x"}, dto.SourcePayload)
 		assert.Equal(t, &started, dto.StartedAt)
 		assert.Equal(t, &finished, dto.FinishedAt)
 		require.NotNil(t, dto.UpdatedAt)
