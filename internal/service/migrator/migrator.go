@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/job"
@@ -27,10 +28,13 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
+	"github.com/lin-snow/ech0/internal/serverless/platform"
 	"github.com/lin-snow/ech0/internal/storage"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"github.com/lin-snow/ech0/pkg/busen"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
+	"log/slog"
 )
 
 type MigratorService struct {
@@ -65,12 +69,21 @@ func (s *MigratorService) DownloadExport(ctx *gin.Context, reqCtx context.Contex
 	}
 
 	if format == migratorModel.ExportFormatSnapshot && config.Config().Database.Type == "libsql" && s.storage != nil && s.storage.GetSelector().ObjectEnabled() {
-		url, err := snapshot.LatestDownloadURL(reqCtx, s.storage.GetStorageConfig(reqCtx))
+		var url string
+		if platform.IsFunction(reqCtx) {
+			url, err = snapshot.PublishedDownload(reqCtx, database.GetDB(), s.storage.GetStorageConfig(reqCtx))
+		} else {
+			url, err = snapshot.LatestDownloadURL(reqCtx, s.storage.GetStorageConfig(reqCtx))
+		}
 		if err != nil {
 			return err
 		}
 		ctx.Header("Cache-Control", "private, no-store")
 		ctx.Header("Referrer-Policy", "no-referrer")
+		if ctx.Query("link") == "1" {
+			ctx.JSON(200, commonModel.OK(url))
+			return nil
+		}
 		ctx.Redirect(302, url)
 		ctx.Writer.WriteHeaderNow()
 		return nil
@@ -272,6 +285,16 @@ func (s *MigratorService) StartExport(
 	if err != nil {
 		return migratorModel.ExportStateDTO{}, err
 	}
+	if platform.IsFunction(ctx) && format == migratorModel.ExportFormatSnapshot {
+		wake, jb, err := snapshot.StartExport(ctx, database.GetDB())
+		if err != nil {
+			return migratorModel.ExportStateDTO{}, err
+		}
+		if err := platform.Wake(ctx, wake.Run, wake.Revision); err != nil {
+			logUtil.GetLogger().Warn("snapshot queued for reconciliation", slog.String("module", "migration"), slog.String("run", wake.Run))
+		}
+		return s.jobExportToDTO(jb), nil
+	}
 	jb, err := s.jobManager.Submit(ctx, jobModel.Export, migratorModel.ExportPayload{
 		Format:         format,
 		IncludePrivate: format == migratorModel.ExportFormatCapsule && req.IncludePrivate,
@@ -312,6 +335,15 @@ func (s *MigratorService) CancelExport(ctx context.Context) (migratorModel.Expor
 	}
 	if jb.Status != jobModel.StatusPending && jb.Status != jobModel.StatusRunning {
 		return migratorModel.ExportStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+	}
+	if platform.IsFunction(ctx) {
+		handled, err := snapshot.CancelDurableExport(ctx, database.GetDB(), s.storage.GetStorageConfig(ctx))
+		if err != nil {
+			return migratorModel.ExportStateDTO{}, err
+		}
+		if handled {
+			return s.GetExportStatus(ctx)
+		}
 	}
 	_ = s.jobManager.Cancel(jobModel.Export)
 	jb, err = s.jobManager.Get(ctx, jobModel.Export)

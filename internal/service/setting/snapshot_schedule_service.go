@@ -6,6 +6,10 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/lin-snow/ech0/internal/migrator/snapshot"
+	"github.com/lin-snow/ech0/internal/serverless/platform"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
+	"time"
 
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
@@ -53,6 +57,17 @@ func (settingService *SettingService) UpdateSnapshotScheduleSetting(
 		return err
 	}
 
+	if platform.IsFunction(ctx) {
+		next, err := snapshot.NextOccurrence(updated, time.Now())
+		if err != nil {
+			return err
+		}
+		if next != nil {
+			if err := platform.Publish(ctx, next, next.ScheduleKey(), max(int64(0), next.SnapshotDue-time.Now().Unix())); err != nil {
+				logUtil.GetLogger().Warn("snapshot schedule saved for hourly reconciliation")
+			}
+		}
+	}
 	eventbus.Notify(context.Background(), settingService.bus, event.UpdateSnapshotSchedule{Schedule: updated})
 	return nil
 }

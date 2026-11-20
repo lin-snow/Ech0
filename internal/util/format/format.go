@@ -11,26 +11,32 @@ import (
 )
 
 func ValidateCrontabExpression(expr string) error {
+	_, err := ParseCrontabExpression(expr)
+	return err
+}
+
+func ParseCrontabExpression(expr string) (cron.Schedule, error) {
 	expr = strings.TrimSpace(expr)
 	fields := strings.Fields(expr)
 
 	switch len(fields) {
 	case 5:
-		_, err := cron.ParseStandard(expr)
+		s, err := cron.ParseStandard(expr)
 		if err != nil {
-			return fmt.Errorf("invalid 5-field cron expression: %w", err)
+			return nil, fmt.Errorf("invalid 5-field cron expression: %w", err)
 		}
+		return s, nil
 	case 6:
 		parser := cron.NewParser(
 			cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow,
 		)
-		_, err := parser.Parse(expr)
+		s, err := parser.Parse(expr)
 		if err != nil {
-			return fmt.Errorf("invalid 6-field cron expression: %w", err)
+			return nil, fmt.Errorf("invalid 6-field cron expression: %w", err)
 		}
+		return s, nil
 	default:
-		return fmt.Errorf("cron expression must have 5 or 6 fields, got %d", len(fields))
+		return nil, fmt.Errorf("cron expression must have 5 or 6 fields, got %d", len(fields))
 	}
 
-	return nil
 }

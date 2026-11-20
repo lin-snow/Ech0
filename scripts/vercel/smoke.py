@@ -6,7 +6,7 @@ import sqlite3
 import threading
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 from xml.etree import ElementTree as ET
 import json
 import os
@@ -53,7 +53,7 @@ def call(listen, path, body=None, expected=200, headers=None):
     except HTTPError as error:
         response = error
     with response:
-        assert response.status == expected, (path, response.status, expected)
+        assert response.status in ((200, 204) if expected is None else (expected,)), (path, response.status, expected)
         return response.read()
 
 
@@ -61,35 +61,81 @@ def object_fixture(stack):
     # Private local S3 test double. Verify the resulting ZIP and short signed
     # redirect separately; the hosted provider has its own acceptance test.
     objects = {}
+    uploads = {}
+    fail_part_once = {1}
 
     class Objects(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
-        def do_PUT(self):
-            key = urlsplit(self.path).path
-            objects[key] = self.rfile.read(int(self.headers["Content-Length"]))
+        def reply(self, body=b"", headers=None):
             self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            for key, value in (headers or {}).items():
+                self.send_header(key, value)
             self.end_headers()
+            self.wfile.write(body)
+
+        def do_PUT(self):
+            parsed = urlsplit(self.path)
+            query = parse_qs(parsed.query)
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            if "partNumber" in query:
+                number = int(query["partNumber"][0])
+                if number in fail_part_once:
+                    fail_part_once.remove(number)
+                    self.send_error(400, "injected recoverable write failure")
+                    return
+                uploads[query["uploadId"][0]][number] = body
+                return self.reply(headers={"ETag": f'"part-{number}"'})
+            objects[parsed.path] = body
+            self.reply()
+
+        def do_DELETE(self):
+            objects.pop(urlsplit(self.path).path, None)
+            self.reply()
+
+        def do_POST(self):
+            parsed = urlsplit(self.path)
+            query = parse_qs(parsed.query, keep_blank_values=True)
+            if "delete" in query:
+                root = ET.fromstring(self.rfile.read(int(self.headers["Content-Length"])))
+                for key in root.findall(".//{*}Key"):
+                    objects.pop("/testing/" + key.text, None)
+                return self.reply(b"<DeleteResult/>")
+            if "uploads" in query:
+                upload = secrets.token_hex(8)
+                uploads[upload] = {}
+                body = f"<InitiateMultipartUploadResult><UploadId>{upload}</UploadId></InitiateMultipartUploadResult>"
+            else:
+                upload = query["uploadId"][0]
+                root = ET.fromstring(self.rfile.read(int(self.headers["Content-Length"])))
+                numbers = [int(p.text) for p in root.findall(".//{*}PartNumber")]
+                parts = uploads.pop(upload)
+                assert all(len(parts[i]) >= 5 << 20 for i in numbers[:-1])
+                objects[parsed.path] = b"".join(parts[i] for i in numbers)
+                body = "<CompleteMultipartUploadResult><ETag>complete</ETag></CompleteMultipartUploadResult>"
+            self.reply(body.encode())
 
         def do_GET(self):
             path = urlsplit(self.path)
             if "list-type=2" in path.query:
                 result = ET.Element("ListBucketResult")
-                for key, data in objects.items():
+                prefix = parse_qs(path.query).get("prefix", [""])[0]
+                for key, data in list(objects.items()):
+                    name = key.split("/", 2)[2]
+                    if not name.startswith(prefix):
+                        continue
                     entry = ET.SubElement(result, "Contents")
-                    ET.SubElement(entry, "Key").text = key.split("/", 2)[2]
+                    ET.SubElement(entry, "Key").text = name
                     ET.SubElement(entry, "Size").text = str(len(data))
                 body = ET.tostring(result)
-            elif "X-Amz-Signature=" in path.query and path.path in objects:
+            elif path.path in objects and ("X-Amz-Signature=" in path.query or self.headers.get("Authorization", "").startswith("AWS4-")):
                 body = objects[path.path]
             else:
                 self.send_error(403)
                 return
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            self.reply(body)
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Objects)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -98,10 +144,37 @@ def object_fixture(stack):
     return server.server_port
 
 
-def verify_web_export(first, second, token, root, storage_port):
+def verify_web_export(first, second, token, root, storage_port, db_port, cron_secret):
     header = {"Authorization": "Bearer " + token}
+    # Exercise multipart and independent checkpoints without contacting any hosted database.
+    def sql(statement):
+        body = {"requests": [{"type": "execute", "stmt": {"sql": statement}}, {"type": "close"}]}
+        result = json.loads(call(db_port, "/v2/pipeline", body))["results"][0]
+        assert result["type"] == "ok", result
+    sql("WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<160) INSERT INTO key_values(key,value) SELECT 'export-fixture-'||i,hex(randomblob(32768)) FROM n")
     started = json.loads(call(first, "/api/migration/export", {"format": "snapshot"}, headers=header))
     assert started["code"] == 1, started
+    worker = {"Authorization": "Bearer " + cron_secret}
+    due = int(time.time()) // 3600 * 3600
+    next_step = json.loads(call(second, "/api/maintenance", {"due": due}, headers=worker))
+    for index in range(160):
+        process = first if index % 2 else second
+        try:
+            response = call(process, "/api/maintenance", next_step, headers=worker, expected=None)
+        except AssertionError as error:
+            if not error.args or error.args[0][1] != 503:
+                raise
+            # Same committed cursor on a different function after a failed part.
+            response = call(second if process == first else first, "/api/maintenance", next_step, headers=worker, expected=None)
+        if not response:
+            break
+        updated = json.loads(response)
+        if index == 1:
+            assert json.loads(call(process, "/api/maintenance", next_step, headers=worker)) == updated
+            sql("UPDATE key_values SET value='later' WHERE key='export-fixture-1'")
+        next_step = updated
+    else:
+        raise AssertionError("worker did not finish the snapshot")
     for _ in range(120):
         state = json.loads(call(second, "/api/migration/export/status", headers=header))["data"]
         if state["status"] == "success":
@@ -125,12 +198,16 @@ def verify_web_export(first, second, token, root, storage_port):
             assert urlsplit(location).port == storage_port and "X-Amz-Expires=300" in location
     else:
         raise AssertionError("missing signed S3 download")
+    link = json.loads(call(second, "/api/migration/export/download?format=snapshot&link=1", headers=header))
+    assert link["code"] == 1 and urlsplit(link["data"]).path == urlsplit(location).path
     with urlopen(location, timeout=10) as response, zipfile.ZipFile(io.BytesIO(response.read())) as archive:
+        assert archive.getinfo("ech0.db").file_size > 8 << 20
         assert archive.namelist() == ["ech0.db"]
         path = Path(root) / "restored.db"
         path.write_bytes(archive.read("ech0.db"))
     with sqlite3.connect(path) as restored:
         assert restored.execute("select username from users").fetchall() == [("tester",)]
+        assert restored.execute("select length(value) from key_values where key='export-fixture-1'").fetchone() == (65536,)
         assert restored.execute("pragma integrity_check").fetchone() == ("ok",)
 
 
@@ -163,7 +240,7 @@ def run(args):
         assert json.loads(call(second, "/api/init/status"))["data"]["owner_exists"]
         auth = json.loads(call(second, "/api/login", account))
         assert auth["code"] == 1
-        verify_web_export(first, second, auth["data"]["access_token"], root, storage_port)
+        verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"])
         print("OK: SPA, discovery, login and private web snapshot across two processes")
 
 

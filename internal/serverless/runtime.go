@@ -17,7 +17,11 @@ import (
 
 // Runtime shares the same graph as the local HTTP server. The platform owns
 // the listener and Vercel Queues owns the scheduling clock.
-type Runtime struct{ Server *server.Server }
+type Runtime struct {
+	Server   *server.Server
+	Objects  *storage.Manager
+	Settings kvstore.Store
+}
 
 func New(ctx context.Context, httpServer *server.Server, registrar *eventbus.EventRegistrar, tx transaction.Transactor, store kvstore.Store, objects *storage.Manager) (*Runtime, error) {
 	if !objects.GetSelector().ObjectEnabled() {
@@ -38,5 +42,5 @@ func New(ctx context.Context, httpServer *server.Server, registrar *eventbus.Eve
 	if err := registrar.Register(); err != nil {
 		return nil, err
 	}
-	return &Runtime{Server: httpServer}, nil
+	return &Runtime{Server: httpServer, Objects: objects, Settings: store}, nil
 }

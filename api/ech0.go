@@ -14,14 +14,16 @@ import (
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/di"
+	"github.com/lin-snow/ech0/internal/serverless"
+	"github.com/lin-snow/ech0/internal/serverless/platform"
 	"gorm.io/gorm"
 )
 
 var bootstrapOnce sync.Once
 var runtimeMu sync.Mutex
-var engine http.Handler
+var engine *serverless.Runtime
 
-func functionHandler(ctx context.Context) (http.Handler, error) {
+func functionHandler(ctx context.Context) (*serverless.Runtime, error) {
 	runtimeMu.Lock()
 	defer runtimeMu.Unlock()
 	if engine != nil {
@@ -43,7 +45,7 @@ func functionHandler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	database.SetDB(db)
-	engine = state.Server.GinEngine
+	engine = state
 	return engine, nil
 }
 
@@ -55,5 +57,5 @@ func Ech0(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ech0 initialization unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	handler.ServeHTTP(w, r)
+	handler.Server.GinEngine.ServeHTTP(w, r.WithContext(platform.WithRequest(r.Context(), r)))
 }

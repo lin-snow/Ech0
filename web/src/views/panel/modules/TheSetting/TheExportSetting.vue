@@ -78,7 +78,7 @@ import { useI18n } from 'vue-i18n'
 import { theToast } from '@/utils/toast'
 import { useSettingStore, useUserStore } from '@/stores'
 import { storeToRefs } from 'pinia'
-import { fetchDownloadExport } from '@/service/api'
+import { fetchDownloadExport, fetchSnapshotDownloadURL } from '@/service/api'
 import type { ExportFormat } from '@/service/api'
 import { formatBytes } from '@/utils/file'
 
@@ -157,6 +157,12 @@ const statusLabelMap = computed<Record<string, string>>(() => ({
 const downloadSnapshot = async () => {
   try {
     const format = snapshotFormat.value
+    if (format === 'snapshot' && import.meta.env.VITE_ECH0_OBJECT_UPLOADS === 'true') {
+      const result = await fetchSnapshotDownloadURL()
+      if (result.code !== 1 || !result.data) throw new Error(result.msg)
+      window.location.assign(result.data)
+      return
+    }
     const blob = await fetchDownloadExport(format)
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

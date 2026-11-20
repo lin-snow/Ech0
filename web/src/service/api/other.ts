@@ -10,6 +10,10 @@ export function fetchHelloEch0() {
   })
 }
 
+export function fetchSnapshotDownloadURL() {
+  return request<string>({ url: '/migration/export/download?format=snapshot&link=1', method: 'GET' })
+}
+
 export function fetchDownloadExport(format?: ExportFormat) {
   return downloadFile({
     url: format ? `/migration/export/download?format=${format}` : '/migration/export/download',
