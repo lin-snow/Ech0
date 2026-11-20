@@ -130,7 +130,8 @@ Configurer une règle R2 d’abandon des uploads multipart incomplets pour couvr
 - [x] Vérifier une sauvegarde web multi-invocations, le rollback logique des écritures concurrentes, la relivraison, le retry multipart, la lecture du ZIP et le téléchargement privé.
 - [x] Raccorder la rétention des statistiques au worker et tester la planification avec chevauchement.
 - [x] Persister dans la même transaction les effets des écritures Echo et utilisateur. Le worker relit l’Echo courant pour l’indexer. Chaque webhook actif reçoit son propre enregistrement et le même identifiant à chaque essai. Un changement de destination annule la livraison en attente. Les tâches en cours sont exclues des snapshots.
-- [ ] Étendre la transaction à tous les autres producteurs, aux notifications et aux travaux de réindexation administrative.
+- [x] Enregistrer les effets des commentaires, médias et snapshots. Les courriels de notification sont conservés dans une file privée distincte des webhooks. Le worker relit les paramètres SMTP et réutilise le même Message-ID lors des reprises. Un serveur SMTP peut délivrer deux fois après une réponse réseau ambiguë.
+- [ ] Porter les travaux de réindexation administrative et les imports sur des étapes durables.
 - [ ] Valider les volumes proches des quotas hébergés et achever les imports web de grosses archives Ech0, Memos et Capsule.
 - [x] Acheminer les réponses aux confirmations Copilot entre instances via libSQL. Une écriture conditionnelle accepte une seule réponse du propriétaire. Les slots expirent avec le flux et sont exclus des snapshots.
 - [ ] Partager les journaux entre instances et valider les flux de sécurité en navigateur.

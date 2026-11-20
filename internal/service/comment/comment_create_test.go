@@ -49,13 +49,17 @@ func newDeps(t *testing.T) deps {
 	}
 }
 
+type directTx struct{}
+
+func (directTx) Run(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }
+
 func (d deps) service() *commentService.CommentService {
 	return commentService.NewCommentService(
 		d.common,
 		d.repo,
 		d.kv,
 		func() *busen.Bus { return busen.New() },
-		d.mailer,
+		d.mailer, directTx{},
 	)
 }
 

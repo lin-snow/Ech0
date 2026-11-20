@@ -6,6 +6,10 @@ package outbox
 import (
 	"context"
 	"errors"
+	"github.com/lin-snow/ech0/internal/kvstore"
+	commentModel "github.com/lin-snow/ech0/internal/model/comment"
+	commentService "github.com/lin-snow/ech0/internal/service/comment"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -84,4 +88,48 @@ func TestDeliveryIsCommittedAndRetriedWithStableID(t *testing.T) {
 	ticket, err = second.Next(ctx)
 	require.NoError(t, err)
 	require.Nil(t, ticket)
+}
+
+type mailRecorder struct{ ids []string }
+
+func (m *mailRecorder) Send(_ context.Context, cfg commentService.MailerConfig, msg commentService.MailMessage) error {
+	m.ids = append(m.ids, msg.ID)
+	return nil
+}
+
+func TestMailIsPrivateAndUsesCurrentCredentials(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "mail.db")), &gorm.Config{})
+	require.NoError(t, err)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	defer func() { _ = pool.Close() }()
+	require.NoError(t, db.AutoMigrate(&outboxModel.Delivery{}, &webhookModel.Webhook{}))
+	require.NoError(t, db.Create(&webhookModel.Webhook{ID: "external", URL: "https://example.test", IsActive: true}).Error)
+	mails := &mailRecorder{}
+	settings := kvstore.NewMemory()
+	ctx := t.Context()
+	cfg := coreSetting.Comment.Pristine()
+	cfg.EmailNotify = commentModel.EmailNotifySetting{Enabled: true, SMTPHost: "smtp.example.test", SMTPUsername: "sender@example.test", SMTPPassword: "credential-for-test", SMTPPort: 587}
+	require.NoError(t, coreSetting.Comment.Set(ctx, settings, cfg))
+	w := &Worker{db: func() *gorm.DB { return db }, mailer: mails, settings: settings}
+	provider := eventbus.ProvideProvider()
+	registrar := eventbus.NewEventRegistry(provider, []eventbus.Subscriber{w})
+	require.NoError(t, registrar.Register())
+	t.Cleanup(func() { _ = registrar.Stop() })
+	tx := transaction.NewFunctionTransactor(w.db)
+	require.NoError(t, tx.Run(ctx, func(ctx context.Context) error {
+		return eventbus.Emit(ctx, provider(), event.CommentMail{Message: commentModel.MailMessage{To: "reader@example.test", Subject: "reply", TextBody: "comment"}})
+	}))
+	var rows []outboxModel.Delivery
+	require.NoError(t, db.Find(&rows).Error)
+	require.Len(t, rows, 1)
+	require.NotContains(t, string(rows[0].Payload), cfg.EmailNotify.SMTPPassword)
+	ticket, err := w.Next(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, ticket)
+	require.NoError(t, w.Advance(ctx, *ticket))
+	require.Equal(t, []string{ticket.ID}, mails.ids)
+	next, err := w.Next(ctx)
+	require.NoError(t, err)
+	require.Nil(t, next)
 }

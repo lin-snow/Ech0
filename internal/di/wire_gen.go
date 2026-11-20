@@ -164,7 +164,7 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	fileHandler := handler6.NewFileHandler(fileService)
 	commentRepository := repository9.NewCommentRepository(dbProvider)
 	goMailSender := service7.NewGoMailSender()
-	commentService := service7.NewCommentService(commonService, commentRepository, persistent, ebProvider, goMailSender)
+	commentService := service7.NewCommentService(commonService, commentRepository, persistent, ebProvider, goMailSender, tx)
 	commentHandler := handler7.NewCommentHandler(commentService)
 	initRepository := repository10.NewInitRepository(dbProvider)
 	initService := service8.NewInitService(initRepository, userService, settingService)
@@ -293,7 +293,8 @@ func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless
 	echoRepository := repository2.NewEchoRepository(dbProvider, cacheCache)
 	embeddingService := service.NewEmbeddingService(embeddingRepository, store, echoRepository)
 	sender := webhook.NewSender()
-	worker := outbox.New(dbProvider, embeddingService, sender)
+	goMailSender := service7.NewGoMailSender()
+	worker := outbox.New(dbProvider, embeddingService, sender, goMailSender, store)
 	runtime, err := serverless.New(ctx, serverServer, v, worker, gormTransactor, store, manager)
 	if err != nil {
 		return nil, err

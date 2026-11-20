@@ -57,6 +57,9 @@ func (s *GoMailSender) Send(ctx context.Context, cfg MailerConfig, msg MailMessa
 	defer func() { _ = client.Close() }()
 
 	m := mail.NewMsg()
+	if msg.ID != "" {
+		m.SetMessageIDWithValue(msg.ID + "@ech0.local")
+	}
 	if err := m.From(from); err != nil {
 		return err
 	}

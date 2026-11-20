@@ -31,6 +31,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
+	"github.com/lin-snow/ech0/internal/transaction"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/pkg/busen"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
@@ -50,6 +51,7 @@ const (
 )
 
 type CommentService struct {
+	tx            transaction.Transactor
 	commonService CommonService
 	repo          Repository
 	durableKV     kvstore.Store
@@ -63,6 +65,7 @@ func NewCommentService(
 	durableKV kvstore.Store,
 	busProvider func() *busen.Bus,
 	mailer Mailer,
+	tx transaction.Transactor,
 ) *CommentService {
 	return &CommentService{
 		commonService: commonService,
@@ -70,6 +73,7 @@ func NewCommentService(
 		durableKV:     durableKV,
 		bus:           busProvider(),
 		mailer:        mailer,
+		tx:            tx,
 	}
 }
 
@@ -207,14 +211,9 @@ func (s *CommentService) CreateComment(
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "请勿重复提交相同评论")
 	}
 
-	if err := s.repo.CreateComment(ctx, &comment); err != nil {
+	if err := s.saveComment(ctx, &comment, true); err != nil {
 		return model.CreateCommentResult{}, err
 	}
-	s.emitCommentCreated(ctx, comment)
-	if shouldNotifyOwnerOnCreate(comment.Source) {
-		s.notifyOwnerAsync(ctx, "created", comment)
-	}
-	s.notifyReplyTargetAsync(ctx, comment)
 	return model.CreateCommentResult{
 		ID:     comment.ID,
 		Status: comment.Status,
@@ -307,7 +306,7 @@ func (s *CommentService) CreateIntegrationComment(
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "请勿重复提交相同评论")
 	}
 
-	if err := s.repo.CreateComment(ctx, &comment); err != nil {
+	if err := s.saveComment(ctx, &comment, false); err != nil {
 		return model.CreateCommentResult{}, err
 	}
 
@@ -320,10 +319,6 @@ func (s *CommentService) CreateIntegrationComment(
 		slog.String("metadata", strings.TrimSpace(dto.Metadata)),
 	)
 
-	s.emitCommentCreated(ctx, comment)
-	if shouldNotifyOwnerOnCreate(comment.Source) {
-		s.notifyOwnerAsync(ctx, "created", comment)
-	}
 	return model.CreateCommentResult{
 		ID:     comment.ID,
 		Status: comment.Status,
@@ -422,43 +417,53 @@ func (s *CommentService) UpdateCommentStatus(ctx context.Context, id string, sta
 	if status != model.StatusPending && status != model.StatusApproved && status != model.StatusRejected {
 		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "无效的评论状态")
 	}
-	if err := s.repo.UpdateCommentStatus(ctx, id, status); err != nil {
-		return err
-	}
-	if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
-		s.emitCommentStatusUpdated(ctx, updated)
-		s.notifyOwnerAsync(ctx, "status", updated)
-	}
-	return nil
+	return s.tx.Run(ctx, func(ctx context.Context) error {
+		if err := s.repo.UpdateCommentStatus(ctx, id, status); err != nil {
+			return err
+		}
+		if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
+			if err := eventbus.Record(ctx, s.bus, event.CommentStatusUpdated{Comment: updated}); err != nil {
+				return err
+			}
+			if err := s.notifyOwnerAsync(ctx, "status", updated); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *CommentService) UpdateCommentHot(ctx context.Context, id string, hot bool) error {
 	if err := s.requireAdmin(ctx); err != nil {
 		return err
 	}
-	if err := s.repo.UpdateCommentHot(ctx, id, hot); err != nil {
-		return err
-	}
-	if hot {
-		if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
-			s.notifyOwnerAsync(ctx, "hot", updated)
+	return s.tx.Run(ctx, func(ctx context.Context) error {
+		if err := s.repo.UpdateCommentHot(ctx, id, hot); err != nil {
+			return err
 		}
-	}
-	return nil
+		if hot {
+			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
+				return s.notifyOwnerAsync(ctx, "hot", updated)
+			}
+		}
+		return nil
+	})
 }
 
 func (s *CommentService) DeleteComment(ctx context.Context, id string) error {
 	if err := s.requireAdmin(ctx); err != nil {
 		return err
 	}
-	beforeDelete, _ := s.repo.GetCommentByID(ctx, id)
-	if err := s.repo.DeleteComment(ctx, id); err != nil {
-		return err
-	}
-	if beforeDelete.ID != "" {
-		s.emitCommentDeleted(ctx, beforeDelete)
-	}
-	return nil
+	return s.tx.Run(ctx, func(ctx context.Context) error {
+		beforeDelete, _ := s.repo.GetCommentByID(ctx, id)
+		if err := s.repo.DeleteComment(ctx, id); err != nil {
+			return err
+		}
+		if beforeDelete.ID != "" {
+			return eventbus.Record(ctx, s.bus, event.CommentDeleted{Comment: beforeDelete})
+		}
+		return nil
+	})
 }
 
 func (s *CommentService) BatchAction(ctx context.Context, action string, ids []string) error {
@@ -468,67 +473,72 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 	if len(ids) == 0 {
 		return nil
 	}
-	switch action {
-	case "approve":
-		if err := s.repo.BatchUpdateStatus(ctx, ids, model.StatusApproved); err != nil {
-			return err
-		}
-		for _, id := range ids {
-			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
-				s.emitCommentStatusUpdated(ctx, updated)
-				s.notifyOwnerAsync(ctx, "status", updated)
+	return s.tx.Run(ctx, func(ctx context.Context) error {
+		switch action {
+		case "approve", "reject":
+			status := model.StatusApproved
+			if action == "reject" {
+				status = model.StatusRejected
 			}
-		}
-		return nil
-	case "reject":
-		if err := s.repo.BatchUpdateStatus(ctx, ids, model.StatusRejected); err != nil {
-			return err
-		}
-		for _, id := range ids {
-			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
-				s.emitCommentStatusUpdated(ctx, updated)
-				s.notifyOwnerAsync(ctx, "status", updated)
+			if err := s.repo.BatchUpdateStatus(ctx, ids, status); err != nil {
+				return err
 			}
-		}
-		return nil
-	case "delete":
-		if err := requireCommentDeleteScope(ctx); err != nil {
-			return err
-		}
-		beforeDelete := make([]model.Comment, 0, len(ids))
-		for _, id := range ids {
-			if comment, err := s.repo.GetCommentByID(ctx, id); err == nil && comment.ID != "" {
-				beforeDelete = append(beforeDelete, comment)
+			for _, id := range ids {
+				if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
+					if err := eventbus.Record(ctx, s.bus, event.CommentStatusUpdated{Comment: updated}); err != nil {
+						return err
+					}
+					if err := s.notifyOwnerAsync(ctx, "status", updated); err != nil {
+						return err
+					}
+				}
 			}
+			return nil
+		case "delete":
+			if err := requireCommentDeleteScope(ctx); err != nil {
+				return err
+			}
+			beforeDelete := make([]model.Comment, 0, len(ids))
+			for _, id := range ids {
+				if comment, err := s.repo.GetCommentByID(ctx, id); err == nil && comment.ID != "" {
+					beforeDelete = append(beforeDelete, comment)
+				}
+			}
+			if err := s.repo.BatchDelete(ctx, ids); err != nil {
+				return err
+			}
+			for _, comment := range beforeDelete {
+				if err := eventbus.Record(ctx, s.bus, event.CommentDeleted{Comment: comment}); err != nil {
+					return err
+				}
+			}
+			return nil
+		default:
+			return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "无效的批量动作")
 		}
-		if err := s.repo.BatchDelete(ctx, ids); err != nil {
-			return err
-		}
-		for _, comment := range beforeDelete {
-			s.emitCommentDeleted(ctx, comment)
-		}
-		return nil
-	default:
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "无效的批量动作")
-	}
+	})
 }
 
-func (s *CommentService) emitCommentCreated(ctx context.Context, comment model.Comment) {
-	if comment.ID != "" {
-		eventbus.Notify(ctx, s.bus, event.CommentCreated{Comment: comment})
-	}
-}
-
-func (s *CommentService) emitCommentStatusUpdated(ctx context.Context, comment model.Comment) {
-	if comment.ID != "" {
-		eventbus.Notify(ctx, s.bus, event.CommentStatusUpdated{Comment: comment})
-	}
-}
-
-func (s *CommentService) emitCommentDeleted(ctx context.Context, comment model.Comment) {
-	if comment.ID != "" {
-		eventbus.Notify(ctx, s.bus, event.CommentDeleted{Comment: comment})
-	}
+func (s *CommentService) saveComment(ctx context.Context, comment *model.Comment, reply bool) error {
+	return s.tx.Run(ctx, func(tx context.Context) error {
+		if err := s.repo.CreateComment(tx, comment); err != nil {
+			return err
+		}
+		if comment.ID != "" {
+			if err := eventbus.Record(tx, s.bus, event.CommentCreated{Comment: *comment}); err != nil {
+				return err
+			}
+		}
+		if shouldNotifyOwnerOnCreate(comment.Source) {
+			if err := s.notifyOwnerAsync(tx, "created", *comment); err != nil {
+				return err
+			}
+		}
+		if reply {
+			return s.notifyReplyTargetAsync(tx, *comment)
+		}
+		return nil
+	})
 }
 
 func (s *CommentService) GetSystemSetting(ctx context.Context) (model.SystemSetting, error) {
@@ -592,13 +602,16 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 	})
 }
 
-func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comment model.Comment) {
+func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comment model.Comment) error {
 	setting, err := s.getSystemSettingRaw(ctx)
 	if err != nil {
-		return
+		if transaction.Durable(ctx) {
+			return err
+		}
+		return nil
 	}
 	if !shouldNotify(setting, kind, comment.Status) {
-		return
+		return nil
 	}
 	recipient := ""
 	if useCommentRecipient(kind) {
@@ -608,24 +621,18 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 			logUtil.GetLogger().Info("skip comment notify mail due to invalid commenter email",
 				slog.String("kind", kind),
 				slog.String("comment_id", comment.ID))
-			return
+			return nil
 		}
 	} else {
 		ownerEmail, ownerErr := s.resolveOwnerEmail()
 		if ownerErr != nil {
-			return
+			return nil
 		}
 		recipient = ownerEmail
 	}
 	serverURL := s.resolveServerURL(ctx)
 	content := buildNotifyContent(kind, comment, serverURL)
-	go func(cfg model.EmailNotifySetting, msg MailMessage) {
-		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
-			logUtil.GetLogger().Warn("comment notify mail failed", logUtil.Err(err), slog.String("comment_id", comment.ID))
-		}
-	}(setting.EmailNotify, MailMessage{
+	return s.queueMail(ctx, setting.EmailNotify, MailMessage{
 		To:       recipient,
 		Subject:  content.Subject,
 		TextBody: content.TextBody,
@@ -633,44 +640,56 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 	})
 }
 
-func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment model.Comment) {
+func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment model.Comment) error {
 	if comment.ParentID == nil || strings.TrimSpace(*comment.ParentID) == "" {
-		return
+		return nil
 	}
 	setting, err := s.getSystemSettingRaw(ctx)
+	if err != nil && transaction.Durable(ctx) {
+		return err
+	}
 	if err != nil || !setting.EmailNotify.Enabled {
-		return
+		return nil
 	}
 	parent, err := s.repo.GetCommentByID(ctx, strings.TrimSpace(*comment.ParentID))
 	if err != nil || parent.ID == "" {
-		return
+		return nil
 	}
 	targetEmail, ok := parseValidEmail(parent.Email)
 	if !ok {
-		return
+		return nil
 	}
 	if strings.EqualFold(targetEmail, strings.TrimSpace(comment.Email)) {
-		return
+		return nil
 	}
 	if ownerEmail, ownerErr := s.resolveOwnerEmail(); ownerErr == nil &&
 		strings.EqualFold(targetEmail, strings.TrimSpace(ownerEmail)) {
-		return
+		return nil
 	}
 	serverURL := s.resolveServerURL(ctx)
 	content := buildNotifyContent("reply", comment, serverURL)
-	go func(cfg model.EmailNotifySetting, msg MailMessage) {
-		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
-			logUtil.GetLogger().Warn("comment reply notify mail failed",
-				logUtil.Err(err), slog.String("comment_id", comment.ID))
-		}
-	}(setting.EmailNotify, MailMessage{
+	return s.queueMail(ctx, setting.EmailNotify, MailMessage{
 		To:       targetEmail,
 		Subject:  content.Subject,
 		TextBody: content.TextBody,
 		HTMLBody: content.HTMLBody,
 	})
+}
+
+func (s *CommentService) queueMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
+	if transaction.Durable(ctx) {
+		return eventbus.Emit(ctx, s.bus, event.CommentMail{Message: msg})
+	}
+	transaction.AfterCommit(ctx, func() {
+		go func() {
+			notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
+				logUtil.GetLogger().Warn("comment notification mail failed", logUtil.Err(err))
+			}
+		}()
+	})
+	return nil
 }
 
 func useCommentRecipient(kind string) bool {
@@ -693,13 +712,17 @@ func parseValidEmail(raw string) (string, bool) {
 }
 
 func (s *CommentService) sendOwnerMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
-	if s.mailer == nil {
+	return sendMail(ctx, s.mailer, cfg, msg)
+}
+
+func sendMail(ctx context.Context, mailer Mailer, cfg model.EmailNotifySetting, msg MailMessage) error {
+	if mailer == nil {
 		return errors.New("mailer unavailable")
 	}
 	if err := validateEmailNotifySetting(cfg, msg.To); err != nil {
 		return err
 	}
-	return s.mailer.Send(ctx, MailerConfig{
+	return mailer.Send(ctx, MailerConfig{
 		Host:     strings.TrimSpace(cfg.SMTPHost),
 		Port:     cfg.SMTPPort,
 		Username: strings.TrimSpace(cfg.SMTPUsername),
@@ -936,4 +959,16 @@ func derefString(v *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*v)
+}
+
+// DeliverQueuedMail resolves current SMTP credentials only inside the worker.
+func DeliverQueuedMail(ctx context.Context, store kvstore.Store, mailer Mailer, msg MailMessage) error {
+	setting, err := coreSetting.Comment.Get(ctx, store)
+	if err != nil {
+		return err
+	}
+	if !setting.EmailNotify.Enabled {
+		return nil
+	}
+	return sendMail(ctx, mailer, setting.EmailNotify, msg)
 }

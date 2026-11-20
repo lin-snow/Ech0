@@ -66,12 +66,7 @@ type UserContext struct {
 	Valid bool
 }
 
-type MailMessage struct {
-	To       string
-	Subject  string
-	TextBody string
-	HTMLBody string
-}
+type MailMessage = model.MailMessage
 
 type MailerConfig struct {
 	Host     string

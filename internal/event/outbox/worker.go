@@ -10,15 +10,18 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	outboxModel "github.com/lin-snow/ech0/internal/model/outbox"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
+	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	embeddingService "github.com/lin-snow/ech0/internal/service/embedding"
 	"github.com/lin-snow/ech0/internal/transaction"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
@@ -27,17 +30,20 @@ import (
 )
 
 type Worker struct {
-	db    func() *gorm.DB
-	index embeddingService.Indexer
-	send  func(context.Context, *webhookModel.Webhook, event.WebhookObservation, string) error
+	mailer   commentService.Mailer
+	settings kvstore.Store
+	db       func() *gorm.DB
+	index    embeddingService.Indexer
+	send     func(context.Context, *webhookModel.Webhook, event.WebhookObservation, string) error
 }
 
-func New(db func() *gorm.DB, index embeddingService.Indexer, sender *webhook.Sender) *Worker {
-	return &Worker{db: db, index: index, send: sender.DeliverOnce}
+func New(db func() *gorm.DB, index embeddingService.Indexer, sender *webhook.Sender, mailer *commentService.GoMailSender, settings kvstore.Store) *Worker {
+	return &Worker{db: db, index: index, send: sender.DeliverOnce, mailer: mailer, settings: settings}
 }
 
 func (w *Worker) Registrations() []eventbus.Registration {
 	return []eventbus.Registration{
+		eventbus.On(w.queueMail),
 		record[event.EchoCreated](w), record[event.EchoUpdated](w), record[event.EchoDeleted](w),
 		record[event.UserCreated](w), record[event.UserUpdated](w), record[event.UserDeleted](w),
 		record[event.CommentCreated](w), record[event.CommentStatusUpdated](w), record[event.CommentDeleted](w),
@@ -54,7 +60,10 @@ func record[T event.Named](w *Worker) eventbus.Registration {
 	})
 }
 
-func urlHash(url string) string { sum := sha256.Sum256([]byte(url)); return hex.EncodeToString(sum[:]) }
+func digest(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
+}
 
 func (w *Worker) record(ctx context.Context, tx *gorm.DB, e event.Named, meta map[string]string) error {
 	tx = tx.WithContext(ctx)
@@ -86,7 +95,7 @@ func (w *Worker) record(ctx context.Context, tx *gorm.DB, e event.Named, meta ma
 			return err
 		}
 		for _, hook := range hooks {
-			rows = append(rows, outboxModel.Delivery{ID: uuidUtil.NewV7(), Lane: "webhook/" + hook.ID, Subject: hook.ID, Destination: urlHash(hook.URL), Payload: payload})
+			rows = append(rows, outboxModel.Delivery{ID: uuidUtil.NewV7(), Lane: "webhook/" + hook.ID, Subject: hook.ID, Destination: digest(hook.URL), Payload: payload})
 		}
 	}
 	if len(rows) == 0 {
@@ -132,12 +141,12 @@ func (w *Worker) Advance(ctx context.Context, t Ticket) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		claim := tx.Where("id=? AND lease=?", d.ID, lease)
 		retry := deliveryErr != nil && !errors.Is(deliveryErr, errRetired)
-		if retry && (d.Attempt < 3 || d.Lane == "embedding") {
+		if retry && (d.Attempt < 3 || !strings.HasPrefix(d.Lane, "webhook/")) {
 			delay := time.Duration(1<<min(d.Attempt, 12)) * time.Second
 			return claim.Model(&outboxModel.Delivery{}).Updates(map[string]any{"attempt": d.Attempt + 1, "ready": time.Now().Add(min(delay, time.Hour)).Unix(), "lease": ""}).Error
 		}
 		done := claim.Delete(&outboxModel.Delivery{})
-		if done.Error != nil || done.RowsAffected == 0 || errors.Is(deliveryErr, errRetired) || d.Lane == "embedding" {
+		if done.Error != nil || done.RowsAffected == 0 || errors.Is(deliveryErr, errRetired) || !strings.HasPrefix(d.Lane, "webhook/") {
 			return done.Error
 		}
 		status := "success"
@@ -151,6 +160,14 @@ func (w *Worker) Advance(ctx context.Context, t Ticket) error {
 var errRetired = errors.New("webhook was retired")
 
 func (w *Worker) deliver(ctx context.Context, db *gorm.DB, d outboxModel.Delivery) error {
+	if strings.HasPrefix(d.Lane, "mail/") {
+		var msg commentService.MailMessage
+		if err := json.Unmarshal(d.Payload, &msg); err != nil {
+			return err
+		}
+		msg.ID = d.ID
+		return commentService.DeliverQueuedMail(ctx, w.settings, w.mailer, msg)
+	}
 	if d.Lane == "embedding" {
 		var echo echoModel.Echo
 		err := db.Preload("Tags").First(&echo, "id=?", d.Subject).Error
@@ -164,7 +181,7 @@ func (w *Worker) deliver(ctx context.Context, db *gorm.DB, d outboxModel.Deliver
 	}
 	var hook webhookModel.Webhook
 	err := db.First(&hook, "id=? AND is_active=?", d.Subject, true).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && urlHash(hook.URL) != d.Destination) {
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && digest(hook.URL) != d.Destination) {
 		return errRetired
 	}
 	if err != nil {
@@ -183,4 +200,16 @@ func (w *Worker) SnapshotCompleted(ctx context.Context, tx *gorm.DB, scheduled b
 		info = "System scheduled snapshot completed"
 	}
 	return w.record(ctx, tx, event.SystemSnapshot{Info: info}, map[string]string{"source": "ech0"})
+}
+
+func (w *Worker) queueMail(ctx context.Context, e event.CommentMail) error {
+	tx, ok := transaction.TxFromContext(ctx)
+	if !ok {
+		return errors.New("mail delivery requires a mutation transaction")
+	}
+	payload, err := json.Marshal(e.Message)
+	if err != nil {
+		return err
+	}
+	return tx.WithContext(ctx).Create(&outboxModel.Delivery{ID: uuidUtil.NewV7(), Lane: "mail/" + digest(e.Message.To), Payload: payload}).Error
 }

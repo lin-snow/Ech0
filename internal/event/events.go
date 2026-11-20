@@ -83,3 +83,6 @@ func (e CommentCreated) OrderingKey() string       { return e.Comment.ID }
 func (e CommentStatusUpdated) OrderingKey() string { return e.Comment.ID }
 func (e CommentDeleted) OrderingKey() string       { return e.Comment.ID }
 func (e ResourceUploaded) OrderingKey() string     { return e.Key }
+
+// CommentMail is internal. Only the mail delivery worker handles its payload.
+type CommentMail struct{ Message commentModel.MailMessage }
