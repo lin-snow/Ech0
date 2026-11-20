@@ -4,6 +4,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -96,7 +97,14 @@ func configLogLevel() logger.LogLevel {
 }
 
 func SnapshotTo(dstPath string) error {
-	return GetDB().Exec("VACUUM INTO ?", dstPath).Error
+	return SnapshotToContext(context.Background(), dstPath)
+}
+
+func SnapshotToContext(ctx context.Context, dstPath string) error {
+	if config.Config().Database.Type == "libsql" {
+		return writeRemoteSnapshot(ctx, GetDB(), dstPath)
+	}
+	return GetDB().WithContext(ctx).Exec("VACUUM INTO ?", dstPath).Error
 }
 
 func InitDatabase() {

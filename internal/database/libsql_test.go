@@ -9,9 +9,11 @@ import (
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	authRepository "github.com/lin-snow/ech0/internal/repository/auth"
 	visitorRepository "github.com/lin-snow/ech0/internal/repository/visitor"
+	"gorm.io/driver/sqlite"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -152,6 +154,20 @@ func TestLibSQLPersistence(t *testing.T) {
 	hits, err = reader.Search(ctx, []float32{0, 0}, 1, "another")
 	require.NoError(t, err)
 	require.Empty(t, hits)
+	backup := filepath.Join(t.TempDir(), "ech0.db")
+	require.NoError(t, writeRemoteSnapshot(ctx, b, backup))
+	local, err := gorm.Open(sqlite.Open(backup), buildGormConfig(logger.Silent))
+	require.NoError(t, err)
+	localPool, err := local.DB()
+	require.NoError(t, err)
+	defer localPool.Close()
+	native := embeddingRepository.NewEmbeddingRepository(func() *gorm.DB { return local })
+	restoredHits, err := native.Search(ctx, []float32{0, 0}, 1, "owner")
+	require.NoError(t, err)
+	require.Len(t, restoredHits, 1)
+	require.Equal(t, 5.0, restoredHits[0].Distance)
+	restoredDB := filepath.Join(t.TempDir(), "restored.db")
+	require.NoError(t, ConvertSQLite(ctx, backup, restoredDB))
 	require.NoError(t, writer.Delete(ctx, "entry"))
 	hits, err = reader.Search(ctx, []float32{0, 0}, 1, "")
 	require.NoError(t, err)

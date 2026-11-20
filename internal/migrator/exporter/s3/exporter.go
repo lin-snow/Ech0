@@ -28,9 +28,9 @@ func New(storageManager *storage.Manager) *Exporter {
 	return &Exporter{storageManager: storageManager}
 }
 
-func (e *Exporter) Export(_ context.Context, req spec.ExportRequest) (spec.ExportResult, error) {
+func (e *Exporter) Export(ctx context.Context, req spec.ExportRequest) (spec.ExportResult, error) {
 	emit(req, migratorModel.ExportPhasePacking)
-	path, fileName, err := snapshot.Create(snapshot.WithConsistentDB(database.SnapshotTo))
+	path, fileName, err := snapshot.Create(snapshot.WithConsistentDB(func(path string) error { return database.SnapshotToContext(ctx, path) }))
 	if err != nil {
 		return spec.ExportResult{}, err
 	}
