@@ -28,6 +28,7 @@ import (
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"github.com/lin-snow/ech0/pkg/virefs"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -231,21 +232,57 @@ func blockReader(ctx context.Context, db *gorm.DB, fs virefs.FS, run string) fun
 		if err := db.Raw("SELECT ref FROM ech0_export_blocks WHERE run=? AND n=?", run, n).Row().Scan(&ref); err != nil {
 			return nil, err
 		}
-		obj, err := fs.Get(ctx, ref)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = obj.Close() }()
-		data, err := io.ReadAll(io.LimitReader(obj, pagefile.BlockSize+1))
-		if err != nil {
-			return nil, err
-		}
-		hash := sha256.Sum256(data)
-		if len(data) != pagefile.BlockSize || !strings.HasSuffix(ref, "-"+hex.EncodeToString(hash[:])) {
-			return nil, errors.New("snapshot block integrity check failed")
-		}
-		return data, nil
+		return fetchBlock(ctx, fs, ref)
 	}
+}
+
+func fetchBlock(ctx context.Context, fs virefs.FS, ref string) ([]byte, error) {
+	obj, err := fs.Get(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = obj.Close() }()
+	data, err := io.ReadAll(io.LimitReader(obj, pagefile.BlockSize+1))
+	if err != nil {
+		return nil, err
+	}
+	hash := sha256.Sum256(data)
+	if len(data) != pagefile.BlockSize || !strings.HasSuffix(ref, "-"+hex.EncodeToString(hash[:])) {
+		return nil, errors.New("snapshot block integrity check failed")
+	}
+	return data, nil
+}
+
+// The manifest is stable while this worker owns the checkpoint. Fetch all
+// references in one indexed query and bound independent R2 reads to eight.
+func readBlockRange(ctx context.Context, db *gorm.DB, fs virefs.FS, run string, offset, count int64) ([]byte, error) {
+	first, last := offset/pagefile.BlockSize, (offset+count-1)/pagefile.BlockSize
+	var rows []struct {
+		N   int64
+		Ref string
+	}
+	if err := db.WithContext(ctx).Table("ech0_export_blocks").Select("n,ref").Where("run=? AND n BETWEEN ? AND ?", run, first, last).Order("n").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	if int64(len(rows)) != last-first+1 {
+		return nil, errors.New("incomplete snapshot block range")
+	}
+	result := make([]byte, count)
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(8)
+	for _, row := range rows {
+		group.Go(func() error {
+			data, err := fetchBlock(groupCtx, fs, row.Ref)
+			if err != nil {
+				return err
+			}
+			blockStart := row.N * pagefile.BlockSize
+			start, end := max(offset, blockStart), min(offset+count, blockStart+pagefile.BlockSize)
+			copy(result[start-offset:end-offset], data[start-blockStart:end-blockStart])
+			return nil
+		})
+	}
+	return result, group.Wait()
 }
 
 func (c *checkpoint) copyBlocks(ctx context.Context, db *gorm.DB, h database.SnapshotHistory, fs virefs.FS, revision int64, refs map[int64]string) error {
@@ -308,18 +345,15 @@ func (c *checkpoint) uploadPart(ctx context.Context, db *gorm.DB, cfg config.Sto
 	if c.Written == 0 {
 		part.Write(header)
 	}
-	read := blockReader(ctx, db, fs, run)
-	for c.Offset < c.Size && int64(part.Len()) < partSize {
-		block, err := read(c.Offset / pagefile.BlockSize)
+	remaining := min(c.Size-c.Offset, partSize-int64(part.Len()))
+	if remaining > 0 {
+		data, err := readBlockRange(ctx, db, fs, run, c.Offset, remaining)
 		if err != nil {
 			return false, err
 		}
-		skip := c.Offset % pagefile.BlockSize
-		count := min(pagefile.BlockSize-skip, c.Size-c.Offset, partSize-int64(part.Len()))
-		data := block[skip : skip+count]
 		c.CRC = crc32.Update(c.CRC, crc32.IEEETable, data)
 		part.Write(data)
-		c.Offset += count
+		c.Offset += int64(len(data))
 	}
 	if c.Offset == c.Size {
 		footer := snapshotFooter(size, c.CRC)

@@ -27,6 +27,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/nicksnyder/go-i18n/v2 v2.7.0
 	github.com/openai/openai-go/v3 v3.100.0
+	github.com/psanford/sqlite3vfs v0.0.0-20260519004904-f9180fa2acc9
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sashabaranov/go-openai v1.43.0
 	github.com/spf13/cobra v1.10.2
@@ -120,7 +121,6 @@ require (
 	github.com/pb33f/ordered-map/v2 v2.3.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
-	github.com/psanford/sqlite3vfs v0.0.0-20260519004904-f9180fa2acc9 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.64.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
