@@ -267,6 +267,14 @@ func (o *ObjectFS) PresignGet(ctx context.Context, key string, expires time.Dura
 }
 
 func (o *ObjectFS) PresignPut(ctx context.Context, key string, expires time.Duration) (*PresignedRequest, error) {
+	return o.presignPut(ctx, key, expires, &s3.PutObjectInput{})
+}
+
+func (o *ObjectFS) PresignCreate(ctx context.Context, key string, size int64, contentType string, expires time.Duration) (*PresignedRequest, error) {
+	return o.presignPut(ctx, key, expires, &s3.PutObjectInput{ContentLength: aws.Int64(size), ContentType: aws.String(contentType), IfNoneMatch: aws.String("*")})
+}
+
+func (o *ObjectFS) presignPut(ctx context.Context, key string, expires time.Duration, input *s3.PutObjectInput) (*PresignedRequest, error) {
 	if o.presignClient == nil {
 		return nil, &OpError{Op: "PresignPut", Key: key, Err: fmt.Errorf("%w: presign client not configured", ErrNotSupported)}
 	}
@@ -274,10 +282,9 @@ func (o *ObjectFS) PresignPut(ctx context.Context, key string, expires time.Dura
 	if err != nil {
 		return nil, &OpError{Op: "PresignPut", Key: key, Err: err}
 	}
-	req, err := o.presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(o.bucket),
-		Key:    aws.String(s3k),
-	}, func(opts *s3.PresignOptions) {
+	input.Bucket = aws.String(o.bucket)
+	input.Key = aws.String(s3k)
+	req, err := o.presignClient.PresignPutObject(ctx, input, func(opts *s3.PresignOptions) {
 		opts.Expires = expires
 	})
 	if err != nil {

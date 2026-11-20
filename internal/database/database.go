@@ -181,6 +181,7 @@ func migrateModels(db *gorm.DB) error {
 		&fileModel.File{},
 		&fileModel.EchoFile{},
 		&fileModel.TempFile{},
+		&fileModel.UploadIntent{},
 		&commonModel.KeyValue{},
 		&connectModel.Connected{},
 		&echoModel.Tag{},

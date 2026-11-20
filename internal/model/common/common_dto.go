@@ -45,15 +45,17 @@ type FileDeleteDto struct {
 }
 
 type PresignDto struct {
-	ID          string `json:"id"`
-	FileName    string `json:"file_name"`
-	ContentType string `json:"content_type"`
-	Key         string `json:"key"`
-	PresignURL  string `json:"presign_url"`
-	FileURL     string `json:"file_url"`
+	RequireCreateOnly bool   `json:"require_create_only,omitempty"`
+	ID                string `json:"id"`
+	FileName          string `json:"file_name"`
+	ContentType       string `json:"content_type"`
+	Key               string `json:"key"`
+	PresignURL        string `json:"presign_url"`
+	FileURL           string `json:"file_url"`
 }
 
 type GetPresignURLDto struct {
+	Size        *int64 `json:"size,omitempty" minimum:"1"`
 	FileName    string `json:"file_name" binding:"required"`
 	ContentType string `json:"content_type"`
 	StorageType string `json:"storage_type,omitempty"`

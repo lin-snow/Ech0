@@ -830,6 +830,10 @@ components:
           type: string
         file_name:
           type: string
+        size:
+          format: int64
+          minimum: 1
+          type: integer
         storage_type:
           type: string
       type: object
@@ -1270,6 +1274,8 @@ components:
           type: string
         presign_url:
           type: string
+        require_create_only:
+          type: boolean
       type: object
     PublicComment:
       additionalProperties: true

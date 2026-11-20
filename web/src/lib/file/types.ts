@@ -34,6 +34,7 @@ export type ExternalFileInput = {
 }
 
 export type PresignInput = {
+  size?: number
   fileName: string
   contentType?: string
   storageType?: FileStorageType
@@ -45,6 +46,7 @@ export type PresignResult = {
   content_type: string
   key: string
   presign_url: string
+  require_create_only?: boolean
   file_url: string
 }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/lin-snow/ech0/internal/transaction"
 	imgUtil "github.com/lin-snow/ech0/internal/util/img"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
+	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"github.com/lin-snow/ech0/pkg/busen"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -460,6 +461,10 @@ func (s *FileService) UpdateFileMeta(
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
 	}
 
+	if config.Config().Upload.VerifiedDirect {
+		return s.finalizeUpload(ctx, userid, id, dto)
+	}
+
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		return commonModel.FileDto{}, err
@@ -870,7 +875,17 @@ func (s *FileService) GetFilePresignURL(
 	}
 
 	selector := s.getSelector()
-	presignURL, err := selector.PresignPutURL(context.Background(), key, 24*time.Hour)
+	var presignURL string
+	if config.Config().Upload.VerifiedDirect {
+		limit, _ := uploadPolicyFor(category)
+		if dto.Size == nil || *dto.Size <= 0 || *dto.Size > int64(limit) {
+			return result, errors.New(commonModel.FILE_SIZE_EXCEED_LIMIT)
+		}
+		presignURL, err = selector.PresignCreate(ctx, key, *dto.Size, contentType)
+		result.RequireCreateOnly = true
+	} else {
+		presignURL, err = selector.PresignPutURL(ctx, key, 24*time.Hour)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -889,15 +904,19 @@ func (s *FileService) GetFilePresignURL(
 		UserID:      userid,
 	}
 	nowUTC := time.Now().UTC()
-	if err := s.fileRepository.Create(context.Background(), fileRecord); err != nil {
-		return result, err
+	if result.RequireCreateOnly {
+		fileRecord.ID = uuidUtil.NewV7()
+		fileRecord.Size = *dto.Size
+		err = s.fileRepository.CreateIntent(ctx, &fileModel.UploadIntent{ID: fileRecord.ID, ExpiresAt: nowUTC.Add(tempFileTTL).Unix(), Metadata: *fileRecord})
+	} else {
+		err = s.transactor.Run(ctx, func(txCtx context.Context) error {
+			if err := s.fileRepository.Create(txCtx, fileRecord); err != nil {
+				return err
+			}
+			return s.fileRepository.CreateTemp(txCtx, &fileModel.TempFile{FileID: fileRecord.ID, UploaderID: userid, ExpireAt: nowUTC.Add(tempFileTTL).Unix()})
+		})
 	}
-	if err := s.fileRepository.CreateTemp(context.Background(), &fileModel.TempFile{
-		FileID:     fileRecord.ID,
-		UploaderID: userid,
-		ExpireAt:   nowUTC.Add(tempFileTTL).Unix(),
-	}); err != nil {
-		_ = s.fileRepository.Delete(context.Background(), fileRecord.ID)
+	if err != nil {
 		return result, err
 	}
 
@@ -915,6 +934,11 @@ func (s *FileService) CleanupOrphanFiles() error {
 	threshold := time.Now().UTC().Unix()
 	dryRun := isTempCleanupDryRun()
 
+	if config.Config().Upload.VerifiedDirect && !dryRun {
+		if err := s.cleanupExpiredIntents(ctx, threshold); err != nil {
+			return err
+		}
+	}
 	temps, err := s.fileRepository.ListExpiredTemps(ctx, threshold)
 	if err != nil {
 		return err

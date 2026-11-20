@@ -55,12 +55,14 @@ export function fetchGetPresignedUrl(
   fileName: string,
   contentType?: string,
   storageType: App.Api.File.StorageType = FILE_STORAGE_TYPE.OBJECT,
+  size?: number,
 ) {
   return request<App.Api.Ech0.PresignResult>({
     url: `/files/presign`,
     method: 'PUT',
     data: {
       file_name: fileName,
+      size,
       content_type: contentType,
       storage_type: storageType,
     },

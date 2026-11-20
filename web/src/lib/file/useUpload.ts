@@ -354,6 +354,7 @@ export function useUpload(opts: UseUploadOptions) {
     const fileName = rawName || `upload_${Date.now()}${inferFileExtFromType(contentType)}`
 
     const presign = await getPresign({
+      size: file.size,
       fileName,
       contentType,
       storageType: FILE_STORAGE_TYPE.OBJECT,
@@ -366,6 +367,7 @@ export function useUpload(opts: UseUploadOptions) {
       {
         kind: UPLOAD_KIND.S3,
         presignUrl: presign.presign_url,
+        createOnly: presign.require_create_only,
         contentType,
       },
       {
@@ -403,6 +405,7 @@ export function useUpload(opts: UseUploadOptions) {
       resolvedHeight = updated.height
       resolvedContentType = updated.contentType ?? resolvedContentType
     } catch (err) {
+      if (presign.require_create_only) throw err
       const msg = err instanceof Error ? err.message : String(t('uploader.fileMetaFillbackFailed'))
       theToast.error(msg)
     }

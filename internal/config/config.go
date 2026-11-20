@@ -118,10 +118,11 @@ type WebAuthnConfig struct {
 }
 
 type UploadConfig struct {
-	AllowedTypes []string
-	ImageMaxSize int `env:"ECH0_UPLOAD_IMAGE_MAX_SIZE"`
-	AudioMaxSize int `env:"ECH0_UPLOAD_AUDIO_MAX_SIZE"`
-	VideoMaxSize int `env:"ECH0_UPLOAD_VIDEO_MAX_SIZE"`
+	VerifiedDirect bool `env:"ECH0_UPLOAD_VERIFIED_DIRECT"`
+	AllowedTypes   []string
+	ImageMaxSize   int `env:"ECH0_UPLOAD_IMAGE_MAX_SIZE"`
+	AudioMaxSize   int `env:"ECH0_UPLOAD_AUDIO_MAX_SIZE"`
+	VideoMaxSize   int `env:"ECH0_UPLOAD_VIDEO_MAX_SIZE"`
 }
 
 type SettingConfig struct {

@@ -42,6 +42,12 @@ type CommonRepository interface {
 }
 
 type FileRepository interface {
+	CreateIntent(context.Context, *fileModel.UploadIntent) error
+	GetIntent(context.Context, string) (*fileModel.UploadIntent, error)
+	DeleteIntent(context.Context, string) error
+	ConsumeIntent(context.Context, string, int64) error
+	ClaimExpiredIntent(context.Context, string, int64) (bool, error)
+	ExpiredIntents(context.Context, int64) ([]fileModel.UploadIntent, error)
 	Create(ctx context.Context, file *fileModel.File) error
 	GetByID(ctx context.Context, id string) (*fileModel.File, error)
 	ListByIDs(ctx context.Context, ids []string) ([]fileModel.File, error)

@@ -45,6 +45,13 @@ type EchoFile struct {
 	SortOrder int    `gorm:"default:0"                                   json:"sort_order" doc:"同一 Echo 内的排序，从 0 开始"`
 }
 
+// UploadIntent holds metadata until the private object has been verified.
+type UploadIntent struct {
+	ID        string `gorm:"primaryKey"`
+	ExpiresAt int64  `gorm:"index;not null"`
+	Metadata  File   `gorm:"serializer:json;not null"`
+}
+
 type TempFile struct {
 	ID         string `gorm:"type:char(36);primaryKey"               json:"id"`
 	FileID     string `gorm:"type:char(36);not null;uniqueIndex"     json:"file_id"`

@@ -200,3 +200,33 @@ func (r *FileRepository) ListByIDs(ctx context.Context, ids []string) ([]model.F
 	err := r.getDB(ctx).Where("id IN ?", ids).Find(&files).Error
 	return files, err
 }
+
+func (r *FileRepository) CreateIntent(ctx context.Context, intent *model.UploadIntent) error {
+	return r.getDB(ctx).WithContext(ctx).Create(intent).Error
+}
+func (r *FileRepository) GetIntent(ctx context.Context, id string) (*model.UploadIntent, error) {
+	var intent model.UploadIntent
+	err := r.getDB(ctx).WithContext(ctx).Where("id = ?", id).First(&intent).Error
+	return &intent, err
+}
+func (r *FileRepository) DeleteIntent(ctx context.Context, id string) error {
+	return r.getDB(ctx).WithContext(ctx).Where("id = ?", id).Delete(&model.UploadIntent{}).Error
+}
+func (r *FileRepository) ExpiredIntents(ctx context.Context, now int64) ([]model.UploadIntent, error) {
+	var intents []model.UploadIntent
+	err := r.getDB(ctx).WithContext(ctx).Where("expires_at < ?", now).Order("expires_at ASC").Limit(100).Find(&intents).Error
+	return intents, err
+}
+
+func (r *FileRepository) ConsumeIntent(ctx context.Context, id string, now int64) error {
+	res := r.getDB(ctx).WithContext(ctx).Where("id = ? AND expires_at > ?", id, now).Delete(&model.UploadIntent{})
+	if res.Error == nil && res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return res.Error
+}
+
+func (r *FileRepository) ClaimExpiredIntent(ctx context.Context, id string, now int64) (bool, error) {
+	res := r.getDB(ctx).WithContext(ctx).Model(&model.UploadIntent{}).Where("id = ? AND expires_at < ?", id, now).Update("expires_at", 0)
+	return res.RowsAffected == 1, res.Error
+}

@@ -272,6 +272,26 @@ func (r *StorageSelector) ListNodes(
 	return nodes, nil
 }
 
+func (r *StorageSelector) PresignCreate(ctx context.Context, key string, size int64, contentType string) (string, error) {
+	fs, ok := r.objectFS.(*virefs.ObjectFS)
+	if !ok || !r.ObjectEnabled() {
+		return "", errors.New("object storage is unavailable")
+	}
+	req, err := fs.PresignCreate(ctx, key, size, contentType, 10*time.Minute)
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
+}
+
+func (r *StorageSelector) StatObject(ctx context.Context, key string) (*virefs.FileInfo, error) {
+	fs, err := r.getFS(StorageTypeObject)
+	if err != nil {
+		return nil, err
+	}
+	return fs.Stat(ctx, key)
+}
+
 func (r *StorageSelector) PresignPutURL(ctx context.Context, key string, expires time.Duration) (string, error) {
 	if !r.ObjectEnabled() {
 		return "", errors.New("backend does not support presigned URLs")

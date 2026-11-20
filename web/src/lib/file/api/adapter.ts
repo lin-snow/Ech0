@@ -81,6 +81,7 @@ export async function getPresign(input: PresignInput): Promise<PresignResult> {
     input.fileName,
     input.contentType,
     input.storageType || FILE_STORAGE_TYPE.OBJECT,
+    input.size,
   )
   return ensureSuccess(res, '预签名 URL 获取失败')
 }

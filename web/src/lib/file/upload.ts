@@ -18,6 +18,7 @@ export type UploadTarget =
   | {
       kind: typeof UPLOAD_KIND.S3
       presignUrl: string
+      createOnly?: boolean
       contentType: string
     }
 
@@ -79,6 +80,7 @@ export function httpUpload(
     } else {
       xhr.open('PUT', target.presignUrl, true)
       xhr.setRequestHeader('Content-Type', target.contentType)
+      if (target.createOnly) xhr.setRequestHeader('If-None-Match', '*')
     }
 
     if (hooks.onProgress) {

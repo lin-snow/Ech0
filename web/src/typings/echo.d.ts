@@ -196,6 +196,7 @@ declare namespace App {
         content_type: string
         key: string
         presign_url: string
+        require_create_only?: boolean
         file_url: string
       }
     }

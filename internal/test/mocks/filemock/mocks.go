@@ -1105,6 +1105,141 @@ func (_m *MockFileRepository) EXPECT() *MockFileRepository_Expecter {
 	return &MockFileRepository_Expecter{mock: &_m.Mock}
 }
 
+// ClaimExpiredIntent provides a mock function for the type MockFileRepository
+func (_mock *MockFileRepository) ClaimExpiredIntent(context1 context.Context, s string, n int64) (bool, error) {
+	ret := _mock.Called(context1, s, n)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClaimExpiredIntent")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int64) (bool, error)); ok {
+		return returnFunc(context1, s, n)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int64) bool); ok {
+		r0 = returnFunc(context1, s, n)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int64) error); ok {
+		r1 = returnFunc(context1, s, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockFileRepository_ClaimExpiredIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClaimExpiredIntent'
+type MockFileRepository_ClaimExpiredIntent_Call struct {
+	*mock.Call
+}
+
+// ClaimExpiredIntent is a helper method to define mock.On call
+//   - context1 context.Context
+//   - s string
+//   - n int64
+func (_e *MockFileRepository_Expecter) ClaimExpiredIntent(context1 any, s any, n any) *MockFileRepository_ClaimExpiredIntent_Call {
+	return &MockFileRepository_ClaimExpiredIntent_Call{Call: _e.mock.On("ClaimExpiredIntent", context1, s, n)}
+}
+
+func (_c *MockFileRepository_ClaimExpiredIntent_Call) Run(run func(context1 context.Context, s string, n int64)) *MockFileRepository_ClaimExpiredIntent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepository_ClaimExpiredIntent_Call) Return(b bool, err error) *MockFileRepository_ClaimExpiredIntent_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockFileRepository_ClaimExpiredIntent_Call) RunAndReturn(run func(context1 context.Context, s string, n int64) (bool, error)) *MockFileRepository_ClaimExpiredIntent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ConsumeIntent provides a mock function for the type MockFileRepository
+func (_mock *MockFileRepository) ConsumeIntent(context1 context.Context, s string, n int64) error {
+	ret := _mock.Called(context1, s, n)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ConsumeIntent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int64) error); ok {
+		r0 = returnFunc(context1, s, n)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockFileRepository_ConsumeIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConsumeIntent'
+type MockFileRepository_ConsumeIntent_Call struct {
+	*mock.Call
+}
+
+// ConsumeIntent is a helper method to define mock.On call
+//   - context1 context.Context
+//   - s string
+//   - n int64
+func (_e *MockFileRepository_Expecter) ConsumeIntent(context1 any, s any, n any) *MockFileRepository_ConsumeIntent_Call {
+	return &MockFileRepository_ConsumeIntent_Call{Call: _e.mock.On("ConsumeIntent", context1, s, n)}
+}
+
+func (_c *MockFileRepository_ConsumeIntent_Call) Run(run func(context1 context.Context, s string, n int64)) *MockFileRepository_ConsumeIntent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepository_ConsumeIntent_Call) Return(err error) *MockFileRepository_ConsumeIntent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockFileRepository_ConsumeIntent_Call) RunAndReturn(run func(context1 context.Context, s string, n int64) error) *MockFileRepository_ConsumeIntent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function for the type MockFileRepository
 func (_mock *MockFileRepository) Create(ctx context.Context, file *model1.File) error {
 	ret := _mock.Called(ctx, file)
@@ -1158,6 +1293,63 @@ func (_c *MockFileRepository_Create_Call) Return(err error) *MockFileRepository_
 }
 
 func (_c *MockFileRepository_Create_Call) RunAndReturn(run func(ctx context.Context, file *model1.File) error) *MockFileRepository_Create_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateIntent provides a mock function for the type MockFileRepository
+func (_mock *MockFileRepository) CreateIntent(context1 context.Context, uploadIntent *model1.UploadIntent) error {
+	ret := _mock.Called(context1, uploadIntent)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateIntent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model1.UploadIntent) error); ok {
+		r0 = returnFunc(context1, uploadIntent)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockFileRepository_CreateIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateIntent'
+type MockFileRepository_CreateIntent_Call struct {
+	*mock.Call
+}
+
+// CreateIntent is a helper method to define mock.On call
+//   - context1 context.Context
+//   - uploadIntent *model1.UploadIntent
+func (_e *MockFileRepository_Expecter) CreateIntent(context1 any, uploadIntent any) *MockFileRepository_CreateIntent_Call {
+	return &MockFileRepository_CreateIntent_Call{Call: _e.mock.On("CreateIntent", context1, uploadIntent)}
+}
+
+func (_c *MockFileRepository_CreateIntent_Call) Run(run func(context1 context.Context, uploadIntent *model1.UploadIntent)) *MockFileRepository_CreateIntent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *model1.UploadIntent
+		if args[1] != nil {
+			arg1 = args[1].(*model1.UploadIntent)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepository_CreateIntent_Call) Return(err error) *MockFileRepository_CreateIntent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockFileRepository_CreateIntent_Call) RunAndReturn(run func(context1 context.Context, uploadIntent *model1.UploadIntent) error) *MockFileRepository_CreateIntent_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1351,6 +1543,63 @@ func (_c *MockFileRepository_DeleteByRoute_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// DeleteIntent provides a mock function for the type MockFileRepository
+func (_mock *MockFileRepository) DeleteIntent(context1 context.Context, s string) error {
+	ret := _mock.Called(context1, s)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteIntent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(context1, s)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockFileRepository_DeleteIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteIntent'
+type MockFileRepository_DeleteIntent_Call struct {
+	*mock.Call
+}
+
+// DeleteIntent is a helper method to define mock.On call
+//   - context1 context.Context
+//   - s string
+func (_e *MockFileRepository_Expecter) DeleteIntent(context1 any, s any) *MockFileRepository_DeleteIntent_Call {
+	return &MockFileRepository_DeleteIntent_Call{Call: _e.mock.On("DeleteIntent", context1, s)}
+}
+
+func (_c *MockFileRepository_DeleteIntent_Call) Run(run func(context1 context.Context, s string)) *MockFileRepository_DeleteIntent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepository_DeleteIntent_Call) Return(err error) *MockFileRepository_DeleteIntent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockFileRepository_DeleteIntent_Call) RunAndReturn(run func(context1 context.Context, s string) error) *MockFileRepository_DeleteIntent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteTempByFileID provides a mock function for the type MockFileRepository
 func (_mock *MockFileRepository) DeleteTempByFileID(ctx context.Context, fileID string) error {
 	ret := _mock.Called(ctx, fileID)
@@ -1461,6 +1710,74 @@ func (_c *MockFileRepository_DeleteTempByID_Call) Return(err error) *MockFileRep
 }
 
 func (_c *MockFileRepository_DeleteTempByID_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockFileRepository_DeleteTempByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ExpiredIntents provides a mock function for the type MockFileRepository
+func (_mock *MockFileRepository) ExpiredIntents(context1 context.Context, n int64) ([]model1.UploadIntent, error) {
+	ret := _mock.Called(context1, n)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExpiredIntents")
+	}
+
+	var r0 []model1.UploadIntent
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) ([]model1.UploadIntent, error)); ok {
+		return returnFunc(context1, n)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) []model1.UploadIntent); ok {
+		r0 = returnFunc(context1, n)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model1.UploadIntent)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = returnFunc(context1, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockFileRepository_ExpiredIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExpiredIntents'
+type MockFileRepository_ExpiredIntents_Call struct {
+	*mock.Call
+}
+
+// ExpiredIntents is a helper method to define mock.On call
+//   - context1 context.Context
+//   - n int64
+func (_e *MockFileRepository_Expecter) ExpiredIntents(context1 any, n any) *MockFileRepository_ExpiredIntents_Call {
+	return &MockFileRepository_ExpiredIntents_Call{Call: _e.mock.On("ExpiredIntents", context1, n)}
+}
+
+func (_c *MockFileRepository_ExpiredIntents_Call) Run(run func(context1 context.Context, n int64)) *MockFileRepository_ExpiredIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepository_ExpiredIntents_Call) Return(uploadIntents []model1.UploadIntent, err error) *MockFileRepository_ExpiredIntents_Call {
+	_c.Call.Return(uploadIntents, err)
+	return _c
+}
+
+func (_c *MockFileRepository_ExpiredIntents_Call) RunAndReturn(run func(context1 context.Context, n int64) ([]model1.UploadIntent, error)) *MockFileRepository_ExpiredIntents_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1683,6 +2000,74 @@ func (_c *MockFileRepository_GetByRoute_Call) Return(file *model1.File, err erro
 }
 
 func (_c *MockFileRepository_GetByRoute_Call) RunAndReturn(run func(ctx context.Context, storageType string, provider string, bucket string, key string) (*model1.File, error)) *MockFileRepository_GetByRoute_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetIntent provides a mock function for the type MockFileRepository
+func (_mock *MockFileRepository) GetIntent(context1 context.Context, s string) (*model1.UploadIntent, error) {
+	ret := _mock.Called(context1, s)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetIntent")
+	}
+
+	var r0 *model1.UploadIntent
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*model1.UploadIntent, error)); ok {
+		return returnFunc(context1, s)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *model1.UploadIntent); ok {
+		r0 = returnFunc(context1, s)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model1.UploadIntent)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(context1, s)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockFileRepository_GetIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetIntent'
+type MockFileRepository_GetIntent_Call struct {
+	*mock.Call
+}
+
+// GetIntent is a helper method to define mock.On call
+//   - context1 context.Context
+//   - s string
+func (_e *MockFileRepository_Expecter) GetIntent(context1 any, s any) *MockFileRepository_GetIntent_Call {
+	return &MockFileRepository_GetIntent_Call{Call: _e.mock.On("GetIntent", context1, s)}
+}
+
+func (_c *MockFileRepository_GetIntent_Call) Run(run func(context1 context.Context, s string)) *MockFileRepository_GetIntent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFileRepository_GetIntent_Call) Return(uploadIntent *model1.UploadIntent, err error) *MockFileRepository_GetIntent_Call {
+	_c.Call.Return(uploadIntent, err)
+	return _c
+}
+
+func (_c *MockFileRepository_GetIntent_Call) RunAndReturn(run func(context1 context.Context, s string) (*model1.UploadIntent, error)) *MockFileRepository_GetIntent_Call {
 	_c.Call.Return(run)
 	return _c
 }
