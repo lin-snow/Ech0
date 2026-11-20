@@ -10,6 +10,7 @@ import (
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ErrClientNotFound is returned when a dynamically registered client id is
@@ -48,4 +49,17 @@ func (r *ClientRepository) CountClients(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.getDB(ctx).WithContext(ctx).Model(&oauthserverModel.Client{}).Count(&count).Error
 	return count, err
+}
+
+func (r *ClientRepository) ConsumeCode(ctx context.Context, jti string, now, expiresAt int64) (bool, error) {
+	var inserted bool
+	err := r.getDB(ctx).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("expires_at < ?", now).Delete(&oauthserverModel.ConsumedCode{}).Error; err != nil {
+			return err
+		}
+		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&oauthserverModel.ConsumedCode{JTI: jti, ExpiresAt: expiresAt})
+		inserted = res.RowsAffected == 1
+		return res.Error
+	})
+	return inserted && err == nil, err
 }

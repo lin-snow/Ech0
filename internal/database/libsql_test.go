@@ -16,6 +16,7 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	embeddingRepository "github.com/lin-snow/ech0/internal/repository/embedding"
+	oauthserverRepository "github.com/lin-snow/ech0/internal/repository/oauthserver"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -64,6 +65,19 @@ func TestLibSQLPersistence(t *testing.T) {
 		require.NoError(t, <-results)
 	}
 	require.NoError(t, checkRemoteSchema(b))
+	accepted := make(chan bool, 2)
+	for _, db := range []*gorm.DB{a, b} {
+		repo := oauthserverRepository.NewClientRepository(func() *gorm.DB { return db })
+		go func() {
+			inserted, err := repo.ConsumeCode(ctx, "single-use", 10, 20)
+			accepted <- inserted
+			results <- err
+		}()
+	}
+	require.NotEqual(t, <-accepted, <-accepted)
+	for range 2 {
+		require.NoError(t, <-results)
+	}
 	abort := errors.New("rollback")
 	require.ErrorIs(t, a.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&echoModel.Echo{ID: "rollback", Content: "sample", UserID: "owner"}).Error; err != nil {

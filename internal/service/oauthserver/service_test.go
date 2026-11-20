@@ -28,11 +28,12 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 type fakeClients struct {
-	byID map[string]oauthserverModel.Client
+	byID     map[string]oauthserverModel.Client
+	redeemed map[string]bool
 }
 
 func newFakeClients() *fakeClients {
-	return &fakeClients{byID: make(map[string]oauthserverModel.Client)}
+	return &fakeClients{redeemed: map[string]bool{}, byID: make(map[string]oauthserverModel.Client)}
 }
 
 func (f *fakeClients) FindClient(_ context.Context, clientID string) (oauthserverModel.Client, error) {
@@ -50,6 +51,14 @@ func (f *fakeClients) CreateClient(_ context.Context, client *oauthserverModel.C
 
 func (f *fakeClients) CountClients(context.Context) (int64, error) {
 	return int64(len(f.byID)), nil
+}
+
+func (f *fakeClients) ConsumeCode(_ context.Context, jti string, _, _ int64) (bool, error) {
+	if f.redeemed[jti] {
+		return false, nil
+	}
+	f.redeemed[jti] = true
+	return true, nil
 }
 
 type fakeUsers struct {

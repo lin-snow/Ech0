@@ -29,6 +29,7 @@ type ClientRepository interface {
 	FindClient(ctx context.Context, clientID string) (oauthserverModel.Client, error)
 	CreateClient(ctx context.Context, client *oauthserverModel.Client) error
 	CountClients(ctx context.Context) (int64, error)
+	ConsumeCode(ctx context.Context, jti string, now, expiresAt int64) (bool, error)
 }
 
 // UserReader resolves the approving principal. Only administrators may mint

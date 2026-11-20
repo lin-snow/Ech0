@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/config"
+	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/tursodatabase/libsql-client-go/libsql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-const remoteSchemaVersion = 1
+const remoteSchemaVersion = 2
 
 func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, error) {
 	endpoint, err := url.Parse(cfg.URL)
@@ -81,11 +82,17 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		if err := tx.Exec("CREATE TABLE IF NOT EXISTS ech0_schema (id INTEGER PRIMARY KEY CHECK(id = 1), version INTEGER NOT NULL)").Error; err != nil {
 			return err
 		}
-		var marked int
-		if err := tx.Raw("SELECT COUNT(*) FROM ech0_schema").Scan(&marked).Error; err != nil {
+		var version int
+		if err := tx.Raw("SELECT coalesce(max(version),0) FROM ech0_schema").Scan(&version).Error; err != nil {
 			return err
 		}
-		if marked != 0 {
+		if version == 1 {
+			if err := tx.AutoMigrate(&oauthserverModel.ConsumedCode{}); err != nil {
+				return err
+			}
+			return tx.Exec("UPDATE ech0_schema SET version = ? WHERE id = 1", remoteSchemaVersion).Error
+		}
+		if version != 0 {
 			return checkRemoteSchema(tx)
 		}
 		var existing int

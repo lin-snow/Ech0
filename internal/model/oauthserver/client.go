@@ -105,3 +105,9 @@ func decodeStrings(raw string) []string {
 	}
 	return values
 }
+
+// ConsumedCode records authorization code redemption across server instances.
+type ConsumedCode struct {
+	JTI       string `gorm:"primaryKey"`
+	ExpiresAt int64  `gorm:"not null;index"`
+}

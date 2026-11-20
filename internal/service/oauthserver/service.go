@@ -27,8 +27,7 @@ type cimdEntry struct {
 }
 
 // OAuthServerService implements the OAuth 2.1 authorization server used by MCP
-// clients. It is deliberately stateless for authorization codes: the code is a
-// signed JWT, and the only in-memory state is a short-lived single-use ledger.
+// clients. Authorization codes are signed JWTs with a shared redemption ledger.
 type OAuthServerService struct {
 	clients ClientRepository
 	users   UserReader
@@ -38,9 +37,6 @@ type OAuthServerService struct {
 
 	cimdMu    sync.Mutex
 	cimdCache map[string]cimdEntry
-
-	codeMu   sync.Mutex
-	consumed map[string]time.Time
 }
 
 func NewOAuthServerService(
@@ -55,7 +51,6 @@ func NewOAuthServerService(
 		http:      egress.NewClient(egress.Guard(), egress.Timeout(10*time.Second)),
 		now:       func() time.Time { return time.Now().UTC() },
 		cimdCache: make(map[string]cimdEntry),
-		consumed:  make(map[string]time.Time),
 	}
 }
 
@@ -73,23 +68,4 @@ func (s *OAuthServerService) resourceURI(ctx context.Context, origin string) str
 
 func scopesSupported() []string {
 	return authz.AllScopes()
-}
-
-// consumeCode enforces single use of an authorization code. The ledger is
-// in-memory and keyed by jti; codes live for CodeTTL, so the map stays tiny.
-func (s *OAuthServerService) consumeCode(jti string) bool {
-	now := s.now()
-	s.codeMu.Lock()
-	defer s.codeMu.Unlock()
-
-	for key, expiry := range s.consumed {
-		if now.After(expiry) {
-			delete(s.consumed, key)
-		}
-	}
-	if _, used := s.consumed[jti]; used {
-		return false
-	}
-	s.consumed[jti] = now.Add(2 * oauthserverModel.CodeTTL)
-	return true
 }

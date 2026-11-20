@@ -70,7 +70,12 @@ func (s *OAuthServerService) Exchange(
 	if !verifyPKCE(verifier, claims.CodeChallenge) {
 		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("PKCE verification failed")
 	}
-	if !s.consumeCode(claims.ID) {
+	now := s.now()
+	consumed, ledgerErr := s.clients.ConsumeCode(ctx, claims.ID, now.Unix(), now.Add(2*oauthserverModel.CodeTTL).Unix())
+	if ledgerErr != nil {
+		return oauthserverModel.TokenResponse{}, &oauthserverModel.Error{Code: "server_error", Description: "failed to record code redemption", Status: 500}
+	}
+	if !consumed {
 		return oauthserverModel.TokenResponse{}, oauthserverModel.ErrInvalidGrant("authorization code has already been used")
 	}
 
