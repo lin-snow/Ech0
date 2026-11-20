@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/internal/config"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
@@ -128,6 +129,15 @@ func (a *Adapter) resourceFileUploadGuide(ctx context.Context, _ string) (*Resou
 		"- Max file size: configured per instance (default varies by category)\n" +
 		"- Only admin users can upload files\n" +
 		"- The access token must have the `file:write` scope\n"
+
+	if config.Config().Upload.VerifiedDirect {
+		guide = "# Direct file upload\n\n" +
+			"An administrator with file:write can attach a local file in three steps. " +
+			"Send the bearer token only to the two Ech0 API endpoints.\n\n" +
+			"1. PUT " + baseURL + "/api/files/presign with JSON fields file_name, content_type, size (bytes), category and storage_type=object. Read id and presign_url from data.\n" +
+			"2. PUT the exact file bytes to presign_url with the declared Content-Type, Content-Length and If-None-Match: *.\n" +
+			"3. PUT " + baseURL + "/api/file/{id}/meta with JSON size and content_type. On success use the returned id as echo_files[].file_id."
+	}
 
 	return &ResourceReadResult{
 		Contents: []ResourceContent{{

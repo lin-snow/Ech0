@@ -12,6 +12,7 @@ import {
 } from '@/service/api'
 import { getApiUrl } from '@/service/request/shared'
 import { useAuthStore } from '@/stores/auth'
+import { httpUpload, UPLOAD_KIND } from '../upload'
 import type {
   ExternalFileInput,
   FileEntity,
@@ -43,6 +44,18 @@ function ensureSuccess<T>(res: App.Api.Response<T>, fallbackMsg: string): T {
 }
 
 export async function uploadFile(input: FileUploadInput): Promise<FileEntity> {
+  if (import.meta.env.VITE_ECH0_OBJECT_UPLOADS === 'true') {
+    const { file, category } = input
+    const contentType = file.type || 'application/octet-stream'
+    const intent = await getPresign({ fileName: file.name, size: file.size, contentType, category })
+    await httpUpload(file, {
+      kind: UPLOAD_KIND.S3,
+      presignUrl: intent.presign_url,
+      createOnly: intent.require_create_only,
+      contentType,
+    })
+    return updateFileMeta({ id: intent.id, size: file.size, contentType })
+  }
   const res = await fetchUploadFile(
     input.file,
     input.storageType || FILE_STORAGE_TYPE.LOCAL,
@@ -82,6 +95,7 @@ export async function getPresign(input: PresignInput): Promise<PresignResult> {
     input.contentType,
     input.storageType || FILE_STORAGE_TYPE.OBJECT,
     input.size,
+    input.category,
   )
   return ensureSuccess(res, '预签名 URL 获取失败')
 }

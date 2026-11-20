@@ -826,6 +826,8 @@ components:
     GetPresignURLDto:
       additionalProperties: true
       properties:
+        category:
+          type: string
         content_type:
           type: string
         file_name:

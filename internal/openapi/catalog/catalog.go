@@ -100,8 +100,9 @@ type Transport struct {
 // described by Bind==BindForm plus `format: binary` on file fields. Auth says
 // how the credential travels when the Authorization header cannot carry it.
 type RequestTransport struct {
-	ContentType string `json:"content_type,omitempty"`
-	Auth        string `json:"auth,omitempty"`
+	DirectUpload bool   `json:"direct_upload,omitempty"`
+	ContentType  string `json:"content_type,omitempty"`
+	Auth         string `json:"auth,omitempty"`
 }
 
 // ResponseTransport names the success body encoding. Events is an advisory SSE

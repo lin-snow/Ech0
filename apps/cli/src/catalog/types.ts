@@ -14,6 +14,7 @@ export const TransportSchema = z.object({
   request: z
     .object({
       content_type: z.string().optional(),
+      direct_upload: z.boolean().optional(),
       /** `query` means the access token travels as `?token=` (websocket). */
       auth: z.string().optional(),
     })

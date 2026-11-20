@@ -264,6 +264,7 @@ export function useUpload(opts: UseUploadOptions) {
       item.progress = 0
 
       const result =
+        import.meta.env.VITE_ECH0_OBJECT_UPLOADS === 'true' ||
         opts.storageType.value === FILE_STORAGE_TYPE.OBJECT
           ? await uploadToS3(working, item, ctl.signal)
           : await uploadToLocal(working, item, ctl.signal)
@@ -354,6 +355,7 @@ export function useUpload(opts: UseUploadOptions) {
     const fileName = rawName || `upload_${Date.now()}${inferFileExtFromType(contentType)}`
 
     const presign = await getPresign({
+      category,
       size: file.size,
       fileName,
       contentType,

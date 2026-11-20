@@ -141,7 +141,9 @@ func (s *FileService) UploadFile(
 	}
 
 	targetStorageType := storage.NormalizeStorageType(string(storageType))
-	if targetStorageType == storage.StorageTypeExternal {
+	if config.Config().Upload.VerifiedDirect {
+		targetStorageType = storage.StorageTypeObject
+	} else if targetStorageType == storage.StorageTypeExternal {
 		targetStorageType = storage.StorageTypeLocal
 	}
 	selector := s.getSelector()
@@ -886,6 +888,9 @@ func (s *FileService) GetFilePresignURL(
 	}
 	if strings.HasPrefix(contentType, "video/") {
 		category = storage.CategoryVideo
+	}
+	if dto.Category != "" {
+		category = storage.NormalizeCategory(dto.Category)
 	}
 	if err := validateFileUploadByName(dto.FileName, contentType, config.Config().Upload.AllowedTypes); err != nil {
 		return result, err

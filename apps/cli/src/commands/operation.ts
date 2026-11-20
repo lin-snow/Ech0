@@ -286,6 +286,31 @@ async function callOperation(options: InvokeOptions): Promise<CommandOutput> {
     options.session,
   );
 
+  if (options.op.path === "/files/upload" && options.op.transport?.request?.direct_upload) {
+    const part = spec.form?.find(field => field.name === "file");
+    if (!part || !(part.value instanceof Blob)) throw new UsageError("Missing file");
+    const contentType = part.value.type || "application/octet-stream";
+    const intent = await callWithRetry(options, {
+      method: "PUT", path: "/files/presign",
+      body: { file_name: part.filename, category: values.category, size: part.value.size, content_type: contentType, storage_type: "object" },
+    });
+    const signed = intent.data as { id: string; presign_url: string; require_create_only: boolean };
+    if (!signed?.id || !signed.presign_url || !signed.require_create_only) {
+      throw new Ech0Error("Invalid upload authorization");
+    }
+    // The storage request carries only the headers bound by the signature.
+    const uploaded = await fetch(signed.presign_url, {
+      method: "PUT", body: part.value, redirect: "error",
+      headers: { "Content-Type": contentType, "If-None-Match": "*" },
+    });
+    if (!uploaded.ok) throw new Ech0Error(`Object upload failed (HTTP ${uploaded.status})`);
+    const finalized = await callWithRetry(options, {
+      method: "PUT", path: `/file/${encodeURIComponent(signed.id)}/meta`,
+      body: { size: part.value.size, content_type: contentType },
+    });
+    return { human: render(finalized.data, finalized.message), json: finalized.text };
+  }
+
   const result = await callWithRetry(options, spec);
   return { human: render(result.data, result.message), json: result.text };
 }

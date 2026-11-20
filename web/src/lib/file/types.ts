@@ -34,6 +34,7 @@ export type ExternalFileInput = {
 }
 
 export type PresignInput = {
+  category?: FileCategory
   size?: number
   fileName: string
   contentType?: string

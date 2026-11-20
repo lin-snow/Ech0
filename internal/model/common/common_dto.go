@@ -55,6 +55,7 @@ type PresignDto struct {
 }
 
 type GetPresignURLDto struct {
+	Category    string `json:"category,omitempty"`
 	Size        *int64 `json:"size,omitempty" minimum:"1"`
 	FileName    string `json:"file_name" binding:"required"`
 	ContentType string `json:"content_type"`

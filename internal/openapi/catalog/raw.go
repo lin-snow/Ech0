@@ -5,6 +5,8 @@ package catalog
 
 import (
 	"fmt"
+
+	"github.com/lin-snow/ech0/internal/config"
 	"strings"
 )
 
@@ -170,6 +172,9 @@ func mergeRawOps(doc *Doc) error {
 		}
 		if op.Scopes == nil {
 			op.Scopes = []string{}
+		}
+		if id == "file.upload" && config.Config().Upload.VerifiedDirect {
+			op.Transport = &Transport{Request: &RequestTransport{ContentType: ContentFormData, DirectUpload: true}}
 		}
 		doc.Ops[id] = op
 		seen[routeKey(op)] = id
