@@ -17,7 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"database/sql"
 	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/internal/database/pagefile"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	embeddingRepository "github.com/lin-snow/ech0/internal/repository/embedding"
@@ -217,6 +219,32 @@ func testSnapshotHistory(t *testing.T, a, b *gorm.DB) {
 	var values []string
 	require.NoError(t, native.Raw("SELECT value FROM key_values WHERE key LIKE 'capture_%' ORDER BY key").Scan(&values).Error)
 	require.Equal(t, []string{"deleted", "original"}, values)
-	require.NoError(t, h.finish(ctx, b))
+	blocks := map[int64][]byte{}
+	var cursor ImageCursor
+	var size int64
+	for steps := 0; !cursor.Ready; steps++ {
+		require.Less(t, steps, 100)
+		f := pagefile.New(size, func(i int64) ([]byte, error) { return blocks[i], nil })
+		cursor, err = h.CopyImagePage(ctx, a, f, cursor)
+		require.NoError(t, err)
+		for i, data := range f.Dirty {
+			blocks[i] = data
+		}
+		size = f.Size
+	}
+	require.NoError(t, pagefile.UseSQLite(ctx, pagefile.New(size, func(i int64) ([]byte, error) { return blocks[i], nil }), func(db *sql.DB) error {
+		var value string
+		if err := db.QueryRow("SELECT value FROM key_values WHERE key='capture_old'").Scan(&value); err != nil {
+			return err
+		}
+		require.Equal(t, "original", value)
+		var distance float64
+		if err := db.QueryRow("SELECT distance FROM vec_echo WHERE embedding MATCH '[0,0]' AND k=1").Scan(&distance); err != nil {
+			return err
+		}
+		require.Equal(t, 5.0, distance)
+		return nil
+	}))
+	require.NoError(t, h.Finish(ctx, b))
 	require.Error(t, h.check(a))
 }

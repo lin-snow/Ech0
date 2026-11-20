@@ -87,19 +87,7 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string, hist
 		defer func() { _ = dest.Rollback() }()
 		for n, table := range tables {
 			if table == "vec_echo" {
-				var typ string
-				if err := src.Raw("SELECT type FROM pragma_table_info('vec_echo') WHERE name='embedding'").Row().Scan(&typ); err != nil {
-					return err
-				}
-				m := remoteVecType.FindStringSubmatch(typ)
-				if len(m) != 2 {
-					return errors.New("unsupported remote vector type")
-				}
-				dim, err := strconv.Atoi(m[1])
-				if err != nil || dim <= 0 || dim > 1<<20 {
-					return errors.New("invalid remote vector dimension")
-				}
-				if _, err = dest.ExecContext(ctx, fmt.Sprintf("CREATE VIRTUAL TABLE vec_echo USING vec0(echo_id TEXT PRIMARY KEY, embedding FLOAT[%d])", dim)); err != nil {
+				if err := createNativeVector(ctx, src, dest); err != nil {
 					return err
 				}
 			}
@@ -134,70 +122,83 @@ func materializeSnapshot(ctx context.Context, source *gorm.DB, file string, hist
 
 func quoteIdentifier(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 
-// Seek by rowid inside a single remote transaction. Each response is bounded
-// to avoid downloading the entire database into the function's heap.
+// Each page has its own local prepared statement. The caller decides whether
+// to continue in this connection or checkpoint the native image for another worker.
+const snapshotPageRows = 64
+
 func copyTable(ctx context.Context, src *gorm.DB, dest *sql.Tx, name, readTable, cursor, selectCols string) error {
-	table := quoteIdentifier(name)
-	query := "SELECT " + selectCols + " FROM " + readTable
-	const pageSize = 64
-	var last int64
-	var insert *sql.Stmt
-	for first := true; ; first = false {
-		var rows *sql.Rows
-		var err error
-		if first {
-			rows, err = src.Raw(query+" ORDER BY "+cursor+" LIMIT ?", pageSize).Rows()
-		} else {
-			rows, err = src.Raw(query+" WHERE "+cursor+" > ? ORDER BY "+cursor+" LIMIT ?", last, pageSize).Rows()
-		}
-		if err != nil {
+	var after *int64
+	for {
+		next, done, err := copyPage(ctx, src, dest, name, readTable, cursor, selectCols, after)
+		if err != nil || done {
 			return err
 		}
-		cols, err := rows.Columns()
-		if err != nil {
-			_ = rows.Close()
-			return err
-		}
-		if insert == nil {
-			// Preparing on an empty table also detects unexpected schema drift.
-			fields := make([]string, len(cols)-1)
-			bind := make([]string, len(fields))
-			for i, col := range cols[1:] {
-				fields[i] = quoteIdentifier(col)
-				bind[i] = "?"
-			}
-			insert, err = dest.PrepareContext(ctx, "INSERT INTO "+table+"("+strings.Join(fields, ",")+") VALUES("+strings.Join(bind, ",")+")")
-			if err != nil {
-				_ = rows.Close()
-				return err
-			}
-			defer func() { _ = insert.Close() }()
-		}
-		n := 0
-		values := make([]any, len(cols)-1)
-		pointers := make([]any, len(cols))
-		pointers[0] = &last
-		for i := range values {
-			pointers[i+1] = &values[i]
-		}
-		for rows.Next() {
-			if err = rows.Scan(pointers...); err != nil {
-				break
-			}
-			if _, err = insert.ExecContext(ctx, values...); err != nil {
-				break
-			}
-			n++
-		}
-		if err == nil {
-			err = rows.Err()
-		}
-		_ = rows.Close()
-		if err != nil {
-			return err
-		}
-		if n < pageSize {
-			return nil
-		}
+		after = &next
 	}
+}
+
+func copyPage(ctx context.Context, src *gorm.DB, dest *sql.Tx, name, readTable, cursor, selectCols string, after *int64) (last int64, done bool, err error) {
+	query := "SELECT " + selectCols + " FROM " + readTable
+	var args []any
+	if after != nil {
+		query += " WHERE " + cursor + " > ?"
+		args = append(args, *after)
+	}
+	query += " ORDER BY " + cursor + " LIMIT ?"
+	rows, err := src.WithContext(ctx).Raw(query, append(args, snapshotPageRows)...).Rows()
+	if err != nil {
+		return 0, false, err
+	}
+	defer func() { _ = rows.Close() }()
+	cols, err := rows.Columns()
+	if err != nil {
+		return 0, false, err
+	}
+	fields := make([]string, len(cols)-1)
+	bind := make([]string, len(fields))
+	for i, col := range cols[1:] {
+		fields[i] = quoteIdentifier(col)
+		bind[i] = "?"
+	}
+	insert, err := dest.PrepareContext(ctx, "INSERT INTO "+quoteIdentifier(name)+"("+strings.Join(fields, ",")+") VALUES("+strings.Join(bind, ",")+")")
+	if err != nil {
+		return 0, false, err
+	}
+	defer func() { _ = insert.Close() }()
+	values := make([]any, len(fields))
+	pointers := make([]any, len(cols))
+	pointers[0] = &last
+	for i := range values {
+		pointers[i+1] = &values[i]
+	}
+	n := 0
+	for rows.Next() {
+		if err := rows.Scan(pointers...); err != nil {
+			return 0, false, err
+		}
+		if _, err := insert.ExecContext(ctx, values...); err != nil {
+			return 0, false, err
+		}
+		n++
+	}
+	return last, n < snapshotPageRows, rows.Err()
+}
+
+func createNativeVector(ctx context.Context, src *gorm.DB, dest *sql.Tx) error {
+	var typ string
+	if err := src.Raw("SELECT type FROM pragma_table_info('vec_echo') WHERE name='embedding'").Row().Scan(&typ); err != nil {
+		return err
+	}
+	m := remoteVecType.FindStringSubmatch(typ)
+	if len(m) != 2 {
+		return errors.New("unsupported remote vector type")
+	}
+	dim, err := strconv.Atoi(m[1])
+	if err != nil || dim <= 0 || dim > 1<<20 {
+		return errors.New("invalid remote vector dimension")
+	}
+	if _, err = dest.ExecContext(ctx, fmt.Sprintf("CREATE VIRTUAL TABLE vec_echo USING vec0(echo_id TEXT PRIMARY KEY, embedding FLOAT[%d])", dim)); err != nil {
+		return err
+	}
+	return nil
 }

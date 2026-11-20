@@ -111,7 +111,7 @@ func SnapshotToContext(ctx context.Context, dstPath string) error {
 		defer func() {
 			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 			defer cancel()
-			_ = history.finish(cleanup, db)
+			_ = history.Finish(cleanup, db)
 		}()
 		return publishSnapshot(dstPath, func(staging string) error {
 			return materializeSnapshot(ctx, db, staging, &history)
