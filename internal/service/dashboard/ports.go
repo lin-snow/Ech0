@@ -23,7 +23,7 @@ type SystemLogStreamFilter struct {
 }
 
 type Service interface {
-	GetSystemLogs(query SystemLogQuery) ([]logUtil.LogEntry, error)
+	GetSystemLogs(ctx context.Context, query SystemLogQuery) ([]logUtil.LogEntry, error)
 	GetVisitorStats(ctx context.Context) ([]visitor.DayStat, error)
 	WSSubscribeSystemLogs(w http.ResponseWriter, r *http.Request, filter SystemLogStreamFilter) error
 	SSESubscribeSystemLogs(w http.ResponseWriter, r *http.Request, filter SystemLogStreamFilter) error

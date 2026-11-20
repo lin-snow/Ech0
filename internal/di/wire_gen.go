@@ -33,6 +33,7 @@ import (
 	handler2 "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/job"
 	"github.com/lin-snow/ech0/internal/job/runner"
+	"github.com/lin-snow/ech0/internal/journal"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
@@ -176,7 +177,7 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	connectHandler := handler11.NewConnectHandler(connectService)
 	migratorService := service10.NewMigratorService(commonService, jobManager, ebProvider, storageManager)
 	migrationHandler := handler12.NewMigrationHandler(migratorService)
-	dashboardService := service11.NewDashboardService(tracker)
+	dashboardService := service11.NewDashboardService(tracker, dbProvider)
 	dashboardHandler := handler13.NewDashboardHandler(dashboardService)
 	embeddingRepository := repository.NewEmbeddingRepository(dbProvider)
 	embeddingService := service.NewEmbeddingService(embeddingRepository, persistent, echoRepository)
@@ -295,7 +296,8 @@ func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless
 	sender := webhook.NewSender()
 	goMailSender := service7.NewGoMailSender()
 	worker := outbox.New(dbProvider, embeddingService, sender, goMailSender, store)
-	runtime, err := serverless.New(ctx, serverServer, v, worker, gormTransactor, store, manager)
+	writer := journal.NewWriter(dbProvider)
+	runtime, err := serverless.New(ctx, serverServer, v, worker, writer, gormTransactor, store, manager)
 	if err != nil {
 		return nil, err
 	}

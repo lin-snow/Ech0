@@ -166,6 +166,14 @@ def verify_effects(first, second, token, db_port, secret):
     sql(db_port, "CREATE TRIGGER fixture_rollback BEFORE INSERT ON ech0_deliveries BEGIN SELECT RAISE(ABORT,'fixture rollback'); END")
     call(first, "/api/echo", {"content": "rollback probe","private": True}, expected=400, headers=header)
     assert sql(db_port, "SELECT 1 FROM echos WHERE content='rollback probe'") == []
+    logs = json.loads(call(second, "/api/system/logs?level=error&keyword=fixture%20rollback", headers=header))
+    assert logs["code"] == 1 and any("fixture rollback" in entry["raw"] for entry in logs["data"]), logs
+    stream = Request(f"http://127.0.0.1:{second}/api/system/logs/stream?token={token}&level=error&keyword=fixture%20rollback",
+                     headers={"Last-Event-ID": "0"})
+    with urlopen(stream, timeout=5) as response:
+        assert response.readline().startswith(b"id: ")
+        entry = json.loads(response.readline().removeprefix(b"data: "))
+        assert entry["code"] == 1 and "fixture rollback" in entry["data"]["raw"]
     sql(db_port, "DROP TRIGGER fixture_rollback")
     created = json.loads(call(first, "/api/echo", {"content": "before", "private": True}, headers=header))
     assert created["code"] == 1, created

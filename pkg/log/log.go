@@ -307,6 +307,29 @@ func RecentLogs(limit int) []LogEntry {
 	return hub.Recent(limit)
 }
 
+// LogsAfter returns a consistent suffix and the sequence at its end.
+func LogsAfter(after uint64) (uint64, []LogEntry) {
+	loggerMu.Lock()
+	hub := streamHub
+	loggerMu.Unlock()
+	if hub == nil {
+		return after, nil
+	}
+	hub.mu.RLock()
+	defer hub.mu.RUnlock()
+	if after >= hub.writes {
+		return hub.writes, nil
+	}
+	n := int(min(uint64(hub.recentLen), hub.writes-after))
+	entries := make([]LogEntry, n)
+	for i := range n {
+		entries[i] = hub.recent[(hub.recentCap+hub.recentPos-n+i)%hub.recentCap]
+	}
+	return hub.writes, entries
+}
+
+func ParseLogLine(raw string) LogEntry { return parseLogLine(raw) }
+
 func CurrentLogFilePath() string {
 	loggerMu.Lock()
 	defer loggerMu.Unlock()
@@ -363,6 +386,7 @@ func QueryLogFileTail(path string, limit int, level, keyword string) ([]LogEntry
 type LogStreamHub struct {
 	mu               sync.RWMutex
 	subs             map[int64]chan LogEntry
+	writes           uint64
 	nextID           int64
 	recent           []LogEntry
 	recentCap        int
@@ -427,6 +451,7 @@ func (h *LogStreamHub) Publish(entry LogEntry) {
 	if h.closed {
 		return
 	}
+	h.writes++
 	h.recent[h.recentPos] = entry
 	h.recentPos = (h.recentPos + 1) % h.recentCap
 	if h.recentLen < h.recentCap {

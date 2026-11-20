@@ -9,6 +9,7 @@ import (
 
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/event/outbox"
+	"github.com/lin-snow/ech0/internal/journal"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/setting"
@@ -24,9 +25,10 @@ type Runtime struct {
 	Objects  *storage.Manager
 	Settings kvstore.Store
 	Effects  *outbox.Worker
+	Logs     *journal.Writer
 }
 
-func New(ctx context.Context, httpServer *server.Server, busProvider func() *busen.Bus, effects *outbox.Worker, tx transaction.Transactor, store kvstore.Store, objects *storage.Manager) (*Runtime, error) {
+func New(ctx context.Context, httpServer *server.Server, busProvider func() *busen.Bus, effects *outbox.Worker, logs *journal.Writer, tx transaction.Transactor, store kvstore.Store, objects *storage.Manager) (*Runtime, error) {
 	if err := objects.ReloadFromConfigAndDB(ctx); err != nil {
 		return nil, err
 	}
@@ -49,5 +51,5 @@ func New(ctx context.Context, httpServer *server.Server, busProvider func() *bus
 	if err := registrar.Register(); err != nil {
 		return nil, err
 	}
-	return &Runtime{Server: httpServer, Objects: objects, Settings: store, Effects: effects}, nil
+	return &Runtime{Server: httpServer, Objects: objects, Settings: store, Effects: effects, Logs: logs}, nil
 }

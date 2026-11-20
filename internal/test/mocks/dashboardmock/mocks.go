@@ -54,8 +54,8 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 }
 
 // GetSystemLogs provides a mock function for the type MockService
-func (_mock *MockService) GetSystemLogs(query service.SystemLogQuery) ([]log.LogEntry, error) {
-	ret := _mock.Called(query)
+func (_mock *MockService) GetSystemLogs(ctx context.Context, query service.SystemLogQuery) ([]log.LogEntry, error) {
+	ret := _mock.Called(ctx, query)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSystemLogs")
@@ -63,18 +63,18 @@ func (_mock *MockService) GetSystemLogs(query service.SystemLogQuery) ([]log.Log
 
 	var r0 []log.LogEntry
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(service.SystemLogQuery) ([]log.LogEntry, error)); ok {
-		return returnFunc(query)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, service.SystemLogQuery) ([]log.LogEntry, error)); ok {
+		return returnFunc(ctx, query)
 	}
-	if returnFunc, ok := ret.Get(0).(func(service.SystemLogQuery) []log.LogEntry); ok {
-		r0 = returnFunc(query)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, service.SystemLogQuery) []log.LogEntry); ok {
+		r0 = returnFunc(ctx, query)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]log.LogEntry)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(service.SystemLogQuery) error); ok {
-		r1 = returnFunc(query)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, service.SystemLogQuery) error); ok {
+		r1 = returnFunc(ctx, query)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -87,19 +87,25 @@ type MockService_GetSystemLogs_Call struct {
 }
 
 // GetSystemLogs is a helper method to define mock.On call
+//   - ctx context.Context
 //   - query service.SystemLogQuery
-func (_e *MockService_Expecter) GetSystemLogs(query any) *MockService_GetSystemLogs_Call {
-	return &MockService_GetSystemLogs_Call{Call: _e.mock.On("GetSystemLogs", query)}
+func (_e *MockService_Expecter) GetSystemLogs(ctx any, query any) *MockService_GetSystemLogs_Call {
+	return &MockService_GetSystemLogs_Call{Call: _e.mock.On("GetSystemLogs", ctx, query)}
 }
 
-func (_c *MockService_GetSystemLogs_Call) Run(run func(query service.SystemLogQuery)) *MockService_GetSystemLogs_Call {
+func (_c *MockService_GetSystemLogs_Call) Run(run func(ctx context.Context, query service.SystemLogQuery)) *MockService_GetSystemLogs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 service.SystemLogQuery
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(service.SystemLogQuery)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 service.SystemLogQuery
+		if args[1] != nil {
+			arg1 = args[1].(service.SystemLogQuery)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -110,7 +116,7 @@ func (_c *MockService_GetSystemLogs_Call) Return(logEntrys []log.LogEntry, err e
 	return _c
 }
 
-func (_c *MockService_GetSystemLogs_Call) RunAndReturn(run func(query service.SystemLogQuery) ([]log.LogEntry, error)) *MockService_GetSystemLogs_Call {
+func (_c *MockService_GetSystemLogs_Call) RunAndReturn(run func(ctx context.Context, query service.SystemLogQuery) ([]log.LogEntry, error)) *MockService_GetSystemLogs_Call {
 	_c.Call.Return(run)
 	return _c
 }

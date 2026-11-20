@@ -8,7 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lin-snow/ech0/internal/journal"
+	"github.com/lin-snow/ech0/internal/serverless/platform"
+	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,17 +22,21 @@ import (
 )
 
 type DashboardService struct {
+	db             func() *gorm.DB
 	visitorTracker *visitor.Tracker
 }
 
-func NewDashboardService(visitorTracker *visitor.Tracker) *DashboardService {
-	return &DashboardService{visitorTracker: visitorTracker}
+func NewDashboardService(visitorTracker *visitor.Tracker, db func() *gorm.DB) *DashboardService {
+	return &DashboardService{visitorTracker: visitorTracker, db: db}
 }
 
-func (s *DashboardService) GetSystemLogs(query SystemLogQuery) ([]logUtil.LogEntry, error) {
+func (s *DashboardService) GetSystemLogs(ctx context.Context, query SystemLogQuery) ([]logUtil.LogEntry, error) {
 	tail := query.Tail
 	if tail <= 0 {
 		tail = 200
+	}
+	if platform.IsFunction(ctx) {
+		return journal.Tail(ctx, s.db(), tail, query.Level, query.Keyword)
 	}
 	return logUtil.QueryLogFileTail(logUtil.CurrentLogFilePath(), tail, query.Level, query.Keyword)
 }
@@ -42,6 +50,35 @@ func (s *DashboardService) WSSubscribeSystemLogs(
 	r *http.Request,
 	filter SystemLogStreamFilter,
 ) error {
+	if platform.IsFunction(r.Context()) {
+		after, err := journal.Latest(r.Context(), s.db())
+		if err != nil {
+			return err
+		}
+		upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = conn.Close() }()
+		ctx, stop := context.WithCancel(r.Context())
+		defer stop()
+		conn.SetReadLimit(4096)
+		go func() {
+			defer stop()
+			for {
+				if _, _, err := conn.ReadMessage(); err != nil {
+					return
+				}
+			}
+		}()
+		return s.followLogs(ctx, after, filter, func(_ int64, entry logUtil.LogEntry) error {
+			if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return err
+			}
+			return conn.WriteJSON(streamMessage(entry))
+		}, func() error { return conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)) })
+	}
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -116,6 +153,28 @@ func (s *DashboardService) SSESubscribeSystemLogs(
 	headers.Set("Connection", "keep-alive")
 	headers.Set("X-Accel-Buffering", "no")
 
+	if platform.IsFunction(r.Context()) {
+		after, err := journal.Latest(r.Context(), s.db())
+		if err != nil {
+			return err
+		}
+		if id, err := strconv.ParseInt(r.Header.Get("Last-Event-ID"), 10, 64); err == nil && id >= 0 && id <= after {
+			after = id
+		}
+		w.WriteHeader(http.StatusOK)
+		flusher.Flush()
+		return s.followLogs(r.Context(), after, filter, func(id int64, entry logUtil.LogEntry) error {
+			body, err := json.Marshal(streamMessage(entry))
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "id: %d\ndata: %s\n\n", id, body); err != nil {
+				return err
+			}
+			flusher.Flush()
+			return nil
+		}, func() error { _, err := fmt.Fprint(w, ": keep-alive\n\n"); flusher.Flush(); return err })
+	}
 	_, stream, cancel := logUtil.SubscribeLogs(512)
 	defer cancel()
 
@@ -163,4 +222,26 @@ func matchesSystemLogFilter(entry logUtil.LogEntry, level string, keyword string
 	}
 	target := strings.ToLower(entry.Msg + " " + entry.Raw)
 	return strings.Contains(target, keyword)
+}
+
+func streamMessage(entry logUtil.LogEntry) any {
+	return struct {
+		Code int              `json:"code"`
+		Msg  string           `json:"msg"`
+		Data logUtil.LogEntry `json:"data"`
+	}{1, "system log update", entry}
+}
+func (s *DashboardService) followLogs(ctx context.Context, after int64, filter SystemLogStreamFilter, send func(int64, logUtil.LogEntry) error, heartbeat func() error) error {
+	level := strings.ToLower(strings.TrimSpace(filter.Level))
+	keyword := strings.ToLower(strings.TrimSpace(filter.Keyword))
+	err := journal.Follow(ctx, s.db(), after, func(id int64, entry logUtil.LogEntry) error {
+		if matchesSystemLogFilter(entry, level, keyword) {
+			return send(id, entry)
+		}
+		return nil
+	}, heartbeat)
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+	return err
 }

@@ -86,7 +86,7 @@ func (dashboardHandler *DashboardHandler) GetSystemLogs(ctx context.Context, in 
 		tail = n
 	}
 
-	logs, err := dashboardHandler.dashboardService.GetSystemLogs(service.SystemLogQuery{
+	logs, err := dashboardHandler.dashboardService.GetSystemLogs(ctx, service.SystemLogQuery{
 		Tail:    tail,
 		Level:   in.Level,
 		Keyword: in.Keyword,

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
+	journalModel "github.com/lin-snow/ech0/internal/model/journal"
 	outboxModel "github.com/lin-snow/ech0/internal/model/outbox"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	"os"
@@ -219,6 +220,7 @@ func migrateModels(db *gorm.DB) error {
 		&securitystate.Entry{},
 		&copilotModel.Round{},
 		&outboxModel.Delivery{},
+		&journalModel.Entry{},
 		&authModel.DeviceGrant{},
 		&oauthserverModel.Client{},
 		&oauthserverModel.ConsumedCode{},

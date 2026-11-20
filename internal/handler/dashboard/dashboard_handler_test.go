@@ -18,6 +18,7 @@ import (
 	"github.com/lin-snow/ech0/internal/visitor"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,7 +53,7 @@ func TestGetSystemLogs_TailParsing(t *testing.T) {
 			svc := dashboardmock.NewMockService(t)
 			want := []logUtil.LogEntry{{Time: "t", Level: "info", Msg: "hi"}}
 			svc.EXPECT().
-				GetSystemLogs(dashboardService.SystemLogQuery{
+				GetSystemLogs(mock.Anything, dashboardService.SystemLogQuery{
 					Tail:    tc.wantTail,
 					Level:   tc.input.Level,
 					Keyword: tc.input.Keyword,
@@ -99,7 +100,7 @@ func TestGetSystemLogs_InvalidTail(t *testing.T) {
 func TestGetSystemLogs_ServiceError(t *testing.T) {
 	svc := dashboardmock.NewMockService(t)
 	sentinel := errors.New("read log file failed")
-	svc.EXPECT().GetSystemLogs(dashboardService.SystemLogQuery{Tail: 200}).Return(nil, sentinel).Once()
+	svc.EXPECT().GetSystemLogs(mock.Anything, dashboardService.SystemLogQuery{Tail: 200}).Return(nil, sentinel).Once()
 
 	h := dashboardHandler.NewDashboardHandler(svc)
 	out, err := h.GetSystemLogs(context.Background(), &dashboardHandler.GetSystemLogsInput{})

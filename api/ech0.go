@@ -62,6 +62,7 @@ func Ech0(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ech0 initialization unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	defer handler.Logs.Flush(r.Context())
 	ctx := platform.WithRequest(r.Context(), r)
 	handler.Server.GinEngine.ServeHTTP(w, r.WithContext(ctx))
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {

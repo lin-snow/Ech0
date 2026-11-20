@@ -16,6 +16,7 @@ import (
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	journalModel "github.com/lin-snow/ech0/internal/model/journal"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	outboxModel "github.com/lin-snow/ech0/internal/model/outbox"
 	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
@@ -26,7 +27,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const remoteSchemaVersion = 10
+const remoteSchemaVersion = 11
 
 func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, error) {
 	endpoint, err := url.Parse(cfg.URL)
@@ -190,6 +191,12 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		}
 		if version == 9 {
 			if err := tx.AutoMigrate(&outboxModel.Delivery{}); err != nil {
+				return err
+			}
+			version = 10
+		}
+		if version == 10 {
+			if err := tx.AutoMigrate(&journalModel.Entry{}); err != nil {
 				return err
 			}
 			return tx.Exec("UPDATE ech0_schema SET version = ? WHERE id = 1", remoteSchemaVersion).Error

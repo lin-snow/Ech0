@@ -6,9 +6,11 @@ package handler
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/event/outbox"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
+	journalModel "github.com/lin-snow/ech0/internal/model/journal"
 	fileRepository "github.com/lin-snow/ech0/internal/repository/file"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	fileService "github.com/lin-snow/ech0/internal/service/file"
@@ -52,6 +54,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
+	defer runtime.Logs.Flush(r.Context())
 	if err := runtime.Objects.ReloadFromConfigAndDB(r.Context()); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -109,6 +112,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		if age := config.Config().Log.FileMaxAge; age > 0 {
+			if err := db.WithContext(r.Context()).Where("created<?", time.Unix(message.Due, 0).AddDate(0, 0, -age).Unix()).Delete(&journalModel.Entry{}).Error; err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+		}
 		if err := database.ExpireSnapshotHistory(r.Context(), db, time.Unix(message.Due, 0)); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return

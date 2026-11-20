@@ -20,6 +20,7 @@ import (
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/job"
 	jobRunner "github.com/lin-snow/ech0/internal/job/runner"
+	"github.com/lin-snow/ech0/internal/journal"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	"github.com/lin-snow/ech0/internal/middleware"
 	"github.com/lin-snow/ech0/internal/migrator"
@@ -344,6 +345,6 @@ func ProvideSubscriptionProviders(
 
 func BuildFunction(ctx context.Context, dbProvider func() *gorm.DB) (*serverless.Runtime, error) {
 	wire.Build(eventbus.ProvideProvider, cache.ProviderSet, transaction.NewFunctionTransactor, wire.Bind(new(transaction.Transactor), new(*transaction.GormTransactor)), visitorRepository.NewVisitorRepository, visitor.NewSharedTracker, StorageSet,
-		BuildJobManager, BuildHandlers, BuildMiddlewares, repository.EchoSet, repository.EmbeddingSet, service.EmbeddingSet, webhook.NewSender, commentService.NewGoMailSender, outbox.New, server.ProviderSet, serverless.New)
+		BuildJobManager, BuildHandlers, BuildMiddlewares, repository.EchoSet, repository.EmbeddingSet, service.EmbeddingSet, webhook.NewSender, commentService.NewGoMailSender, outbox.New, journal.NewWriter, server.ProviderSet, serverless.New)
 	return nil, nil
 }
