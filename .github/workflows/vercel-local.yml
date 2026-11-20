@@ -1,0 +1,53 @@
+name: Vercel local compatibility
+
+on:
+  pull_request:
+    branches: [feat/vercel]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-local-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26.13.1'
+      - name: Install isolated test dependencies
+        run: |
+          set -eu
+          sudo apt-get update -qq
+          sudo apt-get install -y libsqlite3-dev
+          arch=libsql-server-x86_64-unknown-linux-gnu
+          curl --fail --location --retry 3 "https://github.com/tursodatabase/libsql/releases/download/libsql-server-v0.24.32/$arch.tar.xz" -o "$RUNNER_TEMP/sqld.tar.xz"
+          echo "71720fc8648c19efef416efebd47145ef59b62e198770533530a858e1336879f  $RUNNER_TEMP/sqld.tar.xz" | sha256sum --check
+          tar -xJf "$RUNNER_TEMP/sqld.tar.xz" -C "$RUNNER_TEMP"
+          echo "ECH0_TEST_SQLD=$RUNNER_TEMP/$arch/sqld" >> "$GITHUB_ENV"
+          python3 -m venv "$RUNNER_TEMP/browser"
+          "$RUNNER_TEMP/browser/bin/pip" install playwright==1.55.0
+          "$RUNNER_TEMP/browser/bin/playwright" install --with-deps chromium
+      - name: Build the production Vue and Go service
+        run: |
+          VERCEL_GIT_COMMIT_SHA="$GITHUB_SHA" VERCEL_OUTPUT_FILE="$RUNNER_TEMP/server" sh scripts/vercel/build.sh
+          go build -o "$RUNNER_TEMP/ech0" ./cmd/ech0
+      - name: Test the application and queue scheduler
+        run: |
+          go test ./...
+          go vet ./...
+          npm exec --yes --package=pnpm@12.16.1 -- pnpm -C web test:unit
+          npm ci --prefix deployment/queue
+          node --test scripts/vercel/schedule.test.js
+      - name: Exercise two functions, sqld, object storage and browser passkeys
+        run: |
+          python3 scripts/vercel/smoke.py --sqld "$ECH0_TEST_SQLD" --cli "$RUNNER_TEMP/ech0" --server "$RUNNER_TEMP/server" --browser-python "$RUNNER_TEMP/browser/bin/python"
