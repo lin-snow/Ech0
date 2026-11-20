@@ -2,7 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -134,6 +134,57 @@ describe("multipart upload", () => {
       input: { type: "object", properties: { file: { type: "string", format: "binary" } } },
     });
     await expect(buildFormRequest(op, { file: "/nonexistent/file.bin" })).rejects.toThrow("文件不存在");
+  });
+
+  test("uploads a large attachment directly and finalizes before reporting the file id", async () => {
+    const size = 5 * 1024 * 1024;
+    const dir = mkdtempSync(join(tmpdir(), "ech0-direct-"));
+    const file = join(dir, "clip.mp4");
+    writeFileSync(file, new Uint8Array(size));
+    const calls: string[] = [];
+    const storage = Bun.serve({
+      hostname: "127.0.0.1", port: 0,
+      async fetch(request) {
+        calls.push("storage");
+        expect(request.method).toBe("PUT");
+        expect(request.headers.get("authorization")).toBeNull();
+        expect(request.headers.get("if-none-match")).toBe("*");
+        expect(request.headers.get("content-type")).toBe("video/mp4");
+        expect((await request.arrayBuffer()).byteLength).toBe(size);
+        return new Response(null, { status: 200 });
+      },
+    });
+    const api = Bun.serve({
+      hostname: "127.0.0.1", port: 0,
+      async fetch(request) {
+        const path = new URL(request.url).pathname;
+        calls.push(path);
+        expect(request.headers.get("authorization")).toBe("Bearer tok");
+        const body = await request.json() as { size: number };
+        expect(body.size).toBe(size);
+        const data = path === "/api/files/presign"
+          ? { id: "clip", presign_url: storage.url.href, require_create_only: true }
+          : { id: "clip", url: "/media/clip.mp4" };
+        return Response.json({ code: 1, data });
+      },
+    });
+    try {
+      const result = await invokeOperation({
+        op: baseOp({
+          path: "/files/upload", input: { properties: { file: { format: "binary" } } },
+          bind: { file: "form" }, transport: { request: { direct_upload: true } },
+        }),
+        values: { file, category: "video" }, json: true,
+        session: sessionFor(api.url.origin), catalog: catalogStub(), refresh: async () => catalogStub(),
+      });
+      expect(calls).toEqual(["/api/files/presign", "storage", "/api/file/clip/meta"]);
+      expect(JSON.parse(result.json).data.url).toBe("/media/clip.mp4");
+    } finally {
+      api.stop(true);
+      storage.stop(true);
+      rmSync(file);
+      rmSync(dir, { recursive: true });
+    }
   });
 
   test("posts the file and returns the JSON envelope", async () => {
