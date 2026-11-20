@@ -109,6 +109,9 @@ func virefsS3ConfigFromStorage(cfg config.StorageConfig) *virefs.S3Config {
 }
 
 func buildS3URLResolver(cfg config.StorageConfig, schema *virefs.Schema) URLResolver {
+	if config.Config().Upload.VerifiedDirect {
+		return func(key string) string { return "/media/" + url.PathEscape(key) }
+	}
 	pathResolver := buildS3PathURLResolver(cfg)
 	return func(key string) string {
 		return pathResolver(schema.Resolve(key))

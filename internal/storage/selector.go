@@ -284,6 +284,18 @@ func (r *StorageSelector) PresignCreate(ctx context.Context, key string, size in
 	return req.URL, nil
 }
 
+func (r *StorageSelector) PresignDownload(ctx context.Context, key string) (string, error) {
+	p, ok := r.objectFS.(virefs.Presigner)
+	if !ok || !r.ObjectEnabled() {
+		return "", errors.New("object storage is unavailable")
+	}
+	req, err := p.PresignGet(ctx, key, 2*time.Minute)
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
+}
+
 func (r *StorageSelector) StatObject(ctx context.Context, key string) (*virefs.FileInfo, error) {
 	fs, err := r.getFS(StorageTypeObject)
 	if err != nil {

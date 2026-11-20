@@ -5,6 +5,10 @@ package service_test
 
 import (
 	"bytes"
+	"context"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	"github.com/lin-snow/ech0/internal/test/helpers"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -85,4 +89,19 @@ func TestVerifiedDirectUpload(t *testing.T) {
 	}
 	_, err = fix.repo.GetIntent(ctx, signed.ID)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.Equal(t, "/media/"+signed.Key, signed.FileURL)
+	_, err = fix.svc.MediaDownload(context.Background(), signed.Key)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	_, err = fix.svc.MediaDownload(helpers.CtxAsToken(fileTestUserID, "access", []string{"file:read"}, nil, "read"), signed.Key)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	echo := echoModel.Echo{Content: "public attachment", UserID: fileTestUserID}
+	require.NoError(t, fix.db.Create(&echo).Error)
+	require.NoError(t, fix.db.Create(&fileModel.EchoFile{EchoID: echo.ID, FileID: signed.ID}).Error)
+	location, err := fix.svc.MediaDownload(context.Background(), signed.Key)
+	require.NoError(t, err)
+	require.Contains(t, location, "X-Amz-Expires=120")
+	require.NoError(t, fix.db.Model(&echo).Update("private", true).Error)
+	_, err = fix.svc.MediaDownload(context.Background(), signed.Key)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+
 }

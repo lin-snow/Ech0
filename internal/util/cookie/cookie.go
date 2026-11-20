@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/config"
 )
 
 const RefreshTokenCookieName = "ech0_refresh_token"
@@ -56,4 +57,13 @@ func ClearRefreshTokenCookie(c *gin.Context) {
 
 func GetRefreshTokenFromCookie(c *gin.Context) (string, error) {
 	return c.Cookie(RefreshTokenCookieName)
+}
+
+const MediaCookieName = "ech0_media_session"
+
+func SetMediaCookie(ctx *gin.Context, token string, maxAge int) {
+	if !config.Config().Upload.VerifiedDirect {
+		return
+	}
+	http.SetCookie(ctx.Writer, &http.Cookie{Name: MediaCookieName, Value: token, MaxAge: maxAge, Path: "/media/", HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode})
 }

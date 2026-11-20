@@ -10,10 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	"github.com/lin-snow/ech0/internal/storage"
+	"github.com/lin-snow/ech0/pkg/viewer"
 	"gorm.io/gorm"
 )
 
@@ -120,4 +123,34 @@ func (s *FileService) cleanupExpiredIntents(ctx context.Context, now int64) erro
 		}
 	}
 	return nil
+}
+
+func (s *FileService) MediaDownload(ctx context.Context, key string) (string, error) {
+	if !config.Config().Upload.VerifiedDirect {
+		return "", gorm.ErrRecordNotFound
+	}
+	selector := s.getSelector()
+	route, provider, bucket := currentStorageRoute(selector, storage.StorageTypeObject)
+	f, err := s.fileRepository.GetByRoute(ctx, route, provider, bucket, key)
+	if err != nil {
+		return "", err
+	}
+	public, err := s.fileRepository.IsPublicMedia(ctx, f)
+	if err != nil {
+		return "", err
+	}
+	if !public {
+		v := viewer.MustFromContext(ctx)
+		if v.UserID() == "" || (v.TokenType() != authModel.TokenTypeSession && !(authz.Has(v.Scopes(), authz.ScopeFileRead) && authz.Has(v.Scopes(), authz.ScopeEchoPrivate))) {
+			return "", gorm.ErrRecordNotFound
+		}
+		user, err := s.commonRepository.GetUserByUserId(ctx, v.UserID())
+		if err != nil {
+			return "", err
+		}
+		if !user.IsAdmin {
+			return "", gorm.ErrRecordNotFound
+		}
+	}
+	return selector.PresignDownload(ctx, f.Key)
 }

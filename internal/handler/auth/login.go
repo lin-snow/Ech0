@@ -30,6 +30,7 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			}
 		}
 
+		cookieUtil.SetMediaCookie(ctx, tokenPair.AccessToken, config.Config().Auth.Jwt.Expires)
 		cookieUtil.SetRefreshTokenCookie(ctx, tokenPair.RefreshToken, config.Config().Auth.Jwt.RefreshExpires)
 		return res.Response{
 			Data: tokenPair,

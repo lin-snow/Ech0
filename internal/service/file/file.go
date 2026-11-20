@@ -716,6 +716,16 @@ func (s *FileService) StreamFileByID(ctx *gin.Context, id string) {
 		return
 	}
 
+	if config.Config().Upload.VerifiedDirect && normalizedStorageType == storage.StorageTypeObject {
+		ctx.Header("Cache-Control", "private, no-store")
+		location, err := s.MediaDownload(ctx.Request.Context(), fileRecord.Key)
+		if err != nil {
+			ctx.Status(http.StatusNotFound)
+			return
+		}
+		ctx.Redirect(http.StatusTemporaryRedirect, location)
+		return
+	}
 	reader, err := s.getSelector().Get(context.Background(), normalizedStorageType, fileRecord.Key)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "文件不存在")
@@ -761,6 +771,18 @@ func (s *FileService) StreamFileByPath(ctx *gin.Context, query commonModel.FileP
 		fileName = "file"
 	}
 	selector := s.getSelector()
+	if config.Config().Upload.VerifiedDirect && storageType == storage.StorageTypeObject {
+		ctx.Header("Cache-Control", "private, no-store")
+		for _, key := range selector.ResolveKeyCandidatesByPath(storageType, filePath) {
+			location, err := s.MediaDownload(ctx.Request.Context(), key)
+			if err == nil {
+				ctx.Redirect(http.StatusTemporaryRedirect, location)
+				return
+			}
+		}
+		ctx.Status(http.StatusNotFound)
+		return
+	}
 	if reader, pathErr := selector.GetByStoragePath(context.Background(), storageType, filePath); pathErr == nil {
 		s.streamReader(ctx, reader, fileName, contentType, time.Now().UTC(), "", string(storageType)+":path:"+filePath)
 		return

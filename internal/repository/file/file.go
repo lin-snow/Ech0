@@ -230,3 +230,13 @@ func (r *FileRepository) ClaimExpiredIntent(ctx context.Context, id string, now 
 	res := r.getDB(ctx).WithContext(ctx).Model(&model.UploadIntent{}).Where("id = ? AND expires_at < ?", id, now).Update("expires_at", 0)
 	return res.RowsAffected == 1, res.Error
 }
+
+func (r *FileRepository) IsPublicMedia(ctx context.Context, f *model.File) (bool, error) {
+	var visible bool
+	err := r.getDB(ctx).WithContext(ctx).Raw(`SELECT EXISTS(
+        SELECT 1 FROM echo_files ef JOIN echos e ON e.id = ef.echo_id
+        WHERE ef.file_id = ? AND e.private = false
+    ) OR EXISTS(SELECT 1 FROM users WHERE id = ? AND avatar = ?)
+    OR EXISTS(SELECT 1 FROM key_values WHERE key = 'system_settings' AND json_valid(value) AND json_extract(value,'$.server_logo') = ?)`, f.ID, f.UserID, f.URL, f.URL).Scan(&visible).Error
+	return visible, err
+}

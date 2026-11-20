@@ -51,6 +51,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr)
 		if err != nil {
+			cookieUtil.SetMediaCookie(ctx, "", -1)
 			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
@@ -64,6 +65,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 		}
 
 		if h.authService.IsTokenRevoked(claims.ID) {
+			cookieUtil.SetMediaCookie(ctx, "", -1)
 			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenRevoked, errUtil.HandleError(&commonModel.ServerError{
@@ -78,6 +80,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		user, err := h.userService.GetUserByID(claims.Userid)
 		if err != nil {
+			cookieUtil.SetMediaCookie(ctx, "", -1)
 			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
@@ -117,6 +120,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 			return
 		}
 
+		cookieUtil.SetMediaCookie(ctx, accessToken, config.Config().Auth.Jwt.Expires)
 		cookieUtil.SetRefreshTokenCookie(ctx, renewedRefreshToken, config.Config().Auth.Jwt.RefreshExpires)
 
 		ctx.JSON(http.StatusOK, commonModel.OK(authModel.TokenPair{
@@ -148,6 +152,7 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 			}
 		}
 
+		cookieUtil.SetMediaCookie(ctx, "", -1)
 		cookieUtil.ClearRefreshTokenCookie(ctx)
 		ctx.JSON(http.StatusOK, commonModel.OK[any](nil))
 	}
@@ -191,6 +196,7 @@ func (h *AuthHandler) Exchange() gin.HandlerFunc {
 			return
 		}
 
+		cookieUtil.SetMediaCookie(ctx, tokenPair.AccessToken, config.Config().Auth.Jwt.Expires)
 		cookieUtil.SetRefreshTokenCookie(ctx, tokenPair.RefreshToken, config.Config().Auth.Jwt.RefreshExpires)
 
 		ctx.JSON(http.StatusOK, commonModel.OK(authModel.TokenPair{

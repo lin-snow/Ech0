@@ -5,6 +5,9 @@ package handler
 
 import (
 	"context"
+	"errors"
+	"gorm.io/gorm"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	res "github.com/lin-snow/ech0/internal/handler/response"
@@ -147,4 +150,19 @@ func (fileHandler *FileHandler) StreamFileByPath(ctx *gin.Context) {
 		return
 	}
 	fileHandler.fileService.StreamFileByPath(ctx, query)
+}
+
+func (fileHandler *FileHandler) MediaDownload(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "private, no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	location, err := fileHandler.fileService.MediaDownload(ctx.Request.Context(), ctx.Param("key"))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx.Status(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		ctx.Status(http.StatusServiceUnavailable)
+		return
+	}
+	ctx.Redirect(http.StatusTemporaryRedirect, location)
 }

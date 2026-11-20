@@ -4,6 +4,7 @@
 package router
 
 import (
+	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,14 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 
 	revoker := revokerOf(mwDeps)
 	setupResourceRoutes(groups, h)
+	r.GET("/media/:key", func(c *gin.Context) {
+		if c.GetHeader("Authorization") == "" {
+			if token, err := c.Cookie(cookieUtil.MediaCookieName); err == nil && token != "" {
+				c.Request.Header.Set("Authorization", "Bearer "+token)
+			}
+		}
+		c.Next()
+	}, middleware.OptionalAuth(revoker), h.FileHandler.MediaDownload)
 	setupAuthRoutes(groups, h)
 	setupCommentRoutes(groups, h)
 	setupFileRoutes(groups, h)

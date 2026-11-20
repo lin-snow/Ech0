@@ -15,6 +15,7 @@ import (
 )
 
 type Service interface {
+	MediaDownload(ctx context.Context, key string) (string, error)
 	UploadFile(
 		ctx context.Context,
 		file *multipart.FileHeader,
@@ -42,6 +43,7 @@ type CommonRepository interface {
 }
 
 type FileRepository interface {
+	IsPublicMedia(ctx context.Context, f *fileModel.File) (bool, error)
 	CreateIntent(context.Context, *fileModel.UploadIntent) error
 	GetIntent(context.Context, string) (*fileModel.UploadIntent, error)
 	DeleteIntent(context.Context, string) error
