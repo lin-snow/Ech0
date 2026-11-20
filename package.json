@@ -1,0 +1,8 @@
+{
+  "name": "ech0-vercel-functions",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/queue": "0.11.0"
+  }
+}

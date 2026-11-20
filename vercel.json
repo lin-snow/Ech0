@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/deliver.js": {
+      "experimentalTriggers": [
+        { "type": "queue/v2beta", "topic": "ech0-maintenance" }
+      ]
+    }
+  },
+  "crons": [
+    { "path": "/api/schedule", "schedule": "0 0 * * *" }
+  ]
+}

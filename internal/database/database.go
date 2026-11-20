@@ -104,14 +104,7 @@ func InitDatabase() {
 	dbPath := config.Config().Database.Path
 
 	if dbType == "libsql" {
-		remote, err := openLibSQL(config.Config().Database, configLogLevel())
-		if err == nil {
-			err = checkRemoteSchema(remote)
-			if err != nil {
-				pool, _ := remote.DB()
-				_ = pool.Close()
-			}
-		}
+		remote, err := OpenRemoteDatabase(config.Config().Database)
 		if err != nil {
 			util.HandlePanicError(&commonModel.ServerError{Msg: commonModel.INIT_DATABASE_PANIC, Err: err})
 		}

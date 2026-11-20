@@ -51,6 +51,20 @@ func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, err
 	return db, nil
 }
 
+// OpenRemoteDatabase returns a pool only after verifying the provisioned schema.
+func OpenRemoteDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
+	db, err := openLibSQL(cfg, logger.Silent)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkRemoteSchema(db); err != nil {
+		pool, _ := db.DB()
+		_ = pool.Close()
+		return nil, err
+	}
+	return db, nil
+}
+
 func checkRemoteSchema(db *gorm.DB) error {
 	var version int
 	if err := db.Raw("SELECT version FROM ech0_schema WHERE id = 1").Row().Scan(&version); err != nil {
