@@ -20,7 +20,14 @@ RUN apk add --no-cache git ca-certificates gcc musl-dev
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod download \
+    && mkdir -p /opt/sqlite-include \
+    && source_dir="$(go list -m -f '{{.Dir}}' github.com/mattn/go-sqlite3)" \
+    && cp "$source_dir/sqlite3-binding.h" /opt/sqlite-include/sqlite3.h \
+    && cp "$source_dir/sqlite3ext.h" /opt/sqlite-include/
+
+# sqlite-vec includes sqlite3.h and uses BSD integer aliases missing on musl.
+ENV CGO_CFLAGS="-I/opt/sqlite-include -Du_int8_t=uint8_t -Du_int16_t=uint16_t -Du_int64_t=uint64_t"
 
 COPY . .
 COPY --from=frontend-builder /template/dist /app/template/dist

@@ -371,7 +371,31 @@ def verify_device_flow(first, second, session):
     call(second, "/api/auth/device/token", data, expected=400)
 
 
+def verify_native_sqlite(cli):
+    with tempfile.TemporaryDirectory() as root:
+        listen = port()
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("ECH0_", "TURSO_"))}
+        env.update(ECH0_DB_TYPE="sqlite", ECH0_DB_PATH=str(Path(root) / "local.db"),
+                   ECH0_SERVER_HOST="127.0.0.1", ECH0_SERVER_PORT=str(listen),
+                   JWT_SECRET=secrets.token_hex(32), ECH0_LOG_FILE_ENABLE="false")
+        account = {"username": "sqlite-owner", "password": secrets.token_hex(16), "email": "owner@example.test"}
+        with ExitStack() as stack:
+            start(stack, [cli, "serve"], env, root, listen)
+            assert json.loads(call(listen, "/api/init/owner", account))["code"] == 1
+            token = json.loads(call(listen, "/api/login", account))["data"]["access_token"]
+            headers = {"Authorization": "Bearer " + token}
+            created = json.loads(call(listen, "/api/echo", {"content": "sqlite restart", "private": True}, headers=headers))
+            assert created["code"] == 1
+        with ExitStack() as stack:
+            start(stack, [cli, "serve"], env, root, listen)
+            restored = json.loads(call(listen, "/api/echo/" + created["data"]["id"], headers=headers))
+            assert restored["data"]["private"] and restored["data"]["content"] == "sqlite restart"
+            assert json.loads(call(listen, "/api/login", account))["code"] == 1
+        print("OK: native SQLite server retains a private Echo and session across restart")
+
+
 def run(args):
+    verify_native_sqlite(args.cli)
     with tempfile.TemporaryDirectory() as root, ExitStack() as stack:
         db_port = port()
         storage_port = object_fixture(stack)
