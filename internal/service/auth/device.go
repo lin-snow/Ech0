@@ -13,9 +13,13 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/internal/config"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
+	"github.com/lin-snow/ech0/internal/securitystate"
+	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
+	"gorm.io/gorm"
 )
 
 const (
@@ -88,10 +92,17 @@ func (authService *AuthService) StartDeviceAuthorization(
 		expiresAt:  now.Add(deviceCodeTTL),
 	}
 
-	authService.deviceMu.Lock()
-	authService.sweepExpiredLocked(now)
-	authService.devices[deviceCode] = entry
-	authService.deviceMu.Unlock()
+	if config.Config().Database.Type == "libsql" {
+		grant := &authModel.DeviceGrant{ID: deviceKey("device", deviceCode), UserKey: deviceKey("user", userCode), ClientName: name, Scopes: requested, ExpiresAt: entry.expiresAt.UnixMilli()}
+		if err := authService.authRepo.CreateDevice(context.Background(), grant); err != nil {
+			return authModel.DeviceCodeResponse{}, err
+		}
+	} else {
+		authService.deviceMu.Lock()
+		authService.sweepExpiredLocked(now)
+		authService.devices[deviceCode] = entry
+		authService.deviceMu.Unlock()
+	}
 
 	return authModel.DeviceCodeResponse{
 		DeviceCode: deviceCode,
@@ -109,6 +120,19 @@ func (authService *AuthService) DeviceAuthorizationInfo(userCode string) (authMo
 		return authModel.DevicePendingInfo{}, ErrDeviceUnknown
 	}
 
+	if config.Config().Database.Type == "libsql" {
+		g, err := authService.authRepo.DeviceInfo(context.Background(), deviceKey("user", normalized))
+		if err != nil {
+			return authModel.DevicePendingInfo{}, deviceError(err)
+		}
+		if time.Now().UnixMilli() >= g.ExpiresAt {
+			return authModel.DevicePendingInfo{}, ErrDeviceExpired
+		}
+		if g.JWTID != "" {
+			return authModel.DevicePendingInfo{}, ErrDeviceUnknown
+		}
+		return authModel.DevicePendingInfo{ClientName: g.ClientName, Scopes: g.Scopes, ExpiresIn: int(time.Until(time.UnixMilli(g.ExpiresAt)).Seconds())}, nil
+	}
 	authService.deviceMu.Lock()
 	defer authService.deviceMu.Unlock()
 
@@ -138,6 +162,27 @@ func (authService *AuthService) ApproveDeviceAuthorization(ctx context.Context, 
 		return ErrDeviceUnknown
 	}
 
+	if config.Config().Database.Type == "libsql" {
+		err := authService.authRepo.MutateDevice(ctx, deviceKey("user", normalized), true, func(txCtx context.Context, g *authModel.DeviceGrant) (bool, error) {
+			if time.Now().UnixMilli() >= g.ExpiresAt {
+				return false, ErrDeviceExpired
+			}
+			if g.JWTID != "" {
+				return false, nil
+			}
+			token, err := authService.issueDeviceToken(txCtx, g.ClientName, g.Scopes)
+			if err != nil {
+				return false, err
+			}
+			claims, err := jwtUtil.ParseToken(token)
+			if err != nil {
+				return false, err
+			}
+			g.JWTID = claims.ID
+			return false, nil
+		})
+		return deviceError(err)
+	}
 	authService.deviceMu.Lock()
 	entry := authService.entryByUserCodeLocked(normalized)
 	if entry == nil {
@@ -156,15 +201,7 @@ func (authService *AuthService) ApproveDeviceAuthorization(ctx context.Context, 
 	scopes := append([]string(nil), entry.scopes...)
 	authService.deviceMu.Unlock()
 
-	if authService.tokenIssuer == nil {
-		return errors.New("token issuer unavailable")
-	}
-	token, err := authService.tokenIssuer.IssueForViewer(ctx, &settingModel.AccessTokenSettingDto{
-		Name:     "cli:" + clientName,
-		Expiry:   settingModel.ONE_MONTH_EXPIRY,
-		Scopes:   scopes,
-		Audience: authz.AudienceCLI,
-	})
+	token, err := authService.issueDeviceToken(ctx, clientName, scopes)
 	if err != nil {
 		return err
 	}
@@ -180,6 +217,9 @@ func (authService *AuthService) ApproveDeviceAuthorization(ctx context.Context, 
 
 // PollDeviceAuthorization is what the CLI calls until the user approves.
 func (authService *AuthService) PollDeviceAuthorization(deviceCode string) (authModel.DeviceTokenResponse, error) {
+	if config.Config().Database.Type == "libsql" {
+		return authService.pollSharedDevice(deviceCode)
+	}
 	authService.deviceMu.Lock()
 	defer authService.deviceMu.Unlock()
 
@@ -287,4 +327,54 @@ func normalizeUserCode(raw string) string {
 		return ""
 	}
 	return string(letters[:4]) + "-" + string(letters[4:])
+}
+
+func (authService *AuthService) issueDeviceToken(ctx context.Context, clientName string, scopes []string) (string, error) {
+	if authService.tokenIssuer == nil {
+		return "", errors.New("token issuer unavailable")
+	}
+	return authService.tokenIssuer.IssueForViewer(ctx, &settingModel.AccessTokenSettingDto{
+		Name:     "cli:" + clientName,
+		Expiry:   settingModel.ONE_MONTH_EXPIRY,
+		Scopes:   scopes,
+		Audience: authz.AudienceCLI,
+	})
+}
+
+func deviceKey(kind, code string) string {
+	return securitystate.Key(config.Config().Security.JWTSecret, "device-grant", kind, code)
+}
+func deviceError(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrDeviceUnknown
+	}
+	return err
+}
+func (s *AuthService) pollSharedDevice(code string) (out authModel.DeviceTokenResponse, err error) {
+	var state error
+	err = s.authRepo.MutateDevice(context.Background(), deviceKey("device", code), false, func(ctx context.Context, g *authModel.DeviceGrant) (bool, error) {
+		now := time.Now().UnixMilli()
+		if now >= g.ExpiresAt {
+			state = ErrDeviceExpired
+			return true, nil
+		}
+		if g.JWTID != "" {
+			token, err := s.authRepo.GrantedToken(ctx, g.JWTID)
+			if err != nil {
+				return false, err
+			}
+			out = authModel.DeviceTokenResponse{AccessToken: token, TokenType: "Bearer", ExpiresIn: int((30 * 24 * time.Hour).Seconds()), Scopes: g.Scopes}
+			return true, nil
+		}
+		state = ErrDevicePending
+		if g.LastPoll > 0 && now-g.LastPoll < devicePollInterval.Milliseconds() {
+			state = ErrDeviceSlowDown
+		}
+		g.LastPoll = now
+		return false, nil
+	})
+	if err != nil {
+		return out, deviceError(err)
+	}
+	return out, state
 }

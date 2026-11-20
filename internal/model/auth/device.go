@@ -50,3 +50,15 @@ type DevicePendingInfo struct {
 func DefaultDeviceScopes() []string {
 	return []string{authz.ScopeEchoRead, authz.ScopeEchoWrite, authz.ScopeProfileRead}
 }
+
+// DeviceGrant stores only keyed fingerprints of the browser and device codes.
+// JWTID links an approved grant to the already persisted access token.
+type DeviceGrant struct {
+	ID         string `gorm:"primaryKey"`
+	UserKey    string `gorm:"not null;uniqueIndex"`
+	ClientName string
+	Scopes     []string `gorm:"serializer:json"`
+	ExpiresAt  int64    `gorm:"not null;index"`
+	LastPoll   int64
+	JWTID      string
+}

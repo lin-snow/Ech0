@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const remoteSchemaVersion = 7
+const remoteSchemaVersion = 8
 
 func openLibSQL(cfg config.DatabaseConfig, level logger.LogLevel) (*gorm.DB, error) {
 	endpoint, err := url.Parse(cfg.URL)
@@ -170,6 +170,12 @@ func prepareRemoteSchema(db *gorm.DB) error {
 		}
 		if version == 6 {
 			if err := tx.AutoMigrate(&securitystate.Entry{}); err != nil {
+				return err
+			}
+			version = 7
+		}
+		if version == 7 {
+			if err := tx.AutoMigrate(&authModel.DeviceGrant{}); err != nil {
 				return err
 			}
 			return tx.Exec("UPDATE ech0_schema SET version = ? WHERE id = 1", remoteSchemaVersion).Error

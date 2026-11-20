@@ -92,6 +92,10 @@ type OAuthCodeStore interface {
 }
 
 type AuthRepo interface {
+	CreateDevice(ctx context.Context, g *authModel.DeviceGrant) error
+	DeviceInfo(ctx context.Context, userKey string) (authModel.DeviceGrant, error)
+	MutateDevice(ctx context.Context, key string, byUser bool, fn func(context.Context, *authModel.DeviceGrant) (bool, error)) error
+	GrantedToken(ctx context.Context, jti string) (string, error)
 	OAuthCodeStore
 	TokenRevoker
 }

@@ -211,6 +211,20 @@ def verify_web_export(first, second, token, root, storage_port, db_port, cron_se
         assert restored.execute("pragma integrity_check").fetchone() == ("ok",)
 
 
+def verify_device_flow(first, second, session):
+    headers = {"Authorization": "Bearer " + session}
+    started = json.loads(call(first, "/api/auth/device/code", {"client_name": "test CLI", "scopes": ["echo:read"]}))["data"]
+    pending = json.loads(call(second, "/api/auth/device/pending?user_code=" + started["user_code"], headers=headers))
+    assert pending["data"]["client_name"] == "test CLI"
+    data = {"device_code": started["device_code"]}
+    call(second, "/api/auth/device/token", data, expected=400)
+    approved = json.loads(call(second, "/api/auth/device/approve", {"user_code": started["user_code"]}, headers=headers))
+    assert approved["code"] == 1
+    grant = json.loads(call(first, "/api/auth/device/token", data))["data"]
+    assert grant["scopes"] == ["echo:read"] and grant["access_token"]
+    call(second, "/api/auth/device/token", data, expected=400)
+
+
 def run(args):
     with tempfile.TemporaryDirectory() as root, ExitStack() as stack:
         db_port = port()
@@ -240,6 +254,7 @@ def run(args):
         assert json.loads(call(second, "/api/init/status"))["data"]["owner_exists"]
         auth = json.loads(call(second, "/api/login", account))
         assert auth["code"] == 1
+        verify_device_flow(first, second, auth["data"]["access_token"])
         verify_web_export(first, second, auth["data"]["access_token"], root, storage_port, db_port, env["CRON_SECRET"])
         print("OK: SPA, discovery, login and private web snapshot across two processes")
 

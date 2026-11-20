@@ -24,7 +24,11 @@ func (tx *GormTransactor) Run(ctx context.Context, fn func(ctx context.Context) 
 		ctx = context.Background()
 	}
 
-	return tx.dbProvider().WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
+	db, ok := TxFromContext(ctx)
+	if !ok {
+		db = tx.dbProvider()
+	}
+	return db.WithContext(ctx).Transaction(func(gormTx *gorm.DB) error {
 		txCtx := context.WithValue(ctx, TxKey, gormTx)
 
 		return fn(txCtx)

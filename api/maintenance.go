@@ -6,6 +6,7 @@ package handler
 import (
 	"crypto/subtle"
 	"encoding/json"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	"github.com/lin-snow/ech0/internal/securitystate"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"net/http"
@@ -86,6 +87,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := db.WithContext(r.Context()).Where("expires <= ?", time.Unix(message.Due, 0).UnixMilli()).Delete(&securitystate.Entry{}).Error; err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if err := db.WithContext(r.Context()).Where("expires_at <= ?", time.Unix(message.Due, 0).UnixMilli()).Delete(&authModel.DeviceGrant{}).Error; err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

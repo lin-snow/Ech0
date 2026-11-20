@@ -2558,6 +2558,129 @@ func (_m *MockAuthRepo) EXPECT() *MockAuthRepo_Expecter {
 	return &MockAuthRepo_Expecter{mock: &_m.Mock}
 }
 
+// CreateDevice provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) CreateDevice(ctx context.Context, g *model.DeviceGrant) error {
+	ret := _mock.Called(ctx, g)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateDevice")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.DeviceGrant) error); ok {
+		r0 = returnFunc(ctx, g)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthRepo_CreateDevice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateDevice'
+type MockAuthRepo_CreateDevice_Call struct {
+	*mock.Call
+}
+
+// CreateDevice is a helper method to define mock.On call
+//   - ctx context.Context
+//   - g *model.DeviceGrant
+func (_e *MockAuthRepo_Expecter) CreateDevice(ctx any, g any) *MockAuthRepo_CreateDevice_Call {
+	return &MockAuthRepo_CreateDevice_Call{Call: _e.mock.On("CreateDevice", ctx, g)}
+}
+
+func (_c *MockAuthRepo_CreateDevice_Call) Run(run func(ctx context.Context, g *model.DeviceGrant)) *MockAuthRepo_CreateDevice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *model.DeviceGrant
+		if args[1] != nil {
+			arg1 = args[1].(*model.DeviceGrant)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_CreateDevice_Call) Return(err error) *MockAuthRepo_CreateDevice_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthRepo_CreateDevice_Call) RunAndReturn(run func(ctx context.Context, g *model.DeviceGrant) error) *MockAuthRepo_CreateDevice_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeviceInfo provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) DeviceInfo(ctx context.Context, userKey string) (model.DeviceGrant, error) {
+	ret := _mock.Called(ctx, userKey)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeviceInfo")
+	}
+
+	var r0 model.DeviceGrant
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.DeviceGrant, error)); ok {
+		return returnFunc(ctx, userKey)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.DeviceGrant); ok {
+		r0 = returnFunc(ctx, userKey)
+	} else {
+		r0 = ret.Get(0).(model.DeviceGrant)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userKey)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthRepo_DeviceInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeviceInfo'
+type MockAuthRepo_DeviceInfo_Call struct {
+	*mock.Call
+}
+
+// DeviceInfo is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userKey string
+func (_e *MockAuthRepo_Expecter) DeviceInfo(ctx any, userKey any) *MockAuthRepo_DeviceInfo_Call {
+	return &MockAuthRepo_DeviceInfo_Call{Call: _e.mock.On("DeviceInfo", ctx, userKey)}
+}
+
+func (_c *MockAuthRepo_DeviceInfo_Call) Run(run func(ctx context.Context, userKey string)) *MockAuthRepo_DeviceInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_DeviceInfo_Call) Return(deviceGrant model.DeviceGrant, err error) *MockAuthRepo_DeviceInfo_Call {
+	_c.Call.Return(deviceGrant, err)
+	return _c
+}
+
+func (_c *MockAuthRepo_DeviceInfo_Call) RunAndReturn(run func(ctx context.Context, userKey string) (model.DeviceGrant, error)) *MockAuthRepo_DeviceInfo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAndDeleteOAuthCode provides a mock function for the type MockAuthRepo
 func (_mock *MockAuthRepo) GetAndDeleteOAuthCode(code string) (*model.TokenPair, error) {
 	ret := _mock.Called(code)
@@ -2620,6 +2743,72 @@ func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) RunAndReturn(run func(code st
 	return _c
 }
 
+// GrantedToken provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) GrantedToken(ctx context.Context, jti string) (string, error) {
+	ret := _mock.Called(ctx, jti)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GrantedToken")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return returnFunc(ctx, jti)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = returnFunc(ctx, jti)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, jti)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthRepo_GrantedToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GrantedToken'
+type MockAuthRepo_GrantedToken_Call struct {
+	*mock.Call
+}
+
+// GrantedToken is a helper method to define mock.On call
+//   - ctx context.Context
+//   - jti string
+func (_e *MockAuthRepo_Expecter) GrantedToken(ctx any, jti any) *MockAuthRepo_GrantedToken_Call {
+	return &MockAuthRepo_GrantedToken_Call{Call: _e.mock.On("GrantedToken", ctx, jti)}
+}
+
+func (_c *MockAuthRepo_GrantedToken_Call) Run(run func(ctx context.Context, jti string)) *MockAuthRepo_GrantedToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_GrantedToken_Call) Return(s string, err error) *MockAuthRepo_GrantedToken_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockAuthRepo_GrantedToken_Call) RunAndReturn(run func(ctx context.Context, jti string) (string, error)) *MockAuthRepo_GrantedToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsTokenRevoked provides a mock function for the type MockAuthRepo
 func (_mock *MockAuthRepo) IsTokenRevoked(jti string) bool {
 	ret := _mock.Called(jti)
@@ -2667,6 +2856,75 @@ func (_c *MockAuthRepo_IsTokenRevoked_Call) Return(b bool) *MockAuthRepo_IsToken
 }
 
 func (_c *MockAuthRepo_IsTokenRevoked_Call) RunAndReturn(run func(jti string) bool) *MockAuthRepo_IsTokenRevoked_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// MutateDevice provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) MutateDevice(ctx context.Context, key string, byUser bool, fn func(context.Context, *model.DeviceGrant) (bool, error)) error {
+	ret := _mock.Called(ctx, key, byUser, fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MutateDevice")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, bool, func(context.Context, *model.DeviceGrant) (bool, error)) error); ok {
+		r0 = returnFunc(ctx, key, byUser, fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthRepo_MutateDevice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MutateDevice'
+type MockAuthRepo_MutateDevice_Call struct {
+	*mock.Call
+}
+
+// MutateDevice is a helper method to define mock.On call
+//   - ctx context.Context
+//   - key string
+//   - byUser bool
+//   - fn func(context.Context, *model.DeviceGrant) (bool, error)
+func (_e *MockAuthRepo_Expecter) MutateDevice(ctx any, key any, byUser any, fn any) *MockAuthRepo_MutateDevice_Call {
+	return &MockAuthRepo_MutateDevice_Call{Call: _e.mock.On("MutateDevice", ctx, key, byUser, fn)}
+}
+
+func (_c *MockAuthRepo_MutateDevice_Call) Run(run func(ctx context.Context, key string, byUser bool, fn func(context.Context, *model.DeviceGrant) (bool, error))) *MockAuthRepo_MutateDevice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		var arg3 func(context.Context, *model.DeviceGrant) (bool, error)
+		if args[3] != nil {
+			arg3 = args[3].(func(context.Context, *model.DeviceGrant) (bool, error))
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_MutateDevice_Call) Return(err error) *MockAuthRepo_MutateDevice_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthRepo_MutateDevice_Call) RunAndReturn(run func(ctx context.Context, key string, byUser bool, fn func(context.Context, *model.DeviceGrant) (bool, error)) error) *MockAuthRepo_MutateDevice_Call {
 	_c.Call.Return(run)
 	return _c
 }
