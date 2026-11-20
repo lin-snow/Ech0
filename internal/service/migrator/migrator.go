@@ -286,7 +286,7 @@ func (s *MigratorService) StartExport(
 		return migratorModel.ExportStateDTO{}, err
 	}
 	if platform.IsFunction(ctx) && format == migratorModel.ExportFormatSnapshot {
-		wake, jb, err := snapshot.StartExport(ctx, database.GetDB())
+		wake, jb, err := snapshot.StartExport(ctx, database.GetDB(), false)
 		if err != nil {
 			return migratorModel.ExportStateDTO{}, err
 		}

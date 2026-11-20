@@ -42,15 +42,16 @@ type Wake struct {
 }
 
 type checkpoint struct {
-	Cursor  database.ImageCursor
-	Size    int64
-	Name    string
-	Upload  string
-	Offset  int64
-	CRC     uint32
-	Parts   []string
-	Written int64
-	Started bool
+	Cursor    database.ImageCursor
+	Size      int64
+	Name      string
+	Upload    string
+	Offset    int64
+	CRC       uint32
+	Parts     []string
+	Written   int64
+	Scheduled bool
+	Started   bool
 }
 
 func setupExports(db *gorm.DB) error {
@@ -68,10 +69,10 @@ func setupExports(db *gorm.DB) error {
 	return nil
 }
 
-func StartExport(ctx context.Context, db *gorm.DB) (Wake, jobModel.Job, error) {
+func StartExport(ctx context.Context, db *gorm.DB, scheduled bool) (Wake, jobModel.Job, error) {
 	id := uuidUtil.NewV7()
 	now := time.Now().UTC()
-	state := checkpoint{Name: "ech0_snapshot_" + now.Format("2006-01-02_15-04-05") + "_" + id + ".zip"}
+	state := checkpoint{Scheduled: scheduled, Name: "ech0_snapshot_" + now.Format("2006-01-02_15-04-05") + "_" + id + ".zip"}
 	encoded, err := json.Marshal(state)
 	if err != nil {
 		return Wake{}, jobModel.Job{}, err
@@ -112,7 +113,7 @@ var ErrBusy = errors.New("snapshot worker already has the lease")
 
 // AdvanceExport owns at most one checkpoint. A stopped function cannot publish
 // with an expired fencing token once another worker has reclaimed the job.
-func AdvanceExport(ctx context.Context, db *gorm.DB, cfg config.StorageConfig, w Wake) (*Wake, error) {
+func AdvanceExport(ctx context.Context, db *gorm.DB, cfg config.StorageConfig, w Wake, completed func(context.Context, *gorm.DB, bool) error) (*Wake, error) {
 	db = db.WithContext(ctx)
 	current, err := PendingExport(ctx, db)
 	if err != nil || current == nil || current.Run != w.Run {
@@ -197,6 +198,9 @@ func AdvanceExport(ctx context.Context, db *gorm.DB, cfg config.StorageConfig, w
 			}
 		}
 		if done {
+			if err := completed(ctx, tx, c.Scheduled); err != nil {
+				return err
+			}
 			if err := markCleanup(tx, w.Run, "", c.Name); err != nil {
 				return err
 			}

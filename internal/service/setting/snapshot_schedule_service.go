@@ -53,7 +53,13 @@ func (settingService *SettingService) UpdateSnapshotScheduleSetting(
 		return errors.New(commonModel.INVALID_CRON_EXPRESSION)
 	}
 
-	if err := coreSetting.Snapshot.Set(ctx, settingService.durableKV, updated); err != nil {
+	persist := func(tx context.Context) error {
+		if err := coreSetting.Snapshot.Set(tx, settingService.durableKV, updated); err != nil {
+			return err
+		}
+		return eventbus.Record(tx, settingService.bus, event.UpdateSnapshotSchedule{Schedule: updated})
+	}
+	if err := settingService.transactor.Run(ctx, persist); err != nil {
 		return err
 	}
 
@@ -68,6 +74,5 @@ func (settingService *SettingService) UpdateSnapshotScheduleSetting(
 			}
 		}
 	}
-	eventbus.Notify(context.Background(), settingService.bus, event.UpdateSnapshotSchedule{Schedule: updated})
 	return nil
 }

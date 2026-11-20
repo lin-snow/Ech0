@@ -12,9 +12,12 @@ import (
 
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
+	"github.com/lin-snow/ech0/internal/event"
+	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/pkg/viewer"
 	"gorm.io/gorm"
@@ -35,7 +38,8 @@ func (s *FileService) finalizedUpload(ctx context.Context, owner, id string) (co
 	return uploadDTO(f), nil
 }
 
-func (s *FileService) finalizeUpload(ctx context.Context, owner, id string, dto commonModel.UpdateFileMetaDto) (commonModel.FileDto, error) {
+func (s *FileService) finalizeUpload(ctx context.Context, user userModel.User, id string, dto commonModel.UpdateFileMetaDto) (commonModel.FileDto, error) {
+	owner := user.ID
 	var empty commonModel.FileDto
 	intent, err := s.fileRepository.GetIntent(ctx, id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -85,7 +89,11 @@ func (s *FileService) finalizeUpload(ctx context.Context, owner, id string, dto 
 		if err := s.fileRepository.Create(tx, &f); err != nil {
 			return err
 		}
-		return s.fileRepository.CreateTemp(tx, &fileModel.TempFile{FileID: id, UploaderID: owner, ExpireAt: time.Now().Add(tempFileTTL).Unix()})
+		if err := s.fileRepository.CreateTemp(tx, &fileModel.TempFile{FileID: id, UploaderID: owner, ExpireAt: time.Now().Add(tempFileTTL).Unix()}); err != nil {
+			return err
+		}
+		_, kind := uploadPolicyFor(storage.Category(f.Category))
+		return eventbus.Record(tx, s.bus, event.ResourceUploaded{User: user, FileName: f.Name, URL: f.URL, Size: f.Size, Type: string(kind), Key: f.Key})
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return s.finalizedUpload(ctx, owner, id)
@@ -96,19 +104,24 @@ func (s *FileService) finalizeUpload(ctx context.Context, owner, id string, dto 
 	return uploadDTO(&f), nil
 }
 
-func (s *FileService) cleanupExpiredIntents(ctx context.Context, now int64) error {
-	intents, err := s.fileRepository.ExpiredIntents(ctx, now)
+// CleanupExpiredIntents retries interrupted deletions. Expired records cannot
+// be finalized, and S3 DeleteObject on a missing key is idempotent.
+func CleanupExpiredIntents(ctx context.Context, repo FileRepository, selector *storage.StorageSelector, now int64) error {
+	if isTempCleanupDryRun() {
+		return nil
+	}
+	intents, err := repo.ExpiredIntents(ctx, now)
 	if err != nil {
 		return err
 	}
-	selector := s.getSelector()
+
 	provider, bucket := selector.ObjectRoute()
 	for _, intent := range intents {
 		f := intent.Metadata
 		if f.Provider != provider || f.Bucket != bucket {
 			return errors.New("expired upload belongs to a different object store")
 		}
-		claimed, err := s.fileRepository.ClaimExpiredIntent(ctx, intent.ID, now)
+		claimed, err := repo.ClaimExpiredIntent(ctx, intent.ID, now)
 		if err != nil {
 			return err
 		}
@@ -118,7 +131,7 @@ func (s *FileService) cleanupExpiredIntents(ctx context.Context, now int64) erro
 		if err := selector.Delete(ctx, storage.StorageTypeObject, f.Key); err != nil {
 			return err
 		}
-		if err := s.fileRepository.DeleteIntent(ctx, intent.ID); err != nil {
+		if err := repo.DeleteIntent(ctx, intent.ID); err != nil {
 			return err
 		}
 	}

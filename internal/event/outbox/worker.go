@@ -176,3 +176,11 @@ func (w *Worker) deliver(ctx context.Context, db *gorm.DB, d outboxModel.Deliver
 	}
 	return w.send(ctx, &hook, observation, d.ID)
 }
+
+func (w *Worker) SnapshotCompleted(ctx context.Context, tx *gorm.DB, scheduled bool) error {
+	info := "System manual snapshot completed"
+	if scheduled {
+		info = "System scheduled snapshot completed"
+	}
+	return w.record(ctx, tx, event.SystemSnapshot{Info: info}, map[string]string{"source": "ech0"})
+}

@@ -388,6 +388,7 @@ func TestUpdateSnapshotScheduleSetting(t *testing.T) {
 
 	t.Run("valid cron persisted", func(t *testing.T) {
 		d := newDeps(t)
+		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
 		d.expectAdmin()
 		d.kv.EXPECT().
 			Set(mock.Anything, commonModel.SnapshotScheduleKey, mock.Anything).

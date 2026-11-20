@@ -8,7 +8,10 @@ import (
 	"encoding/json"
 	"github.com/lin-snow/ech0/internal/event/outbox"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	copilotModel "github.com/lin-snow/ech0/internal/model/copilot"
+	fileRepository "github.com/lin-snow/ech0/internal/repository/file"
 	"github.com/lin-snow/ech0/internal/securitystate"
+	fileService "github.com/lin-snow/ech0/internal/service/file"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"net/http"
 	"os"
@@ -82,7 +85,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if message.Run != "" {
-		next, err := snapshot.AdvanceExport(r.Context(), db, runtime.Objects.GetStorageConfig(r.Context()), message.Wake)
+		next, err := snapshot.AdvanceExport(r.Context(), db, runtime.Objects.GetStorageConfig(r.Context()), message.Wake, runtime.Effects.SnapshotCompleted)
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
@@ -115,6 +118,15 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := db.WithContext(r.Context()).Where("expires_at <= ?", time.Unix(message.Due, 0).UnixMilli()).Delete(&authModel.DeviceGrant{}).Error; err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if err := db.WithContext(r.Context()).Where("expires<=?", time.Unix(message.Due, 0).UnixMilli()).Delete(&copilotModel.Round{}).Error; err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		files := fileRepository.NewFileRepository(func() *gorm.DB { return db })
+		if err := fileService.CleanupExpiredIntents(r.Context(), files, runtime.Objects.GetSelector(), message.Due); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

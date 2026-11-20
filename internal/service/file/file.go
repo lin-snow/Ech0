@@ -147,7 +147,7 @@ func (s *FileService) UploadFile(
 		targetStorageType = storage.StorageTypeLocal
 	}
 	selector := s.getSelector()
-	if err := selector.Put(context.Background(), targetStorageType, key, uploadReader, opts...); err != nil {
+	if err := selector.Put(ctx, targetStorageType, key, uploadReader, opts...); err != nil {
 		return commonModel.FileDto{}, err
 	}
 
@@ -177,32 +177,21 @@ func (s *FileService) UploadFile(
 		UserID:      user.ID,
 	}
 	nowUTC := time.Now().UTC()
-	if err := s.fileRepository.Create(context.Background(), fileRecord); err != nil {
-		return commonModel.FileDto{}, err
-	}
-	if err := s.fileRepository.CreateTemp(context.Background(), &fileModel.TempFile{
-		FileID:     fileRecord.ID,
-		UploaderID: user.ID,
-		ExpireAt:   nowUTC.Add(tempFileTTL).Unix(),
+	if err := s.transactor.Run(ctx, func(tx context.Context) error {
+		if err := s.fileRepository.Create(tx, fileRecord); err != nil {
+			return err
+		}
+		if err := s.fileRepository.CreateTemp(tx, &fileModel.TempFile{FileID: fileRecord.ID, UploaderID: user.ID, ExpireAt: nowUTC.Add(tempFileTTL).Unix()}); err != nil {
+			return err
+		}
+		return eventbus.Record(tx, s.bus, event.ResourceUploaded{User: user, FileName: file.Filename, URL: fileURL, Size: file.Size, Type: string(uploadType), Key: key})
 	}); err != nil {
-		_ = s.fileRepository.Delete(context.Background(), fileRecord.ID)
-		_ = s.DeleteStoredFile(fileRecord.StorageType, fileRecord.Key)
+		// A lost commit acknowledgement is ambiguous. Keep the object when
+		// the metadata exists or its publication cannot be checked safely.
+		if _, lookup := s.fileRepository.GetByID(context.WithoutCancel(ctx), fileRecord.ID); errors.Is(lookup, gorm.ErrRecordNotFound) {
+			_ = selector.Delete(context.WithoutCancel(ctx), targetStorageType, key)
+		}
 		return commonModel.FileDto{}, err
-	}
-
-	if err := eventbus.Emit(
-		context.Background(),
-		s.bus,
-		event.ResourceUploaded{
-			User:     user,
-			FileName: file.Filename,
-			URL:      fileURL,
-			Size:     file.Size,
-			Type:     string(uploadType),
-			Key:      key,
-		},
-	); err != nil {
-		logUtil.GetLogger().Error("Failed to publish resource uploaded event", logUtil.Err(err))
 	}
 
 	return commonModel.FileDto{
@@ -464,7 +453,7 @@ func (s *FileService) UpdateFileMeta(
 	}
 
 	if config.Config().Upload.VerifiedDirect {
-		return s.finalizeUpload(ctx, userid, id, dto)
+		return s.finalizeUpload(ctx, user, id, dto)
 	}
 
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
@@ -962,7 +951,7 @@ func (s *FileService) CleanupOrphanFiles() error {
 	dryRun := isTempCleanupDryRun()
 
 	if config.Config().Upload.VerifiedDirect && !dryRun {
-		if err := s.cleanupExpiredIntents(ctx, threshold); err != nil {
+		if err := CleanupExpiredIntents(ctx, s.fileRepository, s.getSelector(), threshold); err != nil {
 			return err
 		}
 	}

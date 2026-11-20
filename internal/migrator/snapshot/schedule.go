@@ -56,7 +56,7 @@ func RunOccurrence(ctx context.Context, db *gorm.DB, s settingModel.SnapshotSche
 		if err := tx.Exec("DELETE FROM ech0_export_occurrences WHERE due<?", now.Add(-7*24*time.Hour).Unix()).Error; err != nil {
 			return err
 		}
-		_, _, err := StartExport(ctx, tx)
+		_, _, err := StartExport(ctx, tx, true)
 		if errors.Is(err, job.ErrAlreadyRunning) {
 			return nil
 		}
