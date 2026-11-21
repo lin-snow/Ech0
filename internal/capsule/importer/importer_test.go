@@ -55,7 +55,7 @@ func newFixture(t *testing.T) *fixture {
 	dataRoot := t.TempDir()
 	selector := storage.NewStorageManagerForTest(dataRoot).GetSelector()
 
-	owner := userModel.User{Username: "owner", IsOwner: true, IsAdmin: true}
+	owner := userModel.User{Username: "owner", IsAdmin: true}
 	require.NoError(t, db.Create(&owner).Error)
 	alice := userModel.User{Username: "alice"}
 	require.NoError(t, db.Create(&alice).Error)

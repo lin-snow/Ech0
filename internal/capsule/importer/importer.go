@@ -177,12 +177,12 @@ var ErrNoOwner = errors.New("target instance has no owner account")
 
 func (s *session) resolveOwner() error {
 	var owner userModel.User
-	err := s.db.Where("is_owner = ?", true).First(&owner).Error
+	err := s.db.Where("is_admin = ?", true).Order("id ASC").First(&owner).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrNoOwner
 	}
 	if err != nil {
-		return fmt.Errorf("capsule import: locate owner user: %w", err)
+		return fmt.Errorf("capsule import: locate primary admin: %w", err)
 	}
 	s.ownerID = owner.ID
 	return nil

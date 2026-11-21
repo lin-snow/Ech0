@@ -59,21 +59,18 @@ func TestGetEchoById_Visibility(t *testing.T) {
 		assert.False(t, got.Private)
 	})
 
-	t.Run("non-admin user cannot read private echo", func(t *testing.T) {
+	t.Run("member can read private echo", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		private := helpers.NewEcho(helpers.AsPrivate)
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, userID).
-			Return(helpers.NewUser(), nil).
-			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		got, err := svc.GetEchoById(helpers.CtxAsUser(userID), echoID)
 
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
-		assert.Nil(t, got)
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		assert.True(t, got.Private)
 	})
 
 	t.Run("admin can read private echo", func(t *testing.T) {
@@ -81,10 +78,6 @@ func TestGetEchoById_Visibility(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		private := helpers.NewEcho(helpers.AsPrivate)
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		got, err := svc.GetEchoById(helpers.CtxAsUser(adminID), echoID)
@@ -119,10 +112,6 @@ func TestGetEchoById_Visibility(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		private := helpers.NewEcho(helpers.AsPrivate)
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 
 		ctx := helpers.CtxAsToken(
 			adminID,
@@ -205,20 +194,17 @@ func TestReactions_Visibility(t *testing.T) {
 		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 	})
 
-	t.Run("non-admin user cannot react to private echo", func(t *testing.T) {
+	t.Run("member can react to private echo", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		private := helpers.NewEcho(helpers.AsPrivate)
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, userID).
-			Return(helpers.NewUser(), nil).
-			Once()
+		repo.EXPECT().AddReaction(mock.Anything, echoID, "like", "u:"+userID).Return(nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.ReactToEcho(helpers.CtxAsUser(userID), echoID, "like")
 
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		require.NoError(t, err)
 	})
 
 	t.Run("admin can react to private echo", func(t *testing.T) {
@@ -226,10 +212,6 @@ func TestReactions_Visibility(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		private := helpers.NewEcho(helpers.AsPrivate)
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&private, nil).Once()
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		repo.EXPECT().AddReaction(mock.Anything, echoID, "like", "u:"+adminID).Return(nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
@@ -299,8 +281,8 @@ func TestQueryEchos_PageSizeClamp(t *testing.T) {
 
 			var captured commonModel.EchoQueryDto
 			repo.EXPECT().
-				QueryEchos(mock.Anything, false).
-				Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+				QueryEchos(mock.Anything, echoModel.PrivateScope{}).
+				Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
 				Return([]echoModel.Echo{}, int64(0), nil).
 				Once()
 

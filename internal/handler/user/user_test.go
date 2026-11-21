@@ -104,9 +104,9 @@ func TestUserHandler_UpdateUserAdmin(t *testing.T) {
 		assert.Equal(t, commonModel.UPDATE_USER_SUCCESS, out.Message)
 	})
 
-	t.Run("error when not owner", func(t *testing.T) {
+	t.Run("error when the last admin would be removed", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.ONLY_OWNER_CAN_MANAGE)
+		be := commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.LAST_ADMIN_REQUIRED)
 		svc.EXPECT().UpdateUserAdmin(mock.Anything, mock.Anything).Return(be).Once()
 
 		h := userHandler.NewUserHandler(svc)

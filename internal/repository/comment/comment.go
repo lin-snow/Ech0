@@ -9,6 +9,7 @@ import (
 	"time"
 
 	model "github.com/lin-snow/ech0/internal/model/comment"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
@@ -35,23 +36,40 @@ func (r *CommentRepository) CreateComment(ctx context.Context, c *model.Comment)
 	return r.getDB(ctx).Create(c).Error
 }
 
-func (r *CommentRepository) ListPublicByEchoID(ctx context.Context, echoID string) ([]model.Comment, error) {
+func (r *CommentRepository) ListPublicByEchoID(ctx context.Context, echoID string, includePrivate bool) ([]model.Comment, error) {
 	var out []model.Comment
-	err := r.getDB(ctx).
-		Where("echo_id = ? AND status = ?", echoID, model.StatusApproved).
-		Order("created_at asc").
-		Find(&out).Error
+	query := r.getDB(ctx).
+		Model(&model.Comment{}).
+		Where("comments.echo_id = ? AND comments.status = ?", echoID, model.StatusApproved)
+	if !includePrivate {
+		query = query.Joins("JOIN echos ON echos.id = comments.echo_id AND echos.private = ?", false)
+	}
+	err := query.Order("comments.created_at asc").Find(&out).Error
 	return out, err
 }
 
-func (r *CommentRepository) ListPublicComments(ctx context.Context, limit int) ([]model.Comment, error) {
+func (r *CommentRepository) ListPublicComments(ctx context.Context, limit int, includePrivate bool) ([]model.Comment, error) {
 	var out []model.Comment
-	err := r.getDB(ctx).
-		Where("status = ?", model.StatusApproved).
-		Order("created_at desc").
-		Limit(limit).
-		Find(&out).Error
+	query := r.getDB(ctx).
+		Model(&model.Comment{}).
+		Where("comments.status = ?", model.StatusApproved)
+	if !includePrivate {
+		query = query.Joins("JOIN echos ON echos.id = comments.echo_id AND echos.private = ?", false)
+	}
+	err := query.Order("comments.created_at desc").Limit(limit).Find(&out).Error
 	return out, err
+}
+
+// IsEchoPrivate reports whether the target echo is marked private. A missing
+// echo yields gorm.ErrRecordNotFound so callers can reject unknown targets.
+func (r *CommentRepository) IsEchoPrivate(ctx context.Context, echoID string) (bool, error) {
+	var row struct{ Private bool }
+	err := r.getDB(ctx).
+		Model(&echoModel.Echo{}).
+		Select("private").
+		Where("id = ?", echoID).
+		Take(&row).Error
+	return row.Private, err
 }
 
 func (r *CommentRepository) ListComments(

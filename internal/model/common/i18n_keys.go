@@ -16,6 +16,7 @@ const (
 	MsgKeySettingUpdateOK             = "setting.update_success"
 	MsgKeyAgentModelMissing           = "agent.model_missing"
 	MsgKeyEchoMixedFileCategories     = "echo.mixed_file_categories"
+	MsgKeyEchoOtherUserForbidden      = "echo.other_user_forbidden"
 	MsgKeyEchoInvalidCursor           = "echo.invalid_cursor"
 	MsgKeyEchoCursorSortUnsupported   = "echo.cursor_sort_unsupported"
 	MsgKeyAuthTokenMissing            = "auth.token_missing"
@@ -28,9 +29,12 @@ const (
 	MsgKeyAuthRefreshTokenInvalid     = "auth.refresh_token_invalid"
 	MsgKeyAuthExchangeCodeInvalid     = "auth.exchange_code_invalid"
 	MsgKeyAuthTokenGenerateFailed     = "auth.token_generate_failed"
+	MsgKeyAuthRateLimited             = "auth.rate_limited"
+	MsgKeyAuthAccountDisabled         = "auth.account_disabled"
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
 	MsgKeyDashboardCheckUpdateFailed  = "dashboard.check_update_failed"
+	MsgKeyUserLastAdminRequired       = "user.last_admin_required"
 )
 
 func MessageKeyFromErrorCode(code string) string {
@@ -57,6 +61,10 @@ func MessageKeyFromErrorCode(code string) string {
 		return MsgKeyAuthExchangeCodeInvalid
 	case ErrCodeTokenGenerateFailed:
 		return MsgKeyAuthTokenGenerateFailed
+	case ErrCodeRateLimited:
+		return MsgKeyAuthRateLimited
+	case ErrCodeAccountDisabled:
+		return MsgKeyAuthAccountDisabled
 	default:
 		return ""
 	}
@@ -72,6 +80,10 @@ func MessageKeyFromMessage(msg string) string {
 		return MsgKeyAgentModelMissing
 	case ECHO_MIXED_FILE_CATEGORIES:
 		return MsgKeyEchoMixedFileCategories
+	case ECHO_OTHER_USER_FORBIDDEN:
+		return MsgKeyEchoOtherUserForbidden
+	case ACCOUNT_DISABLED:
+		return MsgKeyAuthAccountDisabled
 	default:
 		return ""
 	}

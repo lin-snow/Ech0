@@ -15,7 +15,8 @@ import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useBfCacheRestore } from '@/composables/useBfCacheRestore'
 import { useSeoHead } from '@/composables/useSeoHead'
 
-const { register, title, description, handleConfirm, handleCancel } = useBaseDialog()
+const { register, title, description, requireText, requireTextHint, handleConfirm, handleCancel } =
+  useBaseDialog()
 const dialogRef = ref()
 
 const router = useRouter()
@@ -206,6 +207,8 @@ onMounted(() => {
       ref="dialogRef"
       :title="title"
       :description="description"
+      :require-text="requireText"
+      :require-text-hint="requireTextHint"
       @confirm="handleConfirm"
       @cancel="handleCancel"
     />

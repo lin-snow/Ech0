@@ -12,8 +12,8 @@ import (
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, public(), huma.Operation{
+func registerConnect(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+	api.route(public(), huma.Operation{
 		OperationID: "connect-self",
 		Method:      http.MethodGet,
 		Path:        "/connect",
@@ -21,7 +21,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.GetConnect)
 
-	route(api, public(), huma.Operation{
+	api.route(public(), huma.Operation{
 		OperationID: "connect-list",
 		Method:      http.MethodGet,
 		Path:        "/connect/list",
@@ -29,7 +29,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.GetConnects)
 
-	route(api, public(), huma.Operation{
+	api.route(public(), huma.Operation{
 		OperationID: "connect-info",
 		Method:      http.MethodGet,
 		Path:        "/connects/info",
@@ -37,7 +37,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.GetConnectsInfo)
 
-	route(api, secured(revoker, authz.ScopeConnectRead), huma.Operation{
+	api.route(secured(revoker, authz.ScopeConnectRead), huma.Operation{
 		OperationID: "connect-health",
 		Method:      http.MethodGet,
 		Path:        "/connects/health",
@@ -45,7 +45,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.GetConnectsHealth)
 
-	route(api, secured(revoker, authz.ScopeConnectWrite), huma.Operation{
+	api.route(secured(revoker, authz.ScopeConnectWrite), huma.Operation{
 		OperationID: "connect-add",
 		Method:      http.MethodPost,
 		Path:        "/connects",
@@ -53,7 +53,7 @@ func registerConnect(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Connect"},
 	}, h.ConnectHandler.AddConnect)
 
-	route(api, secured(revoker, authz.ScopeConnectDelete), huma.Operation{
+	api.route(secured(revoker, authz.ScopeConnectDelete), huma.Operation{
 		OperationID: "connect-delete",
 		Method:      http.MethodDelete,
 		Path:        "/connects/{id}",

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/mail"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	model "github.com/lin-snow/ech0/internal/model/user"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/transaction"
@@ -25,11 +27,13 @@ import (
 )
 
 type UserService struct {
-	transactor     transaction.Transactor
-	userRepository Repository
-	durableKV      kvstore.Store
-	fileService    FileService
-	bus            *busen.Bus
+	transactor      transaction.Transactor
+	userRepository  Repository
+	durableKV       kvstore.Store
+	fileService     FileService
+	echoCache       EchoCacheInvalidator
+	embeddingPurger EmbeddingPurger
+	bus             *busen.Bus
 }
 
 func NewUserService(
@@ -37,14 +41,18 @@ func NewUserService(
 	userRepository Repository,
 	durableKV kvstore.Store,
 	fileService FileService,
+	echoCache EchoCacheInvalidator,
+	embeddingPurger EmbeddingPurger,
 	busProvider func() *busen.Bus,
 ) *UserService {
 	return &UserService{
-		transactor:     tx,
-		userRepository: userRepository,
-		durableKV:      durableKV,
-		fileService:    fileService,
-		bus:            busProvider(),
+		transactor:      tx,
+		userRepository:  userRepository,
+		durableKV:       durableKV,
+		fileService:     fileService,
+		echoCache:       echoCache,
+		embeddingPurger: embeddingPurger,
+		bus:             busProvider(),
 	}
 }
 
@@ -109,7 +117,6 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			Username: registerDto.Username,
 			Email:    email,
 			IsAdmin:  true,
-			IsOwner:  true,
 			Locale:   ownerLocale,
 		}
 
@@ -169,7 +176,6 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		Username: registerDto.Username,
 		Email:    email,
 		IsAdmin:  false,
-		IsOwner:  false,
 		Locale:   string(commonModel.DefaultLocale),
 	}
 
@@ -208,9 +214,6 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	user, err := userService.userRepository.GetUserByID(ctx, userid)
 	if err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	if userdto.Username != "" && userdto.Username != user.Username {
@@ -279,8 +282,8 @@ func (userService *UserService) UpdateUserAdmin(ctx context.Context, id string) 
 	if err != nil {
 		return err
 	}
-	if !operator.IsOwner {
-		return errors.New(commonModel.ONLY_OWNER_CAN_MANAGE)
+	if !operator.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	user, err := userService.userRepository.GetUserByID(ctx, id)
@@ -288,8 +291,18 @@ func (userService *UserService) UpdateUserAdmin(ctx context.Context, id string) 
 		return err
 	}
 
-	if userid == user.ID || user.IsOwner {
+	if userid == user.ID {
 		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+
+	if user.IsAdmin {
+		admins, err := userService.countAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return lastAdminRequiredError()
+		}
 	}
 
 	user.IsAdmin = !user.IsAdmin
@@ -315,45 +328,85 @@ func (userService *UserService) GetAllUsers(ctx context.Context) ([]model.User, 
 		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	allures, err := userService.userRepository.GetAllUsers(ctx)
+	allUsers, err := userService.userRepository.GetAllUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	owner, err := userService.GetOwner()
-	if err != nil {
-		return nil, err
+	// The caller manages other accounts only; self-service lives in UpdateUser.
+	users := make([]model.User, 0, len(allUsers))
+	for _, u := range allUsers {
+		if u.ID == caller.ID {
+			continue
+		}
+		users = append(users, u)
 	}
 
-	for i := range allures {
-		if allures[i].ID == owner.ID {
-			allures = append(allures[:i], allures[i+1:]...)
-			break
+	return users, nil
+}
+
+func (userService *UserService) GetPrimaryAdmin() (model.User, error) {
+	return userService.userRepository.GetPrimaryAdmin(context.Background())
+}
+
+func (userService *UserService) countAdmins(ctx context.Context) (int, error) {
+	users, err := userService.userRepository.GetAllUsers(ctx)
+	if err != nil {
+		return 0, err
+	}
+	admins := 0
+	for i := range users {
+		if users[i].IsAdmin {
+			admins++
 		}
 	}
-
-	return allures, nil
+	return admins, nil
 }
 
-func (userService *UserService) GetOwner() (model.User, error) {
-	owner, err := userService.userRepository.GetOwner(context.Background())
-	if err != nil {
-		return model.User{}, err
+func lastAdminRequiredError() error {
+	return commonModel.NewBizErrorWithMessageKey(
+		commonModel.ErrCodePermissionDenied,
+		commonModel.LAST_ADMIN_REQUIRED,
+		commonModel.MsgKeyUserLastAdminRequired,
+		nil,
+	)
+}
+
+// UpdateUserStatus disables or restores an account. Administrators cannot
+// change their own status: the last step of a lockout must be taken by a peer.
+func (userService *UserService) UpdateUserStatus(ctx context.Context, id string, status model.Status) error {
+	if !status.Valid() {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+	userid := viewer.MustFromContext(ctx).UserID()
+	if userid == id {
+		return errors.New(commonModel.INVALID_PARAMS_BODY)
 	}
 
-	return owner, nil
+	operator, err := userService.userRepository.GetUserByID(ctx, userid)
+	if err != nil {
+		return err
+	}
+	if !operator.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+
+	return userService.userRepository.UpdateUserStatus(ctx, id, status)
 }
 
+// DeleteUser permanently removes a user and everything addressed to them. It
+// is the only deletion path: there is no soft-delete state to restore from.
 func (userService *UserService) DeleteUser(ctx context.Context, id string) error {
 	userid := viewer.MustFromContext(ctx).UserID()
 	var deletedUser model.User
+	var purge model.PurgeResult
 	err := userService.transactor.Run(ctx, func(txCtx context.Context) error {
 		operator, err := userService.userRepository.GetUserByID(txCtx, userid)
 		if err != nil {
 			return err
 		}
-		if !operator.IsOwner {
-			return errors.New(commonModel.ONLY_OWNER_CAN_MANAGE)
+		if !operator.IsAdmin {
+			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 
 		user, err := userService.userRepository.GetUserByID(txCtx, id)
@@ -361,22 +414,60 @@ func (userService *UserService) DeleteUser(ctx context.Context, id string) error
 			return err
 		}
 
-		if userid == user.ID || user.IsOwner {
+		if userid == user.ID {
 			return errors.New(commonModel.INVALID_PARAMS_BODY)
 		}
 
-		deletedUser = user
-		if err := userService.userRepository.DeleteUser(txCtx, id); err != nil {
-			return err
+		if user.IsAdmin {
+			admins, err := userService.countAdmins(txCtx)
+			if err != nil {
+				return err
+			}
+			if admins <= 1 {
+				return lastAdminRequiredError()
+			}
 		}
 
+		deletedUser = user
+		purge, err = userService.userRepository.PurgeUserContent(txCtx, id)
+		if err != nil {
+			return err
+		}
+		for _, file := range purge.Files {
+			if err := userService.fileService.DeleteFileRecord(txCtx, file.ID); err != nil {
+				return err
+			}
+		}
+		for _, echoID := range purge.EchoIDs {
+			if err := userService.embeddingPurger.Delete(txCtx, echoID); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 
+	// Object storage is not transactional: deleting after commit keeps a
+	// failed transaction from leaving rows that point at missing objects.
+	for _, file := range purge.Files {
+		if err := userService.fileService.DeleteStoredFile(file.StorageType, file.Key); err != nil {
+			logUtil.GetLogger().Warn(
+				"delete stored file after user delete failed",
+				slog.String("user_id", id),
+				slog.String("file_key", file.Key),
+				slog.String("storage_type", file.StorageType),
+				logUtil.Err(err),
+			)
+		}
+	}
+	userService.echoCache.InvalidateEchoCaches(purge.EchoIDs...)
+
 	eventbus.Notify(context.Background(), userService.bus, event.UserDeleted{User: deletedUser})
+	for _, echoID := range purge.EchoIDs {
+		eventbus.Notify(context.Background(), userService.bus, event.EchoDeleted{Echo: echoModel.Echo{ID: echoID}})
+	}
 	return nil
 }
 

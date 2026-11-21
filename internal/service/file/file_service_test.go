@@ -61,10 +61,26 @@ func (f *fileFix) expectAdmin() {
 		Return(helpers.NewUser(helpers.AsAdmin), nil)
 }
 
-func (f *fileFix) expectNonAdmin() {
+func (f *fileFix) expectMember() {
 	f.common.EXPECT().
 		GetUserByUserId(mock.Anything, fileTestUserID).
 		Return(helpers.NewUser(), nil)
+}
+
+func (f *fileFix) foreignFile(t *testing.T, key, category string) *fileModel.File {
+	t.Helper()
+	rec := &fileModel.File{
+		Key:         key,
+		StorageType: "object",
+		Provider:    "r2",
+		Bucket:      "bucket",
+		URL:         "https://example.com/" + key,
+		Name:        "foreign.png",
+		Category:    category,
+		UserID:      "someone-else",
+	}
+	require.NoError(t, f.db.Create(rec).Error)
+	return rec
 }
 
 func (f *fileFix) adminCtx() context.Context { return helpers.CtxAsUser(fileTestUserID) }
@@ -212,19 +228,20 @@ func TestFileService_UploadFile(t *testing.T) {
 		assert.True(t, storedExists(t, fix.mgr, dto.Key))
 	})
 
-	t.Run("non-admin is denied", func(t *testing.T) {
+	t.Run("member may upload own file", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
+		fix.expectMember()
 
-		_, err := fix.svc.UploadFile(
+		dto, err := fix.svc.UploadFile(
 			fix.adminCtx(),
 			makeFileHeader(t, "photo.png", pngBytes(t, 2, 2)),
 			storage.CategoryImage,
 			storage.StorageTypeLocal,
 		)
-		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
-		assert.Equal(t, int64(0), countFiles(t, fix.db))
+		require.NoError(t, err)
+		var stored fileModel.File
+		require.NoError(t, fix.db.Where("id = ?", dto.ID).First(&stored).Error)
+		assert.Equal(t, fileTestUserID, stored.UserID)
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {
@@ -367,14 +384,16 @@ func TestFileService_CreateExternalFile(t *testing.T) {
 		assert.Equal(t, commonModel.INVALID_PARAMS, err.Error())
 	})
 
-	t.Run("non-admin denied", func(t *testing.T) {
+	t.Run("member records external file as own", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
-		_, err := fix.svc.CreateExternalFile(fix.adminCtx(), commonModel.CreateExternalFileDto{
+		fix.expectMember()
+		dto, err := fix.svc.CreateExternalFile(fix.adminCtx(), commonModel.CreateExternalFileDto{
 			URL: "https://example.com/pic.png",
 		})
-		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.NoError(t, err)
+		var stored fileModel.File
+		require.NoError(t, fix.db.Where("id = ?", dto.ID).First(&stored).Error)
+		assert.Equal(t, fileTestUserID, stored.UserID)
 	})
 }
 
@@ -391,17 +410,27 @@ func TestFileService_GetFileByID(t *testing.T) {
 		assert.Equal(t, "image", dto.Category)
 	})
 
-	t.Run("non-admin denied", func(t *testing.T) {
+	t.Run("member reads own file", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
-		_, err := fix.svc.GetFileByID(fix.adminCtx(), "whatever")
-		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		uploaded := fix.uploadPNG(t, "photo.png", 4, 4)
+		fix.expectMember()
+
+		dto, err := fix.svc.GetFileByID(fix.adminCtx(), uploaded.ID)
+		require.NoError(t, err)
+		assert.Equal(t, uploaded.ID, dto.ID)
+	})
+
+	t.Run("member denied another user's file", func(t *testing.T) {
+		fix := newFileFix(t)
+		foreign := fix.foreignFile(t, "other/secret.png", "image")
+		fix.expectMember()
+
+		_, err := fix.svc.GetFileByID(fix.adminCtx(), foreign.ID)
+		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 	})
 
 	t.Run("not found propagates repo error", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		_, err := fix.svc.GetFileByID(fix.adminCtx(), "missing-id")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
@@ -447,7 +476,6 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 
 	t.Run("empty id rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "", commonModel.UpdateFileMetaDto{Size: 1})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.INVALID_PARAMS, err.Error())
@@ -455,7 +483,6 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 
 	t.Run("negative size rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "id", commonModel.UpdateFileMetaDto{Size: -1})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.INVALID_PARAMS, err.Error())
@@ -463,7 +490,6 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 
 	t.Run("negative width rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		bad := -5
 		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "id", commonModel.UpdateFileMetaDto{Size: 1, Width: &bad})
 		require.Error(t, err)
@@ -479,12 +505,12 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 		assert.Equal(t, commonModel.INVALID_PARAMS, err.Error())
 	})
 
-	t.Run("non-admin denied", func(t *testing.T) {
+	t.Run("member denied another user's file", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
-		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "id", commonModel.UpdateFileMetaDto{Size: 1})
-		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		foreign := fix.foreignFile(t, "other/meta.png", "image")
+		fix.expectMember()
+		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), foreign.ID, commonModel.UpdateFileMetaDto{Size: 1})
+		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 	})
 }
 
@@ -522,7 +548,7 @@ func TestFileService_ListFiles(t *testing.T) {
 
 	t.Run("non-admin denied", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
+		fix.expectMember()
 		_, err := fix.svc.ListFiles(fix.adminCtx(), commonModel.FileListQueryDto{})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
@@ -586,7 +612,7 @@ func TestFileService_ListFileTree(t *testing.T) {
 
 	t.Run("non-admin denied", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
+		fix.expectMember()
 		_, err := fix.svc.ListFileTree(fix.adminCtx(), commonModel.FileTreeQueryDto{StorageType: "local"})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
@@ -606,12 +632,24 @@ func TestFileService_StreamFileByID(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		c, rec := newGinCtx(t, nil)
+		fix.expectAdmin()
+		c, rec := newGinCtx(t, fix.adminCtx())
 		fix.svc.StreamFileByID(c, dto.ID)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Header().Get("Content-Type"), "image/png")
 		assert.Equal(t, "inline; filename=photo.png", rec.Header().Get("Content-Disposition"))
 		assert.Equal(t, content, rec.Body.Bytes())
+	})
+
+	t.Run("member cannot stream another user's file", func(t *testing.T) {
+		fix := newFileFix(t)
+		foreign := fix.foreignFile(t, "other/secret.png", "image")
+		fix.expectMember()
+
+		c, rec := newGinCtx(t, fix.adminCtx())
+		fix.svc.StreamFileByID(c, foreign.ID)
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+		assert.Equal(t, "无权限", rec.Body.String())
 	})
 
 	t.Run("missing file returns 404", func(t *testing.T) {
@@ -635,7 +673,8 @@ func TestFileService_StreamFileByID(t *testing.T) {
 		}
 		require.NoError(t, fix.db.Create(ext).Error)
 
-		c, rec := newGinCtx(t, nil)
+		fix.expectAdmin()
+		c, rec := newGinCtx(t, fix.adminCtx())
 		fix.svc.StreamFileByID(c, ext.ID)
 		c.Writer.WriteHeaderNow()
 		assert.Equal(t, http.StatusTemporaryRedirect, rec.Code)
@@ -718,7 +757,7 @@ func TestFileService_StreamFileByPath(t *testing.T) {
 
 	t.Run("non-admin forbidden", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
+		fix.expectMember()
 		c, rec := newGinCtx(t, fix.adminCtx())
 		fix.svc.StreamFileByPath(c, commonModel.FilePathStreamQueryDto{
 			StorageType: "local",
@@ -802,12 +841,12 @@ func TestFileService_GetFilePresignURL(t *testing.T) {
 		assert.Equal(t, commonModel.FILE_TYPE_NOT_ALLOWED, err.Error())
 	})
 
-	t.Run("non-admin denied", func(t *testing.T) {
+	t.Run("member passes the permission gate", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
+		fix.expectMember()
 		_, err := fix.svc.GetFilePresignURL(fix.adminCtx(), &commonModel.GetPresignURLDto{FileName: "pic.png"})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		assert.NotEqual(t, commonModel.NO_PERMISSION_DENIED, err.Error())
 	})
 }
 
@@ -843,7 +882,6 @@ func TestFileService_DeleteFile(t *testing.T) {
 
 	t.Run("empty id rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		err := fix.svc.DeleteFile(fix.adminCtx(), "")
 		require.Error(t, err)
 		assert.Equal(t, commonModel.IMAGE_NOT_FOUND, err.Error())
@@ -851,18 +889,35 @@ func TestFileService_DeleteFile(t *testing.T) {
 
 	t.Run("missing id propagates repo error", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		err := fix.svc.DeleteFile(fix.adminCtx(), "missing-id")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	})
 
-	t.Run("non-admin denied", func(t *testing.T) {
+	t.Run("member deletes own external file", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectNonAdmin()
-		err := fix.svc.DeleteFile(fix.adminCtx(), "id")
-		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		own := &fileModel.File{
+			Key:         "external/image/own",
+			StorageType: "external",
+			Provider:    "external",
+			URL:         "https://example.com/own.png",
+			Name:        "own.png",
+			Category:    "image",
+			UserID:      fileTestUserID,
+		}
+		require.NoError(t, fix.db.Create(own).Error)
+
+		fix.expectMember()
+		require.NoError(t, fix.svc.DeleteFile(fix.adminCtx(), own.ID))
+		assert.Equal(t, int64(0), countFiles(t, fix.db))
+	})
+
+	t.Run("member denied another user's file", func(t *testing.T) {
+		fix := newFileFix(t)
+		foreign := fix.foreignFile(t, "other/del.png", "image")
+		fix.expectMember()
+		err := fix.svc.DeleteFile(fix.adminCtx(), foreign.ID)
+		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 	})
 }
 

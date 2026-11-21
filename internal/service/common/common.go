@@ -51,8 +51,8 @@ func (s *CommonService) CommonGetUserByUserId(ctx context.Context, userId string
 	return s.commonRepository.GetUserByUserId(ctx, userId)
 }
 
-func (s *CommonService) GetOwner() (userModel.User, error) {
-	return s.commonRepository.GetOwner(context.Background())
+func (s *CommonService) GetPrimaryAdmin() (userModel.User, error) {
+	return s.commonRepository.GetPrimaryAdmin(context.Background())
 }
 
 // ListSitemapEntries returns every public echo as an id + timestamp pair. It is
@@ -126,7 +126,7 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 		cacheKey,
 		1,
 		func() (RSSDocument, error) {
-			echos, err := s.commonRepository.GetAllEchos(ctx.Request.Context(), false)
+			echos, err := s.commonRepository.GetAllEchos(ctx.Request.Context(), echoModel.PrivateScope{})
 			if err != nil {
 				return RSSDocument{}, err
 			}

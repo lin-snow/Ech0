@@ -5,6 +5,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,30 @@ type Response struct {
 	MessageParams map[string]any `json:"message_params,omitempty"`
 
 	Err error `json:"-"`
+}
+
+// retryAfterSeconds renders the retry_after message parameter as a header
+// value, so raw gin responses keep the same contract as middleware refusals.
+func retryAfterSeconds(params map[string]any) string {
+	value, ok := params["retry_after"]
+	if !ok {
+		return ""
+	}
+	switch seconds := value.(type) {
+	case int:
+		if seconds > 0 {
+			return strconv.Itoa(seconds)
+		}
+	case int64:
+		if seconds > 0 {
+			return strconv.FormatInt(seconds, 10)
+		}
+	case float64:
+		if seconds >= 1 {
+			return strconv.Itoa(int(seconds))
+		}
+	}
+	return ""
 }
 
 func Execute(fn func(ctx *gin.Context) Response) gin.HandlerFunc {
@@ -56,7 +81,17 @@ func Execute(fn func(ctx *gin.Context) Response) gin.HandlerFunc {
 			}
 
 			msg = i18nUtil.Localize(localizer, messageKey, msg, params)
-			ctx.JSON(http.StatusBadRequest, commonModel.FailWithLocalized[string](msg, code, messageKey, params))
+			status := http.StatusBadRequest
+			switch code {
+			case commonModel.ErrCodeRateLimited:
+				status = http.StatusTooManyRequests
+				if seconds := retryAfterSeconds(params); seconds != "" {
+					ctx.Header("Retry-After", seconds)
+				}
+			case commonModel.ErrCodeAccountDisabled:
+				status = http.StatusForbidden
+			}
+			ctx.JSON(status, commonModel.FailWithLocalized[string](msg, code, messageKey, params))
 			return
 		}
 

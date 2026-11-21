@@ -1615,6 +1615,72 @@ func (_c *MockRepository_GetCommentByID_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// IsEchoPrivate provides a mock function for the type MockRepository
+func (_mock *MockRepository) IsEchoPrivate(ctx context.Context, echoID string) (bool, error) {
+	ret := _mock.Called(ctx, echoID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsEchoPrivate")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
+		return returnFunc(ctx, echoID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) bool); ok {
+		r0 = returnFunc(ctx, echoID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, echoID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRepository_IsEchoPrivate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsEchoPrivate'
+type MockRepository_IsEchoPrivate_Call struct {
+	*mock.Call
+}
+
+// IsEchoPrivate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - echoID string
+func (_e *MockRepository_Expecter) IsEchoPrivate(ctx any, echoID any) *MockRepository_IsEchoPrivate_Call {
+	return &MockRepository_IsEchoPrivate_Call{Call: _e.mock.On("IsEchoPrivate", ctx, echoID)}
+}
+
+func (_c *MockRepository_IsEchoPrivate_Call) Run(run func(ctx context.Context, echoID string)) *MockRepository_IsEchoPrivate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_IsEchoPrivate_Call) Return(b bool, err error) *MockRepository_IsEchoPrivate_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockRepository_IsEchoPrivate_Call) RunAndReturn(run func(ctx context.Context, echoID string) (bool, error)) *MockRepository_IsEchoPrivate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListComments provides a mock function for the type MockRepository
 func (_mock *MockRepository) ListComments(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error) {
 	ret := _mock.Called(ctx, query)
@@ -1682,8 +1748,8 @@ func (_c *MockRepository_ListComments_Call) RunAndReturn(run func(ctx context.Co
 }
 
 // ListPublicByEchoID provides a mock function for the type MockRepository
-func (_mock *MockRepository) ListPublicByEchoID(ctx context.Context, echoID string) ([]model.Comment, error) {
-	ret := _mock.Called(ctx, echoID)
+func (_mock *MockRepository) ListPublicByEchoID(ctx context.Context, echoID string, includePrivate bool) ([]model.Comment, error) {
+	ret := _mock.Called(ctx, echoID, includePrivate)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListPublicByEchoID")
@@ -1691,18 +1757,18 @@ func (_mock *MockRepository) ListPublicByEchoID(ctx context.Context, echoID stri
 
 	var r0 []model.Comment
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) ([]model.Comment, error)); ok {
-		return returnFunc(ctx, echoID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, bool) ([]model.Comment, error)); ok {
+		return returnFunc(ctx, echoID, includePrivate)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) []model.Comment); ok {
-		r0 = returnFunc(ctx, echoID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, bool) []model.Comment); ok {
+		r0 = returnFunc(ctx, echoID, includePrivate)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]model.Comment)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, echoID)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, bool) error); ok {
+		r1 = returnFunc(ctx, echoID, includePrivate)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1717,11 +1783,12 @@ type MockRepository_ListPublicByEchoID_Call struct {
 // ListPublicByEchoID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - echoID string
-func (_e *MockRepository_Expecter) ListPublicByEchoID(ctx any, echoID any) *MockRepository_ListPublicByEchoID_Call {
-	return &MockRepository_ListPublicByEchoID_Call{Call: _e.mock.On("ListPublicByEchoID", ctx, echoID)}
+//   - includePrivate bool
+func (_e *MockRepository_Expecter) ListPublicByEchoID(ctx any, echoID any, includePrivate any) *MockRepository_ListPublicByEchoID_Call {
+	return &MockRepository_ListPublicByEchoID_Call{Call: _e.mock.On("ListPublicByEchoID", ctx, echoID, includePrivate)}
 }
 
-func (_c *MockRepository_ListPublicByEchoID_Call) Run(run func(ctx context.Context, echoID string)) *MockRepository_ListPublicByEchoID_Call {
+func (_c *MockRepository_ListPublicByEchoID_Call) Run(run func(ctx context.Context, echoID string, includePrivate bool)) *MockRepository_ListPublicByEchoID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1731,9 +1798,14 @@ func (_c *MockRepository_ListPublicByEchoID_Call) Run(run func(ctx context.Conte
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -1744,14 +1816,14 @@ func (_c *MockRepository_ListPublicByEchoID_Call) Return(comments []model.Commen
 	return _c
 }
 
-func (_c *MockRepository_ListPublicByEchoID_Call) RunAndReturn(run func(ctx context.Context, echoID string) ([]model.Comment, error)) *MockRepository_ListPublicByEchoID_Call {
+func (_c *MockRepository_ListPublicByEchoID_Call) RunAndReturn(run func(ctx context.Context, echoID string, includePrivate bool) ([]model.Comment, error)) *MockRepository_ListPublicByEchoID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListPublicComments provides a mock function for the type MockRepository
-func (_mock *MockRepository) ListPublicComments(ctx context.Context, limit int) ([]model.Comment, error) {
-	ret := _mock.Called(ctx, limit)
+func (_mock *MockRepository) ListPublicComments(ctx context.Context, limit int, includePrivate bool) ([]model.Comment, error) {
+	ret := _mock.Called(ctx, limit, includePrivate)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListPublicComments")
@@ -1759,18 +1831,18 @@ func (_mock *MockRepository) ListPublicComments(ctx context.Context, limit int) 
 
 	var r0 []model.Comment
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]model.Comment, error)); ok {
-		return returnFunc(ctx, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, bool) ([]model.Comment, error)); ok {
+		return returnFunc(ctx, limit, includePrivate)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []model.Comment); ok {
-		r0 = returnFunc(ctx, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, bool) []model.Comment); ok {
+		r0 = returnFunc(ctx, limit, includePrivate)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]model.Comment)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
-		r1 = returnFunc(ctx, limit)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, bool) error); ok {
+		r1 = returnFunc(ctx, limit, includePrivate)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1785,11 +1857,12 @@ type MockRepository_ListPublicComments_Call struct {
 // ListPublicComments is a helper method to define mock.On call
 //   - ctx context.Context
 //   - limit int
-func (_e *MockRepository_Expecter) ListPublicComments(ctx any, limit any) *MockRepository_ListPublicComments_Call {
-	return &MockRepository_ListPublicComments_Call{Call: _e.mock.On("ListPublicComments", ctx, limit)}
+//   - includePrivate bool
+func (_e *MockRepository_Expecter) ListPublicComments(ctx any, limit any, includePrivate any) *MockRepository_ListPublicComments_Call {
+	return &MockRepository_ListPublicComments_Call{Call: _e.mock.On("ListPublicComments", ctx, limit, includePrivate)}
 }
 
-func (_c *MockRepository_ListPublicComments_Call) Run(run func(ctx context.Context, limit int)) *MockRepository_ListPublicComments_Call {
+func (_c *MockRepository_ListPublicComments_Call) Run(run func(ctx context.Context, limit int, includePrivate bool)) *MockRepository_ListPublicComments_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1799,9 +1872,14 @@ func (_c *MockRepository_ListPublicComments_Call) Run(run func(ctx context.Conte
 		if args[1] != nil {
 			arg1 = args[1].(int)
 		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -1812,7 +1890,7 @@ func (_c *MockRepository_ListPublicComments_Call) Return(comments []model.Commen
 	return _c
 }
 
-func (_c *MockRepository_ListPublicComments_Call) RunAndReturn(run func(ctx context.Context, limit int) ([]model.Comment, error)) *MockRepository_ListPublicComments_Call {
+func (_c *MockRepository_ListPublicComments_Call) RunAndReturn(run func(ctx context.Context, limit int, includePrivate bool) ([]model.Comment, error)) *MockRepository_ListPublicComments_Call {
 	_c.Call.Return(run)
 	return _c
 }

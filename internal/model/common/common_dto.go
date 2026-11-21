@@ -19,6 +19,7 @@ type EchoQueryDto struct {
 	DateFrom  int64    `json:"dateFrom"  doc:"Only Echoes created at or after this Unix time (seconds)"`
 	DateTo    int64    `json:"dateTo"    doc:"Only Echoes created at or before this Unix time (seconds)"`
 	Private   *bool    `json:"private,omitempty" doc:"Visibility filter: true for private only, false for public only; omit for both"`
+	Mine      bool     `json:"mine,omitempty" doc:"Only Echoes authored by the authenticated caller; requires sign-in"`
 	// Cursor switches the query to keyset pagination. Omit it for the legacy
 	// page-based mode; send an empty string on the first cursor request, then
 	// echo back the previous response's nextCursor. In cursor mode page is
@@ -38,6 +39,7 @@ type FileDto struct {
 	Size        int64  `json:"size,omitempty"`
 	Width       int    `json:"width,omitempty"`
 	Height      int    `json:"height,omitempty"`
+	UserID      string `json:"user_id,omitempty"`
 }
 
 type FileDeleteDto struct {

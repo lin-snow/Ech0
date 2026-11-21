@@ -78,9 +78,6 @@ func (userRepository *UserRepository) CreateUser(ctx context.Context, user *mode
 
 	userRepository.cache.Set(GetUserIDKey(user.ID), *user, 1)
 	userRepository.cache.Set(GetUsernameKey(user.Username), *user, 1)
-	if user.IsOwner {
-		userRepository.cache.Set(GetOwnerKey(), *user, 1)
-	}
 	return nil
 }
 
@@ -114,29 +111,20 @@ func (userRepository *UserRepository) GetUserByID(ctx context.Context, id string
 	)
 }
 
-func (userRepository *UserRepository) GetOwner(ctx context.Context) (model.User, error) {
-	cacheKey := GetOwnerKey()
-	return userRepository.cache.ReadThroughUnlessTx(
-		ctx,
-		cacheKey,
-		1,
-		func(ctx context.Context) (model.User, error) {
-			user := model.User{}
-			err := userRepository.getDB(ctx).Where("is_owner = ?", true).First(&user).Error
-			if err != nil {
-				return model.User{}, err
-			}
-			return user, nil
-		},
-		func() (model.User, error) {
-			user := model.User{}
-			err := userRepository.db().Where("is_owner = ?", true).First(&user).Error
-			if err != nil {
-				return model.User{}, err
-			}
-			return user, nil
-		},
-	)
+// GetPrimaryAdmin returns the instance's primary operator: the oldest admin
+// account. Errors are propagated so callers can tell "no admin yet" from a
+// database failure. It is deliberately uncached — promotion or demotion
+// changes the answer, and the lookup is a single indexed row.
+func (userRepository *UserRepository) GetPrimaryAdmin(ctx context.Context) (model.User, error) {
+	user := model.User{}
+	err := userRepository.getDB(ctx).
+		Where("is_admin = ?", true).
+		Order("id ASC").
+		First(&user).Error
+	if err != nil {
+		return model.User{}, err
+	}
+	return user, nil
 }
 
 func (userRepository *UserRepository) IsInitialized(ctx context.Context) (bool, error) {
@@ -189,41 +177,6 @@ func (userRepository *UserRepository) UpdateUser(ctx context.Context, user *mode
 	}
 	if user.IsAdmin {
 		userRepository.cache.Set(GetAdminKey(user.ID), *user, 1)
-	}
-	if existing.IsOwner && !user.IsOwner {
-		userRepository.cache.Delete(GetOwnerKey())
-	}
-	if user.IsOwner {
-		userRepository.cache.Set(GetOwnerKey(), *user, 1)
-	}
-
-	return nil
-}
-
-func (userRepository *UserRepository) DeleteUser(ctx context.Context, id string) error {
-	userToDel, err := userRepository.GetUserByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	err = userRepository.getDB(ctx).Where("id = ?", id).Delete(&model.User{}).Error
-	if err != nil {
-		return err
-	}
-
-	if err := userRepository.getDB(ctx).
-		Where("user_id = ?", id).
-		Delete(&model.UserLocalAuth{}).Error; err != nil {
-		return err
-	}
-
-	userRepository.cache.Delete(GetUserIDKey(userToDel.ID))
-	userRepository.cache.Delete(GetUsernameKey(userToDel.Username))
-	if userToDel.IsAdmin {
-		userRepository.cache.Delete(GetAdminKey(userToDel.ID))
-	}
-	if userToDel.IsOwner {
-		userRepository.cache.Delete(GetOwnerKey())
 	}
 
 	return nil

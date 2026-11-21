@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/database"
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
 	"github.com/lin-snow/ech0/internal/migrator/spec"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -32,7 +33,7 @@ func TestImporterMigrate_SuccessAndIdempotent(t *testing.T) {
 		t.Fatalf("chdir failed: %v", err)
 	}
 
-	sourceTmpDir := filepath.Join("data", "files", "tmp", "ech0_v4_test")
+	sourceTmpDir := filepath.Join(artifact.TmpRoot(), "ech0_v4_test")
 	if err := os.MkdirAll(sourceTmpDir, 0o755); err != nil {
 		t.Fatalf("mkdir source tmp dir failed: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestImporterMigrate_SuccessAndIdempotent(t *testing.T) {
 	extractor := New()
 	req := spec.ImportRequest{
 		SourcePayload: map[string]any{
-			"tmp_dir": "files/tmp/ech0_v4_test",
+			"tmp_dir": artifact.TmpDir + "/ech0_v4_test",
 		},
 	}
 

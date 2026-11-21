@@ -51,6 +51,8 @@ declare namespace App {
         dateFrom?: number
         dateTo?: number
         private?: boolean
+        /** Only Echoes authored by the caller; requires a signed-in request. */
+        mine?: boolean
         /** Omit for page mode; send '' for the first cursor page, then the previous nextCursor. */
         cursor?: string
       }

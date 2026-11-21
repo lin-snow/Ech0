@@ -32,8 +32,8 @@ func (s *InitService) GetStatus() (initModel.Status, error) {
 		return initModel.Status{}, err
 	}
 
-	_, ownerErr := s.repository.GetOwner()
-	ownerExists := ownerErr == nil
+	_, adminErr := s.repository.GetPrimaryAdmin()
+	ownerExists := adminErr == nil
 
 	return initModel.Status{
 		Initialized: initialized,

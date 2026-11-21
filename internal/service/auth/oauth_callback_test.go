@@ -16,6 +16,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	authmock "github.com/lin-snow/ech0/internal/test/mocks/authmock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
@@ -79,8 +80,14 @@ func newSvc(
 	repo := authmock.NewMockRepository(t)
 	authRepo := authmock.NewMockAuthRepo(t)
 	tx := txmock.NewMockTransactor(t)
-	svc := NewAuthService(tx, repo, authRepo, kv, nil)
+	svc := NewAuthService(tx, repo, authRepo, kv, nil, ratelimit.NewMemoryLimiter(ratelimit.DefaultPolicy()))
 	return svc, repo, authRepo, tx
+}
+
+// expectAccountActive stubs the uncached account-status read performed by every
+// login entry point before a token pair is issued.
+func expectAccountActive(authRepo *authmock.MockAuthRepo, userID string) {
+	authRepo.EXPECT().IsAccountActive(mock.Anything, userID).Return(true, nil).Once()
 }
 
 func runsTxInline(tx *txmock.MockTransactor) {
@@ -232,6 +239,7 @@ func TestHandleOAuthCallback_LoginSuccess(t *testing.T) {
 		GetUserByOAuthID(mock.Anything, string(commonModel.OAuth2GITHUB), "ext-1").
 		Return(user, nil).
 		Once()
+	expectAccountActive(authRepo, user.ID)
 
 	var storedCode string
 	authRepo.EXPECT().
@@ -328,6 +336,7 @@ func TestResolveOAuthCallback_LoginOAuthSuccess(t *testing.T) {
 		GetUserByOAuthID(mock.Anything, string(commonModel.OAuth2GITHUB), "ext-oauth").
 		Return(user, nil).
 		Once()
+	expectAccountActive(authRepo, user.ID)
 
 	var storedCode string
 	authRepo.EXPECT().
@@ -360,6 +369,7 @@ func TestResolveOAuthCallback_LoginOIDCSuccess(t *testing.T) {
 		GetUserByOIDC(mock.Anything, string(commonModel.OAuth2GITHUB), "sub-123", "https://idp.example.com").
 		Return(user, nil).
 		Once()
+	expectAccountActive(authRepo, user.ID)
 	authRepo.EXPECT().
 		StoreOAuthCode(mock.Anything, mock.Anything, 60*time.Second).
 		Return().
@@ -395,12 +405,13 @@ func TestResolveOAuthCallback_LoginLookupFailure(t *testing.T) {
 func TestResolveOAuthCallback_LoginRedirectRejected(t *testing.T) {
 	helpers.SetJWTSecret(t, "resolve-login-redirect-reject-secret")
 
-	svc, repo, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
+	svc, repo, authRepo, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 
 	repo.EXPECT().
 		GetUserByOAuthID(mock.Anything, string(commonModel.OAuth2GITHUB), "ext-1").
 		Return(userModel.User{ID: "u-1", Username: "alice"}, nil).
 		Once()
+	expectAccountActive(authRepo, "u-1")
 
 	out, err := svc.resolveOAuthCallback(
 		loginState("https://evil.example.net/auth"),

@@ -10,9 +10,7 @@ import (
 
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	"github.com/lin-snow/ech0/internal/test/helpers"
-	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -80,7 +78,7 @@ func TestListPublicByEchoID(t *testing.T) {
 		d := newDeps(t)
 		d.expectSetting(t, enabledSetting())
 		d.repo.EXPECT().
-			ListPublicByEchoID(mock.Anything, "echo-1").
+			ListPublicByEchoID(mock.Anything, "echo-1", false).
 			Return(nil, errRepoBoom).
 			Once()
 		_, err := d.service().ListPublicByEchoID(context.Background(), "echo-1")
@@ -91,7 +89,7 @@ func TestListPublicByEchoID(t *testing.T) {
 		d := newDeps(t)
 		d.expectSetting(t, enabledSetting())
 		d.repo.EXPECT().
-			ListPublicByEchoID(mock.Anything, "echo-1").
+			ListPublicByEchoID(mock.Anything, "echo-1", false).
 			Return([]commentModel.Comment{
 				{ID: "c-1", EchoID: "echo-1", Status: commentModel.StatusApproved, Nickname: "A"},
 				{ID: "c-2", EchoID: "echo-1", Status: commentModel.StatusApproved, Nickname: "B"},
@@ -141,8 +139,8 @@ func TestListPublicComments(t *testing.T) {
 			d.expectSetting(t, enabledSetting())
 			var captured int
 			d.repo.EXPECT().
-				ListPublicComments(mock.Anything, mock.Anything).
-				Run(func(_ context.Context, limit int) { captured = limit }).
+				ListPublicComments(mock.Anything, mock.Anything, false).
+				Run(func(_ context.Context, limit int, _ bool) { captured = limit }).
 				Return([]commentModel.Comment{}, nil).
 				Once()
 			_, err := d.service().ListPublicComments(context.Background(), tc.in)
@@ -155,7 +153,7 @@ func TestListPublicComments(t *testing.T) {
 		d := newDeps(t)
 		d.expectSetting(t, enabledSetting())
 		d.repo.EXPECT().
-			ListPublicComments(mock.Anything, mock.Anything).
+			ListPublicComments(mock.Anything, mock.Anything, false).
 			Return(nil, errRepoBoom).
 			Once()
 		_, err := d.service().ListPublicComments(context.Background(), 10)
@@ -266,12 +264,12 @@ func TestSendTestEmail(t *testing.T) {
 		assertBiz(t, err, commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
 	})
 
-	t.Run("missing owner email fails before sending", func(t *testing.T) {
+	t.Run("missing admin email fails before sending", func(t *testing.T) {
 		d := newDeps(t)
 		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
 		d.common.EXPECT().
-			GetOwner().
+			GetPrimaryAdmin().
 			Return(helpers.NewUser(), nil).
 			Once()
 		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1"), commentModel.SystemSetting{
@@ -284,9 +282,9 @@ func TestSendTestEmail(t *testing.T) {
 		d := newDeps(t)
 		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
-		owner := helpers.NewUser()
-		owner.Email = "owner@example.com"
-		d.common.EXPECT().GetOwner().Return(owner, nil).Once()
+		admin := helpers.NewUser()
+		admin.Email = "owner@example.com"
+		d.common.EXPECT().GetPrimaryAdmin().Return(admin, nil).Once()
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.ServerURLKey).
 			Return("https://example.com", nil)
@@ -302,9 +300,9 @@ func TestSendTestEmail(t *testing.T) {
 		d := newDeps(t)
 		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
-		owner := helpers.NewUser()
-		owner.Email = "owner@example.com"
-		d.common.EXPECT().GetOwner().Return(owner, nil).Once()
+		admin := helpers.NewUser()
+		admin.Email = "owner@example.com"
+		d.common.EXPECT().GetPrimaryAdmin().Return(admin, nil).Once()
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.ServerURLKey).
 			Return("https://example.com", nil)
@@ -317,31 +315,4 @@ func TestSendTestEmail(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-}
-
-func TestParseOptionalUserIDFromAuthHeader(t *testing.T) {
-	helpers.SetJWTSecret(t, testSecret)
-	user := helpers.NewUser()
-	user.ID = "u-42"
-	token, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
-	require.NoError(t, err)
-
-	cases := []struct {
-		name   string
-		header string
-		want   string
-	}{
-		{"valid bearer token yields user id", "Bearer " + token, "u-42"},
-		{"bearer scheme is case-insensitive", "bearer " + token, "u-42"},
-		{"empty header yields empty", "", ""},
-		{"non-bearer scheme yields empty", "Basic abc123", ""},
-		{"bearer without token yields empty", "Bearer", ""},
-		{"malformed token yields empty", "Bearer not.a.jwt", ""},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := commentService.ParseOptionalUserIDFromAuthHeader(tc.header)
-			assert.Equal(t, tc.want, got)
-		})
-	}
 }

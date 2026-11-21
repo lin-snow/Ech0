@@ -31,8 +31,8 @@ func setupFileRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	)
 }
 
-func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authz.ScopeFileRead), huma.Operation{
+func registerFile(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+	api.route(secured(revoker, authz.ScopeFileRead), huma.Operation{
 		OperationID: "file-list",
 		Method:      http.MethodGet,
 		Path:        "/files",
@@ -40,7 +40,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.ListFiles)
 
-	route(api, secured(revoker, authz.ScopeFileRead), huma.Operation{
+	api.route(secured(revoker, authz.ScopeFileRead), huma.Operation{
 		OperationID: "file-tree",
 		Method:      http.MethodGet,
 		Path:        "/file/tree",
@@ -48,7 +48,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.ListFileTree)
 
-	route(api, secured(revoker, authz.ScopeFileRead), huma.Operation{
+	api.route(secured(revoker, authz.ScopeFileRead), huma.Operation{
 		OperationID: "file-get",
 		Method:      http.MethodGet,
 		Path:        "/file/{id}",
@@ -56,7 +56,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.GetFileByID)
 
-	route(api, secured(revoker, authz.ScopeFileWrite), huma.Operation{
+	api.route(secured(revoker, authz.ScopeFileWrite), huma.Operation{
 		OperationID: "file-update-meta",
 		Method:      http.MethodPut,
 		Path:        "/file/{id}/meta",
@@ -64,7 +64,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.UpdateFileMeta)
 
-	route(api, secured(revoker, authz.ScopeFileWrite), huma.Operation{
+	api.route(secured(revoker, authz.ScopeFileWrite), huma.Operation{
 		OperationID: "file-external",
 		Method:      http.MethodPost,
 		Path:        "/files/external",
@@ -72,7 +72,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.CreateExternalFile)
 
-	route(api, secured(revoker, authz.ScopeFileDelete), huma.Operation{
+	api.route(secured(revoker, authz.ScopeFileDelete), huma.Operation{
 		OperationID: "file-delete",
 		Method:      http.MethodDelete,
 		Path:        "/file/{id}",
@@ -80,7 +80,7 @@ func registerFile(api huma.API, h *handler.Bundle, revoker authService.TokenRevo
 		Tags:        []string{"File"},
 	}, h.FileHandler.DeleteFile)
 
-	route(api, secured(revoker, authz.ScopeFileWrite), huma.Operation{
+	api.route(secured(revoker, authz.ScopeFileWrite), huma.Operation{
 		OperationID: "file-presign",
 		Method:      http.MethodPut,
 		Path:        "/files/presign",

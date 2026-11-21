@@ -98,11 +98,13 @@ jobs:
         working-directory: apps/cli
         run: bun install --frozen-lockfile
 
-      - name: Typecheck and test
+      - name: Typecheck, test and verify the generated client
         working-directory: apps/cli
         run: |
           bun run typecheck
           bun test
+          bun run gen:api
+          git diff --exit-code -- src/api/generated
 
       - name: Build binaries, release tarballs and npm packages
         working-directory: apps/cli

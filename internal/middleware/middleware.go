@@ -5,15 +5,17 @@ package middleware
 
 import (
 	"github.com/google/wire"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 type Deps struct {
 	TokenRevoker authService.TokenRevoker
+	Limiter      *ratelimit.MemoryLimiter
 }
 
-func NewDeps(revoker authService.TokenRevoker) *Deps {
-	return &Deps{TokenRevoker: revoker}
+func NewDeps(revoker authService.TokenRevoker, limits *ratelimit.MemoryLimiter) *Deps {
+	return &Deps{TokenRevoker: revoker, Limiter: limits}
 }
 
 var ProviderSet = wire.NewSet(NewDeps)

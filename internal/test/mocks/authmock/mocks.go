@@ -565,6 +565,72 @@ func (_c *MockService_HandleOAuthCallback_Call) RunAndReturn(run func(provider s
 	return _c
 }
 
+// IsAccountActive provides a mock function for the type MockService
+func (_mock *MockService) IsAccountActive(ctx context.Context, userID string) (bool, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsAccountActive")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) bool); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_IsAccountActive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsAccountActive'
+type MockService_IsAccountActive_Call struct {
+	*mock.Call
+}
+
+// IsAccountActive is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockService_Expecter) IsAccountActive(ctx any, userID any) *MockService_IsAccountActive_Call {
+	return &MockService_IsAccountActive_Call{Call: _e.mock.On("IsAccountActive", ctx, userID)}
+}
+
+func (_c *MockService_IsAccountActive_Call) Run(run func(ctx context.Context, userID string)) *MockService_IsAccountActive_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_IsAccountActive_Call) Return(b bool, err error) *MockService_IsAccountActive_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockService_IsAccountActive_Call) RunAndReturn(run func(ctx context.Context, userID string) (bool, error)) *MockService_IsAccountActive_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsTokenRevoked provides a mock function for the type MockService
 func (_mock *MockService) IsTokenRevoked(jti string) bool {
 	ret := _mock.Called(jti)
@@ -679,8 +745,8 @@ func (_c *MockService_ListPasskeys_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // Login provides a mock function for the type MockService
-func (_mock *MockService) Login(loginDto *model.LoginDto) (*model.TokenPair, error) {
-	ret := _mock.Called(loginDto)
+func (_mock *MockService) Login(ctx context.Context, loginDto *model.LoginDto) (*model.TokenPair, error) {
+	ret := _mock.Called(ctx, loginDto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Login")
@@ -688,18 +754,18 @@ func (_mock *MockService) Login(loginDto *model.LoginDto) (*model.TokenPair, err
 
 	var r0 *model.TokenPair
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(*model.LoginDto) (*model.TokenPair, error)); ok {
-		return returnFunc(loginDto)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.LoginDto) (*model.TokenPair, error)); ok {
+		return returnFunc(ctx, loginDto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(*model.LoginDto) *model.TokenPair); ok {
-		r0 = returnFunc(loginDto)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.LoginDto) *model.TokenPair); ok {
+		r0 = returnFunc(ctx, loginDto)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.TokenPair)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(*model.LoginDto) error); ok {
-		r1 = returnFunc(loginDto)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.LoginDto) error); ok {
+		r1 = returnFunc(ctx, loginDto)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -712,19 +778,25 @@ type MockService_Login_Call struct {
 }
 
 // Login is a helper method to define mock.On call
+//   - ctx context.Context
 //   - loginDto *model.LoginDto
-func (_e *MockService_Expecter) Login(loginDto any) *MockService_Login_Call {
-	return &MockService_Login_Call{Call: _e.mock.On("Login", loginDto)}
+func (_e *MockService_Expecter) Login(ctx any, loginDto any) *MockService_Login_Call {
+	return &MockService_Login_Call{Call: _e.mock.On("Login", ctx, loginDto)}
 }
 
-func (_c *MockService_Login_Call) Run(run func(loginDto *model.LoginDto)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) Run(run func(ctx context.Context, loginDto *model.LoginDto)) *MockService_Login_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *model.LoginDto
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(*model.LoginDto)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *model.LoginDto
+		if args[1] != nil {
+			arg1 = args[1].(*model.LoginDto)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -735,7 +807,7 @@ func (_c *MockService_Login_Call) Return(tokenPair *model.TokenPair, err error) 
 	return _c
 }
 
-func (_c *MockService_Login_Call) RunAndReturn(run func(loginDto *model.LoginDto) (*model.TokenPair, error)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) RunAndReturn(run func(ctx context.Context, loginDto *model.LoginDto) (*model.TokenPair, error)) *MockService_Login_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2636,6 +2708,72 @@ func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) Return(tokenPair *model.Token
 }
 
 func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) RunAndReturn(run func(code string) (*model.TokenPair, error)) *MockAuthRepo_GetAndDeleteOAuthCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// IsAccountActive provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) IsAccountActive(ctx context.Context, userID string) (bool, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsAccountActive")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) bool); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthRepo_IsAccountActive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsAccountActive'
+type MockAuthRepo_IsAccountActive_Call struct {
+	*mock.Call
+}
+
+// IsAccountActive is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockAuthRepo_Expecter) IsAccountActive(ctx any, userID any) *MockAuthRepo_IsAccountActive_Call {
+	return &MockAuthRepo_IsAccountActive_Call{Call: _e.mock.On("IsAccountActive", ctx, userID)}
+}
+
+func (_c *MockAuthRepo_IsAccountActive_Call) Run(run func(ctx context.Context, userID string)) *MockAuthRepo_IsAccountActive_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_IsAccountActive_Call) Return(b bool, err error) *MockAuthRepo_IsAccountActive_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockAuthRepo_IsAccountActive_Call) RunAndReturn(run func(ctx context.Context, userID string) (bool, error)) *MockAuthRepo_IsAccountActive_Call {
 	_c.Call.Return(run)
 	return _c
 }

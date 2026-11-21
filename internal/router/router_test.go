@@ -32,6 +32,7 @@ import (
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/internal/visitor"
 	"gorm.io/driver/sqlite"
@@ -432,7 +433,7 @@ func containsRoute(routes []gin.RouteInfo, method, path string) bool {
 }
 
 func buildTestMWDeps() *middleware.Deps {
-	return middleware.NewDeps(nil)
+	return middleware.NewDeps(nil, ratelimit.NewMemoryLimiter(ratelimit.DefaultPolicy()))
 }
 
 func buildTestHandlers() *handler.Bundle {

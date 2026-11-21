@@ -321,7 +321,7 @@ export type EchoFile = {
 
 export type EchoQueryDto = {
     /**
-     * Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page
+     * Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page. Cursor mode ignores page and requires sortBy=created_at
      */
     cursor?: string;
     /**
@@ -333,11 +333,15 @@ export type EchoQueryDto = {
      */
     dateTo?: number;
     /**
-     * Page number, 1-based (default 1)
+     * Only Echoes authored by the authenticated caller; requires sign-in
+     */
+    mine?: boolean;
+    /**
+     * Page number, 1-based (default 1); ignored when cursor is set
      */
     page?: number;
     /**
-     * Items per page, 1-100 (default 10)
+     * Items per page, 1-100 (default 10); also the cursor page size
      */
     pageSize?: number;
     /**
@@ -349,7 +353,7 @@ export type EchoQueryDto = {
      */
     search?: string;
     /**
-     * Sort field (default created_at)
+     * Sort field (default created_at); cursor pagination requires created_at
      */
     sortBy?: 'created_at' | 'reactions';
     /**
@@ -389,7 +393,7 @@ export type EchoUpsertDto = {
      */
     layout?: string;
     /**
-     * Visible only to the owner
+     * Hidden from anonymous visitors; visible to all signed-in users
      */
     private?: boolean;
     /**
@@ -502,6 +506,7 @@ export type FileDto = {
     size?: number;
     storage_type?: string;
     url?: string;
+    user_id?: string;
     width?: number;
     [key: string]: unknown;
 };
@@ -1519,9 +1524,11 @@ export type SystemSetting = {
     footer_content?: string;
     footer_link?: string;
     meting_api?: string;
+    privacy_policy?: string;
     server_logo?: string;
     server_name?: string;
     server_url?: string;
+    show_privacy_footer?: boolean;
     site_title?: string;
     [key: string]: unknown;
 };
@@ -1536,10 +1543,12 @@ export type SystemSettingDto = {
     footer_content?: string;
     footer_link?: string;
     meting_api?: string;
+    privacy_policy?: string;
     server_logo?: string;
     server_logo_file_id?: string;
     server_name?: string;
     server_url?: string;
+    show_privacy_footer?: boolean;
     site_title?: string;
     [key: string]: unknown;
 };
@@ -1587,13 +1596,21 @@ export type UpdateFileMetaDto = {
     [key: string]: unknown;
 };
 
+export type UpdateUserStatusInputBody = {
+    /**
+     * 账户状态：ACTIVE 或 DISABLED
+     */
+    status?: string;
+    [key: string]: unknown;
+};
+
 export type User = {
     avatar?: string;
     email?: string;
     id?: string;
     is_admin?: boolean;
-    is_owner?: boolean;
     locale?: string;
+    status?: string;
     username?: string;
     [key: string]: unknown;
 };
@@ -1603,7 +1620,6 @@ export type UserInfoDto = {
     avatar_file_id?: string;
     email?: string;
     is_admin?: boolean;
-    is_owner?: boolean;
     locale?: string;
     password?: string;
     username?: string;
@@ -4289,6 +4305,36 @@ export type UserSetAdminResponses = {
 };
 
 export type UserSetAdminResponse = UserSetAdminResponses[keyof UserSetAdminResponses];
+
+export type UserSetStatusData = {
+    body: UpdateUserStatusInputBody;
+    path: {
+        /**
+         * 用户 ID（UUID）
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/user/status/{id}';
+};
+
+export type UserSetStatusErrors = {
+    /**
+     * Error
+     */
+    default: ErrorBody;
+};
+
+export type UserSetStatusError = UserSetStatusErrors[keyof UserSetStatusErrors];
+
+export type UserSetStatusResponses = {
+    /**
+     * OK
+     */
+    200: ResultInterface;
+};
+
+export type UserSetStatusResponse = UserSetStatusResponses[keyof UserSetStatusResponses];
 
 export type UserDeleteData = {
     body?: never;

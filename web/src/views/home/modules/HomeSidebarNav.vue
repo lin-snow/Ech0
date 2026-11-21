@@ -7,7 +7,7 @@
         <RouterLink
           v-for="item in visibleItems"
           :key="item.id"
-          :to="item.to"
+          :to="item.id === 'panel' ? panelTarget : item.to"
           class="home-sidebar-nav__link"
           :class="{ 'home-sidebar-nav__link--active': isItemActive(item) }"
         >
@@ -59,7 +59,9 @@ const settingStore = useSettingStore()
 const { isLogin } = storeToRefs(userStore)
 const { searchingMode, isFilteringMode } = storeToRefs(echoStore)
 const { AgentSetting } = storeToRefs(settingStore)
-const chatAvailable = computed(() => isLogin.value && AgentSetting.value.enable)
+const chatAvailable = computed(
+  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+)
 const props = defineProps<{
   mobileSearchOpen?: boolean
 }>()
@@ -134,13 +136,20 @@ const visibleItems = computed(() =>
   }),
 )
 
+const panelTarget = computed(() =>
+  userStore.user?.is_admin ? { name: 'panel-dashboard' } : { name: 'panel-user' },
+)
+
 const isItemActive = (item: (typeof items)[number]) => {
+  if (item.id === 'panel') {
+    return String(route.name ?? '').startsWith('panel')
+  }
   if (item.kind === 'homeTab') {
     const tab = currentHomeTab.value
     const itemTab = 'query' in item.to ? item.to.query.tab : 'home'
     return route.name === 'home' && tab === itemTab
   }
-  return route.name === item.to.name
+  return false
 }
 
 const handleSearchClick = async () => {

@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"github.com/lin-snow/ech0/internal/config"
+	artifact "github.com/lin-snow/ech0/internal/migrator/artifact"
 	"github.com/lin-snow/ech0/pkg/egress"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
@@ -49,8 +50,19 @@ func initEgress() {
 	egress.SetAllowPrivate(config.Config().Egress.AllowPrivate)
 }
 
+// initArtifacts moves snapshots, capsules and migration working copies written
+// by older versions out of the unauthenticated storage root. Failure is not
+// fatal: the public file route refuses those directories anyway, so an
+// unmoved artifact stays unreachable.
+func initArtifacts() {
+	if err := artifact.MigrateLegacyArtifacts(); err != nil {
+		logUtil.Warn("Failed to migrate legacy artifacts out of the public storage root", logUtil.Err(err))
+	}
+}
+
 func Bootstrap() {
 	initConfig()
 	initLogger()
 	initEgress()
+	initArtifacts()
 }

@@ -13,7 +13,6 @@ description: Docker / Compose / 二进制 / Helm；端口、数据与安全要�
 | ------------ | ---------------------------------------------------------------------------- |
 | 端口         | 默认 **6277**。若被占用，把 `-p` 左侧改成宿主机端口，例如 `-p 8080:6277`。   |
 | 数据目录     | 务必用 `-v` 映射到宿主机路径，否则删容器会丢数据。                           |
-| `JWT_SECRET` | 用于会话签名，**必须**改为足够长的随机串；泄露或弱密钥会导致会话被伪造。     |
 | 公网访问     | 云服务器需在控制台 **安全组** 放行对应端口；仅内网使用可只绑定 `127.0.0.1`。 |
 
 **HTTPS**：Ech0 本身可 HTTP 运行；对外公网强烈建议在前面加 **Nginx / Caddy / Traefik** 做 TLS 终止，证书可用 Let’s Encrypt。反代时把流量转到 `http://127.0.0.1:6277`（或你的容器端口）即可。
@@ -27,12 +26,10 @@ docker run -d \
   --name ech0 \
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
-  -e JWT_SECRET="Hello Echos" \
   sn0wl1n/ech0:latest
 ```
 
 - 部署完成后浏览器访问 `http://<服务器IP>:6277`（本机即 `http://127.0.0.1:6277`）。
-- **请把** `JWT_SECRET="Hello Echos"` **改成你自己的随机字符串**，不要长期使用示例值。
 - **第一个注册的账号**会成为管理员（Owner）；当前版本默认只有高权限账号可以发帖。
 - 数据持久化在上例的 `/opt/ech0/data`（可按需改挂载路径；确保目录对容器可写）。
 
@@ -76,8 +73,6 @@ services:
       - "6277:6277"
     volumes:
       - ./data:/app/data
-    environment:
-      - JWT_SECRET=请改为随机强密码
     restart: unless-stopped
 ```
 
@@ -126,7 +121,7 @@ helm install my-ech0 ech0/ech0 --namespace my-namespace --create-namespace
 helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
-`JWT_SECRET` 等可通过 `values.yaml` 或 `--set` 传入，详见 Chart 目录内说明。
+若启用 `persistence`，请保证数据卷持久：数据与会话状态都在其中。
 
 如果你需要从本地源码安装，也可以保留旧方式：
 
@@ -160,8 +155,7 @@ helm install ech0 ./charts/ech0
 
 ## 环境变量与进阶配置
 
-除 `JWT_SECRET` 外，其余变量（数据库路径、日志级别、对象存储等）按部署方式在 `.env` 或 Compose 中设置；具体名称以你的部署模板为准。时区语义：站点级统计固定 UTC，用户视角接口（如「今日」、热力图）使用浏览器请求的 **`X-Timezone`**。生产环境建议：
+其余变量（数据库路径、日志级别、对象存储等）按部署方式在 `.env` 或 Compose 中设置；具体名称以你的部署模板为准。时区语义：站点级统计固定 UTC，用户视角接口（如「今日」、热力图）使用浏览器请求的 **`X-Timezone`**。生产环境建议：
 
-- 不要用默认示例密钥；
 - 定期备份数据目录与快照；
 - 需要自动化时，在后台创建 [访问令牌](/zh/docs/guide/accesstoken)，勿把令牌写入公开仓库。

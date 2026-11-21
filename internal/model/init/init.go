@@ -5,6 +5,8 @@ package model
 
 type Status struct {
 	Initialized bool `json:"initialized"`
+	// OwnerExists reports whether an administrator account already exists.
+	// The JSON name stays for wire compatibility with existing clients.
 	OwnerExists bool `json:"owner_exists"`
 }
 

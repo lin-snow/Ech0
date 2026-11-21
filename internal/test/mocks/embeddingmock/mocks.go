@@ -976,8 +976,8 @@ func (_m *MockEchoReader) EXPECT() *MockEchoReader_Expecter {
 }
 
 // GetEchosByPage provides a mock function for the type MockEchoReader
-func (_mock *MockEchoReader) GetEchosByPage(page int, pageSize int, search string, showPrivate bool) ([]model0.Echo, int64) {
-	ret := _mock.Called(page, pageSize, search, showPrivate)
+func (_mock *MockEchoReader) GetEchosByPage(page int, pageSize int, search string, scope model0.PrivateScope) ([]model0.Echo, int64) {
+	ret := _mock.Called(page, pageSize, search, scope)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetEchosByPage")
@@ -985,18 +985,18 @@ func (_mock *MockEchoReader) GetEchosByPage(page int, pageSize int, search strin
 
 	var r0 []model0.Echo
 	var r1 int64
-	if returnFunc, ok := ret.Get(0).(func(int, int, string, bool) ([]model0.Echo, int64)); ok {
-		return returnFunc(page, pageSize, search, showPrivate)
+	if returnFunc, ok := ret.Get(0).(func(int, int, string, model0.PrivateScope) ([]model0.Echo, int64)); ok {
+		return returnFunc(page, pageSize, search, scope)
 	}
-	if returnFunc, ok := ret.Get(0).(func(int, int, string, bool) []model0.Echo); ok {
-		r0 = returnFunc(page, pageSize, search, showPrivate)
+	if returnFunc, ok := ret.Get(0).(func(int, int, string, model0.PrivateScope) []model0.Echo); ok {
+		r0 = returnFunc(page, pageSize, search, scope)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]model0.Echo)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(int, int, string, bool) int64); ok {
-		r1 = returnFunc(page, pageSize, search, showPrivate)
+	if returnFunc, ok := ret.Get(1).(func(int, int, string, model0.PrivateScope) int64); ok {
+		r1 = returnFunc(page, pageSize, search, scope)
 	} else {
 		r1 = ret.Get(1).(int64)
 	}
@@ -1012,12 +1012,12 @@ type MockEchoReader_GetEchosByPage_Call struct {
 //   - page int
 //   - pageSize int
 //   - search string
-//   - showPrivate bool
-func (_e *MockEchoReader_Expecter) GetEchosByPage(page any, pageSize any, search any, showPrivate any) *MockEchoReader_GetEchosByPage_Call {
-	return &MockEchoReader_GetEchosByPage_Call{Call: _e.mock.On("GetEchosByPage", page, pageSize, search, showPrivate)}
+//   - scope model0.PrivateScope
+func (_e *MockEchoReader_Expecter) GetEchosByPage(page any, pageSize any, search any, scope any) *MockEchoReader_GetEchosByPage_Call {
+	return &MockEchoReader_GetEchosByPage_Call{Call: _e.mock.On("GetEchosByPage", page, pageSize, search, scope)}
 }
 
-func (_c *MockEchoReader_GetEchosByPage_Call) Run(run func(page int, pageSize int, search string, showPrivate bool)) *MockEchoReader_GetEchosByPage_Call {
+func (_c *MockEchoReader_GetEchosByPage_Call) Run(run func(page int, pageSize int, search string, scope model0.PrivateScope)) *MockEchoReader_GetEchosByPage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 int
 		if args[0] != nil {
@@ -1031,9 +1031,9 @@ func (_c *MockEchoReader_GetEchosByPage_Call) Run(run func(page int, pageSize in
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
-		var arg3 bool
+		var arg3 model0.PrivateScope
 		if args[3] != nil {
-			arg3 = args[3].(bool)
+			arg3 = args[3].(model0.PrivateScope)
 		}
 		run(
 			arg0,
@@ -1050,7 +1050,7 @@ func (_c *MockEchoReader_GetEchosByPage_Call) Return(echos []model0.Echo, n int6
 	return _c
 }
 
-func (_c *MockEchoReader_GetEchosByPage_Call) RunAndReturn(run func(page int, pageSize int, search string, showPrivate bool) ([]model0.Echo, int64)) *MockEchoReader_GetEchosByPage_Call {
+func (_c *MockEchoReader_GetEchosByPage_Call) RunAndReturn(run func(page int, pageSize int, search string, scope model0.PrivateScope) ([]model0.Echo, int64)) *MockEchoReader_GetEchosByPage_Call {
 	_c.Call.Return(run)
 	return _c
 }

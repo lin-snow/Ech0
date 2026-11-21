@@ -31,7 +31,6 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
-	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/pkg/busen"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -93,6 +92,28 @@ func (s *CommentService) GetFormMeta(ctx context.Context, clientIP, apiBaseURL s
 	}, nil
 }
 
+// viewerSeesPrivate mirrors the echo listing rule: private is an audience
+// marker, so any signed-in member may read those rows, while anonymous
+// visitors and access tokens without echo:private may not.
+func (s *CommentService) viewerSeesPrivate(ctx context.Context) bool {
+	v := viewer.MustFromContext(ctx)
+	if v.UserID() == "" {
+		return false
+	}
+	return v.TokenType() == authModel.TokenTypeSession || authz.Has(v.Scopes(), authz.ScopeEchoPrivate)
+}
+
+// assertEchoCommentable rejects comments whose target echo is missing or
+// private to this caller. Anonymous visitors cannot even name a private echo;
+// signed-in members can comment on what they can read.
+func (s *CommentService) assertEchoCommentable(ctx context.Context, echoID string) error {
+	private, err := s.repo.IsEchoPrivate(ctx, echoID)
+	if err != nil || (private && !s.viewerSeesPrivate(ctx)) {
+		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+	}
+	return nil
+}
+
 func (s *CommentService) CreateComment(
 	ctx context.Context,
 	clientIP string,
@@ -145,14 +166,13 @@ func (s *CommentService) CreateComment(
 		return model.CreateCommentResult{},
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
 	}
-
 	parentID, err := s.resolveParentID(ctx, comment.EchoID, dto.ParentID)
 	if err != nil {
 		return model.CreateCommentResult{}, err
 	}
 	comment.ParentID = parentID
 
-	if validUser && (user.IsAdmin || user.IsOwner) {
+	if validUser {
 		comment.Source = model.SourceSystem
 		comment.Nickname = user.Username
 		comment.Email = ""
@@ -171,8 +191,12 @@ func (s *CommentService) CreateComment(
 				commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "邮箱格式无效")
 		}
 		if website != "" {
+			// The website is rendered as an <a href> on the public page, so only
+			// http(s) is allowed: any other scheme (javascript:, data:, ...)
+			// becomes script execution in the visitor's origin on click.
 			parsed, err := url.ParseRequestURI(website)
-			if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			if err != nil || parsed.Host == "" ||
+				(parsed.Scheme != "http" && parsed.Scheme != "https") {
 				return model.CreateCommentResult{},
 					commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "网址格式无效")
 			}
@@ -188,6 +212,10 @@ func (s *CommentService) CreateComment(
 		if err := s.checkRateLimit(ctx, comment.IPHash, email, ""); err != nil {
 			return model.CreateCommentResult{}, err
 		}
+	}
+
+	if err := s.assertEchoCommentable(ctx, comment.EchoID); err != nil {
+		return model.CreateCommentResult{}, err
 	}
 
 	duplicated, err := s.repo.ExistsRecentDuplicate(
@@ -211,8 +239,8 @@ func (s *CommentService) CreateComment(
 		return model.CreateCommentResult{}, err
 	}
 	s.emitCommentCreated(ctx, comment)
-	if shouldNotifyOwnerOnCreate(comment.Source) {
-		s.notifyOwnerAsync(ctx, "created", comment)
+	if shouldNotifyAdminOnCreate(comment.Source) {
+		s.notifyAdminAsync(ctx, "created", comment)
 	}
 	s.notifyReplyTargetAsync(ctx, comment)
 	return model.CreateCommentResult{
@@ -271,7 +299,6 @@ func (s *CommentService) CreateIntegrationComment(
 		return model.CreateCommentResult{},
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
 	}
-
 	nickname := strings.TrimSpace(dto.Nickname)
 	if nickname == "" {
 		nickname = "Integration"
@@ -287,6 +314,10 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 
 	if err := s.checkIntegrationRateLimit(ctx, comment.IPHash, userID, tokenID); err != nil {
+		return model.CreateCommentResult{}, err
+	}
+
+	if err := s.assertEchoCommentable(ctx, comment.EchoID); err != nil {
 		return model.CreateCommentResult{}, err
 	}
 
@@ -321,8 +352,8 @@ func (s *CommentService) CreateIntegrationComment(
 	)
 
 	s.emitCommentCreated(ctx, comment)
-	if shouldNotifyOwnerOnCreate(comment.Source) {
-		s.notifyOwnerAsync(ctx, "created", comment)
+	if shouldNotifyAdminOnCreate(comment.Source) {
+		s.notifyAdminAsync(ctx, "created", comment)
 	}
 	return model.CreateCommentResult{
 		ID:     comment.ID,
@@ -364,7 +395,7 @@ func (s *CommentService) ListPublicByEchoID(ctx context.Context, echoID string) 
 	if !setting.EnableComment {
 		return []model.PublicComment{}, nil
 	}
-	rows, err := s.repo.ListPublicByEchoID(ctx, strings.TrimSpace(echoID))
+	rows, err := s.repo.ListPublicByEchoID(ctx, strings.TrimSpace(echoID), s.viewerSeesPrivate(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +416,7 @@ func (s *CommentService) ListPublicComments(ctx context.Context, limit int) ([]m
 	if limit > 100 {
 		limit = 100
 	}
-	rows, err := s.repo.ListPublicComments(ctx, limit)
+	rows, err := s.repo.ListPublicComments(ctx, limit, s.viewerSeesPrivate(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +458,7 @@ func (s *CommentService) UpdateCommentStatus(ctx context.Context, id string, sta
 	}
 	if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
 		s.emitCommentStatusUpdated(ctx, updated)
-		s.notifyOwnerAsync(ctx, "status", updated)
+		s.notifyAdminAsync(ctx, "status", updated)
 	}
 	return nil
 }
@@ -441,7 +472,7 @@ func (s *CommentService) UpdateCommentHot(ctx context.Context, id string, hot bo
 	}
 	if hot {
 		if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
-			s.notifyOwnerAsync(ctx, "hot", updated)
+			s.notifyAdminAsync(ctx, "hot", updated)
 		}
 	}
 	return nil
@@ -476,7 +507,7 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		for _, id := range ids {
 			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
 				s.emitCommentStatusUpdated(ctx, updated)
-				s.notifyOwnerAsync(ctx, "status", updated)
+				s.notifyAdminAsync(ctx, "status", updated)
 			}
 		}
 		return nil
@@ -487,7 +518,7 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		for _, id := range ids {
 			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
 				s.emitCommentStatusUpdated(ctx, updated)
-				s.notifyOwnerAsync(ctx, "status", updated)
+				s.notifyAdminAsync(ctx, "status", updated)
 			}
 		}
 		return nil
@@ -568,12 +599,12 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 	if err == nil && strings.TrimSpace(setting.EmailNotify.SMTPPassword) == "" {
 		setting.EmailNotify.SMTPPassword = current.EmailNotify.SMTPPassword
 	}
-	ownerEmail, err := s.resolveOwnerEmail()
+	adminEmail, err := s.resolveAdminEmail()
 	if err != nil {
 		return err
 	}
 	serverURL := s.resolveServerURL(ctx)
-	if err := validateEmailNotifySetting(setting.EmailNotify, ownerEmail); err != nil {
+	if err := validateEmailNotifySetting(setting.EmailNotify, adminEmail); err != nil {
 		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, err.Error())
 	}
 	content := buildNotifyContent("test", model.Comment{
@@ -584,15 +615,15 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 		Status:    model.StatusPending,
 		CreatedAt: time.Now().UTC().Unix(),
 	}, serverURL)
-	return s.sendOwnerMail(ctx, setting.EmailNotify, MailMessage{
-		To:       ownerEmail,
+	return s.sendAdminMail(ctx, setting.EmailNotify, MailMessage{
+		To:       adminEmail,
 		Subject:  content.Subject,
 		TextBody: content.TextBody,
 		HTMLBody: content.HTMLBody,
 	})
 }
 
-func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comment model.Comment) {
+func (s *CommentService) notifyAdminAsync(ctx context.Context, kind string, comment model.Comment) {
 	setting, err := s.getSystemSettingRaw(ctx)
 	if err != nil {
 		return
@@ -611,18 +642,18 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 			return
 		}
 	} else {
-		ownerEmail, ownerErr := s.resolveOwnerEmail()
+		adminEmail, ownerErr := s.resolveAdminEmail()
 		if ownerErr != nil {
 			return
 		}
-		recipient = ownerEmail
+		recipient = adminEmail
 	}
 	serverURL := s.resolveServerURL(ctx)
 	content := buildNotifyContent(kind, comment, serverURL)
 	go func(cfg model.EmailNotifySetting, msg MailMessage) {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
+		if err := s.sendAdminMail(notifyCtx, cfg, msg); err != nil {
 			logUtil.GetLogger().Warn("comment notify mail failed", logUtil.Err(err), slog.String("comment_id", comment.ID))
 		}
 	}(setting.EmailNotify, MailMessage{
@@ -652,8 +683,8 @@ func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment mod
 	if strings.EqualFold(targetEmail, strings.TrimSpace(comment.Email)) {
 		return
 	}
-	if ownerEmail, ownerErr := s.resolveOwnerEmail(); ownerErr == nil &&
-		strings.EqualFold(targetEmail, strings.TrimSpace(ownerEmail)) {
+	if adminEmail, ownerErr := s.resolveAdminEmail(); ownerErr == nil &&
+		strings.EqualFold(targetEmail, strings.TrimSpace(adminEmail)) {
 		return
 	}
 	serverURL := s.resolveServerURL(ctx)
@@ -661,7 +692,7 @@ func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment mod
 	go func(cfg model.EmailNotifySetting, msg MailMessage) {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
+		if err := s.sendAdminMail(notifyCtx, cfg, msg); err != nil {
 			logUtil.GetLogger().Warn("comment reply notify mail failed",
 				logUtil.Err(err), slog.String("comment_id", comment.ID))
 		}
@@ -677,7 +708,7 @@ func useCommentRecipient(kind string) bool {
 	return kind == "status" || kind == "hot"
 }
 
-func shouldNotifyOwnerOnCreate(source model.SourceType) bool {
+func shouldNotifyAdminOnCreate(source model.SourceType) bool {
 	return source != model.SourceSystem
 }
 
@@ -692,7 +723,7 @@ func parseValidEmail(raw string) (string, bool) {
 	return email, true
 }
 
-func (s *CommentService) sendOwnerMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
+func (s *CommentService) sendAdminMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
 	if s.mailer == nil {
 		return errors.New("mailer unavailable")
 	}
@@ -728,12 +759,12 @@ func shouldNotify(setting model.SystemSetting, kind string, status model.Status)
 	return false
 }
 
-func validateEmailNotifySetting(cfg model.EmailNotifySetting, ownerEmail string) error {
-	if strings.TrimSpace(ownerEmail) == "" {
-		return errors.New("owner 邮箱不能为空")
+func validateEmailNotifySetting(cfg model.EmailNotifySetting, adminEmail string) error {
+	if strings.TrimSpace(adminEmail) == "" {
+		return errors.New("管理员邮箱不能为空")
 	}
-	if _, err := mail.ParseAddress(strings.TrimSpace(ownerEmail)); err != nil {
-		return errors.New("owner 邮箱格式无效")
+	if _, err := mail.ParseAddress(strings.TrimSpace(adminEmail)); err != nil {
+		return errors.New("管理员邮箱格式无效")
 	}
 	if strings.TrimSpace(cfg.SMTPHost) == "" {
 		return errors.New("SMTP Host 不能为空")
@@ -773,14 +804,14 @@ func sanitizeSettingForOutput(in model.SystemSetting) model.SystemSetting {
 	return out
 }
 
-func (s *CommentService) resolveOwnerEmail() (string, error) {
-	owner, err := s.commonService.GetOwner()
+func (s *CommentService) resolveAdminEmail() (string, error) {
+	admin, err := s.commonService.GetPrimaryAdmin()
 	if err != nil {
 		return "", err
 	}
-	email := strings.TrimSpace(owner.Email)
+	email := strings.TrimSpace(admin.Email)
 	if email == "" {
-		return "", errors.New("owner 邮箱未设置")
+		return "", errors.New("管理员邮箱未设置")
 	}
 	return email, nil
 }
@@ -878,7 +909,7 @@ func (s *CommentService) requireAdmin(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !user.IsAdmin && !user.IsOwner {
+	if !user.IsAdmin {
 		return commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
 	}
 	return nil
@@ -909,18 +940,6 @@ func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel
 		return user, false, nil
 	}
 	return u, true, nil
-}
-
-func ParseOptionalUserIDFromAuthHeader(authHeader string) string {
-	parts := strings.SplitN(strings.TrimSpace(authHeader), " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return ""
-	}
-	claims, err := jwtUtil.ParseToken(strings.TrimSpace(parts[1]))
-	if err != nil {
-		return ""
-	}
-	return claims.Userid
 }
 
 func hashClientIP(ip string) string {

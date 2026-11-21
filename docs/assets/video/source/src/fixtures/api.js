@@ -9,7 +9,7 @@ const DAY = 86400;
 const NOW = Math.floor(new Date('2026-09-18T09:30:00+08:00').getTime() / 1000);
 const at = (daysAgo, hh = 9, mm = 0) => NOW - daysAgo * DAY - (9 * 3600 + 1800) + hh * 3600 + mm * 60;
 
-export const USER = {id: 'u-mira', username: 'Mira', email: 'mira@example.com', is_admin: true, is_owner: true, avatar: '', locale: 'en-US'};
+export const USER = {id: 'u-mira', username: 'Mira', email: 'mira@example.com', is_admin: true, avatar: '', locale: 'en-US'};
 const tag = (id, name, n) => ({id, name, usage_count: n, created_at: at(90)});
 export const TAGS = [tag('t-build', 'build', 24), tag('t-notes', 'notes', 41), tag('t-photo', 'photo', 18), tag('t-reading', 'reading', 12)];
 const T = n => TAGS.find(t => t.name === n);

@@ -52,6 +52,7 @@
 | [dev/logging.md](dev/logging.md) | 日志库用法与字段 / `module` 约定 |
 | [dev/table-design-standard.md](dev/table-design-standard.md) | Panel 表格组件的布局与交互规范 |
 | [dev/huma-raw-gin-endpoints.md](dev/huma-raw-gin-endpoints.md) | 仍走裸 gin 的端点清单及原因（其余 JSON 端点已全量 Huma 化） |
+| [dev/roles-and-permissions.md](dev/roles-and-permissions.md) | admin / member / 访客的权限边界，以及角色位与访问令牌 scope 两套鉴权的分工 |
 | [dev/seo-sharing.md](dev/seo-sharing.md) | 分享卡片与可抓取性：服务端 head 注入、路由表同步、canonical / OG / JSON-LD、robots / sitemap |
 
 ### 设计记录（为什么这样）
@@ -59,6 +60,7 @@
 | 文档 | 说明 |
 |------|------|
 | [dev/auth-design.md](dev/auth-design.md) | 认证体系：双 Token、OAuth / Passkey、吊销策略 |
+| [dev/user-permission-model-design.md](dev/user-permission-model-design.md) | 用户与权限目标模型：身份、三权限域、账户状态与永久删除范围（设计稿） |
 | [dev/mcp-authorization-design.md](dev/mcp-authorization-design.md) | MCP 授权服务器：PRM / AS 元数据、CIMD + DCR、授权码 + PKCE、scope 与撤销 |
 | [dev/access-token-scope-design.md](dev/access-token-scope-design.md) | Access Token 的 `typ` / scope / audience 设计背景（实现以代码为准） |
 | [dev/cli-design.md](dev/cli-design.md) | CLI（`apps/cli`）：Bun/TS 技术栈、catalog 驱动的命令发现、Huma→TS/zod 生成链、三种登录与 device flow、输出契约 |

@@ -22,7 +22,7 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			}
 		}
 
-		tokenPair, err := h.authService.Login(&loginDto)
+		tokenPair, err := h.authService.Login(ctx.Request.Context(), &loginDto)
 		if err != nil {
 			return res.Response{
 				Msg: "",

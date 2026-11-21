@@ -36,15 +36,10 @@ spec:
             - name: http
               containerPort: {{ .Values.service.httpPort }}
               protocol: TCP
+          {{- with .Values.extraEnv }}
           env:
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "ech0.fullname" . }}
-                  key: JWT_SECRET
-            {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
-            {{- end }}
+          {{- end }}
           {{- with .Values.extraEnvFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}

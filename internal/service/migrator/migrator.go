@@ -122,7 +122,7 @@ func (s *MigratorService) UploadSourceZip(
 		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
 	}
 
-	baseTmpDir := filepath.Join("data", coreMigrator.TmpRelativeDir)
+	baseTmpDir := artifact.TmpRoot()
 	if err := os.MkdirAll(baseTmpDir, 0o755); err != nil {
 		return migratorModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("create migration tmp dir: %w", err)
 	}
@@ -147,7 +147,7 @@ func (s *MigratorService) UploadSourceZip(
 		return migratorModel.UploadMigrationSourceZipResponse{}, fmt.Errorf("unpack migration zip: %w", err)
 	}
 
-	relativeTmpDir := filepath.ToSlash(filepath.Join(coreMigrator.TmpRelativeDir, folderName))
+	relativeTmpDir := filepath.ToSlash(filepath.Join(artifact.TmpDir, folderName))
 	return migratorModel.UploadMigrationSourceZipResponse{
 		SourceType:    sourceType,
 		TmpDir:        relativeTmpDir,

@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "リクエストに失敗しました",
     "save": "保存",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "noPermission": {
+      "title": "アクセス権がありません",
+      "description": "このページは管理者専用です。投稿や自分のプロフィール・ファイルの管理は引き続き行えます。",
+      "backHome": "ホームに戻る",
+      "accountSettings": "アカウント設定"
+    }
   },
   "commonUi": {
     "apply": "適用",
@@ -92,7 +98,7 @@
     "fetchTitleSuccess": "サイトタイトルを取得しました",
     "fetchTitleFailed": "サイトタイトルの取得に失敗しました",
     "tagManagerTitle": "タグ管理",
-    "tagManagerHint": "Tip: タグをクリックして絞り込みや削除ができます",
+    "tagManagerHint": "Tip: タグをクリックして絞り込めます",
     "tagManagerEmpty": "タグはまだありません",
     "filterByTag": "このタグで絞り込み",
     "deleteTag": "このタグを削除",
@@ -132,7 +138,7 @@
     "addImage": "添付ファイルを追加",
     "publishEcho": "Echoを公開",
     "publishEchoPublic": "公開として投稿",
-    "publishEchoPrivate": "非公開として投稿",
+    "publishEchoPrivate": "ログイン者のみ",
     "exitUpdateMode": "更新モードを終了",
     "updateEcho": "Echoを更新",
     "extMusic": "音楽",
@@ -199,7 +205,6 @@
     "enableCaptchaDesc": "組み込みの gocap 検証を利用します。追加デプロイは不要です。",
     "searchPlaceholder": "ニックネーム、メール、内容で検索",
     "statusAll": "すべてのステータス",
-    "status": "ステータス",
     "statusPending": "審査待ち",
     "statusApproved": "承認済み",
     "statusRejected": "拒否済み",
@@ -241,7 +246,7 @@
     "testEmailSending": "送信中",
     "testEmailSuccess": "テストメールの送信に成功しました",
     "emailNotifyTitle": "メール通知",
-    "emailNotifyDesc": "オーナーのみへの通知。新規コメント、審査変更、Hot 通知に対応します。",
+    "emailNotifyDesc": "管理者のみへの通知。新規コメント、審査変更、Hot 通知に対応します。",
     "emailNotifyEnableFirst": "先にメール通知を有効にしてください",
     "smtpHostPlaceholder": "SMTP Host",
     "smtpPortPlaceholder": "SMTP Port",
@@ -275,6 +280,7 @@
   },
   "auth": {
     "loginSuccess": "ログインしました。おかえりなさい！🎉",
+    "account_disabled": "このアカウントは無効化されています。管理者にお問い合わせください。",
     "signupSuccess": "登録が完了しました。ログインしてください！"
   },
   "authPage": {
@@ -293,18 +299,18 @@
     "passkeyLoginFailed": "Passkey ログインに失敗しました"
   },
   "init": {
-    "ownerEmailPlaceholder": "オーナーメール",
-    "ownerUsernamePlaceholder": "オーナーのユーザー名",
-    "ownerPasswordPlaceholder": "オーナーのパスワード",
     "initializing": "初期化中...",
     "initialize": "初期化",
     "initDone": "初期化が完了しました",
     "alreadyInitializedRedirect": "システムは初期化済みです。ログイン画面へ移動します",
     "initFailed": "初期化に失敗しました",
     "introHeading": "Ech0 をはじめる",
-    "introDescription": "Owner アカウントを作成し、サイトの基本設定を完了して、あなたの記録スペースを始めましょう。",
+    "introDescription": "管理者アカウントを作成し、サイトの基本設定を完了して、あなたの記録スペースを始めましょう。",
     "siteTitlePlaceholder": "サイト名（任意）",
-    "autoLoginFailed": "オーナーを作成しました。ログインしてください。"
+    "autoLoginFailed": "管理者を作成しました。ログインしてください。",
+    "adminEmailPlaceholder": "管理者メール",
+    "adminUsernamePlaceholder": "管理者のユーザー名",
+    "adminPasswordPlaceholder": "管理者のパスワード"
   },
   "onboarding": {
     "title": "インスタンスの準備をしましょう",
@@ -435,8 +441,12 @@
     "visibilityLabel": "公開範囲",
     "visibilityAll": "すべて",
     "visibilityPublic": "公開のみ",
-    "visibilityPrivate": "非公開のみ",
+    "visibilityPrivate": "ログイン者のみ",
     "activeChipVisibilityPrefix": "公開範囲",
+    "authorLabel": "投稿者",
+    "authorAll": "すべてのメンバー",
+    "authorMine": "自分のみ",
+    "activeChipAuthorPrefix": "投稿者",
     "tagsLabel": "タグ",
     "tagsHint": "いずれか一致",
     "tagsEmpty": "タグがありません",
@@ -486,13 +496,13 @@
   "connectWidget": {
     "noConnections": "接続はありません",
     "loading": "読み込み中...",
-    "tooltipOwner": "オーナー",
     "tooltipTotal": "合計",
     "tooltipToday": "本日",
     "tooltipVersion": "バージョン",
     "jumpToEchoDetail": "対応する Echo の詳細を表示",
     "randomCommentLoading": "おすすめコメントを選んでいます...",
-    "noFeaturedComment": "表示できるおすすめコメントはありません。"
+    "noFeaturedComment": "表示できるおすすめコメントはありません。",
+    "tooltipAdmin": "管理者"
   },
   "heatmap": {
     "tooltip": "{date}: {count} 件"
@@ -508,7 +518,7 @@
     "shareCopyFailed": "コピーに失敗しました。もう一度お試しください。",
     "shareMarkdownCopied": "Markdown をクリップボードにコピーしました！",
     "metaWordCountValue": "{count} 文字",
-    "metaPrivate": "非公開"
+    "metaPrivate": "ログイン者のみ"
   },
   "commentSection": {
     "disabled": "コメント機能は無効です。",
@@ -552,7 +562,7 @@
     "submittedAtPending": "{time} に送信しました。審査通過後、コメント一覧に表示されます。"
   },
   "echoCard": {
-    "privateStatus": "非公開",
+    "privateStatus": "ログイン者のみ",
     "moreActions": "Echo 操作",
     "delete": "削除",
     "update": "更新",
@@ -561,7 +571,8 @@
     "deleteSuccess": "削除しました！",
     "editAnotherEchoTitle": "別の Echo を編集しますか？",
     "editAnotherEchoDesc": "すでに別の Echo を編集中です。現在の変更を破棄してこの Echo を編集しますか？",
-    "openDetail": "詳細を開く"
+    "openDetail": "詳細を開く",
+    "manageOwnOnlyHint": "編集・削除できるのは自分の Echo だけです"
   },
   "userSetting": {
     "title": "ユーザーセンター",
@@ -578,7 +589,6 @@
     "avatarUploadSuccess": "アバターをアップロードしました！",
     "uploadFailed": "アップロードに失敗しました。しばらくしてから再試行してください",
     "role": "ロール",
-    "roleOwner": "オーナー",
     "roleAdmin": "管理者",
     "roleMember": "メンバー"
   },
@@ -590,8 +600,14 @@
     "email": "メール",
     "isAdmin": "管理者",
     "deleteUser": "ユーザーを削除",
-    "deleteConfirmTitle": "このユーザーを削除しますか？",
-    "deleteConfirmDesc": "削除すると復元できません。慎重に操作してください"
+    "deleteConfirmTitle": "ユーザーを完全に削除しますか？",
+    "deleteConfirmDesc": "この操作は取り消せません。このユーザーが作成したすべての Echo と添付ファイル、それらの Echo へのすべてのコメント（他ユーザーのコメントを含む）、および他の Echo へのこのユーザーのコメントを完全に削除します。他のユーザーが作成した Echo には影響しません。",
+    "status": "状態",
+    "statusActive": "有効",
+    "statusDisabled": "無効",
+    "disableUser": "ユーザーを無効化",
+    "enableUser": "ユーザーを有効化",
+    "deleteConfirmHint": "確認のためユーザー名 {username} を入力してください"
   },
   "systemSetting": {
     "title": "システム設定",
@@ -733,7 +749,7 @@
     "formatSnapshotDesc": "完全バックアップ。アカウントと認証情報を含む",
     "formatCapsuleTitle": "カプセル",
     "formatCapsuleDesc": "コンテンツのみ。共有や静的サイト生成に",
-    "includePrivate": "非公開コンテンツを含める",
+    "includePrivate": "ログイン者のみの内容を含める",
     "loginRequired": "ログインしてから利用してください",
     "exporting": "エクスポート中...少々お待ちください",
     "exportStarted": "エクスポートを開始しました！",
@@ -848,7 +864,7 @@
     "scopeEchoRead": "Echo の閲覧",
     "scopeEchoWrite": "Echo の作成 / 編集",
     "scopeEchoDelete": "Echo の削除",
-    "scopeEchoPrivate": "非公開 Echo の閲覧",
+    "scopeEchoPrivate": "ログイン者のみの Echo を閲覧",
     "scopeCommentRead": "コメントの閲覧",
     "scopeCommentWrite": "コメントの投稿",
     "scopeCommentReview": "コメントの審査",
@@ -969,7 +985,7 @@
     "sourceCapsuleTitle": "Ech0 カプセル",
     "sourceCapsule": "Ech0 カプセルからのインポートに対応",
     "capsuleNote": "追記インポート。id で重複を除き、既存データを上書きしません",
-    "capsuleIncludePrivate": "非公開コンテンツを含める",
+    "capsuleIncludePrivate": "ログイン者のみの内容を含める",
     "statusIdle": "アイドル",
     "statusPending": "待機中",
     "statusRunning": "移行中",

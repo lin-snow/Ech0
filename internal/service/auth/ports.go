@@ -14,7 +14,7 @@ import (
 )
 
 type Service interface {
-	Login(loginDto *authModel.LoginDto) (*authModel.TokenPair, error)
+	Login(ctx context.Context, loginDto *authModel.LoginDto) (*authModel.TokenPair, error)
 	BindOAuth(ctx context.Context, provider string, redirectURI string) (string, error)
 	GetOAuthLoginURL(provider string, redirectURI string) (string, error)
 	HandleOAuthCallback(provider string, code string, state string) (string, error)
@@ -44,6 +44,9 @@ type TokenIssuer interface {
 type TokenRevoker interface {
 	RevokeToken(jti string, remainTTL time.Duration)
 	IsTokenRevoked(jti string) bool
+	// IsAccountActive gates tokens that were valid when issued: disabling an
+	// account must invalidate every token already in the wild.
+	IsAccountActive(ctx context.Context, userID string) (bool, error)
 }
 
 type UserRepo interface {

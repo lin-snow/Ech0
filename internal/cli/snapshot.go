@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/lin-snow/ech0/internal/migrator"
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
 	"github.com/lin-snow/ech0/internal/migrator/snapshot"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	tuiUtil "github.com/lin-snow/ech0/internal/util/tui"
@@ -69,8 +70,8 @@ func DoImportSnapshot(path string, yes bool) error {
 	}
 
 	folder := "ech0_" + uuidUtil.NewV7()
-	relativeTmpDir := filepath.ToSlash(filepath.Join(migrator.TmpRelativeDir, folder))
-	extractDir := filepath.Join("data", relativeTmpDir)
+	relativeTmpDir := filepath.ToSlash(filepath.Join(artifact.TmpDir, folder))
+	extractDir := filepath.Join(artifact.TmpRoot(), folder)
 	if err := os.MkdirAll(extractDir, 0o755); err != nil {
 		return fmt.Errorf("create extract dir: %w", err)
 	}

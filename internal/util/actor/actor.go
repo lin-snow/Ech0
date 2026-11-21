@@ -17,6 +17,13 @@ import "context"
 
 type contextKey struct{}
 
+// UserActor renders the actor string for an authenticated user. Callers that
+// filter reactions by owner must use this instead of concatenating the prefix
+// themselves, so the identity format has one definition.
+func UserActor(userID string) string {
+	return "u:" + userID
+}
+
 // WithContext stores the request's fallback actor.
 func WithContext(ctx context.Context, value string) context.Context {
 	if ctx == nil || value == "" {

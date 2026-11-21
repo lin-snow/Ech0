@@ -23,7 +23,7 @@ import (
 
 type readMethod struct {
 	name       string
-	expectRepo func(repo *echomock.MockRepository, showPrivate bool)
+	expectRepo func(repo *echomock.MockRepository, scope echoModel.PrivateScope)
 	invoke     func(svc *echoService.EchoService, ctx context.Context) error
 }
 
@@ -31,8 +31,8 @@ func readMethods() []readMethod {
 	return []readMethod{
 		{
 			name: "GetTodayEchos",
-			expectRepo: func(repo *echomock.MockRepository, showPrivate bool) {
-				repo.EXPECT().GetTodayEchos(showPrivate, "UTC").Return([]echoModel.Echo{helpers.NewEcho()}).Once()
+			expectRepo: func(repo *echomock.MockRepository, scope echoModel.PrivateScope) {
+				repo.EXPECT().GetTodayEchos(scope, "UTC").Return([]echoModel.Echo{helpers.NewEcho()}).Once()
 			},
 			invoke: func(svc *echoService.EchoService, ctx context.Context) error {
 				_, err := svc.GetTodayEchos(ctx, "UTC")
@@ -41,8 +41,8 @@ func readMethods() []readMethod {
 		},
 		{
 			name: "GetOnThisDayEchos",
-			expectRepo: func(repo *echomock.MockRepository, showPrivate bool) {
-				repo.EXPECT().GetOnThisDayEchos(showPrivate, "UTC").Return([]echoModel.Echo{helpers.NewEcho()}).Once()
+			expectRepo: func(repo *echomock.MockRepository, scope echoModel.PrivateScope) {
+				repo.EXPECT().GetOnThisDayEchos(scope, "UTC").Return([]echoModel.Echo{helpers.NewEcho()}).Once()
 			},
 			invoke: func(svc *echoService.EchoService, ctx context.Context) error {
 				_, err := svc.GetOnThisDayEchos(ctx, "UTC")
@@ -51,8 +51,8 @@ func readMethods() []readMethod {
 		},
 		{
 			name: "GetHotEchos",
-			expectRepo: func(repo *echomock.MockRepository, showPrivate bool) {
-				repo.EXPECT().GetHotEchos(5, showPrivate).Return([]echoModel.Echo{}, nil).Once()
+			expectRepo: func(repo *echomock.MockRepository, scope echoModel.PrivateScope) {
+				repo.EXPECT().GetHotEchos(5, scope).Return([]echoModel.Echo{}, nil).Once()
 			},
 			invoke: func(svc *echoService.EchoService, ctx context.Context) error {
 				_, err := svc.GetHotEchos(ctx, 5)
@@ -61,8 +61,8 @@ func readMethods() []readMethod {
 		},
 		{
 			name: "GetRandomEcho",
-			expectRepo: func(repo *echomock.MockRepository, showPrivate bool) {
-				repo.EXPECT().GetRandomEcho(showPrivate).Return(nil, nil).Once()
+			expectRepo: func(repo *echomock.MockRepository, scope echoModel.PrivateScope) {
+				repo.EXPECT().GetRandomEcho(scope).Return(nil, nil).Once()
 			},
 			invoke: func(svc *echoService.EchoService, ctx context.Context) error {
 				_, err := svc.GetRandomEcho(ctx)
@@ -72,40 +72,37 @@ func readMethods() []readMethod {
 	}
 }
 
-func TestReadEchos_ShowPrivateResolution(t *testing.T) {
+func TestReadEchos_VisibilityScope(t *testing.T) {
 	viewerCases := []struct {
-		name        string
-		ctx         context.Context
-		setupCommon func(common *commonmock.MockService)
-		showPrivate bool
+		name  string
+		ctx   context.Context
+		scope echoModel.PrivateScope
 	}{
 		{
-			name:        "anonymous resolves to public-only",
-			ctx:         helpers.CtxAnonymous(),
-			setupCommon: func(*commonmock.MockService) {},
-			showPrivate: false,
+			name:  "anonymous resolves to public-only",
+			ctx:   helpers.CtxAnonymous(),
+			scope: echoModel.PrivateScope{},
 		},
 		{
-			name: "admin resolves to private-visible",
-			ctx:  helpers.CtxAsUser(adminID),
-			setupCommon: func(c *commonmock.MockService) {
-				c.EXPECT().
-					CommonGetUserByUserId(mock.Anything, adminID).
-					Return(helpers.NewUser(helpers.AsAdmin), nil).
-					Once()
-			},
-			showPrivate: true,
+			name:  "admin sees the shared private timeline",
+			ctx:   helpers.CtxAsUser(adminID),
+			scope: echoModel.PrivateScope{Authenticated: true},
 		},
 		{
-			name: "non-admin resolves to public-only",
-			ctx:  helpers.CtxAsUser(userID),
-			setupCommon: func(c *commonmock.MockService) {
-				c.EXPECT().
-					CommonGetUserByUserId(mock.Anything, userID).
-					Return(helpers.NewUser(), nil).
-					Once()
-			},
-			showPrivate: false,
+			name:  "member sees the shared private timeline",
+			ctx:   helpers.CtxAsUser(userID),
+			scope: echoModel.PrivateScope{Authenticated: true},
+		},
+		{
+			name: "echo:read token stays public-only",
+			ctx: helpers.CtxAsToken(
+				adminID,
+				authModel.TokenTypeAccess,
+				[]string{authz.ScopeEchoRead},
+				[]string{authz.AudienceCLI},
+				"jti-scope-read",
+			),
+			scope: echoModel.PrivateScope{},
 		},
 	}
 
@@ -115,30 +112,12 @@ func TestReadEchos_ShowPrivateResolution(t *testing.T) {
 				t.Run(vc.name, func(t *testing.T) {
 					repo := newEchoRepoMock(t)
 					common := commonmock.NewMockService(t)
-					vc.setupCommon(common)
-					m.expectRepo(repo, vc.showPrivate)
+					m.expectRepo(repo, vc.scope)
 
 					svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 					require.NoError(t, m.invoke(svc, vc.ctx))
 				})
 			}
-		})
-	}
-}
-
-func TestReadEchos_UserLookupError(t *testing.T) {
-	boom := errors.New("user lookup failed")
-	for _, m := range readMethods() {
-		t.Run(m.name, func(t *testing.T) {
-			repo := newEchoRepoMock(t)
-			common := commonmock.NewMockService(t)
-			common.EXPECT().
-				CommonGetUserByUserId(mock.Anything, adminID).
-				Return(helpers.NewUser(helpers.AsAdmin), boom).
-				Once()
-
-			svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-			require.ErrorIs(t, m.invoke(svc, helpers.CtxAsUser(adminID)), boom)
 		})
 	}
 }
@@ -149,7 +128,7 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 	t.Run("GetHotEchos", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
-		repo.EXPECT().GetHotEchos(3, false).Return(nil, boom).Once()
+		repo.EXPECT().GetHotEchos(3, echoModel.PrivateScope{}).Return(nil, boom).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.GetHotEchos(helpers.CtxAnonymous(), 3)
@@ -159,7 +138,7 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 	t.Run("GetRandomEcho", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
-		repo.EXPECT().GetRandomEcho(false).Return(nil, boom).Once()
+		repo.EXPECT().GetRandomEcho(echoModel.PrivateScope{}).Return(nil, boom).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.GetRandomEcho(helpers.CtxAnonymous())
@@ -167,16 +146,48 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 	})
 }
 
-func TestQueryEchos_ViewerResolution(t *testing.T) {
-	t.Run("admin queries with showPrivate true", func(t *testing.T) {
+func TestQueryEchos_MineFilter(t *testing.T) {
+	t.Run("resolves the author from the signed-in viewer", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
+
+		var captured commonModel.EchoQueryDto
 		repo.EXPECT().
-			QueryEchos(mock.Anything, true).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
+			Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
+			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
+			Once()
+
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		_, err := svc.QueryEchos(helpers.CtxAsUser(adminID), commonModel.EchoQueryDto{
+			Page: 1, PageSize: 10, Mine: true,
+		})
+		require.NoError(t, err)
+		assert.True(t, captured.Mine)
+		assert.Equal(t, adminID, captured.UserID)
+	})
+
+	t.Run("rejects an anonymous caller instead of widening the query", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		_, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+			Page: 1, PageSize: 10, Mine: true,
+		})
+		require.Error(t, err)
+		var bizErr *commonModel.BizError
+		require.ErrorAs(t, err, &bizErr)
+		assert.Equal(t, commonModel.ErrCodePermissionDenied, bizErr.Code)
+	})
+}
+
+func TestQueryEchos_ViewerResolution(t *testing.T) {
+	t.Run("admin queries the shared private timeline", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		repo.EXPECT().
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 
@@ -190,7 +201,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().
-			QueryEchos(mock.Anything, false).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 
@@ -206,15 +217,11 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("echo:private token queries private-visible", func(t *testing.T) {
+	t.Run("echo:private token queries scoped to the token subject", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		repo.EXPECT().
-			QueryEchos(mock.Anything, true).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 
@@ -230,25 +237,11 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("user lookup error propagates", func(t *testing.T) {
-		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
-		boom := errors.New("lookup failed")
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, userID).
-			Return(helpers.NewUser(), boom).
-			Once()
-
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		_, err := svc.QueryEchos(helpers.CtxAsUser(userID), commonModel.EchoQueryDto{Page: 1, PageSize: 10})
-		require.ErrorIs(t, err, boom)
-	})
-
 	t.Run("repository error propagates", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		boom := errors.New("query failed")
-		repo.EXPECT().QueryEchos(mock.Anything, false).Return(nil, int64(0), boom).Once()
+		repo.EXPECT().QueryEchos(mock.Anything, echoModel.PrivateScope{}).Return(nil, int64(0), boom).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{Page: 1, PageSize: 10})
@@ -262,8 +255,8 @@ func TestGetEchosByPage_DelegatesToQuery(t *testing.T) {
 
 	var captured commonModel.EchoQueryDto
 	repo.EXPECT().
-		QueryEchos(mock.Anything, false).
-		Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+		QueryEchos(mock.Anything, echoModel.PrivateScope{}).
+		Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
 		Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 		Once()
 
@@ -286,8 +279,8 @@ func TestGetEchosByTagId_DelegatesToQuery(t *testing.T) {
 
 	var captured commonModel.EchoQueryDto
 	repo.EXPECT().
-		QueryEchos(mock.Anything, false).
-		Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+		QueryEchos(mock.Anything, echoModel.PrivateScope{}).
+		Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
 		Return([]echoModel.Echo{}, int64(0), nil).
 		Once()
 
@@ -329,8 +322,8 @@ func TestQueryEchos_CursorMode(t *testing.T) {
 
 	var captured commonModel.EchoQueryDto
 	repo.EXPECT().
-		QueryEchos(mock.Anything, false).
-		Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+		QueryEchos(mock.Anything, echoModel.PrivateScope{}).
+		Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
 		Return([]echoModel.Echo{
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
@@ -364,7 +357,7 @@ func TestQueryEchos_CursorExactFullLastPageHasNoNextCursor(t *testing.T) {
 	// The probe returns exactly pageSize rows, so there is no next page; the
 	// client must not be sent into a guaranteed-empty request.
 	repo.EXPECT().
-		QueryEchos(mock.Anything, false).
+		QueryEchos(mock.Anything, echoModel.PrivateScope{}).
 		Return([]echoModel.Echo{
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),
@@ -385,8 +378,8 @@ func TestQueryEchos_PageModeHasNoNextCursor(t *testing.T) {
 
 	var captured commonModel.EchoQueryDto
 	repo.EXPECT().
-		QueryEchos(mock.Anything, false).
-		Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+		QueryEchos(mock.Anything, echoModel.PrivateScope{}).
+		Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
 		Return([]echoModel.Echo{
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e2"; e.CreatedAt = 200 }),
 			helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "e1"; e.CreatedAt = 100 }),

@@ -4,8 +4,6 @@
 package router
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
@@ -13,6 +11,7 @@ import (
 	"github.com/lin-snow/ech0/internal/middleware"
 	openapiCatalog "github.com/lin-snow/ech0/internal/openapi/catalog"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
+	"github.com/lin-snow/ech0/internal/storage"
 )
 
 type AppRouterGroup struct {
@@ -31,7 +30,7 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 	catalogState := newCatalogState()
 	r.Use(catalogState.middleware())
 	groups := setupRouterGroup(r, mwDeps)
-	api := setupHumaAPI(r)
+	api := setupHumaAPI(r, mwDeps.Limiter)
 
 	revoker := revokerOf(mwDeps)
 	setupResourceRoutes(groups, h)
@@ -49,12 +48,23 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 	r.GET("/api"+openapiCatalog.RoutePath, catalogState.handle)
 }
 
+// setupStaticFiles serves uploaded media straight off disk. It is deliberately
+// registered outside every API group and without the request budget: media
+// delivery is bandwidth-bounded by the object itself, and the route only
+// exposes the media prefixes (never artifacts, never listings).
 func setupStaticFiles(r *gin.Engine) {
 	root := config.Config().Storage.DataRoot
 	if root == "" {
 		root = "data/files"
 	}
-	r.Group("api/files", middleware.StaticFileSecurity()).StaticFS("/", http.Dir(root))
+	registerStaticFiles(r, root)
+}
+
+// registerStaticFiles mounts the unauthenticated media route. Only the storage
+// schema's category directories are served; directories themselves and any
+// other path under the root answer 404.
+func registerStaticFiles(r *gin.Engine, root string) {
+	r.Group("api/files", middleware.StaticFileSecurity()).StaticFS("/", storage.NewPublicFS(root))
 }
 
 func revokerOf(mwDeps *middleware.Deps) authService.TokenRevoker {
@@ -67,12 +77,15 @@ func revokerOf(mwDeps *middleware.Deps) authService.TokenRevoker {
 func setupRouterGroup(r *gin.Engine, mwDeps *middleware.Deps) *AppRouterGroup {
 	revoker := revokerOf(mwDeps)
 
+	budget := middleware.Budget(mwDeps.Limiter)
+
 	resource := r.Group("/")
 	public := r.Group("/api")
+	public.Use(budget)
 	auth := r.Group("/api")
-	auth.Use(middleware.NoCache(), middleware.RequireAuth(revoker))
+	auth.Use(middleware.NoCache(), middleware.RequireAuth(revoker), budget)
 	optionalAuth := r.Group("/api")
-	optionalAuth.Use(middleware.NoCache(), middleware.OptionalAuth(revoker))
+	optionalAuth.Use(middleware.NoCache(), middleware.OptionalAuth(revoker), budget)
 	ws := r.Group("/ws")
 	mcpGroup := r.Group(mcp.MCPEndpointPath)
 	mcpGroup.Use(
@@ -81,6 +94,7 @@ func setupRouterGroup(r *gin.Engine, mwDeps *middleware.Deps) *AppRouterGroup {
 			revoker,
 			middleware.ResourceMetadataChallenge("/.well-known/oauth-protected-resource/mcp"),
 		),
+		budget,
 	)
 	return &AppRouterGroup{
 		ResourceGroup:           resource,

@@ -59,6 +59,10 @@ export const useEchoStore = defineStore('echoStore', () => {
   const visibilityFilter = ref<App.Api.Ech0.EchoVisibilityFilter>('all')
   const isVisibilityFilterActive = computed(() => visibilityFilter.value !== 'all')
 
+  /** Narrows the feed to Echoes authored by the signed-in user. */
+  const mineOnly = ref<boolean>(false)
+  const isMineFilterActive = computed(() => mineOnly.value)
+
   const pageFull = computed(() => echoList.value.length >= TIMELINE_PAGE_ITEMS)
 
   // Auto-load stops at the page boundary; the reader then steps to the next page.
@@ -97,7 +101,8 @@ export const useEchoStore = defineStore('echoStore', () => {
       isFilteringMode.value ||
       isDateRangeActive.value ||
       isTagSelectionActive.value ||
-      isVisibilityFilterActive.value,
+      isVisibilityFilterActive.value ||
+      isMineFilterActive.value,
   )
 
   watch(searchingMode, (newValue, oldValue) => {
@@ -129,6 +134,9 @@ export const useEchoStore = defineStore('echoStore', () => {
     if (visibilityFilter.value !== 'all') {
       params.private = visibilityFilter.value === 'private'
     }
+    if (mineOnly.value) {
+      params.mine = true
+    }
     return params
   }
 
@@ -145,6 +153,7 @@ export const useEchoStore = defineStore('echoStore', () => {
       params.dateFrom ?? null,
       params.dateTo ?? null,
       visibilityFilter.value,
+      mineOnly.value,
     ])
   }
 
@@ -163,6 +172,10 @@ export const useEchoStore = defineStore('echoStore', () => {
 
   const resetVisibilityFilter = () => {
     visibilityFilter.value = 'all'
+  }
+
+  const resetMineFilter = () => {
+    mineOnly.value = false
   }
 
   const removeSelectedTag = (tagId: string) => {
@@ -517,6 +530,9 @@ export const useEchoStore = defineStore('echoStore', () => {
 
     visibilityFilter,
     isVisibilityFilterActive,
+
+    mineOnly,
+    isMineFilterActive,
     hasActiveQuery,
 
     openAt,
@@ -530,6 +546,7 @@ export const useEchoStore = defineStore('echoStore', () => {
     resetDateRange,
     resetSelectedTags,
     resetVisibilityFilter,
+    resetMineFilter,
     removeSelectedTag,
     updateEcho,
     replaceEcho,

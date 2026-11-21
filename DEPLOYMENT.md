@@ -27,32 +27,33 @@ All variables, defaults, precedence rules, and the boundary between bootstrap en
 [`docs/usage/configuration.md`](./docs/usage/configuration.md). The essentials:
 
 - **Precedence:** process env → `./.env` (working directory only, no `--env-file` flag) → built-in defaults. Changes need a restart.
-- **`JWT_SECRET` has no `ECH0_` prefix** (`ECH0_JWT_SECRET` is accepted as an alias). If unset, an ephemeral secret is generated and **every restart invalidates all issued tokens**.
+- **The JWT signing secret lives in the database.** It is generated on first boot and stored as the `jwt_secret` key in the settings key-value table, so restarts and upgrades keep issued tokens valid; `JWT_SECRET` / `ECH0_JWT_SECRET` are ignored (with a startup warning). To rotate it, delete that key and restart: `sqlite3 data/ech0.db "DELETE FROM key_values WHERE key='jwt_secret';"`
 - `ECH0_SERVER_HOST` / `ECH0_SERVER_PORT` control the bind address (default all interfaces, port `6277`); `ECH0_DB_PATH` accepts any SQLite file path.
 - `ECH0_SETTING_*`, `ECH0_S3_*`, Passkey and OAuth2 redirect env vars are only **first-boot defaults** seeded into the database — once the instance is initialized, change them in the admin panel.
 
 ### 🐳 Docker (Recommended)
 
 ```shell
+mkdir -p /opt/ech0/data
+
 docker run -d \
   --name ech0 \
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
-  -e JWT_SECRET="Hello Echos" \
   sn0wl1n/ech0:latest
 ```
 
 > 💡 After deployment, access `ip:6277`
-> 🚷 For better security, replace `Hello Echos` in `-e JWT_SECRET="Hello Echos"` with your own secret
 > 📍 The first registered account becomes administrator (currently only admins can publish)
 > 🎈 Data is stored under `/opt/ech0/data`
+> 🔒 A data directory left behind by an older root-running image needs no attention: the entrypoint takes it over on start.
 
 ### 🐋 Docker Compose
 
 A ready-to-use example lives at [`docker/docker-compose.yml`](./docker/docker-compose.yml). Copy it into a new directory and run:
 
 ```shell
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 🧙 Script Deployment
@@ -126,12 +127,14 @@ docker rm ech0
 # Pull latest image
 docker pull sn0wl1n/ech0:latest
 
+# No permission step: the entrypoint takes over a data directory left
+# root-owned by an older image before starting the server.
+
 # Start new version
 docker run -d \
   --name ech0 \
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
-  -e JWT_SECRET="Hello Echos" \
   sn0wl1n/ech0:latest
 ```
 

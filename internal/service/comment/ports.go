@@ -40,8 +40,11 @@ type Service interface {
 
 type Repository interface {
 	CreateComment(ctx context.Context, c *model.Comment) error
-	ListPublicByEchoID(ctx context.Context, echoID string) ([]model.Comment, error)
-	ListPublicComments(ctx context.Context, limit int) ([]model.Comment, error)
+	ListPublicByEchoID(ctx context.Context, echoID string, includePrivate bool) ([]model.Comment, error)
+	ListPublicComments(ctx context.Context, limit int, includePrivate bool) ([]model.Comment, error)
+	// IsEchoPrivate reports whether the target echo is marked private; a
+	// missing echo returns an error so callers can reject unknown targets.
+	IsEchoPrivate(ctx context.Context, echoID string) (bool, error)
 	ListComments(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error)
 	GetCommentByID(ctx context.Context, id string) (model.Comment, error)
 	UpdateCommentStatus(ctx context.Context, id string, status model.Status) error

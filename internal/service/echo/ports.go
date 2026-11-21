@@ -39,8 +39,8 @@ type (
 
 type Repository interface {
 	CreateEcho(ctx context.Context, newEcho *model.Echo) error
-	GetEchosByPage(page, pageSize int, search string, showPrivate bool) ([]model.Echo, int64)
-	GetTodayEchos(showPrivate bool, timezone string) []model.Echo
+	GetEchosByPage(page, pageSize int, search string, scope model.PrivateScope) ([]model.Echo, int64)
+	GetTodayEchos(scope model.PrivateScope, timezone string) []model.Echo
 	GetEchosById(ctx context.Context, id string) (*model.Echo, error)
 	UpdateEcho(ctx context.Context, echo *model.Echo) error
 	DeleteEchoById(ctx context.Context, id string) error
@@ -53,9 +53,9 @@ type Repository interface {
 	GetTagsByNames(ctx context.Context, names []string) ([]*model.Tag, error)
 	IncrementTagUsageCount(ctx context.Context, tagID string) error
 	DeleteTagById(ctx context.Context, id string) error
-	GetEchosByTagId(tagID string, page, pageSize int, search string, showPrivate bool) ([]model.Echo, int64, error)
-	QueryEchos(queryDto commonModel.EchoQueryDto, showPrivate bool) ([]model.Echo, int64, error)
-	GetHotEchos(limit int, showPrivate bool) ([]model.Echo, error)
-	GetRandomEcho(showPrivate bool) (*model.Echo, error)
-	GetOnThisDayEchos(showPrivate bool, timezone string) []model.Echo
+	GetEchosByTagId(tagID string, page, pageSize int, search string, scope model.PrivateScope) ([]model.Echo, int64, error)
+	QueryEchos(queryDto commonModel.EchoQueryDto, scope model.PrivateScope) ([]model.Echo, int64, error)
+	GetHotEchos(limit int, scope model.PrivateScope) ([]model.Echo, error)
+	GetRandomEcho(scope model.PrivateScope) (*model.Echo, error)
+	GetOnThisDayEchos(scope model.PrivateScope, timezone string) []model.Echo
 }

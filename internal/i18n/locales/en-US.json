@@ -6,6 +6,7 @@
   { "id": "setting.update_success", "translation": "Settings updated successfully!" },
   { "id": "agent.model_missing", "translation": "Agent model name is not configured or is empty" },
   { "id": "echo.mixed_file_categories", "translation": "An Echo can only contain files of a single type" },
+  { "id": "echo.other_user_forbidden", "translation": "You can only edit or delete your own echoes" },
   { "id": "echo.invalid_cursor", "translation": "Invalid pagination cursor" },
   { "id": "echo.cursor_sort_unsupported", "translation": "Cursor pagination does not support reaction sorting" },
   { "id": "auth.token_missing", "translation": "Missing token. Please sign in first." },
@@ -18,9 +19,12 @@
   { "id": "auth.refresh_token_invalid", "translation": "Refresh token is invalid or expired." },
   { "id": "auth.exchange_code_invalid", "translation": "Authorization code is invalid or expired." },
   { "id": "auth.token_generate_failed", "translation": "Failed to generate token." },
+  { "id": "auth.rate_limited", "translation": "Too many attempts. Please wait a moment and try again." },
+  { "id": "auth.account_disabled", "translation": "This account has been disabled. Contact an administrator." },
   { "id": "comment_manager.title", "translation": "Comment System Settings" },
   { "id": "comment_manager.subtitle", "translation": "Manage comment toggles, moderation policy, and captcha settings in one place." },
   { "id": "dashboard.logs.success", "translation": "System logs retrieved successfully" },
   { "id": "dashboard.logs.tail_invalid", "translation": "tail must be a positive number" },
-  { "id": "dashboard.check_update_failed", "translation": "Failed to check for updates" }
+  { "id": "dashboard.check_update_failed", "translation": "Failed to check for updates" },
+  { "id": "user.last_admin_required", "translation": "At least one administrator must remain" }
 ]

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/lin-snow/ech0/internal/cache"
+	model "github.com/lin-snow/ech0/internal/model/echo"
 )
 
 type cacheKeyTracker struct {
@@ -49,18 +50,12 @@ const (
 	EchoPageCacheKeyPrefix = "echo_page"
 )
 
-func GetEchoPageCacheKey(page, pageSize int, search string, showPrivate bool) string {
-	var showPrivateStr string
-	if showPrivate {
-		showPrivateStr = "true"
-	} else {
-		showPrivateStr = "false"
-	}
+func GetEchoPageCacheKey(page, pageSize int, search string, scope model.PrivateScope) string {
 	return EchoPageCacheKeyPrefix + ":" + strconv.Itoa(
 		page,
 	) + ":" + strconv.Itoa(
 		pageSize,
-	) + ":" + search + ":" + showPrivateStr
+	) + ":" + search + ":" + scope.CacheTag()
 }
 
 func ClearEchoPageCache(cache *cache.Cache) {
@@ -101,6 +96,6 @@ func GetEchoByIDCacheKey(id string) string {
 	return "echo_id:" + id
 }
 
-func GetTodayEchosCacheKey(showPrivate bool, timezone string) string {
-	return "echo_today:" + strconv.FormatBool(showPrivate) + ":" + timezone
+func GetTodayEchosCacheKey(scope model.PrivateScope, timezone string) string {
+	return "echo_today:" + scope.CacheTag() + ":" + timezone
 }

@@ -18,9 +18,24 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
+# The server must run as uid/gid 10001. fsGroup makes the data PVC writable for
+# it on storage drivers that apply fsGroup; runAsUser is explicit so clusters
+# with `runAsNonRoot` pod-security enforcement accept the pod, and so the
+# image's entrypoint skips its one-shot chown (a non-root start has nothing to
+# hand over — the PVC is already owned through fsGroup).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 service:
   type: ClusterIP
@@ -53,9 +68,6 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
-
-config:
-  JWT_SECRET: "Hello Echos"
 
 extraEnv: []
 

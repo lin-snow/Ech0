@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "Request failed",
     "save": "Save",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "noPermission": {
+      "title": "No access",
+      "description": "This page is for administrators only. You can still publish and manage your own profile and files.",
+      "backHome": "Back to home",
+      "accountSettings": "Account settings"
+    }
   },
   "commonUi": {
     "apply": "Apply",
@@ -92,7 +98,7 @@
     "fetchTitleSuccess": "Website title fetched",
     "fetchTitleFailed": "Failed to fetch website title",
     "tagManagerTitle": "Tag Manager",
-    "tagManagerHint": "Tip: Click a tag to filter by it or delete it",
+    "tagManagerHint": "Tip: Click a tag to filter by it",
     "tagManagerEmpty": "No tags yet",
     "filterByTag": "Filter by this tag",
     "deleteTag": "Delete this tag",
@@ -132,7 +138,7 @@
     "addImage": "Add attachment",
     "publishEcho": "Publish Echo",
     "publishEchoPublic": "Publish as public",
-    "publishEchoPrivate": "Publish as private",
+    "publishEchoPrivate": "Signed-in only",
     "exitUpdateMode": "Exit update mode",
     "updateEcho": "Update Echo",
     "extMusic": "Music",
@@ -199,7 +205,6 @@
     "enableCaptchaDesc": "When enabled, the built-in gocap verifier is used with no extra deployment.",
     "searchPlaceholder": "Search nickname, email, or content",
     "statusAll": "All statuses",
-    "status": "Status",
     "statusPending": "Pending",
     "statusApproved": "Approved",
     "statusRejected": "Rejected",
@@ -241,7 +246,7 @@
     "testEmailSending": "Sending...",
     "testEmailSuccess": "Test email sent",
     "emailNotifyTitle": "Email notifications",
-    "emailNotifyDesc": "Notify owner only for new comments, moderation updates, and hot actions.",
+    "emailNotifyDesc": "Notify admins only for new comments, moderation updates, and hot actions.",
     "emailNotifyEnableFirst": "Please enable email notifications first",
     "smtpHostPlaceholder": "SMTP host",
     "smtpPortPlaceholder": "SMTP port",
@@ -275,6 +280,7 @@
   },
   "auth": {
     "loginSuccess": "Signed in successfully, welcome back! 🎉",
+    "account_disabled": "This account has been disabled. Contact an administrator.",
     "signupSuccess": "Sign up successful, please sign in."
   },
   "authPage": {
@@ -293,18 +299,18 @@
     "passkeyLoginFailed": "Passkey login failed"
   },
   "init": {
-    "ownerEmailPlaceholder": "Owner email",
-    "ownerUsernamePlaceholder": "Owner username",
-    "ownerPasswordPlaceholder": "Owner password",
     "initializing": "Initializing...",
     "initialize": "Initialize",
     "initDone": "Initialization completed",
     "alreadyInitializedRedirect": "System already initialized, redirecting to login",
     "initFailed": "Initialization failed",
     "introHeading": "Get started with Ech0",
-    "introDescription": "Create the owner account, finish the basic site setup, and open your personal record space.",
+    "introDescription": "Create the administrator account, finish the basic site setup, and open your personal record space.",
     "siteTitlePlaceholder": "Site name (optional)",
-    "autoLoginFailed": "Owner created. Please sign in."
+    "autoLoginFailed": "Administrator created. Please sign in.",
+    "adminEmailPlaceholder": "Admin email",
+    "adminUsernamePlaceholder": "Admin username",
+    "adminPasswordPlaceholder": "Admin password"
   },
   "onboarding": {
     "title": "Get your instance ready",
@@ -435,8 +441,12 @@
     "visibilityLabel": "Visibility",
     "visibilityAll": "All",
     "visibilityPublic": "Public only",
-    "visibilityPrivate": "Private only",
+    "visibilityPrivate": "Signed-in only",
     "activeChipVisibilityPrefix": "Visibility",
+    "authorLabel": "Author",
+    "authorAll": "All members",
+    "authorMine": "Only mine",
+    "activeChipAuthorPrefix": "Author",
     "tagsLabel": "Tags",
     "tagsHint": "Match any",
     "tagsEmpty": "No tags yet",
@@ -486,13 +496,13 @@
   "connectWidget": {
     "noConnections": "No active connections",
     "loading": "Loading...",
-    "tooltipOwner": "Owner",
     "tooltipTotal": "Total",
     "tooltipToday": "Today",
     "tooltipVersion": "Version",
     "jumpToEchoDetail": "View related Echo details",
     "randomCommentLoading": "Picking a featured comment...",
-    "noFeaturedComment": "No featured comments to show."
+    "noFeaturedComment": "No featured comments to show.",
+    "tooltipAdmin": "Admin"
   },
   "heatmap": {
     "tooltip": "{date}: {count} entries"
@@ -508,7 +518,7 @@
     "shareCopyFailed": "Copy failed, please try again.",
     "shareMarkdownCopied": "Markdown copied to clipboard!",
     "metaWordCountValue": "{count} words",
-    "metaPrivate": "Private"
+    "metaPrivate": "Signed-in only"
   },
   "commentSection": {
     "disabled": "Commenting is disabled.",
@@ -552,7 +562,7 @@
     "submittedAtPending": "Submitted at {time}. It will appear after approval."
   },
   "echoCard": {
-    "privateStatus": "Private status",
+    "privateStatus": "Signed-in only",
     "moreActions": "Echo actions",
     "delete": "Delete",
     "update": "Update",
@@ -561,7 +571,8 @@
     "deleteSuccess": "Deleted successfully",
     "editAnotherEchoTitle": "Edit another Echo?",
     "editAnotherEchoDesc": "You are already editing an Echo. Discard those changes and edit this one?",
-    "openDetail": "Open detail"
+    "openDetail": "Open detail",
+    "manageOwnOnlyHint": "You can only edit or delete your own echoes"
   },
   "userSetting": {
     "title": "User Center",
@@ -578,7 +589,6 @@
     "avatarUploadSuccess": "Avatar uploaded successfully!",
     "uploadFailed": "Upload failed, please try again later",
     "role": "Role",
-    "roleOwner": "Owner",
     "roleAdmin": "Admin",
     "roleMember": "Member"
   },
@@ -590,8 +600,14 @@
     "email": "Email",
     "isAdmin": "Admin",
     "deleteUser": "Delete user",
-    "deleteConfirmTitle": "Are you sure to delete this user?",
-    "deleteConfirmDesc": "This action cannot be undone."
+    "deleteConfirmTitle": "Permanently delete user?",
+    "deleteConfirmDesc": "This cannot be undone. Permanently deletes every Echo created by this user and its attachments, all comments under those Echoes (including comments by other users), and this user’s comments on other Echoes. Echoes created by other users are not affected.",
+    "status": "Status",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "disableUser": "Disable user",
+    "enableUser": "Enable user",
+    "deleteConfirmHint": "Type the username {username} to confirm"
   },
   "systemSetting": {
     "title": "System Settings",
@@ -733,7 +749,7 @@
     "formatSnapshotDesc": "Full backup, with accounts and credentials",
     "formatCapsuleTitle": "Capsule",
     "formatCapsuleDesc": "Content only, for sharing or building a static site",
-    "includePrivate": "Include private content",
+    "includePrivate": "Include signed-in-only content",
     "loginRequired": "Please sign in first",
     "exporting": "Exporting... please wait",
     "exportStarted": "Export started!",
@@ -848,7 +864,7 @@
     "scopeEchoRead": "Read echoes",
     "scopeEchoWrite": "Create/Edit echoes",
     "scopeEchoDelete": "Delete echoes",
-    "scopeEchoPrivate": "Read private echoes",
+    "scopeEchoPrivate": "Read signed-in-only echoes",
     "scopeCommentRead": "Read comments",
     "scopeCommentWrite": "Write comments",
     "scopeCommentReview": "Review comments",
@@ -969,7 +985,7 @@
     "sourceCapsuleTitle": "Ech0 Capsule",
     "sourceCapsule": "Supports importing from Ech0 capsules",
     "capsuleNote": "Appends content, de-duplicated by id, never overwrites",
-    "capsuleIncludePrivate": "Include private content",
+    "capsuleIncludePrivate": "Include signed-in-only content",
     "statusIdle": "Idle",
     "statusPending": "Pending",
     "statusRunning": "Running",

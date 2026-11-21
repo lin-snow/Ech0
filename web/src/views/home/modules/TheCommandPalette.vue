@@ -163,6 +163,35 @@
               </div>
             </section>
 
+            <section v-if="canFilterVisibility" class="palette__section">
+              <header class="palette__section-header">
+                <span class="palette__section-label">{{ t('commandPalette.authorLabel') }}</span>
+                <button
+                  v-if="draftMineOnly"
+                  type="button"
+                  class="palette__section-action"
+                  @click="draftMineOnly = false"
+                >
+                  {{ t('commandPalette.reset') }}
+                </button>
+              </header>
+              <div class="palette__preset-row">
+                <button
+                  v-for="option in authorOptions"
+                  :key="option.key"
+                  type="button"
+                  class="palette__pill"
+                  :class="{
+                    'palette__pill--active': draftMineOnly === (option.key === 'mine'),
+                  }"
+                  @mousedown.prevent
+                  @click="draftMineOnly = option.key === 'mine'"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </section>
+
             <section class="palette__section">
               <header class="palette__section-header">
                 <span class="palette__section-label">
@@ -271,15 +300,17 @@ const {
   isFilteringMode,
   filteredTag,
   visibilityFilter,
+  mineOnly,
 } = storeToRefs(echoStore)
 
-const canFilterVisibility = computed(() => userStore.isLogin && userStore.user?.is_admin === true)
+const canFilterVisibility = computed(() => userStore.isLogin)
 
 const draftKeyword = ref<string>('')
 const draftFrom = ref<number | null>(null)
 const draftTo = ref<number | null>(null)
 const draftTagIds = ref<string[]>([])
 const draftVisibility = ref<App.Api.Ech0.EchoVisibilityFilter>('all')
+const draftMineOnly = ref<boolean>(false)
 const keywordInputRef = ref<HTMLInputElement | null>(null)
 const showAllTags = ref<boolean>(false)
 const visibleTagLimit = 12
@@ -317,6 +348,11 @@ const visibilityOptions = computed(() => [
   { key: 'all' as const, label: t('commandPalette.visibilityAll') },
   { key: 'public' as const, label: t('commandPalette.visibilityPublic') },
   { key: 'private' as const, label: t('commandPalette.visibilityPrivate') },
+])
+
+const authorOptions = computed(() => [
+  { key: 'all' as const, label: t('commandPalette.authorAll') },
+  { key: 'mine' as const, label: t('commandPalette.authorMine') },
 ])
 
 const activePreset = computed<string | null>(() => {
@@ -429,6 +465,7 @@ const isDraftDirty = computed(() => {
   if (draftFrom.value !== dateFrom.value) return true
   if (draftTo.value !== dateTo.value) return true
   if (draftVisibility.value !== visibilityFilter.value) return true
+  if (draftMineOnly.value !== mineOnly.value) return true
   if (!arraysEqualAsSet(draftTagIds.value, currentTagDraftFromStore())) return true
   return false
 })
@@ -439,6 +476,7 @@ const isDraftActive = computed(
     draftFrom.value !== null ||
     draftTo.value !== null ||
     draftVisibility.value !== 'all' ||
+    draftMineOnly.value ||
     draftTagIds.value.length > 0,
 )
 
@@ -447,6 +485,7 @@ const activeFilterCount = computed(() => {
   if (draftKeyword.value.trim().length > 0) n += 1
   if (draftFrom.value !== null || draftTo.value !== null) n += 1
   if (draftVisibility.value !== 'all') n += 1
+  if (draftMineOnly.value) n += 1
   if (draftTagIds.value.length > 0) n += draftTagIds.value.length
   return n
 })
@@ -456,6 +495,7 @@ const syncDraftFromStore = () => {
   draftFrom.value = dateFrom.value
   draftTo.value = dateTo.value
   draftVisibility.value = visibilityFilter.value
+  draftMineOnly.value = mineOnly.value
   draftTagIds.value = currentTagDraftFromStore()
 }
 
@@ -469,9 +509,17 @@ const handleApply = () => {
   const fromChanged = draftFrom.value !== dateFrom.value
   const toChanged = draftTo.value !== dateTo.value
   const visibilityChanged = draftVisibility.value !== visibilityFilter.value
+  const mineChanged = draftMineOnly.value !== mineOnly.value
   const tagsChanged = !arraysEqualAsSet(draftTagIds.value, currentTagDraftFromStore())
 
-  if (!keywordChanged && !fromChanged && !toChanged && !visibilityChanged && !tagsChanged) {
+  if (
+    !keywordChanged &&
+    !fromChanged &&
+    !toChanged &&
+    !visibilityChanged &&
+    !mineChanged &&
+    !tagsChanged
+  ) {
     close()
     return
   }
@@ -480,6 +528,7 @@ const handleApply = () => {
   echoStore.dateFrom = draftFrom.value
   echoStore.dateTo = draftTo.value
   echoStore.visibilityFilter = draftVisibility.value
+  echoStore.mineOnly = draftMineOnly.value
 
   echoStore.selectedTagIds = [...draftTagIds.value]
   echoStore.isFilteringMode = false
@@ -500,6 +549,7 @@ const handleReset = () => {
   draftFrom.value = null
   draftTo.value = null
   draftVisibility.value = 'all'
+  draftMineOnly.value = false
   draftTagIds.value = []
 }
 

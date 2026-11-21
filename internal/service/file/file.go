@@ -97,9 +97,6 @@ func (s *FileService) UploadFile(
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 
 	reader, err := file.Open()
 	if err != nil {
@@ -225,9 +222,6 @@ func (s *FileService) CreateExternalFile(
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 
 	rawURL := urlUtil.TrimURL(dto.URL)
 	if rawURL == "" {
@@ -342,21 +336,31 @@ func (s *FileService) CreateExternalFile(
 	}, nil
 }
 
-func (s *FileService) DeleteFile(ctx context.Context, id string) error {
+// authorizeFileRead reports whether the viewer may read or manage a stored
+// file's bytes. Records without an owner (anonymous or legacy uploads) stay
+// readable; everything else is limited to the uploader and administrators.
+func (s *FileService) authorizeFileRead(ctx context.Context, record *fileModel.File) error {
 	userid := viewer.MustFromContext(ctx).UserID()
 	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
 	if err != nil {
 		return err
 	}
-	if !user.IsAdmin {
+	if record.UserID != "" && record.UserID != userid && !user.IsAdmin {
 		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
+	return nil
+}
+
+func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New(commonModel.IMAGE_NOT_FOUND)
 	}
 
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
+		return err
+	}
+	if err := s.authorizeFileRead(ctx, fileRecord); err != nil {
 		return err
 	}
 
@@ -380,17 +384,11 @@ func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 }
 
 func (s *FileService) GetFileByID(ctx context.Context, id string) (commonModel.FileDto, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
+	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-
-	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
-	if err != nil {
+	if err := s.authorizeFileRead(ctx, fileRecord); err != nil {
 		return commonModel.FileDto{}, err
 	}
 
@@ -432,6 +430,7 @@ func (s *FileService) GetFilesByIDs(ctx context.Context, ids []string) ([]common
 			Size:        f.Size,
 			Width:       f.Width,
 			Height:      f.Height,
+			UserID:      f.UserID,
 		})
 	}
 	return dtos, nil
@@ -442,14 +441,6 @@ func (s *FileService) UpdateFileMeta(
 	id string,
 	dto commonModel.UpdateFileMetaDto,
 ) (commonModel.FileDto, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
-	if err != nil {
-		return commonModel.FileDto{}, err
-	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 	if id == "" || dto.Size < 0 {
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
 	}
@@ -462,6 +453,9 @@ func (s *FileService) UpdateFileMeta(
 
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
+		return commonModel.FileDto{}, err
+	}
+	if err := s.authorizeFileRead(ctx, fileRecord); err != nil {
 		return commonModel.FileDto{}, err
 	}
 	if storage.NormalizeStorageType(fileRecord.StorageType) != storage.StorageTypeObject {
@@ -698,6 +692,10 @@ func (s *FileService) StreamFileByID(ctx *gin.Context, id string) {
 		ctx.String(http.StatusNotFound, "文件不存在")
 		return
 	}
+	if err := s.authorizeFileRead(ctx.Request.Context(), fileRecord); err != nil {
+		ctx.String(http.StatusForbidden, "无权限")
+		return
+	}
 
 	contentType := fileRecord.ContentType
 	if contentType == "" {
@@ -832,14 +830,9 @@ func (s *FileService) GetFilePresignURL(
 	var result commonModel.PresignDto
 	userid := viewer.MustFromContext(ctx).UserID()
 
-	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
-	if err != nil {
+	if _, err := s.commonRepository.GetUserByUserId(context.Background(), userid); err != nil {
 		return result, err
 	}
-	if !user.IsAdmin {
-		return result, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-
 	if dto.FileName == "" {
 		return result, errors.New(commonModel.INVALID_PARAMS)
 	}

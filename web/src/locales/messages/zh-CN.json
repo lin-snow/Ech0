@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "请求失败",
     "save": "保存",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "noPermission": {
+      "title": "没有访问权限",
+      "description": "此页面仅管理员可用。你仍可以发布内容，并管理自己的资料与文件。",
+      "backHome": "返回首页",
+      "accountSettings": "账户设置"
+    }
   },
   "commonUi": {
     "apply": "应用",
@@ -92,7 +98,7 @@
     "fetchTitleSuccess": "已获取网站标题",
     "fetchTitleFailed": "获取网站标题失败",
     "tagManagerTitle": "标签管理",
-    "tagManagerHint": "Tip: 点击标签可以按标签过滤或删除",
+    "tagManagerHint": "Tip: 点击标签可以按标签过滤",
     "tagManagerEmpty": "暂无标签",
     "filterByTag": "按标签过滤内容",
     "deleteTag": "删除该标签",
@@ -132,7 +138,7 @@
     "addImage": "添加附件",
     "publishEcho": "发布Echo",
     "publishEchoPublic": "公开发布",
-    "publishEchoPrivate": "私密发布",
+    "publishEchoPrivate": "仅登录可见",
     "exitUpdateMode": "退出更新模式",
     "updateEcho": "更新Echo",
     "extMusic": "音乐",
@@ -199,7 +205,6 @@
     "enableCaptchaDesc": "启用后使用内置 gocap 验证，无需额外部署。",
     "searchPlaceholder": "搜索昵称、邮箱、内容",
     "statusAll": "全部状态",
-    "status": "状态",
     "statusPending": "待审核",
     "statusApproved": "已通过",
     "statusRejected": "已拒绝",
@@ -241,7 +246,7 @@
     "testEmailSending": "发送中",
     "testEmailSuccess": "测试邮件发送成功",
     "emailNotifyTitle": "邮箱通知",
-    "emailNotifyDesc": "只通知 owner，支持新评论、审核变更与 hot 通知。",
+    "emailNotifyDesc": "只通知管理员，支持新评论、审核变更与 hot 通知。",
     "emailNotifyEnableFirst": "请先开启邮箱通知",
     "smtpHostPlaceholder": "SMTP Host",
     "smtpPortPlaceholder": "SMTP Port",
@@ -275,6 +280,7 @@
   },
   "auth": {
     "loginSuccess": "登录成功,欢迎回来！🎉",
+    "account_disabled": "账户已被禁用，请联系管理员。",
     "signupSuccess": "注册成功,请登录！"
   },
   "authPage": {
@@ -293,18 +299,18 @@
     "passkeyLoginFailed": "Passkey 登录失败"
   },
   "init": {
-    "ownerEmailPlaceholder": "Owner 邮箱",
-    "ownerUsernamePlaceholder": "Owner 用户名",
-    "ownerPasswordPlaceholder": "Owner 密码",
     "initializing": "初始化中...",
     "initialize": "初始化",
     "initDone": "初始化完成",
     "alreadyInitializedRedirect": "系统已初始化，正在跳转登录",
     "initFailed": "初始化失败",
     "introHeading": "开始使用 Ech0",
-    "introDescription": "创建 Owner 账号，完成站点基本设置，开启你的个人记录空间。",
+    "introDescription": "创建管理员账号，完成站点基本设置，开启你的个人记录空间。",
     "siteTitlePlaceholder": "站点名称（可留空）",
-    "autoLoginFailed": "Owner 已创建，请手动登录。"
+    "autoLoginFailed": "管理员已创建，请手动登录。",
+    "adminEmailPlaceholder": "管理员邮箱",
+    "adminUsernamePlaceholder": "管理员用户名",
+    "adminPasswordPlaceholder": "管理员密码"
   },
   "onboarding": {
     "title": "让你的实例准备就绪",
@@ -435,8 +441,12 @@
     "visibilityLabel": "可见性",
     "visibilityAll": "全部",
     "visibilityPublic": "仅公开",
-    "visibilityPrivate": "仅私密",
+    "visibilityPrivate": "仅登录可见",
     "activeChipVisibilityPrefix": "可见性",
+    "authorLabel": "作者",
+    "authorAll": "全部成员",
+    "authorMine": "仅我发布",
+    "activeChipAuthorPrefix": "作者",
     "tagsLabel": "标签",
     "tagsHint": "任一匹配",
     "tagsEmpty": "暂无标签",
@@ -486,13 +496,13 @@
   "connectWidget": {
     "noConnections": "当前暂无连接",
     "loading": "加载中...",
-    "tooltipOwner": "Owner",
     "tooltipTotal": "共有",
     "tooltipToday": "今日",
     "tooltipVersion": "版本",
     "jumpToEchoDetail": "查看对应 Echo 详情",
     "randomCommentLoading": "正在挑选一条精选评论...",
-    "noFeaturedComment": "暂无精选评论可展示。"
+    "noFeaturedComment": "暂无精选评论可展示。",
+    "tooltipAdmin": "管理员"
   },
   "heatmap": {
     "tooltip": "{date}: {count} 条"
@@ -508,7 +518,7 @@
     "shareCopyFailed": "复制失败，请重试。",
     "shareMarkdownCopied": "Markdown 已复制到剪贴板！",
     "metaWordCountValue": "{count} 字",
-    "metaPrivate": "私有"
+    "metaPrivate": "仅登录可见"
   },
   "commentSection": {
     "disabled": "评论功能未开启。",
@@ -552,7 +562,7 @@
     "submittedAtPending": "已于 {time} 提交，审核通过后会显示在评论列表中。"
   },
   "echoCard": {
-    "privateStatus": "私密状态",
+    "privateStatus": "仅登录可见",
     "moreActions": "Echo 操作",
     "delete": "删除",
     "update": "更新",
@@ -561,7 +571,8 @@
     "deleteSuccess": "删除成功！",
     "editAnotherEchoTitle": "编辑另一条 Echo？",
     "editAnotherEchoDesc": "你正在编辑另一条 Echo。放弃当前修改并编辑这条吗？",
-    "openDetail": "查看详情"
+    "openDetail": "查看详情",
+    "manageOwnOnlyHint": "只能编辑或删除自己的 Echo"
   },
   "userSetting": {
     "title": "用户中心",
@@ -578,7 +589,6 @@
     "avatarUploadSuccess": "头像上传成功！",
     "uploadFailed": "上传失败，请稍后再试",
     "role": "身份",
-    "roleOwner": "所有者",
     "roleAdmin": "管理员",
     "roleMember": "成员"
   },
@@ -590,8 +600,14 @@
     "email": "邮箱",
     "isAdmin": "管理员",
     "deleteUser": "删除用户",
-    "deleteConfirmTitle": "确定要删除该用户吗？",
-    "deleteConfirmDesc": "删除后将无法恢复，请谨慎操作"
+    "deleteConfirmTitle": "永久删除用户？",
+    "deleteConfirmDesc": "此操作不可撤销。将永久删除该用户创建的全部 Echo 及其附件、这些 Echo 下的全部评论（包括其他用户发表的评论），以及该用户在其他 Echo 下发表的评论。其他用户创建的 Echo 不受影响。",
+    "status": "状态",
+    "statusActive": "正常",
+    "statusDisabled": "已禁用",
+    "disableUser": "禁用用户",
+    "enableUser": "启用用户",
+    "deleteConfirmHint": "请输入用户名 {username} 以确认删除"
   },
   "systemSetting": {
     "title": "系统设置",
@@ -733,7 +749,7 @@
     "formatSnapshotDesc": "完整备份，含账号与凭据",
     "formatCapsuleTitle": "胶囊",
     "formatCapsuleDesc": "仅内容，可分享或生成静态站",
-    "includePrivate": "包含私密内容",
+    "includePrivate": "包含仅登录可见内容",
     "loginRequired": "请登录后使用",
     "exporting": "导出中...请稍等",
     "exportStarted": "导出已开始！",
@@ -848,7 +864,7 @@
     "scopeEchoRead": "查看 Echo",
     "scopeEchoWrite": "创建/编辑 Echo",
     "scopeEchoDelete": "删除 Echo",
-    "scopeEchoPrivate": "查看私密 Echo",
+    "scopeEchoPrivate": "查看仅登录可见 Echo",
     "scopeCommentRead": "查看评论",
     "scopeCommentWrite": "发表评论",
     "scopeCommentReview": "评论审核",
@@ -969,7 +985,7 @@
     "sourceCapsuleTitle": "Ech0 胶囊",
     "sourceCapsule": "支持从 Ech0 胶囊导入",
     "capsuleNote": "追加导入，按 id 去重，不覆盖现有内容",
-    "capsuleIncludePrivate": "包含私密内容",
+    "capsuleIncludePrivate": "包含仅登录可见内容",
     "statusIdle": "空闲",
     "statusPending": "等待中",
     "statusRunning": "迁移中",

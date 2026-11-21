@@ -39,7 +39,7 @@ func TestCLIScopeIsCatalogSubset(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
-	api := setupHumaAPI(gin.New())
+	api := setupHumaAPI(gin.New(), nil)
 	registerOperations(api, buildTestHandlers(), nil)
 	doc, _, _, err := openapiCatalog.Build(api.OpenAPI())
 	if err != nil {

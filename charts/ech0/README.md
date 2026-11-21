@@ -8,19 +8,19 @@ This chart runs the single-binary server image with a persistent volume for the 
 ```bash
 helm repo add ech0 https://lin-snow.github.io/Ech0
 helm repo update
-helm install ech0 ech0/ech0 --set config.JWT_SECRET="$(openssl rand -hex 32)"
+helm install ech0 ech0/ech0
 ```
 
 The same package is also published as an OCI artifact to GitHub Container Registry:
 
 ```bash
-helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 \
-  --version <chart-version> \
-  --set config.JWT_SECRET="$(openssl rand -hex 32)"
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
-`config.JWT_SECRET` defaults to a placeholder (`Hello Echos`) that is public in this repository, so
-**always override it in production** — tokens signed with the default are forgeable.
+### Signing secret
+
+Sessions and access tokens survive restarts and `helm upgrade`: the signing secret lives in the SQLite
+database under `persistence`, and a recreated data volume rotates it. `JWT_SECRET` is no longer read.
 
 ## Configuration
 
@@ -32,11 +32,11 @@ helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 \
 | `service.type` / `service.httpPort` | Service type and port | `ClusterIP` / `6277` |
 | `ingress.*` | Ingress configuration | disabled |
 | `httpRoute.*` | Gateway API HTTPRoute configuration | disabled |
-| `config.JWT_SECRET` | JWT signing secret. **Change this in production.** | `Hello Echos` |
 | `extraEnv` / `extraEnvFrom` | Extra environment variables / env sources | `[]` |
 | `persistence.enabled` / `persistence.size` / `persistence.mountPath` | PVC for `/app/data` (SQLite + uploads) | `true` / `1Gi` / `/app/data` |
 | `probes.*` | Liveness and readiness probes | enabled |
 | `resources`, `autoscaling`, `nodeSelector`, `tolerations`, `affinity` | Standard scheduling and scaling knobs | see `values.yaml` |
+| `podSecurityContext` / `securityContext` | Pod and container security context. Defaults pin the server to uid/gid `10001`, set `fsGroup` so the data PVC stays writable, and drop all capabilities. | non-root, `seccompProfile: RuntimeDefault` |
 
 See [`values.yaml`](values.yaml) for the complete list. Server-side settings are documented in
 [docs/usage/configuration.md](https://github.com/lin-snow/Ech0/blob/main/docs/usage/configuration.md);

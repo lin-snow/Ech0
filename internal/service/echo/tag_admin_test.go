@@ -20,35 +20,22 @@ import (
 )
 
 func TestCreateTag(t *testing.T) {
-	t.Run("non-admin is denied", func(t *testing.T) {
+	t.Run("member creates a tag", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, userID).
-			Return(helpers.NewUser(), nil).
+		tx := txmock.NewMockTransactor(t)
+		repo.EXPECT().
+			GetTagsByNames(mock.Anything, []string{"golang"}).
+			Return([]*echoModel.Tag{}, nil).
 			Once()
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		repo.EXPECT().CreateTag(mock.Anything, mock.Anything).Return(nil).Once()
 
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(tx, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(userID), "golang")
 
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
-		assert.Nil(t, got)
-	})
-
-	t.Run("user lookup error propagates", func(t *testing.T) {
-		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
-		boom := errors.New("user lookup failed")
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), boom).
-			Once()
-
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		got, err := svc.CreateTag(helpers.CtxAsUser(adminID), "golang")
-
-		require.ErrorIs(t, err, boom)
-		assert.Nil(t, got)
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		assert.Equal(t, "golang", got.Name)
 	})
 
 	t.Run("blank or hash-only name is invalid", func(t *testing.T) {
@@ -56,13 +43,8 @@ func TestCreateTag(t *testing.T) {
 		for _, name := range cases {
 			t.Run("name="+name, func(t *testing.T) {
 				repo := newEchoRepoMock(t)
-				common := commonmock.NewMockService(t)
-				common.EXPECT().
-					CommonGetUserByUserId(mock.Anything, adminID).
-					Return(helpers.NewUser(helpers.AsAdmin), nil).
-					Once()
 
-				svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+				svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 				got, err := svc.CreateTag(helpers.CtxAsUser(adminID), name)
 
 				require.EqualError(t, err, commonModel.INVALID_PARAMS)
@@ -73,13 +55,8 @@ func TestCreateTag(t *testing.T) {
 
 	t.Run("unsafe name is invalid", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(adminID), "<script>")
 
 		require.EqualError(t, err, commonModel.INVALID_PARAMS)
@@ -88,18 +65,13 @@ func TestCreateTag(t *testing.T) {
 
 	t.Run("returns existing tag without creating", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		existing := &echoModel.Tag{ID: "tag-go", Name: "golang", UsageCount: 7}
 		repo.EXPECT().
 			GetTagsByNames(mock.Anything, []string{"golang"}).
 			Return([]*echoModel.Tag{existing}, nil).
 			Once()
 
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(adminID), "#golang  ")
 
 		require.NoError(t, err)
@@ -109,12 +81,7 @@ func TestCreateTag(t *testing.T) {
 
 	t.Run("creates new tag in transaction", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		repo.EXPECT().
 			GetTagsByNames(mock.Anything, []string{"vue"}).
 			Return([]*echoModel.Tag{}, nil).
@@ -128,7 +95,7 @@ func TestCreateTag(t *testing.T) {
 			Return(nil).
 			Once()
 
-		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(tx, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(adminID), "#vue")
 
 		require.NoError(t, err)
@@ -140,15 +107,10 @@ func TestCreateTag(t *testing.T) {
 
 	t.Run("GetTagsByNames error propagates", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
 		boom := errors.New("query failed")
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return(nil, boom).Once()
 
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(adminID), "golang")
 
 		require.ErrorIs(t, err, boom)
@@ -157,18 +119,13 @@ func TestCreateTag(t *testing.T) {
 
 	t.Run("CreateTag error inside transaction propagates", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
-		common := commonmock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
 		boom := errors.New("insert failed")
-		common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, adminID).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
 		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 		repo.EXPECT().CreateTag(mock.Anything, mock.Anything).Return(boom).Once()
 
-		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(tx, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(adminID), "golang")
 
 		require.ErrorIs(t, err, boom)

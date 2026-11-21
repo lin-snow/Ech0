@@ -45,11 +45,32 @@
             </span>
           </div>
 
-          <button type="button" class="menu-row" role="menuitem" @click="onUpdate">
+          <div
+            v-if="!canManage"
+            class="px-2 pb-1.5 text-[10px] leading-snug text-[var(--color-text-muted)]"
+          >
+            {{ t('echoCard.manageOwnOnlyHint') }}
+          </div>
+
+          <button
+            type="button"
+            class="menu-row"
+            role="menuitem"
+            :disabled="!canManage"
+            :class="{ 'menu-row--disabled': !canManage }"
+            @click="onUpdate"
+          >
             <EditEcho class="w-3.5 h-3.5 shrink-0" />
             <span>{{ t('echoCard.update') }}</span>
           </button>
-          <button type="button" class="menu-row menu-row--danger" role="menuitem" @click="onDelete">
+          <button
+            type="button"
+            class="menu-row menu-row--danger"
+            role="menuitem"
+            :disabled="!canManage"
+            :class="{ 'menu-row--disabled': !canManage }"
+            @click="onDelete"
+          >
             <Roll class="w-3.5 h-3.5 shrink-0" />
             <span>{{ t('echoCard.delete') }}</span>
           </button>
@@ -76,7 +97,7 @@ import Lock from '@/components/icons/lock.vue'
 import More from '@/components/icons/more.vue'
 import Roll from '@/components/icons/roll.vue'
 import { fetchDeleteEcho } from '@/service/api'
-import { useEchoStore, useEditorStore } from '@/stores'
+import { useEchoStore, useEditorStore, useUserStore } from '@/stores'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { theToast } from '@/utils/toast'
 
@@ -88,6 +109,7 @@ const props = defineProps<{
 
 const echoStore = useEchoStore()
 const editorStore = useEditorStore()
+const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 const { openConfirm } = useBaseDialog()
@@ -97,6 +119,18 @@ const rootEl = ref<HTMLElement | null>(null)
 const triggerEl = ref<HTMLElement | null>(null)
 const panelEl = ref<HTMLElement | null>(null)
 const open = computed(() => openMenuId.value === props.echo.id)
+// A menu opened with a pointer keeps focus on the trigger; only keyboard users
+// are moved into the panel, otherwise the first row shows a focus ring nobody
+// asked for.
+let openedWithKeyboard = false
+
+// Members may only touch their own echoes; administrators may correct any of
+// them. The server enforces the same rule, this only keeps the menu honest.
+const canManage = computed(() => {
+  const me = userStore.user
+  if (!me) return false
+  return me.is_admin === true || (props.echo.user_id !== '' && me.id === props.echo.user_id)
+})
 
 const PANEL_WIDTH = 144
 const PANEL_GAP = 8
@@ -105,7 +139,10 @@ const VIEWPORT_INSET = 8
 // The panel has not mounted yet when the first style is written; a per-shape
 // estimate keeps the opening frame in the right place, then the measured height
 // refines it (and decides the flip).
-const estimatedPanelHeight = () => (props.echo.private ? 92 : 68)
+const estimatedPanelHeight = () => {
+  const base = props.echo.private ? 92 : 68
+  return canManage.value ? base : base + 26
+}
 
 const panelStyle = ref({ top: '0px', right: '0px' })
 
@@ -141,7 +178,7 @@ const onOutside = (event: PointerEvent) => {
 }
 
 const menuItems = (): HTMLElement[] =>
-  Array.from(panelEl.value?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+  Array.from(panelEl.value?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])
 
 const focusItem = (index: number) => {
   const items = menuItems()
@@ -201,7 +238,8 @@ const unbind = () => {
   window.removeEventListener('scroll', close, { capture: true })
 }
 
-const toggle = () => {
+const toggle = (event: MouseEvent) => {
+  openedWithKeyboard = event.detail === 0
   openMenuId.value = open.value ? null : props.echo.id
 }
 
@@ -214,7 +252,7 @@ watch(
     void nextTick(() => {
       if (!open.value) return
       placePanel(estimatedPanelHeight())
-      focusItem(0)
+      if (openedWithKeyboard) focusItem(0)
     })
     bind()
   },
@@ -241,6 +279,7 @@ const startUpdate = async (echo: Echo) => {
 }
 
 const onUpdate = () => {
+  if (!canManage.value) return
   close()
   if (!editorStore.isUpdateMode) {
     void startUpdate(props.echo)
@@ -256,13 +295,18 @@ const onUpdate = () => {
 }
 
 const onDelete = () => {
+  if (!canManage.value) return
   const echoId = props.echo.id
   close()
   openConfirm({
     title: String(t('echoCard.deleteConfirmTitle')),
     description: String(t('echoCard.deleteConfirmDesc')),
     onConfirm: () => {
-      fetchDeleteEcho(echoId).then(() => {
+      // request() resolves on business failures too (it toasts the error
+      // itself), so the success path must check the envelope before the row is
+      // optimistically removed.
+      fetchDeleteEcho(echoId).then((res) => {
+        if (res.code !== 1) return
         theToast.success(String(t('echoCard.deleteSuccess')))
         echoStore.removeEcho(echoId)
       })
@@ -302,5 +346,17 @@ const onDelete = () => {
 
 .menu-row--danger:hover {
   color: var(--color-danger);
+}
+
+/* Not the author (and not an administrator): the row stays visible so the
+   reason is discoverable, but it cannot be activated. */
+.menu-row--disabled,
+.menu-row--disabled:hover,
+.menu-row--disabled:focus-visible {
+  color: var(--color-text-muted);
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 </style>

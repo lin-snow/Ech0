@@ -50,6 +50,7 @@ func TestMessageKeyFromMessage(t *testing.T) {
 		{"success", SUCCESS_MESSAGE, MsgKeyCommonSuccess},
 		{"update_settings", UPDATE_SETTINGS_SUCCESS, MsgKeySettingUpdateOK},
 		{"agent_model_missing", AGENT_MODEL_MISSING, MsgKeyAgentModelMissing},
+		{"echo_other_user_forbidden", ECHO_OTHER_USER_FORBIDDEN, MsgKeyEchoOtherUserForbidden},
 		{"unmapped_message", "some random failure text", ""},
 		{"empty_message", "", ""},
 	}

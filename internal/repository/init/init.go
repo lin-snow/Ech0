@@ -34,9 +34,12 @@ func (r *InitRepository) IsInitialized() (bool, error) {
 	return kv.Value == "true", nil
 }
 
-func (r *InitRepository) GetOwner() (userModel.User, error) {
+func (r *InitRepository) GetPrimaryAdmin() (userModel.User, error) {
 	user := userModel.User{}
-	if err := r.db().Where("is_owner = ?", true).First(&user).Error; err != nil {
+	if err := r.db().
+		Where("is_admin = ?", true).
+		Order("id ASC").
+		First(&user).Error; err != nil {
 		return userModel.User{}, err
 	}
 	return user, nil

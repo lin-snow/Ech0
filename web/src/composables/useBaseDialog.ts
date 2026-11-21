@@ -7,6 +7,8 @@ const title = ref('')
 const description = ref('')
 const onConfirmCallback = shallowRef<(() => void) | null>(null)
 const onCancelCallback = shallowRef<(() => void) | null>(null)
+const requireText = ref('')
+const requireTextHint = ref('')
 import type { ComponentPublicInstance } from 'vue'
 import type BaseDialog from '@/components/common/BaseDialog.vue'
 
@@ -14,6 +16,10 @@ type ConfirmDialogInstance = ComponentPublicInstance<typeof BaseDialog>
 type ConfirmOptions = {
   title: string
   description: string
+  // When set, the confirm button stays disabled until the user types this
+  // exact value (used for irreversible deletions).
+  requireText?: string
+  requireTextHint?: string
   onConfirm?: () => void
   onCancel?: () => void
 }
@@ -36,6 +42,8 @@ export function useBaseDialog() {
     description.value = options.description
     onConfirmCallback.value = options.onConfirm || null
     onCancelCallback.value = options.onCancel || null
+    requireText.value = options.requireText || ''
+    requireTextHint.value = options.requireTextHint || ''
 
     if (!confirmDialogRef) {
       pendingOpenOptions = options
@@ -64,6 +72,8 @@ export function useBaseDialog() {
     openConfirm,
     title,
     description,
+    requireText,
+    requireTextHint,
     handleConfirm,
     handleCancel,
   }

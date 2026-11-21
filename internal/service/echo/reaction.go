@@ -46,14 +46,8 @@ func (echoService *EchoService) setReaction(
 	if echo == nil {
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
-	if echo.Private {
-		allowed, err := echoService.canReadPrivate(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if !allowed {
-			return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
-		}
+	if echo.Private && !echoService.privateScope(ctx).Authenticated {
+		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	actor := reactionActor(ctx)
@@ -81,7 +75,7 @@ func (echoService *EchoService) setReaction(
 // for contexts without an HTTP request (background jobs, tests).
 func reactionActor(ctx context.Context) string {
 	if userID := viewer.MustFromContext(ctx).UserID(); userID != "" {
-		return "u:" + userID
+		return actorUtil.UserActor(userID)
 	}
 	if fallback := actorUtil.FromContext(ctx); fallback != "" {
 		return fallback

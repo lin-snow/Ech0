@@ -9,7 +9,7 @@ import {DOT} from './rail.jsx';
 export const Empty = () => null;
 
 // README "Try in 60 Seconds" (README.md#L74), verbatim.
-const CMD = ['docker run -d \\', '  --name ech0 \\', '  -p 6277:6277 \\', '  -v /opt/ech0/data:/app/data \\', '  -e JWT_SECRET="Hello Echos" \\', '  sn0wl1n/ech0:latest'];
+const CMD = ['docker run -d \\', '  --name ech0 \\', '  -p 6277:6277 \\', '  -v /opt/ech0/data:/app/data \\', '  sn0wl1n/ech0:latest'];
 export function OwnView() {
   return <div className="cmd-card">
     <div className="cmd-head"><i /><i /><i /><span>server</span></div>

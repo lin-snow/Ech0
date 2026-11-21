@@ -28,6 +28,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	model "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/transaction"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
@@ -48,6 +49,7 @@ type AuthService struct {
 	durableKV      kvstore.Store
 	resolveAdapter func(provider string) (oauthProviderAdapter, error)
 	tokenIssuer    TokenIssuer
+	limits         *ratelimit.MemoryLimiter
 	deviceMu       sync.Mutex
 	devices        map[string]*deviceEntry
 }
@@ -58,6 +60,7 @@ func NewAuthService(
 	authRepo AuthRepo,
 	durableKV kvstore.Store,
 	tokenIssuer TokenIssuer,
+	limits *ratelimit.MemoryLimiter,
 ) *AuthService {
 	return &AuthService{
 		transactor:     tx,
@@ -66,6 +69,7 @@ func NewAuthService(
 		durableKV:      durableKV,
 		resolveAdapter: getOAuthProviderAdapter,
 		tokenIssuer:    tokenIssuer,
+		limits:         limits,
 		devices:        make(map[string]*deviceEntry),
 	}
 }
@@ -76,6 +80,19 @@ func (authService *AuthService) RevokeToken(jti string, remainTTL time.Duration)
 
 func (authService *AuthService) IsTokenRevoked(jti string) bool {
 	return authService.authRepo.IsTokenRevoked(jti)
+}
+
+func (authService *AuthService) IsAccountActive(ctx context.Context, userID string) (bool, error) {
+	return authService.authRepo.IsAccountActive(ctx, userID)
+}
+
+func accountDisabledError() error {
+	return commonModel.NewBizErrorWithMessageKey(
+		commonModel.ErrCodeAccountDisabled,
+		commonModel.ACCOUNT_DISABLED,
+		commonModel.MsgKeyAuthAccountDisabled,
+		nil,
+	)
 }
 
 func (authService *AuthService) PasskeyBoundary(ctx context.Context) (rpID string, origins []string) {
@@ -90,15 +107,22 @@ func (authService *AuthService) ExchangeOAuthCode(code string) (*authModel.Token
 	return authService.authRepo.GetAndDeleteOAuthCode(code)
 }
 
-func (authService *AuthService) Login(loginDto *authModel.LoginDto) (*authModel.TokenPair, error) {
+func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.LoginDto) (*authModel.TokenPair, error) {
 	if loginDto.Username == "" || loginDto.Password == "" {
 		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
 	}
 
-	ctx := context.Background()
+	attempt, err := authService.reserveSignIn(ctx, loginDto.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unknown user, missing local credentials and a wrong password must look
+	// identical from the outside, otherwise the endpoint becomes an account
+	// oracle. The distinguishers stay in the server log only.
 	user, err := authService.repository.GetUserByUsername(ctx, loginDto.Username)
 	if err != nil {
-		return nil, errors.New(commonModel.USER_NOTFOUND)
+		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 	}
 
 	localAuth, err := authService.repository.GetLocalAuthByUserID(ctx, user.ID)
@@ -111,10 +135,19 @@ func (authService *AuthService) Login(loginDto *authModel.LoginDto) (*authModel.
 				logUtil.Err(err),
 			)
 		}
-		return nil, errors.New(commonModel.PASSWORD_INCORRECT)
+		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 	}
 	if !cryptoUtil.CheckPassword(localAuth.PasswordAlgo, localAuth.PasswordHash, loginDto.Password) {
-		return nil, errors.New(commonModel.PASSWORD_INCORRECT)
+		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+	}
+	attempt.succeeded()
+
+	active, err := authService.IsAccountActive(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return nil, accountDisabledError()
 	}
 
 	if localAuth.PasswordAlgo != cryptoUtil.AlgoBcrypt {
@@ -417,6 +450,14 @@ func (authService *AuthService) resolveOAuthCallback(
 				slog.String("reason", "identity_not_bound_or_lookup_failed"),
 			)
 			return "", err
+		}
+
+		active, err := authService.IsAccountActive(context.Background(), user.ID)
+		if err != nil {
+			return "", err
+		}
+		if !active {
+			return "", accountDisabledError()
 		}
 
 		tokenPair, err := authService.issueUserToken(user)
@@ -907,6 +948,13 @@ func (authService *AuthService) PasskeyLoginFinish(
 	u, err := authService.repository.GetUserByID(context.Background(), uid)
 	if err != nil {
 		return nil, err
+	}
+	active, err := authService.IsAccountActive(context.Background(), u.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return nil, accountDisabledError()
 	}
 
 	tokenPair, err := authService.issueUserToken(u)

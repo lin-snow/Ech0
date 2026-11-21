@@ -6,6 +6,11 @@ import { i18n, DEFAULT_LOCALE } from '@/locales'
 import { timeValueToMs } from './timeValue'
 
 const ABSOLUTE_URL_REGEX = /^https?:\/\//i
+/** Returns the URL only when it is an absolute http(s) address, else ''. */
+export const safeExternalUrl = (raw?: string | null): string => {
+  const candidate = String(raw ?? '').trim()
+  return ABSOLUTE_URL_REGEX.test(candidate) ? candidate : ''
+}
 const joinBaseAndPath = (baseUrl: string, path: string) =>
   `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
 const defaultServiceBaseUrl = String(import.meta.env.VITE_SERVICE_BASE_URL || '').trim()

@@ -37,16 +37,34 @@ type deps struct {
 	kv     *kvmock.MockStore
 	common *commonmock.MockService
 	mailer *commentmock.MockMailer
+
+	// privateEchos / missingEchos describe the echo table the commentability
+	// guard sees. Echo ids absent from both maps are public.
+	privateEchos map[string]bool
+	missingEchos map[string]error
 }
 
 func newDeps(t *testing.T) deps {
 	t.Helper()
-	return deps{
-		repo:   commentmock.NewMockRepository(t),
-		kv:     kvmock.NewMockStore(t),
-		common: commonmock.NewMockService(t),
-		mailer: commentmock.NewMockMailer(t),
+	repo := commentmock.NewMockRepository(t)
+	d := deps{
+		repo:         repo,
+		kv:           kvmock.NewMockStore(t),
+		common:       commonmock.NewMockService(t),
+		mailer:       commentmock.NewMockMailer(t),
+		privateEchos: make(map[string]bool),
+		missingEchos: make(map[string]error),
 	}
+	repo.EXPECT().
+		IsEchoPrivate(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, echoID string) (bool, error) {
+			if err, ok := d.missingEchos[echoID]; ok {
+				return false, err
+			}
+			return d.privateEchos[echoID], nil
+		}).
+		Maybe()
+	return d
 }
 
 func (d deps) service() *commentService.CommentService {
@@ -192,6 +210,24 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 			},
 			wantMsg: "网址格式无效",
 		},
+		{
+			// ParseRequestURI accepts any scheme with a host, so a
+			// javascript: URL used to pass and then ran on author-link click.
+			name: "javascript website scheme",
+			dto: commentModel.CreateCommentDto{
+				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
+				Website: "javascript://evil.example/%0aalert(document.domain)",
+			},
+			wantMsg: "网址格式无效",
+		},
+		{
+			name: "data website scheme",
+			dto: commentModel.CreateCommentDto{
+				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
+				Website: "data:text/html,<script>alert(1)</script>",
+			},
+			wantMsg: "网址格式无效",
+		},
 	}
 
 	for _, tc := range cases {
@@ -206,22 +242,49 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 	}
 }
 
-func TestCreateComment_NonAdminUserTreatedAsGuest(t *testing.T) {
+func TestCreateComment_MemberAutoApprove(t *testing.T) {
 	helpers.SetJWTSecret(t, testSecret)
 	d := newDeps(t)
 	d.expectSetting(t, enabledSetting())
+
+	member := helpers.NewUser()
+	member.ID = "user-normal"
+	member.Username = "Bob"
 	d.common.EXPECT().
 		CommonGetUserByUserId(mock.Anything, "user-normal").
-		Return(helpers.NewUser(), nil).
+		Return(member, nil).
+		Once()
+	d.repo.EXPECT().
+		ExistsRecentDuplicate(
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything, mock.Anything, mock.Anything,
+		).
+		Return(false, nil).
 		Once()
 
-	_, err := d.service().CreateComment(helpers.CtxAsUser("user-normal"), testIP, "ua",
+	var captured commentModel.Comment
+	d.repo.EXPECT().
+		CreateComment(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, c *commentModel.Comment) {
+			c.ID = "new-comment-1"
+			captured = *c
+		}).
+		Return(nil).
+		Once()
+
+	res, err := d.service().CreateComment(helpers.CtxAsUser("user-normal"), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
 			Content:   "hello",
 			FormToken: freshToken(),
 		})
-	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "昵称和邮箱不能为空")
+	require.NoError(t, err)
+	assert.Equal(t, commentModel.StatusApproved, res.Status)
+	assert.Equal(t, commentModel.SourceSystem, captured.Source)
+	assert.Equal(t, "Bob", captured.Nickname)
+	assert.Empty(t, captured.Email)
+	require.NotNil(t, captured.UserID)
+	assert.Equal(t, "user-normal", *captured.UserID)
 }
 
 func TestCreateComment_RateLimitExceeded(t *testing.T) {
@@ -351,12 +414,12 @@ func TestCreateComment_AdminAutoApprove(t *testing.T) {
 	d := newDeps(t)
 	d.expectSetting(t, enabledSetting())
 
-	owner := helpers.NewUser(helpers.AsOwner)
-	owner.ID = "owner-1"
-	owner.Username = "OwnerBob"
+	admin := helpers.NewUser(helpers.AsAdmin)
+	admin.ID = "admin-1"
+	admin.Username = "AdminBob"
 	d.common.EXPECT().
-		CommonGetUserByUserId(mock.Anything, "owner-1").
-		Return(owner, nil).
+		CommonGetUserByUserId(mock.Anything, "admin-1").
+		Return(admin, nil).
 		Once()
 	d.repo.EXPECT().
 		ExistsRecentDuplicate(
@@ -376,10 +439,10 @@ func TestCreateComment_AdminAutoApprove(t *testing.T) {
 		Return(nil).
 		Once()
 
-	res, err := d.service().CreateComment(helpers.CtxAsUser("owner-1"), testIP, "ua",
+	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1"), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
-			Content:   "hello from owner",
+			Content:   "hello from admin",
 			FormToken: freshToken(),
 		})
 	require.NoError(t, err)
@@ -387,10 +450,10 @@ func TestCreateComment_AdminAutoApprove(t *testing.T) {
 	assert.Equal(t, commentModel.StatusApproved, res.Status)
 	assert.Equal(t, commentModel.SourceSystem, captured.Source)
 	assert.Equal(t, commentModel.StatusApproved, captured.Status)
-	assert.Equal(t, "OwnerBob", captured.Nickname)
+	assert.Equal(t, "AdminBob", captured.Nickname)
 	assert.Empty(t, captured.Email)
 	require.NotNil(t, captured.UserID)
-	assert.Equal(t, "owner-1", *captured.UserID)
+	assert.Equal(t, "admin-1", *captured.UserID)
 }
 
 func TestCreateComment_GuestHappy(t *testing.T) {
@@ -596,4 +659,108 @@ func TestCreateIntegrationComment_Happy(t *testing.T) {
 			assert.Equal(t, "user-9", *captured.UserID)
 		})
 	}
+}
+
+func TestCreateComment_RejectsInvisibleEcho(t *testing.T) {
+	helpers.SetJWTSecret(t, testSecret)
+
+	t.Run("private echo", func(t *testing.T) {
+		d := newDeps(t)
+		d.expectSetting(t, enabledSetting())
+		d.repo.EXPECT().
+			CountByIPWithin(mock.Anything, mock.Anything, mock.Anything).
+			Return(int64(0), nil)
+		d.repo.EXPECT().
+			CountByEmailWithin(mock.Anything, mock.Anything, mock.Anything).
+			Return(int64(0), nil)
+		d.privateEchos["echo-private"] = true
+
+		_, err := d.service().CreateComment(helpers.CtxAnonymous(), testIP, "ua",
+			&commentModel.CreateCommentDto{
+				EchoID:    "echo-private",
+				Content:   "hi",
+				Nickname:  "Bob",
+				Email:     "bob@example.com",
+				FormToken: freshToken(),
+			})
+		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+	})
+
+	t.Run("missing echo", func(t *testing.T) {
+		d := newDeps(t)
+		d.expectSetting(t, enabledSetting())
+		d.repo.EXPECT().
+			CountByIPWithin(mock.Anything, mock.Anything, mock.Anything).
+			Return(int64(0), nil)
+		d.repo.EXPECT().
+			CountByEmailWithin(mock.Anything, mock.Anything, mock.Anything).
+			Return(int64(0), nil)
+		d.missingEchos["echo-missing"] = assert.AnError
+
+		_, err := d.service().CreateComment(helpers.CtxAnonymous(), testIP, "ua",
+			&commentModel.CreateCommentDto{
+				EchoID:    "echo-missing",
+				Content:   "hi",
+				Nickname:  "Bob",
+				Email:     "bob@example.com",
+				FormToken: freshToken(),
+			})
+		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+	})
+}
+
+func TestCreateComment_MemberCanCommentOnPrivateEcho(t *testing.T) {
+	helpers.SetJWTSecret(t, testSecret)
+	d := newDeps(t)
+	d.expectSetting(t, enabledSetting())
+	d.privateEchos["echo-private"] = true
+
+	member := helpers.NewUser()
+	member.ID = "user-normal"
+	member.Username = "Bob"
+	d.common.EXPECT().
+		CommonGetUserByUserId(mock.Anything, "user-normal").
+		Return(member, nil).
+		Once()
+	d.repo.EXPECT().
+		ExistsRecentDuplicate(
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything, mock.Anything, mock.Anything,
+		).
+		Return(false, nil).
+		Once()
+	d.repo.EXPECT().
+		CreateComment(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, c *commentModel.Comment) { c.ID = "private-cmt" }).
+		Return(nil).
+		Once()
+
+	res, err := d.service().CreateComment(helpers.CtxAsUser("user-normal"), testIP, "ua",
+		&commentModel.CreateCommentDto{
+			EchoID:    "echo-private",
+			Content:   "hello member",
+			FormToken: freshToken(),
+		})
+	require.NoError(t, err)
+	assert.Equal(t, "private-cmt", res.ID)
+}
+
+func TestCreateIntegrationComment_RejectsPrivateEcho(t *testing.T) {
+	d := newDeps(t)
+	d.expectSetting(t, enabledSetting())
+	d.repo.EXPECT().
+		CountByIPWithin(mock.Anything, mock.Anything, mock.Anything).
+		Return(int64(0), nil)
+	d.repo.EXPECT().
+		CountByUserWithin(mock.Anything, "user-9", mock.Anything).
+		Return(int64(0), nil).
+		Once()
+	d.privateEchos["echo-private"] = true
+
+	_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
+		&commentModel.CreateIntegrationCommentDto{
+			EchoID:  "echo-private",
+			Content: "hi from bot",
+		})
+	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论目标不可见")
 }

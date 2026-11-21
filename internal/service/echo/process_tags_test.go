@@ -52,6 +52,36 @@ func TestProcessEchoTags(t *testing.T) {
 		assert.Equal(t, []string{"golang", "vue"}, tagNames(echo.Tags))
 	})
 
+	t.Run("member mints a new tag", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		repo.EXPECT().
+			GetTagsByNames(mock.Anything, []string{"curated"}).
+			Return([]*echoModel.Tag{}, nil).
+			Once()
+		repo.EXPECT().CreateTag(mock.Anything, mock.Anything).Return(nil).Once()
+
+		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
+		echo := &echoModel.Echo{Tags: []echoModel.Tag{{Name: "curated"}}}
+
+		require.NoError(t, svc.ProcessEchoTags(helpers.CtxAsUser("user-0002"), echo))
+		assert.Equal(t, []string{"curated"}, tagNames(echo.Tags))
+	})
+
+	t.Run("admin mints a new tag", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		repo.EXPECT().
+			GetTagsByNames(mock.Anything, []string{"curated"}).
+			Return([]*echoModel.Tag{}, nil).
+			Once()
+		repo.EXPECT().CreateTag(mock.Anything, mock.Anything).Return(nil).Once()
+
+		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
+		echo := &echoModel.Echo{Tags: []echoModel.Tag{{Name: "curated"}}}
+
+		require.NoError(t, svc.ProcessEchoTags(helpers.CtxAsUser("admin-0001"), echo))
+		assert.Equal(t, []string{"curated"}, tagNames(echo.Tags))
+	})
+
 	t.Run("skips empty and hash-only names", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 

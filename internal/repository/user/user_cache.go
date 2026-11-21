@@ -9,7 +9,6 @@ const (
 	UsernameKeyPrefix = "username"
 	IDKeyPrefix       = "id"
 	AdminKey          = "admin"
-	OwnerKey          = "owner"
 	PasskeyRegKey     = "passkey:reg"
 	PasskeyLoginKey   = "passkey:login"
 )
@@ -24,10 +23,6 @@ func GetUsernameKey(username string) string {
 
 func GetAdminKey(id string) string {
 	return fmt.Sprintf("%s:%s", AdminKey, id)
-}
-
-func GetOwnerKey() string {
-	return OwnerKey
 }
 
 func GetPasskeyRegisterSessionKey(nonce string) string {

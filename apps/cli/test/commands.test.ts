@@ -26,7 +26,7 @@ describe("auth login", () => {
   test("verifies the token, stores profile and token", async () => {
     api = startFakeApi({
       "GET /api/user": () => ({
-        body: { code: 1, msg: "ok", data: { id: "u1", username: "owner", is_admin: true, is_owner: true } },
+        body: { code: 1, msg: "ok", data: { id: "u1", username: "owner", is_admin: true } },
       }),
     });
     const dir = mkdtempSync(join(tmpdir(), "ech0-cli-login-"));

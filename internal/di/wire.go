@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/wire"
 	"github.com/lin-snow/ech0/internal/cache"
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
@@ -23,7 +24,10 @@ import (
 	"github.com/lin-snow/ech0/internal/middleware"
 	"github.com/lin-snow/ech0/internal/migrator"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/internal/repository"
+	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
+	embeddingRepository "github.com/lin-snow/ech0/internal/repository/embedding"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/service"
@@ -46,8 +50,9 @@ import (
 var AppSet = wire.NewSet(ProvideApp)
 
 // ProvideApp composes Ech0's runtime on the generic app lifecycle: components
-// start in order job → task → server; settings are seeded and event
-// subscriptions registered before any of them, and torn down after all stop.
+// start in order job → task → server; the JWT signing secret is pinned and
+// settings seeded before any of them, and event subscriptions registered and
+// torn down around them.
 func ProvideApp(
 	registrar *eventbus.EventRegistrar,
 	jobManager *job.Manager,
@@ -58,6 +63,9 @@ func ProvideApp(
 	return app.New(
 		app.Components(jobManager, taskManager, httpServer),
 		app.BeforeStart(func(ctx context.Context) error {
+			if err := config.EnsureJWTSecret(ctx, durableKV); err != nil {
+				return err
+			}
 			if err := setting.Seed(ctx, durableKV); err != nil {
 				return err
 			}
@@ -141,12 +149,15 @@ var EventSet = wire.NewSet(
 )
 
 var HandlerSet = wire.NewSet(
+	ratelimit.ProviderSet,
 	repository.FileSet,
 	handler.WebSet,
 
 	repository.UserSet,
 	repository.AuthSet,
 	service.UserSet,
+	wire.Bind(new(userService.EchoCacheInvalidator), new(*echoRepository.EchoRepository)),
+	wire.Bind(new(userService.EmbeddingPurger), new(*embeddingRepository.EmbeddingRepository)),
 	service.AuthSet,
 	service.AccessSet,
 	handler.UserSet,
@@ -208,6 +219,7 @@ var HandlerSet = wire.NewSet(
 )
 
 var MiddlewareSet = wire.NewSet(
+	ratelimit.ProviderSet,
 	repository.AuthSet,
 	middleware.ProviderSet,
 )

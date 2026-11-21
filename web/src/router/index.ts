@@ -37,7 +37,7 @@ const router = createRouter({
       path: '/panel',
       name: 'panel',
       component: () => import('../views/panel/PanelView.vue'),
-      redirect: '/panel/dashboard',
+      redirect: () => (useUserStore().user?.is_admin === true ? '/panel/dashboard' : '/panel/user'),
       meta: {
         title: 'Panel',
         description: 'Ech0 management panel.',
@@ -49,11 +49,13 @@ const router = createRouter({
           path: 'dashboard',
           name: 'panel-dashboard',
           component: () => import('../views/panel/modules/TheDashboard.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'setting',
           name: 'panel-setting',
           component: () => import('../views/panel/modules/TheSetting.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'user',
@@ -64,36 +66,43 @@ const router = createRouter({
           path: 'storage',
           name: 'panel-storage',
           component: () => import('../views/panel/modules/TheStorage.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'data-management',
           name: 'panel-data-management',
           component: () => import('../views/panel/modules/TheDataManagement.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'sso',
           name: 'panel-sso',
           component: () => import('../views/panel/modules/TheSSO.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'extension',
           name: 'panel-extension',
           component: () => import('../views/panel/modules/TheExtension.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'comment',
           name: 'panel-comment',
           component: () => import('../views/panel/modules/TheCommentManager.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'advance',
           name: 'panel-advance',
           component: () => import('../views/panel/modules/TheAdvance.vue'),
+          meta: { requiresAdmin: true },
         },
         {
           path: 'system-log',
           name: 'panel-system-log',
           component: () => import('../views/panel/modules/TheSystemLog.vue'),
+          meta: { requiresAdmin: true },
         },
       ],
     },
@@ -166,6 +175,7 @@ const router = createRouter({
         title: 'Chat',
         description: 'Reflect on and summarize your past echos with AI.',
         requiresAuth: true,
+        requiresAdmin: true,
         noindex: true,
       },
     },
@@ -250,6 +260,10 @@ router.beforeEach(async (to) => {
   }
 
   const needRedirect = localStorage.getItem('needLoginRedirect')
+
+  if (to.meta.requiresAdmin === true && userStore.isLogin && userStore.user?.is_admin !== true) {
+    return { name: 'panel-user' }
+  }
 
   if (
     (to.meta.requiresAuth && !userStore.isLogin) ||

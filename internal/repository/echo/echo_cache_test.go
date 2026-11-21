@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/cache"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testCache struct {
@@ -67,4 +70,45 @@ func TestEchoCacheKeyTrackerConcurrentTrackAndClear(t *testing.T) {
 	if spy.deletedCount() != 2*n {
 		t.Fatalf("expected stable deleted count %d, got %d", 2*n, spy.deletedCount())
 	}
+}
+
+// D1 requires that an anonymous request can never be served the private-echo
+// payload cached by a signed-in request (and vice versa). The keys are derived
+// from PrivateScope, so this exercises the cache end to end instead of only
+// comparing strings.
+func TestEchoCacheDoesNotCrossVisibilityScopes(t *testing.T) {
+	repo, db := newEchoRepo(t)
+	now := time.Now().Unix()
+	seedEcho(t, db, "public-1", "public echo", false, now-10)
+	seedEcho(t, db, "private-1", "private echo", true, now-5)
+
+	anonymous := echoModel.PrivateScope{}
+	authed := echoModel.PrivateScope{Authenticated: true}
+
+	anonPage, anonTotal := repo.GetEchosByPage(1, 10, "", anonymous)
+	require.Equal(t, int64(1), anonTotal)
+	require.Len(t, anonPage, 1)
+	assert.Equal(t, "public-1", anonPage[0].ID)
+
+	authedPage, authedTotal := repo.GetEchosByPage(1, 10, "", authed)
+	require.Equal(t, int64(2), authedTotal)
+	require.Len(t, authedPage, 2)
+
+	// Re-read from cache: the anonymous key must still only hold public data.
+	anonPage, anonTotal = repo.GetEchosByPage(1, 10, "", anonymous)
+	require.Equal(t, int64(1), anonTotal)
+	require.Len(t, anonPage, 1)
+	assert.Equal(t, "public-1", anonPage[0].ID)
+
+	anonToday := repo.GetTodayEchos(anonymous, "UTC")
+	for _, echo := range anonToday {
+		assert.False(t, echo.Private, "anonymous today cache leaked a private echo")
+	}
+	authedToday := repo.GetTodayEchos(authed, "UTC")
+	assert.Len(t, authedToday, 2)
+
+	// And the signed-in cache entry survives the anonymous read unchanged.
+	authedPage, authedTotal = repo.GetEchosByPage(1, 10, "", authed)
+	require.Equal(t, int64(2), authedTotal)
+	require.Len(t, authedPage, 2)
 }
