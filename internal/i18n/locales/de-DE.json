@@ -19,6 +19,7 @@
   { "id": "auth.exchange_code_invalid", "translation": "Autorisierungscode ist ungültig oder abgelaufen." },
   { "id": "auth.token_generate_failed", "translation": "Token konnte nicht generiert werden." },
   { "id": "auth.rate_limited", "translation": "Zu viele Versuche. Bitte versuchen Sie es gleich noch einmal." },
+  { "id": "auth.account_disabled", "translation": "Dieses Konto wurde deaktiviert. Bitte wenden Sie sich an einen Administrator." },
   { "id": "comment_manager.title", "translation": "Kommentarsystem-Einstellungen" },
   { "id": "comment_manager.subtitle", "translation": "Kommentarfunktion, Moderationsregeln und Captcha zentral verwalten." },
   { "id": "dashboard.logs.success", "translation": "Systemlogs erfolgreich abgerufen" },

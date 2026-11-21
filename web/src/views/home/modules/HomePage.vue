@@ -127,7 +127,9 @@ const mainColumn = ref<HTMLElement | null>(null)
 
 const paletteOpen = ref<boolean>(false)
 const chatLauncherOpen = ref<boolean>(false)
-const chatAvailable = computed(() => isLogin.value && AgentSetting.value.enable)
+const chatAvailable = computed(
+  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+)
 
 const handleGlobalKeydown = (event: KeyboardEvent) => {
   const withModifier = (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey

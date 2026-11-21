@@ -37,7 +37,7 @@ const router = createRouter({
       path: '/panel',
       name: 'panel',
       component: () => import('../views/panel/PanelView.vue'),
-      redirect: '/panel/dashboard',
+      redirect: () => (useUserStore().user?.is_admin === true ? '/panel/dashboard' : '/panel/user'),
       meta: {
         title: 'Panel',
         description: 'Ech0 management panel.',
@@ -175,6 +175,7 @@ const router = createRouter({
         title: 'Chat',
         description: 'Reflect on and summarize your past echos with AI.',
         requiresAuth: true,
+        requiresAdmin: true,
         noindex: true,
       },
     },
@@ -259,6 +260,10 @@ router.beforeEach(async (to) => {
   }
 
   const needRedirect = localStorage.getItem('needLoginRedirect')
+
+  if (to.meta.requiresAdmin === true && userStore.isLogin && userStore.user?.is_admin !== true) {
+    return { name: 'panel-user' }
+  }
 
   if (
     (to.meta.requiresAuth && !userStore.isLogin) ||

@@ -75,7 +75,7 @@ func (echoService *EchoService) setReaction(
 // for contexts without an HTTP request (background jobs, tests).
 func reactionActor(ctx context.Context) string {
 	if userID := viewer.MustFromContext(ctx).UserID(); userID != "" {
-		return "u:" + userID
+		return actorUtil.UserActor(userID)
 	}
 	if fallback := actorUtil.FromContext(ctx); fallback != "" {
 		return fallback

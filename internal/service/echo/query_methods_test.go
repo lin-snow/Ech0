@@ -84,12 +84,12 @@ func TestReadEchos_VisibilityScope(t *testing.T) {
 			scope: echoModel.PrivateScope{},
 		},
 		{
-			name:  "admin is scoped to their own private echoes",
+			name:  "admin sees the shared private timeline",
 			ctx:   helpers.CtxAsUser(adminID),
 			scope: echoModel.PrivateScope{Authenticated: true},
 		},
 		{
-			name:  "member is scoped to their own private echoes",
+			name:  "member sees the shared private timeline",
 			ctx:   helpers.CtxAsUser(userID),
 			scope: echoModel.PrivateScope{Authenticated: true},
 		},
@@ -147,7 +147,7 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 }
 
 func TestQueryEchos_ViewerResolution(t *testing.T) {
-	t.Run("admin queries scoped to own private echoes", func(t *testing.T) {
+	t.Run("admin queries the shared private timeline", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().

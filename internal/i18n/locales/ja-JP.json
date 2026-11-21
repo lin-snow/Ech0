@@ -19,6 +19,7 @@
   { "id": "auth.exchange_code_invalid", "translation": "認可コードが無効、または期限切れです" },
   { "id": "auth.token_generate_failed", "translation": "トークンの生成に失敗しました" },
   { "id": "auth.rate_limited", "translation": "試行回数が多すぎます。しばらくしてから再度お試しください。" },
+  { "id": "auth.account_disabled", "translation": "このアカウントは無効化されています。管理者にお問い合わせください。" },
   { "id": "comment_manager.title", "translation": "コメントシステム設定" },
   { "id": "comment_manager.subtitle", "translation": "コメントの有効化、審査ポリシー、キャプチャを一括管理します。" },
   { "id": "dashboard.logs.success", "translation": "システムログを取得しました" },

@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
@@ -47,7 +48,13 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: ownedEcho.ID, FileID: ownedFile.ID}).Error)
 	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: ownedEcho.ID, FileID: attachedOtherFile.ID}).Error)
 	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: survivingEcho.ID, FileID: survivingFile.ID}).Error)
+	// The user's own file is linked to a surviving echo so detaching is visible.
+	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: survivingEcho.ID, FileID: ownedFile.ID}).Error)
 	require.NoError(t, db.Create(&fileModel.TempFile{FileID: ownedFile.ID, UploaderID: owner.ID}).Error)
+	require.NoError(t, db.Create(&echoModel.EchoExtension{ID: "ext-1", EchoID: ownedEcho.ID, Type: "weather", Payload: map[string]any{"t": 1}}).Error)
+	require.NoError(t, db.Create(&authModel.Passkey{ID: "pk-1", UserID: owner.ID, CredentialID: "cred-1", CredentialJSON: "{}"}).Error)
+	require.NoError(t, db.Create(&userModel.WebAuthnCredential{ID: "wa-1", UserID: owner.ID, CredentialID: "cred-2", CredentialJSON: "{}"}).Error)
+	require.NoError(t, db.Create(&userModel.UserExternalIdentity{ID: "idp-1", UserID: owner.ID, Provider: "github", Subject: "s-1"}).Error)
 
 	comments := []commentModel.Comment{
 		{ID: "c-under-owned-by-other", EchoID: ownedEcho.ID, UserID: ptr(other.ID), Content: "x", Status: commentModel.StatusApproved},
@@ -65,13 +72,13 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	result, err := repo.PurgeUserContent(ctx, owner.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []string{ownedEcho.ID}, result.EchoIDs)
-	assert.ElementsMatch(t, []string{ownedFile.ID, attachedOtherFile.ID}, fileIDs(result))
+	assert.ElementsMatch(t, []string{ownedFile.ID}, fileIDs(result))
 
 	assertRowGone(t, db, &echoModel.Echo{}, "e-owned")
 	assertRowPresent(t, db, &echoModel.Echo{}, "e-other")
 
 	// Both media rows are still present at the repository layer; the service
-	// deletes them via DeleteFileRecord after the transaction.
+	// deletes the user's own file via DeleteFileRecord after the transaction.
 	assertRowPresent(t, db, &fileModel.File{}, ownedFile.ID)
 	assertRowPresent(t, db, &fileModel.File{}, attachedOtherFile.ID)
 	var links int64
@@ -79,6 +86,10 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	assert.Zero(t, links, "被删除 Echo 的附件关联必须清空")
 	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("file_id = ?", survivingFile.ID).Count(&links).Error)
 	assert.Equal(t, int64(1), links, "其他用户 Echo 的附件不能受影响")
+	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("file_id = ?", ownedFile.ID).Count(&links).Error)
+	assert.Zero(t, links, "被删用户的文件要从存活 Echo 上解绑")
+	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("file_id = ?", attachedOtherFile.ID).Count(&links).Error)
+	assert.Zero(t, links, "被删除 Echo 下他人文件的链接随 Echo 一起清空")
 
 	assertRowGone(t, db, &commentModel.Comment{}, "c-under-owned-by-other")
 	assertRowGone(t, db, &commentModel.Comment{}, "c-under-owned-by-owner")
@@ -91,6 +102,10 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	require.NoError(t, db.Model(&echoModel.Reaction{}).Where("actor = ?", "u:"+other.ID).Count(&reactions).Error)
 	assert.Equal(t, int64(1), reactions)
 
+	assertRowGone(t, db, &echoModel.EchoExtension{}, "ext-1")
+	assertRowGone(t, db, &authModel.Passkey{}, "pk-1")
+	assertRowGone(t, db, &userModel.WebAuthnCredential{}, "wa-1")
+	assertRowGone(t, db, &userModel.UserExternalIdentity{}, "idp-1")
 	assertRowGone(t, db, &fileModel.TempFile{}, ownedFile.ID)
 	assertRowGone(t, db, &settingModel.AccessTokenSetting{}, "at-1")
 	require.NoError(t, db.Model(&userModel.UserLocalAuth{}).Where("user_id = ?", owner.ID).Count(&links).Error)

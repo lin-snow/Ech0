@@ -12,6 +12,7 @@ import (
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	model "github.com/lin-snow/ech0/internal/model/user"
+	actorUtil "github.com/lin-snow/ech0/internal/util/actor"
 	"gorm.io/gorm"
 )
 
@@ -46,25 +47,15 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 		}
 	}
 
-	// Files referenced by the user's own echoes may have other owners, so the
-	// union of "uploaded by the user" and "attached to their echoes" is what
-	// the confirmation copy promises to delete.
-	var attachedFileIDs []string
-	if len(echoIDs) > 0 {
-		if err := db.Table("echo_files").
-			Where("echo_id IN ?", echoIDs).
-			Distinct().
-			Pluck("file_id", &attachedFileIDs).Error; err != nil {
-			return result, err
-		}
-	}
-	var ownedFileIDs []string
+	// Only files uploaded by the user are deleted; files other people uploaded
+	// and attached to this user's echoes belong to them (D3), so they survive
+	// even though the link rows under the deleted echoes are removed.
+	var fileIDs []string
 	if err := db.Model(&fileModel.File{}).
 		Where("user_id = ?", userID).
-		Pluck("id", &ownedFileIDs).Error; err != nil {
+		Pluck("id", &fileIDs).Error; err != nil {
 		return result, err
 	}
-	fileIDs := unionIDs(attachedFileIDs, ownedFileIDs)
 	if len(fileIDs) > 0 {
 		if err := db.Where("id IN ?", fileIDs).Find(&result.Files).Error; err != nil {
 			return result, err
@@ -96,7 +87,7 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 		return result, err
 	}
 	// Reactions are addressed by an opaque actor string.
-	if err := db.Where("actor = ?", "u:"+userID).Delete(&echoModel.Reaction{}).Error; err != nil {
+	if err := db.Where("actor = ?", actorUtil.UserActor(userID)).Delete(&echoModel.Reaction{}).Error; err != nil {
 		return result, err
 	}
 
@@ -107,7 +98,11 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 			return result, err
 		}
 	}
-	if err := db.Where("uploader_id = ?", userID).Delete(&fileModel.TempFile{}).Error; err != nil {
+	if len(fileIDs) > 0 {
+		if err := db.Where("uploader_id = ? OR file_id IN ?", userID, fileIDs).Delete(&fileModel.TempFile{}).Error; err != nil {
+			return result, err
+		}
+	} else if err := db.Where("uploader_id = ?", userID).Delete(&fileModel.TempFile{}).Error; err != nil {
 		return result, err
 	}
 
@@ -136,24 +131,6 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 
 	result.EchoIDs = echoIDs
 	return result, nil
-}
-
-func unionIDs(groups ...[]string) []string {
-	seen := make(map[string]struct{})
-	merged := make([]string, 0)
-	for _, group := range groups {
-		for _, id := range group {
-			if id == "" {
-				continue
-			}
-			if _, ok := seen[id]; ok {
-				continue
-			}
-			seen[id] = struct{}{}
-			merged = append(merged, id)
-		}
-	}
-	return merged
 }
 
 func recomputeTagUsage(db *gorm.DB, tagIDs []string) error {

@@ -147,7 +147,8 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 		c.Set(GetUsernameKey("boss"), u, 1)
 		c.Set(GetAdminKey("u1"), u, 1)
 
-		require.NoError(t, repo.DeleteUser(context.Background(), "u1"))
+		_, err := repo.PurgeUserContent(context.Background(), "u1")
+		require.NoError(t, err)
 
 		for _, key := range []string{GetUserIDKey("u1"), GetUsernameKey("boss"), GetAdminKey("u1")} {
 			_, ok := cacheGetUser(t, c, key)
@@ -159,14 +160,15 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 		assert.Equal(t, int64(0), n)
 	})
 
-	t.Run("regular user deletes only id/username keys and leaves the admin key", func(t *testing.T) {
+	t.Run("regular user deletes id/username keys", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
 		u := seedUser(t, db, userModel.User{ID: "u1", Username: "bob"})
 		c.Set(GetUserIDKey("u1"), u, 1)
 		c.Set(GetUsernameKey("bob"), u, 1)
 		c.Set(GetAdminKey("u1"), u, 1)
 
-		require.NoError(t, repo.DeleteUser(context.Background(), "u1"))
+		_, err := repo.PurgeUserContent(context.Background(), "u1")
+		require.NoError(t, err)
 
 		_, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
 		assert.False(t, ok)
@@ -174,13 +176,13 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 		assert.False(t, ok)
 
 		_, ok = cacheGetUser(t, c, GetAdminKey("u1"))
-		assert.True(t, ok, "admin key must survive deleting a non-admin user")
+		assert.False(t, ok, "purge clears the admin key unconditionally")
 	})
 
 	t.Run("deleting a missing user errors", func(t *testing.T) {
 		repo, _, _ := newUserRepo(t)
 
-		err := repo.DeleteUser(context.Background(), "ghost")
+		_, err := repo.PurgeUserContent(context.Background(), "ghost")
 		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	})
 }

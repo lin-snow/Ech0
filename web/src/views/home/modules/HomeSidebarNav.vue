@@ -59,7 +59,9 @@ const settingStore = useSettingStore()
 const { isLogin } = storeToRefs(userStore)
 const { searchingMode, isFilteringMode } = storeToRefs(echoStore)
 const { AgentSetting } = storeToRefs(settingStore)
-const chatAvailable = computed(() => isLogin.value && AgentSetting.value.enable)
+const chatAvailable = computed(
+  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+)
 const props = defineProps<{
   mobileSearchOpen?: boolean
 }>()

@@ -1,6 +1,6 @@
 # 用户与权限模型（目标设计）
 
-> **状态：设计稿，尚未实现。** 本文冻结产品规则，作为实现与评审依据；当前已实现行为见 [roles-and-permissions.md](./roles-and-permissions.md)。两者冲突时，以本文为目标、以该文为现状。
+> **状态：已实现。** 本文冻结产品规则，作为实现与评审依据；逐条落点与现行行为见 [roles-and-permissions.md](./roles-and-permissions.md)。实现与本文冲突时以本文为准，并修实现。
 
 ## 1. 定位
 
@@ -178,7 +178,7 @@ Admin 删除用户时必须二次确认，并明确告知影响范围。文案�
 
 此操作不可撤销，将永久删除该用户及其关联数据：
 - 该用户创建的全部 Echo
-- 这些 Echo 关联的所有文件
+- 该用户上传的全部文件（含其挂载在他人 Echo 上的附件）
 - 这些 Echo 下的全部评论（包括其他用户发表的评论）
 - 该用户在其他 Echo 下发表的评论
 其他用户创建的 Echo 不受影响。
@@ -188,21 +188,25 @@ Admin 删除用户时必须二次确认，并明确告知影响范围。文案�
 
 前端需要求输入确认（例如输入用户名）而不是仅一个"确定"按钮；后端不做"软删除兜底"，删除即真实删除。
 
-## 7. 现状与目标差距
+## 7. 实现状态
 
-| 项 | 当前实现 | 目标 | 影响 |
-|---|---|---|---|
-| `users.status` | 不存在 | `ACTIVE` / `DISABLED` | 需迁移 + 中间件校验 + 管理端 UI |
-| 禁用后的 Token | 无按用户失效机制 | 三种 token 全部拒绝 | 中间件按 user_id 校验状态 |
-| 永久删除范围 | 只删 `user` + `user_local_auth` | §6.1 全量级联 | 现有数据会留下孤儿 Echo / 评论 / 文件 |
-| 匿名评论 | 已实现，昵称+邮箱+验证码+审核 | 保持一致 | 无需改动 |
-| Member 删自己的评论 | 已禁止 | 保持一致 | 无需改动 |
-| 私密 Echo 可见性 | per-user（`PrivateScope.ViewerID`） | 仅匿名不可见（D1） | 重写 scope、`privateScope()`、`canReadPrivate()` 与缓存键 |
-| 私密 Echo 评论 | 一律拒绝（`assertEchoCommentable`） | 登录用户可评论 | 评论入口与评论列表可见性都改按"是否登录"判定 |
-| Admin 数量 | 允许多个，至少保留一位 | 多 Admin，至少保留一位（D2） | 维持现状，不做唯一化改造 |
-| 用户上传的文件 | 删除用户时不处理 | 按 §6.1 | File 行 + 存储对象 + TempFile |
-| 反应 | 不处理 | 删除 `actor = u:<userID>` 的记录 | `internal/util/actor` 已定义 `u:` 前缀 |
-| 用户自助删号 | 不存在 | 不提供（D4 默认） | Admin 删除是唯一注销路径 |
+以下条目均已落地（提交 `443cb547` 及后续安全修复），逐条行为见 [roles-and-permissions.md](./roles-and-permissions.md)。
+
+| 项 | 状态 | 落点 |
+|---|---|---|
+| `users.status` | ✅ | `internal/model/user/user.go`；`PUT /user/status/{id}`（`admin:user`） |
+| 禁用后的 Token | ✅ | `internal/middleware/auth.go` 每请求 `IsAccountActive` 直读，403 `ACCOUNT_DISABLED` |
+| 登录 / 刷新 / OAuth / Passkey 入口 | ✅ | 均改走直读的 `IsAccountActive`，不再依赖带缓存的 `user.IsActive()` |
+| 永久删除范围 | ✅ | `UserRepository.PurgeUserContent` 单事务级联 + 删除后对象存储清理（`internal/service/user/user.go`） |
+| 私密 Echo 可见性 | ✅ | `PrivateScope{Authenticated, All}`；`privateScope()` / `GetEchoById` |
+| 私密 Echo 评论 | ✅ | `assertEchoCommentable` 仅拒绝匿名；评论列表 `JOIN echos` 按 `private` 过滤 |
+| 用户上传的文件 | ✅ | D3：删除本人 `File` 行与对象，解除其在存活 Echo 上的 `EchoFile` |
+| 反应 | ✅ | 删除 `actor = actorUtil.UserActor(userID)` 的记录 |
+| 标签创建 | ✅ | 显式接口仅 Admin；Echo 写入时的隐式创建同样只允许 Admin |
+| 匿名评论 | ✅ | 已实现，昵称+邮箱+验证码+审核 |
+| Member 删自己的评论 | ✅ | 已禁止 |
+| 用户自助删号 | ✅ | 不提供；Admin 删除是唯一注销路径 |
+| 匿名不得命中 authed 缓存 | ✅ | `internal/repository/echo/echo_cache_test.go` 跨 scope 用例 |
 
 ## 8. 决策状态
 

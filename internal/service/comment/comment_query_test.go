@@ -8,12 +8,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	"github.com/lin-snow/ech0/internal/test/helpers"
-	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -318,37 +315,4 @@ func TestSendTestEmail(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-}
-
-func TestParseOptionalViewerFromAuthHeader(t *testing.T) {
-	helpers.SetJWTSecret(t, testSecret)
-	user := helpers.NewUser()
-	user.ID = "u-42"
-	token, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
-	require.NoError(t, err)
-
-	cases := []struct {
-		name   string
-		header string
-		want   string
-	}{
-		{"valid bearer token yields user id", "Bearer " + token, "u-42"},
-		{"bearer scheme is case-insensitive", "bearer " + token, "u-42"},
-		{"empty header yields empty", "", ""},
-		{"non-bearer scheme yields empty", "Basic abc123", ""},
-		{"bearer without token yields empty", "Bearer", ""},
-		{"malformed token yields empty", "Bearer not.a.jwt", ""},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := commentService.ParseOptionalViewerFromAuthHeader(tc.header)
-			if tc.want == "" {
-				assert.Nil(t, got)
-				return
-			}
-			require.NotNil(t, got)
-			assert.Equal(t, tc.want, got.UserID())
-			assert.Equal(t, authModel.TokenTypeSession, got.TokenType())
-		})
-	}
 }

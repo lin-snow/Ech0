@@ -19,6 +19,7 @@
   { "id": "auth.exchange_code_invalid", "translation": "Authorization code is invalid or expired." },
   { "id": "auth.token_generate_failed", "translation": "Failed to generate token." },
   { "id": "auth.rate_limited", "translation": "Too many attempts. Please wait a moment and try again." },
+  { "id": "auth.account_disabled", "translation": "This account has been disabled. Contact an administrator." },
   { "id": "comment_manager.title", "translation": "Comment System Settings" },
   { "id": "comment_manager.subtitle", "translation": "Manage comment toggles, moderation policy, and captcha settings in one place." },
   { "id": "dashboard.logs.success", "translation": "System logs retrieved successfully" },

@@ -90,7 +90,19 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 			return
 		}
 
-		if !user.IsActive() {
+		active, err := h.authService.IsAccountActive(ctx.Request.Context(), user.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.INTERNAL_SERVER_ERROR, Err: err,
+				}), nil),
+				commonModel.ErrCodeInternal,
+				commonModel.MsgKeyCommonRequestFailed,
+				nil,
+			))
+			return
+		}
+		if !active {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
 			ctx.JSON(http.StatusForbidden, commonModel.FailWithLocalized[any](
 				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthAccountDisabled, errUtil.HandleError(&commonModel.ServerError{

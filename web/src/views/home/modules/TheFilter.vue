@@ -145,7 +145,9 @@ const searchContent = ref<string>(searchValue.value)
 
 const shortcutBadge = computed(() => (isMac ? '⌘K' : 'Ctrl+K'))
 
-const chatAvailable = computed(() => isLogin.value && AgentSetting.value.enable)
+const chatAvailable = computed(
+  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+)
 const chatTooltip = computed(() => `${t('chatLauncher.title')} · ${isMac ? '⌘J' : 'Ctrl+J'}`)
 
 const formatDate = (sec: number | null): string => {

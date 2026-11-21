@@ -27,7 +27,7 @@ func setupCommentRoutes(appRouterGroup *AppRouterGroup, _ *handler.Bundle) {
 func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
 	nc := humares.Bridge(middleware.NoCache())
 	stash := humares.Bridge(h.CommentHandler.StashMeta())
-	optViewer := humares.Bridge(h.CommentHandler.OptionalViewer())
+	optViewer := humares.Bridge(middleware.OptionalAuth(revoker))
 	review := secured(revoker, authz.ScopeCommentReview)
 	deleteComments := secured(revoker, authz.ScopeCommentDelete)
 	settings := secured(revoker, authz.ScopeCommentSettings)

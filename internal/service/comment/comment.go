@@ -31,7 +31,6 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
-	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/pkg/busen"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -941,27 +940,6 @@ func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel
 		return user, false, nil
 	}
 	return u, true, nil
-}
-
-// ParseOptionalViewerFromAuthHeader builds the viewer for comment endpoints
-// that run outside the auth middleware. It keeps token type and scopes so the
-// private-echo audience check sees the same identity as secured routes.
-func ParseOptionalViewerFromAuthHeader(authHeader string) *viewer.UserViewer {
-	parts := strings.SplitN(strings.TrimSpace(authHeader), " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return nil
-	}
-	claims, err := jwtUtil.ParseToken(strings.TrimSpace(parts[1]))
-	if err != nil {
-		return nil
-	}
-	return viewer.NewUserViewerWithToken(
-		claims.Userid,
-		claims.Type,
-		claims.Scopes,
-		[]string(claims.Audience),
-		claims.ID,
-	).WithAdmin(claims.IsAdmin)
 }
 
 func hashClientIP(ip string) string {

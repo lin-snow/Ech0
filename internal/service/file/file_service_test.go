@@ -431,7 +431,6 @@ func TestFileService_GetFileByID(t *testing.T) {
 
 	t.Run("not found propagates repo error", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		_, err := fix.svc.GetFileByID(fix.adminCtx(), "missing-id")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
@@ -477,7 +476,6 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 
 	t.Run("empty id rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "", commonModel.UpdateFileMetaDto{Size: 1})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.INVALID_PARAMS, err.Error())
@@ -485,7 +483,6 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 
 	t.Run("negative size rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "id", commonModel.UpdateFileMetaDto{Size: -1})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.INVALID_PARAMS, err.Error())
@@ -493,7 +490,6 @@ func TestFileService_UpdateFileMeta(t *testing.T) {
 
 	t.Run("negative width rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		bad := -5
 		_, err := fix.svc.UpdateFileMeta(fix.adminCtx(), "id", commonModel.UpdateFileMetaDto{Size: 1, Width: &bad})
 		require.Error(t, err)
@@ -636,12 +632,24 @@ func TestFileService_StreamFileByID(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		c, rec := newGinCtx(t, nil)
+		fix.expectAdmin()
+		c, rec := newGinCtx(t, fix.adminCtx())
 		fix.svc.StreamFileByID(c, dto.ID)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Header().Get("Content-Type"), "image/png")
 		assert.Equal(t, "inline; filename=photo.png", rec.Header().Get("Content-Disposition"))
 		assert.Equal(t, content, rec.Body.Bytes())
+	})
+
+	t.Run("member cannot stream another user's file", func(t *testing.T) {
+		fix := newFileFix(t)
+		foreign := fix.foreignFile(t, "other/secret.png", "image")
+		fix.expectMember()
+
+		c, rec := newGinCtx(t, fix.adminCtx())
+		fix.svc.StreamFileByID(c, foreign.ID)
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+		assert.Equal(t, "无权限", rec.Body.String())
 	})
 
 	t.Run("missing file returns 404", func(t *testing.T) {
@@ -665,7 +673,8 @@ func TestFileService_StreamFileByID(t *testing.T) {
 		}
 		require.NoError(t, fix.db.Create(ext).Error)
 
-		c, rec := newGinCtx(t, nil)
+		fix.expectAdmin()
+		c, rec := newGinCtx(t, fix.adminCtx())
 		fix.svc.StreamFileByID(c, ext.ID)
 		c.Writer.WriteHeaderNow()
 		assert.Equal(t, http.StatusTemporaryRedirect, rec.Code)
@@ -873,7 +882,6 @@ func TestFileService_DeleteFile(t *testing.T) {
 
 	t.Run("empty id rejected", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		err := fix.svc.DeleteFile(fix.adminCtx(), "")
 		require.Error(t, err)
 		assert.Equal(t, commonModel.IMAGE_NOT_FOUND, err.Error())
@@ -881,7 +889,6 @@ func TestFileService_DeleteFile(t *testing.T) {
 
 	t.Run("missing id propagates repo error", func(t *testing.T) {
 		fix := newFileFix(t)
-		fix.expectAdmin()
 		err := fix.svc.DeleteFile(fix.adminCtx(), "missing-id")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)

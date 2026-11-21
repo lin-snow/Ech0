@@ -142,7 +142,11 @@ func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.L
 	}
 	attempt.succeeded()
 
-	if !user.IsActive() {
+	active, err := authService.IsAccountActive(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
 		return nil, accountDisabledError()
 	}
 
@@ -448,7 +452,11 @@ func (authService *AuthService) resolveOAuthCallback(
 			return "", err
 		}
 
-		if !user.IsActive() {
+		active, err := authService.IsAccountActive(context.Background(), user.ID)
+		if err != nil {
+			return "", err
+		}
+		if !active {
 			return "", accountDisabledError()
 		}
 
@@ -941,7 +949,11 @@ func (authService *AuthService) PasskeyLoginFinish(
 	if err != nil {
 		return nil, err
 	}
-	if !u.IsActive() {
+	active, err := authService.IsAccountActive(context.Background(), u.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
 		return nil, accountDisabledError()
 	}
 

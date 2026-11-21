@@ -96,8 +96,8 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 			"type": "object",
 			"properties": map[string]any{
 				"content":    map[string]any{"type": "string", "description": "Post body (Markdown supported)"},
-				"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tag names to attach; non-existent tags are created automatically"},
-				"private":    map[string]any{"type": "boolean", "description": "Mark the post as private (only visible to the owner)", "default": false},
+				"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tag names to attach; non-existent tags are created for administrators only"},
+				"private":    map[string]any{"type": "boolean", "description": "Mark the post as private (hidden from anonymous readers; visible to every signed-in user)", "default": false},
 				"layout":     map[string]any{"type": "string", "enum": layoutEnum, "description": "Image layout style", "default": "waterfall"},
 				"echo_files": map[string]any{"type": "array", "items": echoFileSchema, "description": "Attached files (images, etc.) referenced by file_id"},
 				"extension":  extensionSchema,

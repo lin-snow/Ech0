@@ -10,8 +10,10 @@ import (
 
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
+	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -50,6 +52,45 @@ func TestProcessEchoTags(t *testing.T) {
 		assert.Equal(t, "vue", created.Name)
 		assert.Equal(t, 1, created.UsageCount)
 		assert.Equal(t, []string{"golang", "vue"}, tagNames(echo.Tags))
+	})
+
+	t.Run("member cannot mint a new tag", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		repo.EXPECT().
+			GetTagsByNames(mock.Anything, []string{"curated"}).
+			Return([]*echoModel.Tag{}, nil).
+			Once()
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, "user-0002").
+			Return(userModel.User{ID: "user-0002", Username: "member"}, nil).
+			Once()
+
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		echo := &echoModel.Echo{Tags: []echoModel.Tag{{Name: "curated"}}}
+
+		err := svc.ProcessEchoTags(helpers.CtxAsUser("user-0002"), echo)
+		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+	})
+
+	t.Run("admin may mint a new tag", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		repo.EXPECT().
+			GetTagsByNames(mock.Anything, []string{"curated"}).
+			Return([]*echoModel.Tag{}, nil).
+			Once()
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, "admin-0001").
+			Return(userModel.User{ID: "admin-0001", Username: "admin", IsAdmin: true}, nil).
+			Once()
+		repo.EXPECT().CreateTag(mock.Anything, mock.Anything).Return(nil).Once()
+
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		echo := &echoModel.Echo{Tags: []echoModel.Tag{{Name: "curated"}}}
+
+		require.NoError(t, svc.ProcessEchoTags(helpers.CtxAsUser("admin-0001"), echo))
+		assert.Equal(t, []string{"curated"}, tagNames(echo.Tags))
 	})
 
 	t.Run("skips empty and hash-only names", func(t *testing.T) {

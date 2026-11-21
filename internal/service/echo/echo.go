@@ -374,6 +374,20 @@ func (echoService *EchoService) DeleteTag(ctx context.Context, id string) error 
 	})
 }
 
+// canCreateTags reports whether the caller may create tag rows implicitly while
+// writing an echo. Anonymous/system contexts are trusted internal callers.
+func (echoService *EchoService) canCreateTags(ctx context.Context) (bool, error) {
+	v, ok := viewer.FromContext(ctx)
+	if !ok || v.UserID() == "" {
+		return true, nil
+	}
+	user, err := echoService.commonService.CommonGetUserByUserId(ctx, v.UserID())
+	if err != nil {
+		return false, err
+	}
+	return user.IsAdmin, nil
+}
+
 func (echoService *EchoService) ProcessEchoTags(ctx context.Context, echo *model.Echo) error {
 	var processedTags []model.Tag
 
@@ -397,6 +411,23 @@ func (echoService *EchoService) ProcessEchoTags(ctx context.Context, echo *model
 	existingMap := make(map[string]*model.Tag)
 	for _, t := range existingTags {
 		existingMap[t.Name] = t
+	}
+
+	// Tags are curated by administrators; attaching an existing tag is fine for
+	// any writer, but minting a new one is not. System contexts (seed, import,
+	// background jobs) carry no viewer and keep the historical behaviour.
+	for _, name := range names {
+		if _, ok := existingMap[name]; ok {
+			continue
+		}
+		allowed, err := echoService.canCreateTags(ctx)
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return errors.New(commonModel.NO_PERMISSION_DENIED)
+		}
+		break
 	}
 
 	for _, name := range names {

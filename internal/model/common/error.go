@@ -91,6 +91,7 @@ const (
 	REFRESH_TOKEN_INVALID             = "刷新令牌无效或已过期"
 	EXCHANGE_CODE_INVALID             = "授权码无效或已过期"
 	TOKEN_GENERATE_FAILED             = "令牌生成失败"
+	INTERNAL_SERVER_ERROR             = "服务器内部错误"
 	DEVICE_CODE_PENDING               = "等待在浏览器中确认授权"
 	DEVICE_CODE_SLOW_DOWN             = "轮询过快，请降低频率"
 	DEVICE_CODE_EXPIRED               = "设备码已过期，请重新登录"

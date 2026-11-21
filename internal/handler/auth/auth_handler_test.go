@@ -27,9 +27,13 @@ type fakeAuthService struct {
 	isTokenRevokedFn    func(jti string) bool
 	revokeTokenFn       func(jti string, ttl time.Duration)
 	exchangeOAuthCodeFn func(code string) (*authModel.TokenPair, error)
+	isAccountActiveFn   func(userID string) (bool, error)
 }
 
-func (f *fakeAuthService) IsAccountActive(context.Context, string) (bool, error) {
+func (f *fakeAuthService) IsAccountActive(_ context.Context, userID string) (bool, error) {
+	if f.isAccountActiveFn != nil {
+		return f.isAccountActiveFn(userID)
+	}
 	return true, nil
 }
 
@@ -274,6 +278,66 @@ func TestRefresh_TokenRevoked(t *testing.T) {
 		t.Fatalf("expected message_key %s, got %s", commonModel.MsgKeyAuthTokenRevoked, res.MessageKey)
 	}
 	assertRefreshCookieCleared(t, rec)
+}
+
+func TestRefresh_AccountDisabled(t *testing.T) {
+	auth := &fakeAuthService{
+		isTokenRevokedFn:  func(_ string) bool { return false },
+		isAccountActiveFn: func(_ string) (bool, error) { return false, nil },
+	}
+	user := &fakeUserService{
+		getUserByIDFn: func(_ string) (userModel.User, error) {
+			return testUser, nil
+		},
+	}
+	h := NewAuthHandler(auth, user)
+	r := gin.New()
+	r.POST("/api/auth/refresh", h.Refresh())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	addRefreshCookie(req, issueRefreshToken(t))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	res := parseBody(t, rec)
+	if res.ErrorCode != commonModel.ErrCodeAccountDisabled {
+		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeAccountDisabled, res.ErrorCode)
+	}
+	if res.MessageKey != commonModel.MsgKeyAuthAccountDisabled {
+		t.Fatalf("expected message_key %s, got %s", commonModel.MsgKeyAuthAccountDisabled, res.MessageKey)
+	}
+	assertRefreshCookieCleared(t, rec)
+}
+
+func TestRefresh_AccountStatusReadFailureFailsClosed(t *testing.T) {
+	auth := &fakeAuthService{
+		isTokenRevokedFn:  func(_ string) bool { return false },
+		isAccountActiveFn: func(_ string) (bool, error) { return false, errors.New("db down") },
+	}
+	user := &fakeUserService{
+		getUserByIDFn: func(_ string) (userModel.User, error) {
+			return testUser, nil
+		},
+	}
+	h := NewAuthHandler(auth, user)
+	r := gin.New()
+	r.POST("/api/auth/refresh", h.Refresh())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	addRefreshCookie(req, issueRefreshToken(t))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected %d, got %d", http.StatusInternalServerError, rec.Code)
+	}
+	res := parseBody(t, rec)
+	if res.ErrorCode != commonModel.ErrCodeInternal {
+		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeInternal, res.ErrorCode)
+	}
 }
 
 func TestRefresh_UserNotFound(t *testing.T) {
