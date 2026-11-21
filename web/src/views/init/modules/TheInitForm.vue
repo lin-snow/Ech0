@@ -12,7 +12,7 @@
           :model-value="email"
           @update:model-value="emit('update:email', String($event))"
           type="email"
-          :placeholder="t('init.ownerEmailPlaceholder')"
+          :placeholder="t('init.adminEmailPlaceholder')"
           autocomplete="email"
           required
         />
@@ -21,7 +21,7 @@
           :model-value="username"
           @update:model-value="emit('update:username', String($event))"
           type="text"
-          :placeholder="t('init.ownerUsernamePlaceholder')"
+          :placeholder="t('init.adminUsernamePlaceholder')"
           autocomplete="username"
           required
         />
@@ -30,7 +30,7 @@
           :model-value="password"
           @update:model-value="emit('update:password', String($event))"
           type="password"
-          :placeholder="t('init.ownerPasswordPlaceholder')"
+          :placeholder="t('init.adminPasswordPlaceholder')"
           autocomplete="new-password"
           required
         />

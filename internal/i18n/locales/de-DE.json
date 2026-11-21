@@ -18,9 +18,11 @@
   { "id": "auth.refresh_token_invalid", "translation": "Aktualisierungstoken ist ungültig oder abgelaufen." },
   { "id": "auth.exchange_code_invalid", "translation": "Autorisierungscode ist ungültig oder abgelaufen." },
   { "id": "auth.token_generate_failed", "translation": "Token konnte nicht generiert werden." },
+  { "id": "auth.rate_limited", "translation": "Zu viele Versuche. Bitte versuchen Sie es gleich noch einmal." },
   { "id": "comment_manager.title", "translation": "Kommentarsystem-Einstellungen" },
   { "id": "comment_manager.subtitle", "translation": "Kommentarfunktion, Moderationsregeln und Captcha zentral verwalten." },
   { "id": "dashboard.logs.success", "translation": "Systemlogs erfolgreich abgerufen" },
   { "id": "dashboard.logs.tail_invalid", "translation": "tail muss eine positive Zahl sein" },
-  { "id": "dashboard.check_update_failed", "translation": "Prüfung auf Updates fehlgeschlagen" }
+  { "id": "dashboard.check_update_failed", "translation": "Prüfung auf Updates fehlgeschlagen" },
+  { "id": "user.last_admin_required", "translation": "Mindestens ein Administrator muss erhalten bleiben" }
 ]

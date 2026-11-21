@@ -266,12 +266,12 @@ func TestSendTestEmail(t *testing.T) {
 		assertBiz(t, err, commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
 	})
 
-	t.Run("missing owner email fails before sending", func(t *testing.T) {
+	t.Run("missing admin email fails before sending", func(t *testing.T) {
 		d := newDeps(t)
 		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
 		d.common.EXPECT().
-			GetOwner().
+			GetPrimaryAdmin().
 			Return(helpers.NewUser(), nil).
 			Once()
 		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1"), commentModel.SystemSetting{
@@ -284,9 +284,9 @@ func TestSendTestEmail(t *testing.T) {
 		d := newDeps(t)
 		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
-		owner := helpers.NewUser()
-		owner.Email = "owner@example.com"
-		d.common.EXPECT().GetOwner().Return(owner, nil).Once()
+		admin := helpers.NewUser()
+		admin.Email = "owner@example.com"
+		d.common.EXPECT().GetPrimaryAdmin().Return(admin, nil).Once()
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.ServerURLKey).
 			Return("https://example.com", nil)
@@ -302,9 +302,9 @@ func TestSendTestEmail(t *testing.T) {
 		d := newDeps(t)
 		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
-		owner := helpers.NewUser()
-		owner.Email = "owner@example.com"
-		d.common.EXPECT().GetOwner().Return(owner, nil).Once()
+		admin := helpers.NewUser()
+		admin.Email = "owner@example.com"
+		d.common.EXPECT().GetPrimaryAdmin().Return(admin, nil).Once()
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.ServerURLKey).
 			Return("https://example.com", nil)

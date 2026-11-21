@@ -737,6 +737,8 @@ components:
           type: string
         url:
           type: string
+        user_id:
+          type: string
         width:
           format: int64
           type: integer
@@ -2537,8 +2539,6 @@ components:
           type: string
         is_admin:
           type: boolean
-        is_owner:
-          type: boolean
         locale:
           type: string
         username:
@@ -2554,8 +2554,6 @@ components:
         email:
           type: string
         is_admin:
-          type: boolean
-        is_owner:
           type: boolean
         locale:
           type: string
@@ -3981,7 +3979,7 @@ paths:
         - Common
   /init/owner:
     post:
-      description: 创建首个 Owner 账号（仅在未初始化时可用）。
+      description: 创建首个管理员账号（仅在未初始化时可用）。
       operationId: init-owner
       requestBody:
         content:
@@ -4002,12 +4000,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
-      summary: 初始化站点 Owner
+      summary: 初始化站点管理员
       tags:
         - Init
   /init/status:
     get:
-      description: 返回站点是否已初始化、是否已存在 Owner。
+      description: 返回站点是否已初始化、是否已存在管理员。
       operationId: init-status
       responses:
         "200":

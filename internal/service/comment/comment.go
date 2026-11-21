@@ -152,7 +152,7 @@ func (s *CommentService) CreateComment(
 	}
 	comment.ParentID = parentID
 
-	if validUser && (user.IsAdmin || user.IsOwner) {
+	if validUser {
 		comment.Source = model.SourceSystem
 		comment.Nickname = user.Username
 		comment.Email = ""
@@ -215,8 +215,8 @@ func (s *CommentService) CreateComment(
 		return model.CreateCommentResult{}, err
 	}
 	s.emitCommentCreated(ctx, comment)
-	if shouldNotifyOwnerOnCreate(comment.Source) {
-		s.notifyOwnerAsync(ctx, "created", comment)
+	if shouldNotifyAdminOnCreate(comment.Source) {
+		s.notifyAdminAsync(ctx, "created", comment)
 	}
 	s.notifyReplyTargetAsync(ctx, comment)
 	return model.CreateCommentResult{
@@ -325,8 +325,8 @@ func (s *CommentService) CreateIntegrationComment(
 	)
 
 	s.emitCommentCreated(ctx, comment)
-	if shouldNotifyOwnerOnCreate(comment.Source) {
-		s.notifyOwnerAsync(ctx, "created", comment)
+	if shouldNotifyAdminOnCreate(comment.Source) {
+		s.notifyAdminAsync(ctx, "created", comment)
 	}
 	return model.CreateCommentResult{
 		ID:     comment.ID,
@@ -431,7 +431,7 @@ func (s *CommentService) UpdateCommentStatus(ctx context.Context, id string, sta
 	}
 	if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
 		s.emitCommentStatusUpdated(ctx, updated)
-		s.notifyOwnerAsync(ctx, "status", updated)
+		s.notifyAdminAsync(ctx, "status", updated)
 	}
 	return nil
 }
@@ -445,7 +445,7 @@ func (s *CommentService) UpdateCommentHot(ctx context.Context, id string, hot bo
 	}
 	if hot {
 		if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
-			s.notifyOwnerAsync(ctx, "hot", updated)
+			s.notifyAdminAsync(ctx, "hot", updated)
 		}
 	}
 	return nil
@@ -480,7 +480,7 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		for _, id := range ids {
 			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
 				s.emitCommentStatusUpdated(ctx, updated)
-				s.notifyOwnerAsync(ctx, "status", updated)
+				s.notifyAdminAsync(ctx, "status", updated)
 			}
 		}
 		return nil
@@ -491,7 +491,7 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		for _, id := range ids {
 			if updated, err := s.repo.GetCommentByID(ctx, id); err == nil && updated.ID != "" {
 				s.emitCommentStatusUpdated(ctx, updated)
-				s.notifyOwnerAsync(ctx, "status", updated)
+				s.notifyAdminAsync(ctx, "status", updated)
 			}
 		}
 		return nil
@@ -572,12 +572,12 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 	if err == nil && strings.TrimSpace(setting.EmailNotify.SMTPPassword) == "" {
 		setting.EmailNotify.SMTPPassword = current.EmailNotify.SMTPPassword
 	}
-	ownerEmail, err := s.resolveOwnerEmail()
+	adminEmail, err := s.resolveAdminEmail()
 	if err != nil {
 		return err
 	}
 	serverURL := s.resolveServerURL(ctx)
-	if err := validateEmailNotifySetting(setting.EmailNotify, ownerEmail); err != nil {
+	if err := validateEmailNotifySetting(setting.EmailNotify, adminEmail); err != nil {
 		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, err.Error())
 	}
 	content := buildNotifyContent("test", model.Comment{
@@ -588,15 +588,15 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 		Status:    model.StatusPending,
 		CreatedAt: time.Now().UTC().Unix(),
 	}, serverURL)
-	return s.sendOwnerMail(ctx, setting.EmailNotify, MailMessage{
-		To:       ownerEmail,
+	return s.sendAdminMail(ctx, setting.EmailNotify, MailMessage{
+		To:       adminEmail,
 		Subject:  content.Subject,
 		TextBody: content.TextBody,
 		HTMLBody: content.HTMLBody,
 	})
 }
 
-func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comment model.Comment) {
+func (s *CommentService) notifyAdminAsync(ctx context.Context, kind string, comment model.Comment) {
 	setting, err := s.getSystemSettingRaw(ctx)
 	if err != nil {
 		return
@@ -615,18 +615,18 @@ func (s *CommentService) notifyOwnerAsync(ctx context.Context, kind string, comm
 			return
 		}
 	} else {
-		ownerEmail, ownerErr := s.resolveOwnerEmail()
+		adminEmail, ownerErr := s.resolveAdminEmail()
 		if ownerErr != nil {
 			return
 		}
-		recipient = ownerEmail
+		recipient = adminEmail
 	}
 	serverURL := s.resolveServerURL(ctx)
 	content := buildNotifyContent(kind, comment, serverURL)
 	go func(cfg model.EmailNotifySetting, msg MailMessage) {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
+		if err := s.sendAdminMail(notifyCtx, cfg, msg); err != nil {
 			logUtil.GetLogger().Warn("comment notify mail failed", logUtil.Err(err), slog.String("comment_id", comment.ID))
 		}
 	}(setting.EmailNotify, MailMessage{
@@ -656,8 +656,8 @@ func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment mod
 	if strings.EqualFold(targetEmail, strings.TrimSpace(comment.Email)) {
 		return
 	}
-	if ownerEmail, ownerErr := s.resolveOwnerEmail(); ownerErr == nil &&
-		strings.EqualFold(targetEmail, strings.TrimSpace(ownerEmail)) {
+	if adminEmail, ownerErr := s.resolveAdminEmail(); ownerErr == nil &&
+		strings.EqualFold(targetEmail, strings.TrimSpace(adminEmail)) {
 		return
 	}
 	serverURL := s.resolveServerURL(ctx)
@@ -665,7 +665,7 @@ func (s *CommentService) notifyReplyTargetAsync(ctx context.Context, comment mod
 	go func(cfg model.EmailNotifySetting, msg MailMessage) {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := s.sendOwnerMail(notifyCtx, cfg, msg); err != nil {
+		if err := s.sendAdminMail(notifyCtx, cfg, msg); err != nil {
 			logUtil.GetLogger().Warn("comment reply notify mail failed",
 				logUtil.Err(err), slog.String("comment_id", comment.ID))
 		}
@@ -681,7 +681,7 @@ func useCommentRecipient(kind string) bool {
 	return kind == "status" || kind == "hot"
 }
 
-func shouldNotifyOwnerOnCreate(source model.SourceType) bool {
+func shouldNotifyAdminOnCreate(source model.SourceType) bool {
 	return source != model.SourceSystem
 }
 
@@ -696,7 +696,7 @@ func parseValidEmail(raw string) (string, bool) {
 	return email, true
 }
 
-func (s *CommentService) sendOwnerMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
+func (s *CommentService) sendAdminMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
 	if s.mailer == nil {
 		return errors.New("mailer unavailable")
 	}
@@ -732,12 +732,12 @@ func shouldNotify(setting model.SystemSetting, kind string, status model.Status)
 	return false
 }
 
-func validateEmailNotifySetting(cfg model.EmailNotifySetting, ownerEmail string) error {
-	if strings.TrimSpace(ownerEmail) == "" {
-		return errors.New("owner 邮箱不能为空")
+func validateEmailNotifySetting(cfg model.EmailNotifySetting, adminEmail string) error {
+	if strings.TrimSpace(adminEmail) == "" {
+		return errors.New("管理员邮箱不能为空")
 	}
-	if _, err := mail.ParseAddress(strings.TrimSpace(ownerEmail)); err != nil {
-		return errors.New("owner 邮箱格式无效")
+	if _, err := mail.ParseAddress(strings.TrimSpace(adminEmail)); err != nil {
+		return errors.New("管理员邮箱格式无效")
 	}
 	if strings.TrimSpace(cfg.SMTPHost) == "" {
 		return errors.New("SMTP Host 不能为空")
@@ -777,14 +777,14 @@ func sanitizeSettingForOutput(in model.SystemSetting) model.SystemSetting {
 	return out
 }
 
-func (s *CommentService) resolveOwnerEmail() (string, error) {
-	owner, err := s.commonService.GetOwner()
+func (s *CommentService) resolveAdminEmail() (string, error) {
+	admin, err := s.commonService.GetPrimaryAdmin()
 	if err != nil {
 		return "", err
 	}
-	email := strings.TrimSpace(owner.Email)
+	email := strings.TrimSpace(admin.Email)
 	if email == "" {
-		return "", errors.New("owner 邮箱未设置")
+		return "", errors.New("管理员邮箱未设置")
 	}
 	return email, nil
 }
@@ -882,7 +882,7 @@ func (s *CommentService) requireAdmin(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !user.IsAdmin && !user.IsOwner {
+	if !user.IsAdmin {
 		return commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
 	}
 	return nil

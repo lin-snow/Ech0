@@ -63,9 +63,9 @@ func (echoRepository *EchoRepository) InvalidateEchoCaches(echoIDs ...string) {
 func (echoRepository *EchoRepository) GetEchosByPage(
 	page, pageSize int,
 	search string,
-	showPrivate bool,
+	scope model.PrivateScope,
 ) ([]model.Echo, int64) {
-	cacheKey := GetEchoPageCacheKey(page, pageSize, search, showPrivate)
+	cacheKey := GetEchoPageCacheKey(page, pageSize, search, scope)
 	pageResult, err := echoRepository.cache.ReadThrough(
 		cacheKey,
 		1,
@@ -74,12 +74,9 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 			var echos []model.Echo
 			var total int64
 
-			query := echoRepository.db().Model(&model.Echo{})
+			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
 			if search != "" {
 				query = query.Where("content LIKE ?", "%"+search+"%")
-			}
-			if !showPrivate {
-				query = query.Where("private = ?", false)
 			}
 
 			if dbErr := query.Count(&total).
@@ -181,10 +178,10 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id str
 	return nil
 }
 
-func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool, timezone string) []model.Echo {
+func (echoRepository *EchoRepository) GetTodayEchos(scope model.PrivateScope, timezone string) []model.Echo {
 	normalizedTimezone := timezoneUtil.NormalizeTimezone(timezone)
 
-	cacheKey := GetTodayEchosCacheKey(showPrivate, normalizedTimezone)
+	cacheKey := GetTodayEchosCacheKey(scope, normalizedTimezone)
 	todayEchos, err := echoRepository.cache.ReadThroughWithStore(
 		cacheKey,
 		func(echos []model.Echo) {
@@ -209,10 +206,7 @@ func (echoRepository *EchoRepository) GetTodayEchos(showPrivate bool, timezone s
 			startOfDayUTC := startOfDayUser.UTC().Unix()
 			endOfDayUTC := endOfDayUser.UTC().Unix()
 
-			query := echoRepository.db().Model(&model.Echo{})
-			if !showPrivate {
-				query = query.Where("private = ?", false)
-			}
+			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
 			query = query.Where("created_at >= ? AND created_at < ?", startOfDayUTC, endOfDayUTC)
 			if err := query.
 				Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
@@ -354,7 +348,7 @@ func (echoRepository *EchoRepository) IncrementTagUsageCount(
 
 func (echoRepository *EchoRepository) QueryEchos(
 	queryDto commonModel.EchoQueryDto,
-	showPrivate bool,
+	scope model.PrivateScope,
 ) ([]model.Echo, int64, error) {
 	var (
 		echos []model.Echo
@@ -412,10 +406,17 @@ func (echoRepository *EchoRepository) QueryEchos(
 			db = db.Joins("JOIN echo_tags ON echo_tags.echo_id = echos.id").
 				Where("echo_tags.tag_id IN ?", queryDto.TagIDs)
 		}
-		if !showPrivate {
+		if scope.All {
+			if queryDto.Private != nil {
+				db = db.Where("echos.private = ?", *queryDto.Private)
+			}
+		} else if scope.ViewerID == "" {
 			db = db.Where("echos.private = ?", false)
-		} else if queryDto.Private != nil {
-			db = db.Where("echos.private = ?", *queryDto.Private)
+		} else {
+			db = db.Where("(echos.private = ? OR echos.user_id = ?)", false, scope.ViewerID)
+			if queryDto.Private != nil {
+				db = db.Where("echos.private = ?", *queryDto.Private)
+			}
 		}
 		if queryDto.UserID != "" {
 			db = db.Where("echos.user_id = ?", queryDto.UserID)
@@ -498,7 +499,7 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 	tagId string,
 	page, pageSize int,
 	search string,
-	showPrivate bool,
+	scope model.PrivateScope,
 ) ([]model.Echo, int64, error) {
 	var (
 		echos []model.Echo
@@ -509,9 +510,7 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 		db = db.Joins("JOIN echo_tags ON echo_tags.echo_id = echos.id").
 			Where("echo_tags.tag_id = ?", tagId)
 
-		if !showPrivate {
-			db = db.Where("echos.private = ?", false)
-		}
+		db = applyPrivateScope(db, scope, "echos.private", "echos.user_id")
 
 		if search != "" {
 			db = db.Where("echos.content LIKE ?", "%"+search+"%")
@@ -559,7 +558,7 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 	return echos, total, nil
 }
 
-func (echoRepository *EchoRepository) GetHotEchos(limit int, showPrivate bool) ([]model.Echo, error) {
+func (echoRepository *EchoRepository) GetHotEchos(limit int, scope model.PrivateScope) ([]model.Echo, error) {
 	if limit <= 0 {
 		limit = 5
 	}
@@ -569,13 +568,10 @@ func (echoRepository *EchoRepository) GetHotEchos(limit int, showPrivate bool) (
 
 	const recentPool = 10
 
-	recentQuery := echoRepository.db().Model(&model.Echo{}).
-		Select("id").
-		Order("created_at DESC").
-		Limit(recentPool)
-	if !showPrivate {
-		recentQuery = recentQuery.Where("private = ?", false)
-	}
+	recentQuery := applyPrivateScope(
+		echoRepository.db().Model(&model.Echo{}).Select("id").Order("created_at DESC").Limit(recentPool),
+		scope, "private", "user_id",
+	)
 
 	type hotRow struct {
 		ID string
@@ -629,16 +625,13 @@ func (echoRepository *EchoRepository) GetHotEchos(limit int, showPrivate bool) (
 	return sorted, nil
 }
 
-func (echoRepository *EchoRepository) GetRandomEcho(showPrivate bool) (*model.Echo, error) {
+func (echoRepository *EchoRepository) GetRandomEcho(scope model.PrivateScope) (*model.Echo, error) {
 	randomExpr := "RANDOM()"
 	if echoRepository.db().Name() == "mysql" {
 		randomExpr = "RAND()"
 	}
 
-	query := echoRepository.db().Model(&model.Echo{})
-	if !showPrivate {
-		query = query.Where("private = ?", false)
-	}
+	query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
 
 	var echos []model.Echo
 	if err := query.
@@ -660,15 +653,12 @@ func (echoRepository *EchoRepository) GetRandomEcho(showPrivate bool) (*model.Ec
 	return &echos[0], nil
 }
 
-func (echoRepository *EchoRepository) GetOnThisDayEchos(showPrivate bool, timezone string) []model.Echo {
+func (echoRepository *EchoRepository) GetOnThisDayEchos(scope model.PrivateScope, timezone string) []model.Echo {
 	loc := timezoneUtil.LoadLocationOrUTC(timezoneUtil.NormalizeTimezone(timezone))
 	now := time.Now().In(loc)
 	month, day, currentYear := now.Month(), now.Day(), now.Year()
 
-	minQuery := echoRepository.db().Model(&model.Echo{})
-	if !showPrivate {
-		minQuery = minQuery.Where("private = ?", false)
-	}
+	minQuery := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
 	var minTs int64
 	if err := minQuery.Select("MIN(created_at)").Scan(&minTs).Error; err != nil || minTs == 0 {
 		return []model.Echo{}
@@ -688,9 +678,14 @@ func (echoRepository *EchoRepository) GetOnThisDayEchos(showPrivate bool, timezo
 	}
 
 	where := "(" + strings.Join(conds, " OR ") + ")"
-	if !showPrivate {
+	switch {
+	case scope.All:
+	case scope.ViewerID == "":
 		where += " AND private = ?"
 		args = append(args, false)
+	default:
+		where += " AND (private = ? OR user_id = ?)"
+		args = append(args, false, scope.ViewerID)
 	}
 
 	var echos []model.Echo
@@ -720,4 +715,19 @@ func onThisDayUnixRanges(earliestYear, currentYear int, month time.Month, day in
 		ranges = append(ranges, [2]int64{start.Unix(), end.Unix()})
 	}
 	return ranges
+}
+
+// applyPrivateScope narrows a listing to the private echoes the caller may
+// read. Trusted internal aggregates see everything; anonymous callers see only
+// public rows; a signed-in viewer sees public rows plus their own private ones.
+// The columns are spelled out because callers mix bare and qualified queries.
+func applyPrivateScope(db *gorm.DB, scope model.PrivateScope, privateColumn, userColumn string) *gorm.DB {
+	switch {
+	case scope.All:
+		return db
+	case scope.ViewerID == "":
+		return db.Where(privateColumn+" = ?", false)
+	default:
+		return db.Where("("+privateColumn+" = ? OR "+userColumn+" = ?)", false, scope.ViewerID)
+	}
 }

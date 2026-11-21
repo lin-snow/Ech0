@@ -32,6 +32,7 @@ const (
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
 	MsgKeyDashboardCheckUpdateFailed  = "dashboard.check_update_failed"
+	MsgKeyUserLastAdminRequired       = "user.last_admin_required"
 )
 
 func MessageKeyFromErrorCode(code string) string {

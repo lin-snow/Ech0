@@ -61,10 +61,6 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		return nil, err
 	}
 
-	if !user.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-
 	layout := strings.TrimSpace(newEcho.Layout)
 	if layout == "" || (layout != model.LayoutWaterfall &&
 		layout != model.LayoutGrid &&
@@ -137,9 +133,6 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 	if err != nil {
 		return err
 	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 
 	type deletableFileRef struct {
 		key         string
@@ -153,6 +146,9 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 		}
 		if echo == nil {
 			return errors.New(commonModel.ECHO_NOT_FOUND)
+		}
+		if echo.UserID != userid && !user.IsAdmin {
+			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 
 		for _, ef := range echo.EchoFiles {
@@ -193,9 +189,24 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 	return nil
 }
 
-// canReadPrivate reports whether the caller may see private echoes. The
-// interactive session keeps its admin behaviour; access tokens additionally
-// need echo:private, so echo:read alone cannot exfiltrate private content.
+// privateScope reports which private echoes a listing may include for the
+// caller: their own, plus public rows. Interactive sessions qualify by
+// identity; access tokens also need echo:private, so echo:read alone cannot
+// enumerate private content.
+func (echoService *EchoService) privateScope(ctx context.Context) model.PrivateScope {
+	v := viewer.MustFromContext(ctx)
+	if v.UserID() == "" {
+		return model.PrivateScope{}
+	}
+	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
+		return model.PrivateScope{}
+	}
+	return model.PrivateScope{ViewerID: v.UserID()}
+}
+
+// canReadPrivate is the administrator break-glass path for a single echo by id.
+// Feeds never use it: an administrator sees only their own private echoes in
+// listings, but may still open a specific private echo when moderation needs it.
 func (echoService *EchoService) canReadPrivate(ctx context.Context) (bool, error) {
 	v := viewer.MustFromContext(ctx)
 	if v.UserID() == "" {
@@ -214,19 +225,11 @@ func (echoService *EchoService) canReadPrivate(ctx context.Context) (bool, error
 }
 
 func (echoService *EchoService) GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
-	showPrivate, err := echoService.canReadPrivate(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return echoService.hydrateReactions(ctx, echoService.echoRepository.GetTodayEchos(showPrivate, timezone))
+	return echoService.hydrateReactions(ctx, echoService.echoRepository.GetTodayEchos(echoService.privateScope(ctx), timezone))
 }
 
 func (echoService *EchoService) GetHotEchos(ctx context.Context, limit int) ([]model.Echo, error) {
-	showPrivate, err := echoService.canReadPrivate(ctx)
-	if err != nil {
-		return nil, err
-	}
-	echos, err := echoService.echoRepository.GetHotEchos(limit, showPrivate)
+	echos, err := echoService.echoRepository.GetHotEchos(limit, echoService.privateScope(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -234,11 +237,7 @@ func (echoService *EchoService) GetHotEchos(ctx context.Context, limit int) ([]m
 }
 
 func (echoService *EchoService) GetRandomEcho(ctx context.Context) (*model.Echo, error) {
-	showPrivate, err := echoService.canReadPrivate(ctx)
-	if err != nil {
-		return nil, err
-	}
-	echo, err := echoService.echoRepository.GetRandomEcho(showPrivate)
+	echo, err := echoService.echoRepository.GetRandomEcho(echoService.privateScope(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -246,11 +245,7 @@ func (echoService *EchoService) GetRandomEcho(ctx context.Context) (*model.Echo,
 }
 
 func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
-	showPrivate, err := echoService.canReadPrivate(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return echoService.hydrateReactions(ctx, echoService.echoRepository.GetOnThisDayEchos(showPrivate, timezone))
+	return echoService.hydrateReactions(ctx, echoService.echoRepository.GetOnThisDayEchos(echoService.privateScope(ctx), timezone))
 }
 
 // UpdateEcho persists the edit and returns the stored record, mirroring PostEcho.
@@ -260,9 +255,19 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 	if err != nil {
 		return nil, err
 	}
-	if !user.IsAdmin {
+	existing, err := echoService.echoRepository.GetEchosById(ctx, echo.ID)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+	}
+	if existing.UserID != userid && !user.IsAdmin {
 		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
+	// An edit never transfers authorship or rewrites the stored author name.
+	echo.UserID = existing.UserID
+	echo.Username = existing.Username
 
 	layout := strings.TrimSpace(echo.Layout)
 	if layout == "" || (layout != model.LayoutWaterfall &&
@@ -327,12 +332,14 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
 	if echo.Private {
-		allowed, err := echoService.canReadPrivate(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if !allowed {
-			return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+		if echo.UserID == "" || echo.UserID != echoService.privateScope(ctx).ViewerID {
+			allowed, err := echoService.canReadPrivate(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if !allowed {
+				return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+			}
 		}
 	}
 	return echoService.hydrateEchoReactions(ctx, echo)
@@ -476,11 +483,6 @@ func (echoService *EchoService) QueryEchos(
 		return commonModel.PageQueryResult[[]model.Echo]{}, err
 	}
 
-	showPrivate, err := echoService.canReadPrivate(ctx)
-	if err != nil {
-		return commonModel.PageQueryResult[[]model.Echo]{}, err
-	}
-
 	cursorMode := queryDto.Cursor != nil
 	pageSize := queryDto.PageSize
 	if cursorMode {
@@ -490,7 +492,7 @@ func (echoService *EchoService) QueryEchos(
 		queryDto.PageSize = pageSize + 1
 	}
 
-	echos, total, err := echoService.echoRepository.QueryEchos(queryDto, showPrivate)
+	echos, total, err := echoService.echoRepository.QueryEchos(queryDto, echoService.privateScope(ctx))
 	if err != nil {
 		return commonModel.PageQueryResult[[]model.Echo]{}, err
 	}
@@ -704,8 +706,14 @@ func (echoService *EchoService) validateSingleFileCategory(ctx context.Context, 
 		return err
 	}
 
+	callerID := viewer.MustFromContext(ctx).UserID()
 	counts := make(map[storage.Category]int, len(files))
 	for _, f := range files {
+		// A file may be attached only by its uploader or by the echo author;
+		// rows written before uploads recorded an owner are grandfathered.
+		if f.UserID != "" && f.UserID != callerID && f.UserID != echo.UserID {
+			return errors.New(commonModel.NO_PERMISSION_DENIED)
+		}
 		counts[storage.NormalizeCategory(f.Category)]++
 	}
 

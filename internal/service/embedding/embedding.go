@@ -210,7 +210,7 @@ func (s *EmbeddingService) Backfill(ctx context.Context, onProgress func(Backfil
 			return result, err
 		}
 
-		items, total := s.echoReader.GetEchosByPage(page, pageSize, "", true)
+		items, total := s.echoReader.GetEchosByPage(page, pageSize, "", echoModel.PrivateScope{All: true})
 		result.Total = int(total)
 		if len(items) == 0 {
 			break

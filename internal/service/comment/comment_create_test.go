@@ -224,22 +224,49 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 	}
 }
 
-func TestCreateComment_NonAdminUserTreatedAsGuest(t *testing.T) {
+func TestCreateComment_MemberAutoApprove(t *testing.T) {
 	helpers.SetJWTSecret(t, testSecret)
 	d := newDeps(t)
 	d.expectSetting(t, enabledSetting())
+
+	member := helpers.NewUser()
+	member.ID = "user-normal"
+	member.Username = "Bob"
 	d.common.EXPECT().
 		CommonGetUserByUserId(mock.Anything, "user-normal").
-		Return(helpers.NewUser(), nil).
+		Return(member, nil).
+		Once()
+	d.repo.EXPECT().
+		ExistsRecentDuplicate(
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything, mock.Anything, mock.Anything,
+		).
+		Return(false, nil).
 		Once()
 
-	_, err := d.service().CreateComment(helpers.CtxAsUser("user-normal"), testIP, "ua",
+	var captured commentModel.Comment
+	d.repo.EXPECT().
+		CreateComment(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, c *commentModel.Comment) {
+			c.ID = "new-comment-1"
+			captured = *c
+		}).
+		Return(nil).
+		Once()
+
+	res, err := d.service().CreateComment(helpers.CtxAsUser("user-normal"), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
 			Content:   "hello",
 			FormToken: freshToken(),
 		})
-	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "昵称和邮箱不能为空")
+	require.NoError(t, err)
+	assert.Equal(t, commentModel.StatusApproved, res.Status)
+	assert.Equal(t, commentModel.SourceSystem, captured.Source)
+	assert.Equal(t, "Bob", captured.Nickname)
+	assert.Empty(t, captured.Email)
+	require.NotNil(t, captured.UserID)
+	assert.Equal(t, "user-normal", *captured.UserID)
 }
 
 func TestCreateComment_RateLimitExceeded(t *testing.T) {
@@ -369,12 +396,12 @@ func TestCreateComment_AdminAutoApprove(t *testing.T) {
 	d := newDeps(t)
 	d.expectSetting(t, enabledSetting())
 
-	owner := helpers.NewUser(helpers.AsOwner)
-	owner.ID = "owner-1"
-	owner.Username = "OwnerBob"
+	admin := helpers.NewUser(helpers.AsAdmin)
+	admin.ID = "admin-1"
+	admin.Username = "AdminBob"
 	d.common.EXPECT().
-		CommonGetUserByUserId(mock.Anything, "owner-1").
-		Return(owner, nil).
+		CommonGetUserByUserId(mock.Anything, "admin-1").
+		Return(admin, nil).
 		Once()
 	d.repo.EXPECT().
 		ExistsRecentDuplicate(
@@ -394,10 +421,10 @@ func TestCreateComment_AdminAutoApprove(t *testing.T) {
 		Return(nil).
 		Once()
 
-	res, err := d.service().CreateComment(helpers.CtxAsUser("owner-1"), testIP, "ua",
+	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1"), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
-			Content:   "hello from owner",
+			Content:   "hello from admin",
 			FormToken: freshToken(),
 		})
 	require.NoError(t, err)
@@ -405,10 +432,10 @@ func TestCreateComment_AdminAutoApprove(t *testing.T) {
 	assert.Equal(t, commentModel.StatusApproved, res.Status)
 	assert.Equal(t, commentModel.SourceSystem, captured.Source)
 	assert.Equal(t, commentModel.StatusApproved, captured.Status)
-	assert.Equal(t, "OwnerBob", captured.Nickname)
+	assert.Equal(t, "AdminBob", captured.Nickname)
 	assert.Empty(t, captured.Email)
 	require.NotNil(t, captured.UserID)
-	assert.Equal(t, "owner-1", *captured.UserID)
+	assert.Equal(t, "admin-1", *captured.UserID)
 }
 
 func TestCreateComment_GuestHappy(t *testing.T) {

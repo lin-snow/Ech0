@@ -18,9 +18,11 @@
   { "id": "auth.refresh_token_invalid", "translation": "Refresh token is invalid or expired." },
   { "id": "auth.exchange_code_invalid", "translation": "Authorization code is invalid or expired." },
   { "id": "auth.token_generate_failed", "translation": "Failed to generate token." },
+  { "id": "auth.rate_limited", "translation": "Too many attempts. Please wait a moment and try again." },
   { "id": "comment_manager.title", "translation": "Comment System Settings" },
   { "id": "comment_manager.subtitle", "translation": "Manage comment toggles, moderation policy, and captcha settings in one place." },
   { "id": "dashboard.logs.success", "translation": "System logs retrieved successfully" },
   { "id": "dashboard.logs.tail_invalid", "translation": "tail must be a positive number" },
-  { "id": "dashboard.check_update_failed", "translation": "Failed to check for updates" }
+  { "id": "dashboard.check_update_failed", "translation": "Failed to check for updates" },
+  { "id": "user.last_admin_required", "translation": "At least one administrator must remain" }
 ]

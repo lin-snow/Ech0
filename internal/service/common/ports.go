@@ -14,7 +14,7 @@ import (
 
 type Service interface {
 	CommonGetUserByUserId(ctx context.Context, userId string) (userModel.User, error)
-	GetOwner() (userModel.User, error)
+	GetPrimaryAdmin() (userModel.User, error)
 	GetHeatMap(timezone string) ([]commonModel.Heatmap, error)
 	GenerateRSS(ctx *gin.Context) (RSSDocument, error)
 	GetWebsiteTitle(websiteURL string) (string, error)
@@ -23,8 +23,8 @@ type Service interface {
 
 type CommonRepository interface {
 	GetUserByUserId(ctx context.Context, id string) (userModel.User, error)
-	GetOwner(ctx context.Context) (userModel.User, error)
-	GetAllEchos(ctx context.Context, showPrivate bool) ([]echoModel.Echo, error)
+	GetPrimaryAdmin(ctx context.Context) (userModel.User, error)
+	GetAllEchos(ctx context.Context, scope echoModel.PrivateScope) ([]echoModel.Echo, error)
 	ListPublicEchoRefs(ctx context.Context) ([]echoModel.EchoRef, error)
 	GetHeatMap(ctx context.Context, startTime, endTime int64) ([]int64, error)
 	TrackRSSCacheKey(cacheKey string)

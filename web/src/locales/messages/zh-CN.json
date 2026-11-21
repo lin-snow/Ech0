@@ -241,7 +241,7 @@
     "testEmailSending": "发送中",
     "testEmailSuccess": "测试邮件发送成功",
     "emailNotifyTitle": "邮箱通知",
-    "emailNotifyDesc": "只通知 owner，支持新评论、审核变更与 hot 通知。",
+    "emailNotifyDesc": "只通知管理员，支持新评论、审核变更与 hot 通知。",
     "emailNotifyEnableFirst": "请先开启邮箱通知",
     "smtpHostPlaceholder": "SMTP Host",
     "smtpPortPlaceholder": "SMTP Port",
@@ -293,18 +293,18 @@
     "passkeyLoginFailed": "Passkey 登录失败"
   },
   "init": {
-    "ownerEmailPlaceholder": "Owner 邮箱",
-    "ownerUsernamePlaceholder": "Owner 用户名",
-    "ownerPasswordPlaceholder": "Owner 密码",
     "initializing": "初始化中...",
     "initialize": "初始化",
     "initDone": "初始化完成",
     "alreadyInitializedRedirect": "系统已初始化，正在跳转登录",
     "initFailed": "初始化失败",
     "introHeading": "开始使用 Ech0",
-    "introDescription": "创建 Owner 账号，完成站点基本设置，开启你的个人记录空间。",
+    "introDescription": "创建管理员账号，完成站点基本设置，开启你的个人记录空间。",
     "siteTitlePlaceholder": "站点名称（可留空）",
-    "autoLoginFailed": "Owner 已创建，请手动登录。"
+    "autoLoginFailed": "管理员已创建，请手动登录。",
+    "adminEmailPlaceholder": "管理员邮箱",
+    "adminUsernamePlaceholder": "管理员用户名",
+    "adminPasswordPlaceholder": "管理员密码"
   },
   "onboarding": {
     "title": "让你的实例准备就绪",
@@ -486,13 +486,13 @@
   "connectWidget": {
     "noConnections": "当前暂无连接",
     "loading": "加载中...",
-    "tooltipOwner": "Owner",
     "tooltipTotal": "共有",
     "tooltipToday": "今日",
     "tooltipVersion": "版本",
     "jumpToEchoDetail": "查看对应 Echo 详情",
     "randomCommentLoading": "正在挑选一条精选评论...",
-    "noFeaturedComment": "暂无精选评论可展示。"
+    "noFeaturedComment": "暂无精选评论可展示。",
+    "tooltipAdmin": "管理员"
   },
   "heatmap": {
     "tooltip": "{date}: {count} 条"
@@ -578,7 +578,6 @@
     "avatarUploadSuccess": "头像上传成功！",
     "uploadFailed": "上传失败，请稍后再试",
     "role": "身份",
-    "roleOwner": "所有者",
     "roleAdmin": "管理员",
     "roleMember": "成员"
   },

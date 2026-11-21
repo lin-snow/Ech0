@@ -114,13 +114,13 @@ const (
 	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
 	IMAGE_NOT_FOUND        = "图片未找到"
 	INVALID_PARAMS         = "错误的参数"
-	SIGNUP_FIRST           = "请先初始化Owner账号"
+	SIGNUP_FIRST           = "请先初始化管理员账号"
 	S3_NOT_ENABLED         = "S3存储未启用"
 	S3_NOT_CONFIGURED      = "S3存储未配置"
 	S3_CONFIG_ERROR        = "S3存储配置错误"
 	SYSTEM_ALREADY_INITED  = "系统已初始化"
-	OWNER_ALREADY_EXISTS   = "Owner已存在"
-	ONLY_OWNER_CAN_MANAGE  = "仅Owner可管理管理员权限"
+	OWNER_ALREADY_EXISTS   = "管理员已存在"
+	LAST_ADMIN_REQUIRED    = "至少保留一位管理员"
 )
 
 const (

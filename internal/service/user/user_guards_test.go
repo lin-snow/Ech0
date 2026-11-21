@@ -152,8 +152,7 @@ func TestInitOwner_Success(t *testing.T) {
 	err := svc.InitOwner(&authModel.RegisterDto{Username: "owner", Password: "secret", Email: " owner@ech0.com "})
 	require.NoError(t, err)
 
-	assert.True(t, created.IsOwner, "first user must be owner")
-	assert.True(t, created.IsAdmin, "owner must be admin")
+	assert.True(t, created.IsAdmin, "first user must be an admin")
 	assert.Equal(t, "owner@ech0.com", created.Email)
 	assert.Equal(t, "owner-id", localAuth.UserID)
 	assert.Equal(t, cryptoUtil.AlgoBcrypt, localAuth.PasswordAlgo)
@@ -239,7 +238,6 @@ func TestRegister_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.False(t, created.IsAdmin, "registered user must not be admin")
-	assert.False(t, created.IsOwner, "registered user must not be owner")
 	assert.Equal(t, "newbie-id", localAuth.UserID)
 	assert.Equal(t, cryptoUtil.AlgoBcrypt, localAuth.PasswordAlgo)
 	assert.True(t, cryptoUtil.CheckPassword(localAuth.PasswordAlgo, localAuth.PasswordHash, "pw"))
@@ -274,51 +272,75 @@ func TestUpdateUserAdmin_OperatorLookupError(t *testing.T) {
 	require.ErrorIs(t, err, sentinel)
 }
 
-func TestUpdateUserAdmin_NotOwner(t *testing.T) {
+func TestUpdateUserAdmin_NotAdmin(t *testing.T) {
 	svc, m := newUserSvc(t)
-	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
-		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "u-1").
+		Return(helpers.NewUser(withID("u-1")), nil).Once()
 
-	err := svc.UpdateUserAdmin(helpers.CtxAsUser("admin-1"), "u-2")
-	require.EqualError(t, err, commonModel.ONLY_OWNER_CAN_MANAGE)
+	err := svc.UpdateUserAdmin(helpers.CtxAsUser("u-1"), "u-2")
+	require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 }
 
 func TestUpdateUserAdmin_TargetLookupError(t *testing.T) {
 	svc, m := newUserSvc(t)
 	sentinel := errors.New("target gone")
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
+		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
 	m.repo.EXPECT().GetUserByID(mock.Anything, "u-2").
 		Return(userModel.User{}, sentinel).Once()
 
-	err := svc.UpdateUserAdmin(helpers.CtxAsUser("owner-1"), "u-2")
+	err := svc.UpdateUserAdmin(helpers.CtxAsUser("admin-1"), "u-2")
 	require.ErrorIs(t, err, sentinel)
 }
 
 func TestUpdateUserAdmin_CannotChangeSelf(t *testing.T) {
 	svc, m := newUserSvc(t)
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil)
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
+		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil)
 
-	err := svc.UpdateUserAdmin(helpers.CtxAsUser("owner-1"), "owner-1")
+	err := svc.UpdateUserAdmin(helpers.CtxAsUser("admin-1"), "admin-1")
 	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
 }
 
-func TestUpdateUserAdmin_CannotChangeOwner(t *testing.T) {
+func TestUpdateUserAdmin_DemotesOtherAdmin(t *testing.T) {
 	svc, m := newUserSvc(t)
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil).Once()
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-2").
-		Return(helpers.NewUser(withID("owner-2"), helpers.AsOwner), nil).Once()
+	operator := helpers.NewUser(withID("admin-1"), helpers.AsAdmin)
+	target := helpers.NewUser(withID("admin-2"), helpers.AsAdmin)
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").Return(operator, nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-2").Return(target, nil).Once()
+	m.repo.EXPECT().GetAllUsers(mock.Anything).Return([]userModel.User{operator, target}, nil).Once()
+	m.expectTxPassthrough()
 
-	err := svc.UpdateUserAdmin(helpers.CtxAsUser("owner-1"), "owner-2")
-	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+	var updated userModel.User
+	m.repo.EXPECT().UpdateUser(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, u *userModel.User) { updated = *u }).
+		Return(nil).Once()
+
+	err := svc.UpdateUserAdmin(helpers.CtxAsUser("admin-1"), "admin-2")
+	require.NoError(t, err)
+	assert.False(t, updated.IsAdmin, "另一位管理员应被降级")
+}
+
+func TestUpdateUserAdmin_LastAdminGuard(t *testing.T) {
+	svc, m := newUserSvc(t)
+	operator := helpers.NewUser(withID("admin-1"), helpers.AsAdmin)
+	target := helpers.NewUser(withID("admin-2"), helpers.AsAdmin)
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").Return(operator, nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-2").Return(target, nil).Once()
+	// Defensive path: the store reports the target as the only admin left.
+	m.repo.EXPECT().GetAllUsers(mock.Anything).Return([]userModel.User{target}, nil).Once()
+
+	err := svc.UpdateUserAdmin(helpers.CtxAsUser("admin-1"), "admin-2")
+	var be *commonModel.BizError
+	require.ErrorAs(t, err, &be)
+	assert.Equal(t, commonModel.ErrCodePermissionDenied, be.Code)
+	assert.Equal(t, commonModel.LAST_ADMIN_REQUIRED, be.Msg)
 }
 
 func TestUpdateUserAdmin_Success(t *testing.T) {
 	svc, m := newUserSvc(t)
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
+		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
 	m.repo.EXPECT().GetUserByID(mock.Anything, "u-2").
 		Return(helpers.NewUser(withID("u-2")), nil).Once()
 	m.expectTxPassthrough()
@@ -328,66 +350,69 @@ func TestUpdateUserAdmin_Success(t *testing.T) {
 		Run(func(_ context.Context, u *userModel.User) { updated = *u }).
 		Return(nil).Once()
 
-	err := svc.UpdateUserAdmin(helpers.CtxAsUser("owner-1"), "u-2")
+	err := svc.UpdateUserAdmin(helpers.CtxAsUser("admin-1"), "u-2")
 	require.NoError(t, err)
-	assert.True(t, updated.IsAdmin, "普通用户应被提升为 admin（取反）")
+	assert.True(t, updated.IsAdmin, "普通用户应被提升为 admin")
 }
 
-func TestDeleteUser_NotOwner(t *testing.T) {
+func TestDeleteUser_NotAdmin(t *testing.T) {
 	svc, m := newUserSvc(t)
 	m.expectTxPassthrough()
-	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
-		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "u-1").
+		Return(helpers.NewUser(withID("u-1")), nil).Once()
 
-	err := svc.DeleteUser(helpers.CtxAsUser("admin-1"), "u-2")
-	require.EqualError(t, err, commonModel.ONLY_OWNER_CAN_MANAGE)
+	err := svc.DeleteUser(helpers.CtxAsUser("u-1"), "u-2")
+	require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
 }
 
 func TestDeleteUser_CannotDeleteSelf(t *testing.T) {
 	svc, m := newUserSvc(t)
 	m.expectTxPassthrough()
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil)
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
+		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil)
 
-	err := svc.DeleteUser(helpers.CtxAsUser("owner-1"), "owner-1")
+	err := svc.DeleteUser(helpers.CtxAsUser("admin-1"), "admin-1")
 	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
 }
 
-func TestDeleteUser_CannotDeleteOwner(t *testing.T) {
+func TestDeleteUser_LastAdminGuard(t *testing.T) {
 	svc, m := newUserSvc(t)
 	m.expectTxPassthrough()
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil).Once()
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-2").
-		Return(helpers.NewUser(withID("owner-2"), helpers.AsOwner), nil).Once()
+	operator := helpers.NewUser(withID("admin-1"), helpers.AsAdmin)
+	target := helpers.NewUser(withID("admin-2"), helpers.AsAdmin)
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").Return(operator, nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-2").Return(target, nil).Once()
+	m.repo.EXPECT().GetAllUsers(mock.Anything).Return([]userModel.User{target}, nil).Once()
 
-	err := svc.DeleteUser(helpers.CtxAsUser("owner-1"), "owner-2")
-	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+	err := svc.DeleteUser(helpers.CtxAsUser("admin-1"), "admin-2")
+	var be *commonModel.BizError
+	require.ErrorAs(t, err, &be)
+	assert.Equal(t, commonModel.LAST_ADMIN_REQUIRED, be.Msg)
 }
 
 func TestDeleteUser_TargetLookupError(t *testing.T) {
 	svc, m := newUserSvc(t)
 	m.expectTxPassthrough()
 	sentinel := errors.New("no such user")
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
+		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
 	m.repo.EXPECT().GetUserByID(mock.Anything, "ghost").
 		Return(userModel.User{}, sentinel).Once()
 
-	err := svc.DeleteUser(helpers.CtxAsUser("owner-1"), "ghost")
+	err := svc.DeleteUser(helpers.CtxAsUser("admin-1"), "ghost")
 	require.ErrorIs(t, err, sentinel)
 }
 
 func TestDeleteUser_Success(t *testing.T) {
 	svc, m := newUserSvc(t)
 	m.expectTxPassthrough()
-	m.repo.EXPECT().GetUserByID(mock.Anything, "owner-1").
-		Return(helpers.NewUser(withID("owner-1"), helpers.AsOwner), nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").
+		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
 	m.repo.EXPECT().GetUserByID(mock.Anything, "u-2").
 		Return(helpers.NewUser(withID("u-2")), nil).Once()
 	m.repo.EXPECT().DeleteUser(mock.Anything, "u-2").Return(nil).Once()
 
-	err := svc.DeleteUser(helpers.CtxAsUser("owner-1"), "u-2")
+	err := svc.DeleteUser(helpers.CtxAsUser("admin-1"), "u-2")
 	require.NoError(t, err)
 }
 
@@ -411,24 +436,23 @@ func TestGetAllUsers_NotAdmin(t *testing.T) {
 	assert.Nil(t, got)
 }
 
-func TestGetAllUsers_StripsOwner(t *testing.T) {
+func TestGetAllUsers_ExcludesCaller(t *testing.T) {
 	svc, m := newUserSvc(t)
 
-	owner := helpers.NewUser(withID("owner-1"), helpers.AsOwner)
-	admin := helpers.NewUser(withID("admin-1"), helpers.AsAdmin)
+	otherAdmin := helpers.NewUser(withID("admin-2"), helpers.AsAdmin)
+	caller := helpers.NewUser(withID("admin-1"), helpers.AsAdmin)
 	normal := helpers.NewUser(withID("u-2"))
 
-	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").Return(admin, nil).Once()
+	m.repo.EXPECT().GetUserByID(mock.Anything, "admin-1").Return(caller, nil).Once()
 	m.repo.EXPECT().GetAllUsers(mock.Anything).
-		Return([]userModel.User{owner, admin, normal}, nil).Once()
-	m.repo.EXPECT().GetOwner(mock.Anything).Return(owner, nil).Once()
+		Return([]userModel.User{otherAdmin, caller, normal}, nil).Once()
 
 	got, err := svc.GetAllUsers(helpers.CtxAsUser("admin-1"))
 	require.NoError(t, err)
 
-	require.Len(t, got, 2, "owner 必须被剔除")
+	require.Len(t, got, 2, "调用者自身必须被剔除")
 	for _, u := range got {
-		assert.NotEqual(t, owner.ID, u.ID, "结果中不应出现 owner")
+		assert.NotEqual(t, caller.ID, u.ID, "结果中不应出现调用者")
 	}
 }
 

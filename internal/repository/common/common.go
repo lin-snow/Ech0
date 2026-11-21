@@ -41,11 +41,14 @@ func (commonRepository *CommonRepository) GetUserByUserId(ctx context.Context, u
 	return user, nil
 }
 
-func (commonRepository *CommonRepository) GetOwner(ctx context.Context) (userModel.User, error) {
-	user := userModel.User{}
-	err := commonRepository.getDB(ctx).Where("is_owner = ?", true).First(&user).Error
+func (commonRepository *CommonRepository) GetPrimaryAdmin(ctx context.Context) (userModel.User, error) {
+	var user userModel.User
+	err := commonRepository.getDB(ctx).
+		Where("is_admin = ?", true).
+		Order("id ASC").
+		First(&user).Error
 	if err != nil {
-		return userModel.User{}, err
+		return user, err
 	}
 	return user, nil
 }
@@ -59,7 +62,7 @@ func (commonRepository *CommonRepository) GetAllUsers(ctx context.Context) ([]us
 	return users, nil
 }
 
-func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, showPrivate bool) ([]echoModel.Echo, error) {
+func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, scope echoModel.PrivateScope) ([]echoModel.Echo, error) {
 	var echos []echoModel.Echo
 
 	query := commonRepository.getDB(ctx).
@@ -70,8 +73,12 @@ func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, showP
 		Preload("Tags").
 		Order("created_at DESC")
 
-	if !showPrivate {
+	switch {
+	case scope.All:
+	case scope.ViewerID == "":
 		query = query.Where("private = ?", false)
+	default:
+		query = query.Where("(private = ? OR user_id = ?)", false, scope.ViewerID)
 	}
 
 	if err := query.Find(&echos).Error; err != nil {

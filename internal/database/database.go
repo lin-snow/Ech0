@@ -185,6 +185,7 @@ func InitDatabase() {
 			dbMigration.NewAgentSettingProtocolRenameMigrator(),
 			dbMigration.NewUserLocalAuthBackfillMigrator(),
 			dbMigration.NewUsersPasswordDropMigrator(),
+			dbMigration.NewOwnerRoleCollapseMigrator(),
 			dbMigration.NewEchoExtensionOrphansMigrator(),
 			dbMigration.NewEchosFavCountDropMigrator(),
 			dbMigration.NewEchosPrivateCreatedIndexDropMigrator(),

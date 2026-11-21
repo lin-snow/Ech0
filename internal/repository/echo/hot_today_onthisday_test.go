@@ -8,6 +8,7 @@ import (
 	"time"
 
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -38,7 +39,7 @@ func TestEchoRepository_GetHotEchos(t *testing.T) {
 		seedComment(t, db, "c2", "e-cmt", commentModel.StatusApproved)
 		seedComment(t, db, "c3", "e-cmt", commentModel.StatusPending)
 
-		echos, err := repo.GetHotEchos(5, true)
+		echos, err := repo.GetHotEchos(5, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		require.Len(t, echos, 3)
 		assert.Equal(t, []string{"e-fav", "e-cmt", "e-cold"}, echoIDs(echos))
@@ -52,7 +53,7 @@ func TestEchoRepository_GetHotEchos(t *testing.T) {
 			seedReactions(t, db, id, i)
 		}
 
-		echos, err := repo.GetHotEchos(0, true)
+		echos, err := repo.GetHotEchos(0, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		require.Len(t, echos, 5)
 		assert.NotContains(t, echoIDs(echos), "e1", "fav 最低的一条应被默认 limit=5 裁掉")
@@ -65,30 +66,30 @@ func TestEchoRepository_GetHotEchos(t *testing.T) {
 		seedReactions(t, db, "e1", 1)
 		seedReactions(t, db, "e2", 2)
 
-		echos, err := repo.GetHotEchos(1000, true)
+		echos, err := repo.GetHotEchos(1000, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Len(t, echos, 2)
 	})
 
-	t.Run("private filter hides private echos when showPrivate=false", func(t *testing.T) {
+	t.Run("public scope hides private echos", func(t *testing.T) {
 		repo, db := newEchoRepo(t)
 		seedEcho(t, db, "e-pub", "public", false, 100)
 		seedEcho(t, db, "e-prv", "secret", true, 200)
 		seedReactions(t, db, "e-pub", 1)
 		seedReactions(t, db, "e-prv", 99)
 
-		hidden, err := repo.GetHotEchos(5, false)
+		hidden, err := repo.GetHotEchos(5, echoModel.PrivateScope{})
 		require.NoError(t, err)
 		assert.Equal(t, []string{"e-pub"}, echoIDs(hidden))
 
-		shown, err := repo.GetHotEchos(5, true)
+		shown, err := repo.GetHotEchos(5, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.ElementsMatch(t, []string{"e-pub", "e-prv"}, echoIDs(shown))
 	})
 
 	t.Run("empty database returns empty slice", func(t *testing.T) {
 		repo, _ := newEchoRepo(t)
-		echos, err := repo.GetHotEchos(5, true)
+		echos, err := repo.GetHotEchos(5, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Empty(t, echos)
 	})
@@ -107,18 +108,18 @@ func TestEchoRepository_GetEchosByTagId(t *testing.T) {
 		return repo, db
 	}
 
-	t.Run("showPrivate=false excludes private", func(t *testing.T) {
+	t.Run("public scope excludes private", func(t *testing.T) {
 		repo, _ := setup(t)
-		echos, total, err := repo.GetEchosByTagId("t1", 1, 10, "", false)
+		echos, total, err := repo.GetEchosByTagId("t1", 1, 10, "", echoModel.PrivateScope{})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
 		assert.Equal(t, "e-pub", echos[0].ID)
 	})
 
-	t.Run("showPrivate=true includes private, ordered created_at DESC", func(t *testing.T) {
+	t.Run("All scope includes private, ordered created_at DESC", func(t *testing.T) {
 		repo, _ := setup(t)
-		echos, total, err := repo.GetEchosByTagId("t1", 1, 10, "", true)
+		echos, total, err := repo.GetEchosByTagId("t1", 1, 10, "", echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), total)
 		assert.Equal(t, []string{"e-prv", "e-pub"}, echoIDs(echos))
@@ -126,7 +127,7 @@ func TestEchoRepository_GetEchosByTagId(t *testing.T) {
 
 	t.Run("search narrows within the tag", func(t *testing.T) {
 		repo, _ := setup(t)
-		echos, total, err := repo.GetEchosByTagId("t1", 1, 10, "public golang", true)
+		echos, total, err := repo.GetEchosByTagId("t1", 1, 10, "public golang", echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
@@ -135,7 +136,7 @@ func TestEchoRepository_GetEchosByTagId(t *testing.T) {
 
 	t.Run("unknown tag short-circuits to empty", func(t *testing.T) {
 		repo, _ := setup(t)
-		echos, total, err := repo.GetEchosByTagId("ghost-tag", 1, 10, "", true)
+		echos, total, err := repo.GetEchosByTagId("ghost-tag", 1, 10, "", echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), total)
 		require.NotNil(t, echos)
@@ -144,7 +145,7 @@ func TestEchoRepository_GetEchosByTagId(t *testing.T) {
 
 	t.Run("offset past results returns empty with real total", func(t *testing.T) {
 		repo, _ := setup(t)
-		echos, total, err := repo.GetEchosByTagId("t1", 2, 10, "", true)
+		echos, total, err := repo.GetEchosByTagId("t1", 2, 10, "", echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), total)
 		assert.Empty(t, echos)
@@ -164,13 +165,13 @@ func TestEchoRepository_GetTodayEchos(t *testing.T) {
 	seedEcho(t, db, "e-today-prv", "today private", true, todayTs)
 	seedEcho(t, db, "e-yesterday", "yesterday public", false, yesterdayTs)
 
-	t.Run("showPrivate=false returns only today's public echos", func(t *testing.T) {
-		echos := repo.GetTodayEchos(false, "UTC")
+	t.Run("public scope returns only today's public echos", func(t *testing.T) {
+		echos := repo.GetTodayEchos(echoModel.PrivateScope{}, "UTC")
 		assert.Equal(t, []string{"e-today-pub"}, echoIDs(echos))
 	})
 
-	t.Run("showPrivate=true includes today's private echos", func(t *testing.T) {
-		echos := repo.GetTodayEchos(true, "UTC")
+	t.Run("All scope includes today's private echos", func(t *testing.T) {
+		echos := repo.GetTodayEchos(echoModel.PrivateScope{All: true}, "UTC")
 		assert.ElementsMatch(t, []string{"e-today-pub", "e-today-prv"}, echoIDs(echos))
 	})
 }
@@ -193,19 +194,19 @@ func TestEchoRepository_GetOnThisDayEchos(t *testing.T) {
 	seedEcho(t, db, "e-other-day", "去年隔天（应排除）", false, lastYearOther)
 	seedEcho(t, db, "e-match-prv", "那年今日私密", true, lastYearSame+1)
 
-	t.Run("showPrivate=false matches only past-year same month-day public echos", func(t *testing.T) {
-		echos := repo.GetOnThisDayEchos(false, "UTC")
+	t.Run("public scope matches only past-year same month-day public echos", func(t *testing.T) {
+		echos := repo.GetOnThisDayEchos(echoModel.PrivateScope{}, "UTC")
 		assert.Equal(t, []string{"e-match"}, echoIDs(echos))
 	})
 
-	t.Run("showPrivate=true also includes private", func(t *testing.T) {
-		echos := repo.GetOnThisDayEchos(true, "UTC")
+	t.Run("All scope also includes private", func(t *testing.T) {
+		echos := repo.GetOnThisDayEchos(echoModel.PrivateScope{All: true}, "UTC")
 		assert.ElementsMatch(t, []string{"e-match", "e-match-prv"}, echoIDs(echos))
 	})
 
 	t.Run("empty database returns empty slice", func(t *testing.T) {
 		emptyRepo, _ := newEchoRepo(t)
-		echos := emptyRepo.GetOnThisDayEchos(true, "UTC")
+		echos := emptyRepo.GetOnThisDayEchos(echoModel.PrivateScope{All: true}, "UTC")
 		assert.Empty(t, echos)
 	})
 }

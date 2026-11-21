@@ -70,14 +70,14 @@ func TestCommonRepository_GetAllEchos_VisibilityAndOrder(t *testing.T) {
 	seedEcho(t, db, "prv", "u1", true, 200)
 	seedEcho(t, db, "pub-new", "u1", false, 300)
 
-	t.Run("showPrivate=false excludes private, DESC order", func(t *testing.T) {
-		echos, err := repo.GetAllEchos(context.Background(), false)
+	t.Run("public scope excludes private, DESC order", func(t *testing.T) {
+		echos, err := repo.GetAllEchos(context.Background(), echoModel.PrivateScope{})
 		require.NoError(t, err)
 		assert.Equal(t, []string{"pub-new", "pub-old"}, echoIDs(echos))
 	})
 
-	t.Run("showPrivate=true includes private, DESC order", func(t *testing.T) {
-		echos, err := repo.GetAllEchos(context.Background(), true)
+	t.Run("All scope includes private, DESC order", func(t *testing.T) {
+		echos, err := repo.GetAllEchos(context.Background(), echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, []string{"pub-new", "prv", "pub-old"}, echoIDs(echos))
 	})
@@ -95,7 +95,7 @@ func TestCommonRepository_GetAllEchos_PreloadFilesOrderedAndTags(t *testing.T) {
 	require.NoError(t, db.Create(&echoModel.Tag{ID: "t1", Name: "alpha"}).Error)
 	require.NoError(t, db.Create(&echoModel.EchoTag{EchoID: "e1", TagID: "t1"}).Error)
 
-	echos, err := repo.GetAllEchos(context.Background(), false)
+	echos, err := repo.GetAllEchos(context.Background(), echoModel.PrivateScope{})
 	require.NoError(t, err)
 	require.Len(t, echos, 1)
 
@@ -111,7 +111,7 @@ func TestCommonRepository_GetAllEchos_PreloadFilesOrderedAndTags(t *testing.T) {
 
 func TestCommonRepository_GetAllEchos_Empty(t *testing.T) {
 	repo, _ := newCommonRepo(t)
-	echos, err := repo.GetAllEchos(context.Background(), true)
+	echos, err := repo.GetAllEchos(context.Background(), echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Empty(t, echos)
 }
@@ -147,23 +147,25 @@ func TestCommonRepository_GetHeatMap_HalfOpenWindow(t *testing.T) {
 	})
 }
 
-func TestCommonRepository_GetOwner(t *testing.T) {
+func TestCommonRepository_GetPrimaryAdmin(t *testing.T) {
 	repo, db := newCommonRepo(t)
 
-	t.Run("no owner returns record-not-found", func(t *testing.T) {
-		_, err := repo.GetOwner(context.Background())
+	t.Run("no admin returns record-not-found", func(t *testing.T) {
+		require.NoError(t, db.Create(&userModel.User{ID: "u-normal", Username: "normal"}).Error)
+
+		_, err := repo.GetPrimaryAdmin(context.Background())
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 	})
 
-	t.Run("returns the owner among many users", func(t *testing.T) {
-		require.NoError(t, db.Create(&userModel.User{ID: "u-normal", Username: "normal"}).Error)
-		require.NoError(t, db.Create(&userModel.User{ID: "u-owner", Username: "owner", IsOwner: true, IsAdmin: true}).Error)
+	t.Run("returns the earliest admin among many users", func(t *testing.T) {
+		require.NoError(t, db.Create(&userModel.User{ID: "u-admin-2", Username: "later", IsAdmin: true}).Error)
+		require.NoError(t, db.Create(&userModel.User{ID: "u-admin-1", Username: "first", IsAdmin: true}).Error)
 
-		owner, err := repo.GetOwner(context.Background())
+		admin, err := repo.GetPrimaryAdmin(context.Background())
 		require.NoError(t, err)
-		assert.Equal(t, "u-owner", owner.ID)
-		assert.True(t, owner.IsOwner)
+		assert.Equal(t, "u-admin-1", admin.ID)
+		assert.True(t, admin.IsAdmin)
 	})
 }
 

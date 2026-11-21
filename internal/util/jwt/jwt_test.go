@@ -39,10 +39,10 @@ func TestCreateClaims_WithSessionType(t *testing.T) {
 }
 
 func TestCreateClaims_SessionCarriesAdminRole(t *testing.T) {
-	user := userModel.User{ID: "u-owner", Username: "owner", IsOwner: true}
+	user := userModel.User{ID: "u-owner", Username: "owner", IsAdmin: true}
 	claims := CreateClaims(user).(authModel.MyClaims)
 	if !claims.IsAdmin {
-		t.Fatal("owner session must carry the admin role")
+		t.Fatal("admin session must carry the admin role")
 	}
 }
 

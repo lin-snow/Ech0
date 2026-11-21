@@ -164,13 +164,6 @@ const saving = ref<boolean>(false)
 const avatarSrc = computed(() => resolveAvatarUrl(user.value?.avatar))
 const roleBadge = computed<{ label: string; className: string } | null>(() => {
   if (!user.value) return null
-  if (user.value.is_owner) {
-    return {
-      label: String(t('userSetting.roleOwner')),
-      className:
-        'bg-[var(--color-accent-soft)] text-[var(--color-accent)] ring-[var(--color-accent)]/25',
-    }
-  }
   if (user.value.is_admin) {
     return {
       label: String(t('userSetting.roleAdmin')),

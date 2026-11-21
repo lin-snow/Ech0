@@ -61,7 +61,7 @@ func TestCreateComment_NotifyOwnerSkipsWhenOwnerEmailMissing(t *testing.T) {
 		Run(func(_ context.Context, c *commentModel.Comment) { c.ID = "g-1" }).
 		Return(nil).
 		Once()
-	d.common.EXPECT().GetOwner().Return(helpers.NewUser(), nil).Once()
+	d.common.EXPECT().GetPrimaryAdmin().Return(helpers.NewUser(), nil).Once()
 
 	res, err := d.service().CreateComment(helpers.CtxAnonymous(), testIP, "ua",
 		&commentModel.CreateCommentDto{
@@ -80,11 +80,11 @@ func TestCreateComment_ReplyNotifySkipsInvalidParentEmail(t *testing.T) {
 	d := newDeps(t)
 	d.expectSetting(t, mailEnabledSetting())
 
-	owner := helpers.NewUser(helpers.AsOwner)
-	owner.ID = "owner-1"
+	admin := helpers.NewUser(helpers.AsAdmin)
+	admin.ID = "admin-1"
 	d.common.EXPECT().
-		CommonGetUserByUserId(mock.Anything, "owner-1").
-		Return(owner, nil).
+		CommonGetUserByUserId(mock.Anything, "admin-1").
+		Return(admin, nil).
 		Once()
 	d.repo.EXPECT().
 		GetCommentByID(mock.Anything, "parent-1").
@@ -108,7 +108,7 @@ func TestCreateComment_ReplyNotifySkipsInvalidParentEmail(t *testing.T) {
 		Return(nil).
 		Once()
 
-	res, err := d.service().CreateComment(helpers.CtxAsUser("owner-1"), testIP, "ua",
+	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1"), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
 			Content:   "a reply",
@@ -119,16 +119,16 @@ func TestCreateComment_ReplyNotifySkipsInvalidParentEmail(t *testing.T) {
 	assert.Equal(t, "child-1", res.ID)
 }
 
-func TestCreateComment_ReplyNotifySkipsWhenTargetIsOwner(t *testing.T) {
+func TestCreateComment_ReplyNotifySkipsWhenTargetIsAdmin(t *testing.T) {
 	helpers.SetJWTSecret(t, testSecret)
 	d := newDeps(t)
 	d.expectSetting(t, mailEnabledSetting())
 
-	owner := helpers.NewUser(helpers.AsOwner)
-	owner.ID = "owner-1"
+	admin := helpers.NewUser(helpers.AsAdmin)
+	admin.ID = "admin-1"
 	d.common.EXPECT().
-		CommonGetUserByUserId(mock.Anything, "owner-1").
-		Return(owner, nil).
+		CommonGetUserByUserId(mock.Anything, "admin-1").
+		Return(admin, nil).
 		Once()
 	d.repo.EXPECT().
 		GetCommentByID(mock.Anything, "parent-1").
@@ -151,11 +151,11 @@ func TestCreateComment_ReplyNotifySkipsWhenTargetIsOwner(t *testing.T) {
 		Run(func(_ context.Context, c *commentModel.Comment) { c.ID = "child-2" }).
 		Return(nil).
 		Once()
-	ownerWithEmail := helpers.NewUser(helpers.AsOwner)
-	ownerWithEmail.Email = "shared@example.com"
-	d.common.EXPECT().GetOwner().Return(ownerWithEmail, nil).Once()
+	adminWithEmail := helpers.NewUser(helpers.AsAdmin)
+	adminWithEmail.Email = "shared@example.com"
+	d.common.EXPECT().GetPrimaryAdmin().Return(adminWithEmail, nil).Once()
 
-	res, err := d.service().CreateComment(helpers.CtxAsUser("owner-1"), testIP, "ua",
+	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1"), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
 			Content:   "a reply",

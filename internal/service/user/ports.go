@@ -17,7 +17,7 @@ type Service interface {
 	UpdateUser(ctx context.Context, userdto model.UserInfoDto) error
 	UpdateUserAdmin(ctx context.Context, id string) error
 	GetAllUsers(ctx context.Context) ([]model.User, error)
-	GetOwner() (model.User, error)
+	GetPrimaryAdmin() (model.User, error)
 	DeleteUser(ctx context.Context, id string) error
 	GetUserByID(userId string) (model.User, error)
 }
@@ -29,7 +29,7 @@ type UserRepo interface {
 	GetUserByUsername(ctx context.Context, username string) (model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
 	CreateUser(ctx context.Context, newUser *model.User) error
-	GetOwner(ctx context.Context) (model.User, error)
+	GetPrimaryAdmin(ctx context.Context) (model.User, error)
 	UpdateUser(ctx context.Context, user *model.User) error
 	UpsertLocalAuth(ctx context.Context, localAuth *model.UserLocalAuth) error
 	DeleteUser(ctx context.Context, id string) error

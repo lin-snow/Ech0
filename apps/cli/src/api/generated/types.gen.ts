@@ -321,7 +321,7 @@ export type EchoFile = {
 
 export type EchoQueryDto = {
     /**
-     * Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page
+     * Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page. Cursor mode ignores page and requires sortBy=created_at
      */
     cursor?: string;
     /**
@@ -333,11 +333,11 @@ export type EchoQueryDto = {
      */
     dateTo?: number;
     /**
-     * Page number, 1-based (default 1)
+     * Page number, 1-based (default 1); ignored when cursor is set
      */
     page?: number;
     /**
-     * Items per page, 1-100 (default 10)
+     * Items per page, 1-100 (default 10); also the cursor page size
      */
     pageSize?: number;
     /**
@@ -349,7 +349,7 @@ export type EchoQueryDto = {
      */
     search?: string;
     /**
-     * Sort field (default created_at)
+     * Sort field (default created_at); cursor pagination requires created_at
      */
     sortBy?: 'created_at' | 'reactions';
     /**
@@ -502,6 +502,7 @@ export type FileDto = {
     size?: number;
     storage_type?: string;
     url?: string;
+    user_id?: string;
     width?: number;
     [key: string]: unknown;
 };
@@ -1519,9 +1520,11 @@ export type SystemSetting = {
     footer_content?: string;
     footer_link?: string;
     meting_api?: string;
+    privacy_policy?: string;
     server_logo?: string;
     server_name?: string;
     server_url?: string;
+    show_privacy_footer?: boolean;
     site_title?: string;
     [key: string]: unknown;
 };
@@ -1536,10 +1539,12 @@ export type SystemSettingDto = {
     footer_content?: string;
     footer_link?: string;
     meting_api?: string;
+    privacy_policy?: string;
     server_logo?: string;
     server_logo_file_id?: string;
     server_name?: string;
     server_url?: string;
+    show_privacy_footer?: boolean;
     site_title?: string;
     [key: string]: unknown;
 };
@@ -1592,7 +1597,6 @@ export type User = {
     email?: string;
     id?: string;
     is_admin?: boolean;
-    is_owner?: boolean;
     locale?: string;
     username?: string;
     [key: string]: unknown;
@@ -1603,7 +1607,6 @@ export type UserInfoDto = {
     avatar_file_id?: string;
     email?: string;
     is_admin?: boolean;
-    is_owner?: boolean;
     locale?: string;
     password?: string;
     username?: string;

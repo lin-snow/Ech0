@@ -442,7 +442,7 @@ const cancelReply = () => {
 
 const isPrivilegedUser = computed(() => {
   const user = userStore.user
-  return Boolean(user && (user.is_admin || user.is_owner))
+  return Boolean(user && user.is_admin)
 })
 
 const canSubmit = computed(() => {

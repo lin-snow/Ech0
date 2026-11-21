@@ -131,7 +131,7 @@ func (f *fakeUserService) UpdateUserAdmin(context.Context, string) error { panic
 func (f *fakeUserService) GetAllUsers(context.Context) ([]userModel.User, error) {
 	panic("not called")
 }
-func (f *fakeUserService) GetOwner() (userModel.User, error) { panic("not called") }
+func (f *fakeUserService) GetPrimaryAdmin() (userModel.User, error) { panic("not called") }
 func (f *fakeUserService) DeleteUser(context.Context, string) error {
 	panic("not called")
 }

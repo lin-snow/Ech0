@@ -23,18 +23,39 @@ import (
 )
 
 func TestPostEcho_Guards(t *testing.T) {
-	t.Run("non-admin is denied", func(t *testing.T) {
+	t.Run("member may post", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
+		tx := txmock.NewMockTransactor(t)
+		member := helpers.NewUser()
+		member.ID = userID
+		member.Username = "Bob"
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, userID).
-			Return(helpers.NewUser(), nil).
+			Return(member, nil).
 			Once()
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return(nil, nil).Once()
 
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		file := filemock.NewMockService(t)
+
+		var captured echoModel.Echo
+		repo.EXPECT().
+			CreateEcho(mock.Anything, mock.Anything).
+			Run(func(_ context.Context, e *echoModel.Echo) { captured = *e }).
+			Return(nil).
+			Once()
+		repo.EXPECT().InvalidateEchoCaches().Once()
+		saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "saved-1" })
+		repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(&saved, nil).Once()
+		file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+
+		svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
 		_, err := svc.PostEcho(helpers.CtxAsUser(userID), &echoModel.Echo{Content: "hi"})
-
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		require.NoError(t, err)
+		assert.Equal(t, userID, captured.UserID)
+		assert.Equal(t, "Bob", captured.Username)
+		assert.Equal(t, echoModel.LayoutWaterfall, captured.Layout)
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {

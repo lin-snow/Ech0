@@ -224,7 +224,7 @@ func TestBackfill_SinglePageIndexesAll(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{e1, e2}, int64(2)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a", "b"}).
 		Return([][]float32{{1, 1}, {2, 2}}, nil).Once()
@@ -262,7 +262,7 @@ func TestBackfill_SkipsEmptyText(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{e1, eEmpty, e2}, int64(3)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"x", "y"}).
 		Return([][]float32{{1}, {2}}, nil).Once()
@@ -280,7 +280,7 @@ func TestBackfill_EmbedError_ReturnsLastErr(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1), newBackfillEcho("e2", "b", "u", 2)}, int64(2)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a", "b"}).Return(nil, boom).Once()
 	emb.EXPECT().EmbedOne(ctx, enabledSetting(), "a").Return(nil, boom).Once()
@@ -299,7 +299,7 @@ func TestBackfill_PartialUpsertFailure(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1), newBackfillEcho("e2", "b", "u", 2)}, int64(2)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a", "b"}).
 		Return([][]float32{{1}, {2}}, nil).Once()
@@ -319,7 +319,7 @@ func TestBackfill_AllUpsertFail_NoError(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1), newBackfillEcho("e2", "b", "u", 2)}, int64(2)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a", "b"}).
 		Return([][]float32{{1}, {2}}, nil).Once()
@@ -337,9 +337,9 @@ func TestBackfill_MultiPage(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1)}, int64(150)).Once()
-	reader.EXPECT().GetEchosByPage(2, 100, "", true).
+	reader.EXPECT().GetEchosByPage(2, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e2", "b", "u", 2)}, int64(150)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a"}).Return([][]float32{{1}}, nil).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"b"}).Return([][]float32{{2}}, nil).Once()
@@ -357,7 +357,7 @@ func TestBackfill_EmptyFirstPage(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).Return([]echoModel.Echo{}, int64(0)).Once()
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).Return([]echoModel.Echo{}, int64(0)).Once()
 
 	res, err := svc.Backfill(ctx, nil)
 	require.NoError(t, err)
@@ -370,7 +370,7 @@ func TestBackfill_OnProgress(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1)}, int64(1)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a"}).Return([][]float32{{1}}, nil).Once()
 	repo.EXPECT().Upsert(ctx, mock.Anything, mock.Anything).Return(nil).Once()
@@ -391,7 +391,7 @@ func TestBackfill_ContextCancelledMidLoop(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1)}, int64(150)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a"}).Return([][]float32{{1}}, nil).Once()
 	repo.EXPECT().Upsert(ctx, mock.Anything, mock.Anything).Return(nil).Once()
@@ -410,7 +410,7 @@ func TestBackfill_BadInputIsIsolated(t *testing.T) {
 
 	kv.EXPECT().Get(ctx, commonModel.EmbeddingSettingKey).Return(enabledSettingJSON(t), nil).Once()
 	expectEnsureReadyFastPath(t, repo, kv, ctx)
-	reader.EXPECT().GetEchosByPage(1, 100, "", true).
+	reader.EXPECT().GetEchosByPage(1, 100, "", echoModel.PrivateScope{All: true}).
 		Return([]echoModel.Echo{newBackfillEcho("e1", "a", "u", 1), newBackfillEcho("e2", "b", "u", 2)}, int64(2)).Once()
 	emb.EXPECT().Embed(ctx, enabledSetting(), []string{"a", "b"}).Return(nil, tooLong).Once()
 	emb.EXPECT().EmbedOne(ctx, enabledSetting(), "a").Return([]float32{1}, nil).Once()

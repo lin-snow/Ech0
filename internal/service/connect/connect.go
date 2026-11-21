@@ -16,6 +16,7 @@ import (
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/connect"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/transaction"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
@@ -163,19 +164,19 @@ func (connectService *ConnectService) GetConnect() (model.Connect, error) {
 		return connect, err
 	}
 
-	owner, err := connectService.commonService.GetOwner()
+	admin, err := connectService.commonService.GetPrimaryAdmin()
 	if err != nil {
 		return connect, err
 	}
 
-	todayEchos := connectService.echoRepository.GetTodayEchos(true, siteMetricsTimezone)
-	_, totalEchos := connectService.echoRepository.GetEchosByPage(1, 1, "", true)
+	todayEchos := connectService.echoRepository.GetTodayEchos(echoModel.PrivateScope{All: true}, siteMetricsTimezone)
+	_, totalEchos := connectService.echoRepository.GetEchosByPage(1, 1, "", echoModel.PrivateScope{All: true})
 
 	connect.ServerName = setting.ServerName
 	connect.ServerURL = setting.ServerURL
 	connect.TotalEchos = int(totalEchos)
 	connect.TodayEchos = len(todayEchos)
-	connect.SysUsername = owner.Username
+	connect.SysUsername = admin.Username
 	connect.Version = versionPkg.Version
 
 	trimmedServerURL := strings.TrimRight(setting.ServerURL, "/")

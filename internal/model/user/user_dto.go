@@ -12,8 +12,6 @@ type UserInfoDto struct {
 
 	IsAdmin bool `json:"is_admin"`
 
-	IsOwner bool `json:"is_owner"`
-
 	Avatar string `json:"avatar"`
 
 	AvatarFileID string `json:"avatar_file_id"`

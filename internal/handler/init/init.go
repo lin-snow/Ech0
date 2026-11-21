@@ -43,5 +43,5 @@ func (h *InitHandler) InitOwner(ctx context.Context, in *InitOwnerInput) (EmptyO
 	if err := h.initService.InitOwner(&in.Body); err != nil {
 		return EmptyOutput{}, err
 	}
-	return commonModel.OK[any](nil, commonModel.INIT_OWNER_SUCCESS), nil
+	return commonModel.OK[any](nil, commonModel.INIT_ADMIN_SUCCESS), nil
 }

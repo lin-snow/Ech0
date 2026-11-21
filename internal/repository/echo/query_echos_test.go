@@ -78,16 +78,16 @@ func TestEchoRepository_QueryEchos_PrivateFilter(t *testing.T) {
 	seedEcho(t, db, "e-pub", "public one", false, 100)
 	seedEcho(t, db, "e-prv", "private one", true, 200)
 
-	t.Run("showPrivate=false excludes private", func(t *testing.T) {
-		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 10}, false)
+	t.Run("public scope excludes private", func(t *testing.T) {
+		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 10}, echoModel.PrivateScope{})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
 		assert.Equal(t, "e-pub", echos[0].ID)
 	})
 
-	t.Run("showPrivate=true includes private", func(t *testing.T) {
-		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 10}, true)
+	t.Run("All scope includes private", func(t *testing.T) {
+		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 10}, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), total)
 		assert.Len(t, echos, 2)
@@ -95,33 +95,30 @@ func TestEchoRepository_QueryEchos_PrivateFilter(t *testing.T) {
 
 	ptr := func(b bool) *bool { return &b }
 
-	t.Run("showPrivate=true + Private=true narrows to private only", func(t *testing.T) {
+	t.Run("All scope + Private=true narrows to private only", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, Private: ptr(true)},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
 		assert.Equal(t, "e-prv", echos[0].ID)
 	})
 
-	t.Run("showPrivate=true + Private=false narrows to public only", func(t *testing.T) {
+	t.Run("All scope + Private=false narrows to public only", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, Private: ptr(false)},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
 		assert.Equal(t, "e-pub", echos[0].ID)
 	})
 
-	t.Run("showPrivate=false ignores Private=true (anti-leak)", func(t *testing.T) {
+	t.Run("public scope ignores Private=true (anti-leak)", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, Private: ptr(true)},
-			false,
-		)
+			echoModel.PrivateScope{})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
@@ -140,8 +137,7 @@ func TestEchoRepository_QueryEchos_TagJoinDistinctCount(t *testing.T) {
 
 	echos, total, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{Page: 1, PageSize: 10, TagIDs: []string{"t1", "t2"}},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total, "DISTINCT 应把同一 echo 的多标签命中收敛为 1")
 	require.Len(t, echos, 1)
@@ -156,8 +152,7 @@ func TestEchoRepository_QueryEchos_SearchLike(t *testing.T) {
 
 	echos, total, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{Page: 1, PageSize: 10, Search: "golang"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, echos, 1)
@@ -173,8 +168,7 @@ func TestEchoRepository_QueryEchos_DateRange(t *testing.T) {
 	t.Run("DateFrom inclusive lower bound", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, DateFrom: 2000},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), total)
 		assert.ElementsMatch(t, []string{"e-mid", "e-new"}, echoIDs(echos))
@@ -183,8 +177,7 @@ func TestEchoRepository_QueryEchos_DateRange(t *testing.T) {
 	t.Run("DateTo inclusive upper bound", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, DateTo: 2000},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), total)
 		assert.ElementsMatch(t, []string{"e-old", "e-mid"}, echoIDs(echos))
@@ -193,8 +186,7 @@ func TestEchoRepository_QueryEchos_DateRange(t *testing.T) {
 	t.Run("DateFrom and DateTo bound a closed window", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, DateFrom: 2000, DateTo: 2000},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		require.Len(t, echos, 1)
@@ -209,7 +201,7 @@ func TestEchoRepository_QueryEchos_Pagination(t *testing.T) {
 	}
 
 	t.Run("page 1 size 2", func(t *testing.T) {
-		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 2}, true)
+		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 1, PageSize: 2}, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(5), total)
 		require.Len(t, echos, 2)
@@ -217,7 +209,7 @@ func TestEchoRepository_QueryEchos_Pagination(t *testing.T) {
 	})
 
 	t.Run("page 2 size 2 applies offset", func(t *testing.T) {
-		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 2, PageSize: 2}, true)
+		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 2, PageSize: 2}, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(5), total)
 		require.Len(t, echos, 2)
@@ -225,7 +217,7 @@ func TestEchoRepository_QueryEchos_Pagination(t *testing.T) {
 	})
 
 	t.Run("page past the end returns empty but real total", func(t *testing.T) {
-		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 4, PageSize: 2}, true)
+		echos, total, err := repo.QueryEchos(commonModel.EchoQueryDto{Page: 4, PageSize: 2}, echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(5), total)
 		assert.Empty(t, echos)
@@ -258,8 +250,7 @@ func TestEchoRepository_QueryEchos_SortWhitelist(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			echos, _, err := repo.QueryEchos(
 				commonModel.EchoQueryDto{Page: 1, PageSize: 10, SortBy: tc.sortBy, SortOrder: tc.sortOrder},
-				true,
-			)
+				echoModel.PrivateScope{All: true})
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, echoIDs(echos))
 		})
@@ -274,8 +265,7 @@ func TestEchoRepository_QueryEchos_EmptyTagShortCircuit(t *testing.T) {
 	t.Run("tag filter with zero matches returns empty non-nil slice", func(t *testing.T) {
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 1, PageSize: 10, TagIDs: []string{"t-real"}},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), total)
 		require.NotNil(t, echos)
@@ -288,8 +278,7 @@ func TestEchoRepository_QueryEchos_EmptyTagShortCircuit(t *testing.T) {
 
 		echos, total, err := repo.QueryEchos(
 			commonModel.EchoQueryDto{Page: 2, PageSize: 10, TagIDs: []string{"t-real"}},
-			true,
-		)
+			echoModel.PrivateScope{All: true})
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), total)
 		assert.Empty(t, echos)
@@ -303,8 +292,7 @@ func TestEchoRepository_QueryEchos_UserIDFilter(t *testing.T) {
 
 	echos, total, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{Page: 1, PageSize: 10, UserID: "alice"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, echos, 1)
@@ -322,8 +310,7 @@ func TestEchoRepository_QueryEchos_CursorPagination(t *testing.T) {
 	empty := ""
 	first, total, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &empty, SortBy: "created_at", SortOrder: "desc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), total)
 	assert.Equal(t, []string{"e5", "e4"}, echoIDs(first))
@@ -337,8 +324,7 @@ func TestEchoRepository_QueryEchos_CursorPagination(t *testing.T) {
 	})
 	second, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &next, SortBy: "created_at", SortOrder: "desc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e3", "e2"}, echoIDs(second))
 
@@ -348,8 +334,7 @@ func TestEchoRepository_QueryEchos_CursorPagination(t *testing.T) {
 	})
 	third, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &next, SortBy: "created_at", SortOrder: "desc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e1"}, echoIDs(third))
 }
@@ -361,15 +346,13 @@ func TestEchoRepository_QueryEchos_CursorBreaksSameSecondTies(t *testing.T) {
 
 	desc, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 10, SortBy: "created_at", SortOrder: "desc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e-b", "e-a"}, echoIDs(desc))
 
 	asc, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 10, SortBy: "created_at", SortOrder: "asc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e-a", "e-b"}, echoIDs(asc))
 }
@@ -383,8 +366,7 @@ func TestEchoRepository_QueryEchos_CursorSplitsSameSecondTie(t *testing.T) {
 	empty := ""
 	first, total, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &empty, SortBy: "created_at", SortOrder: "desc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), total)
 	assert.Equal(t, []string{"e-c", "e-b"}, echoIDs(first))
@@ -397,8 +379,7 @@ func TestEchoRepository_QueryEchos_CursorSplitsSameSecondTie(t *testing.T) {
 	})
 	second, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &next, SortBy: "created_at", SortOrder: "desc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e-a"}, echoIDs(second))
 }
@@ -412,8 +393,7 @@ func TestEchoRepository_QueryEchos_CursorPaginationAsc(t *testing.T) {
 	empty := ""
 	first, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &empty, SortBy: "created_at", SortOrder: "asc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e1", "e2"}, echoIDs(first))
 
@@ -423,8 +403,7 @@ func TestEchoRepository_QueryEchos_CursorPaginationAsc(t *testing.T) {
 	})
 	second, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 2, Cursor: &next, SortBy: "created_at", SortOrder: "asc"},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e3"}, echoIDs(second))
 }
@@ -447,8 +426,7 @@ func TestEchoRepository_QueryEchos_CursorWithTagFilter(t *testing.T) {
 			SortBy:    "created_at",
 			SortOrder: "desc",
 		},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), total)
 	assert.Equal(t, []string{"e2"}, echoIDs(first))
@@ -465,8 +443,7 @@ func TestEchoRepository_QueryEchos_CursorWithTagFilter(t *testing.T) {
 			SortBy:    "created_at",
 			SortOrder: "desc",
 		},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"e1"}, echoIDs(second))
 }
@@ -477,7 +454,6 @@ func TestEchoRepository_QueryEchos_RejectsInvalidCursor(t *testing.T) {
 
 	_, _, err := repo.QueryEchos(
 		commonModel.EchoQueryDto{PageSize: 10, Cursor: &invalid},
-		true,
-	)
+		echoModel.PrivateScope{All: true})
 	require.ErrorIs(t, err, echoModel.ErrInvalidCursor)
 }

@@ -273,7 +273,7 @@ const {
   visibilityFilter,
 } = storeToRefs(echoStore)
 
-const canFilterVisibility = computed(() => userStore.isLogin && userStore.user?.is_admin === true)
+const canFilterVisibility = computed(() => userStore.isLogin)
 
 const draftKeyword = ref<string>('')
 const draftFrom = ref<number | null>(null)

@@ -72,7 +72,7 @@ func TestShouldNotifyOwnerOnCreate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := shouldNotifyOwnerOnCreate(tc.source); got != tc.want {
+			if got := shouldNotifyAdminOnCreate(tc.source); got != tc.want {
 				t.Fatalf("expected %v, got %v", tc.want, got)
 			}
 		})

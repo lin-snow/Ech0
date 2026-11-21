@@ -67,7 +67,7 @@ func TestInitOwner(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.INIT_OWNER_SUCCESS, out.Message)
+		assert.Equal(t, commonModel.INIT_ADMIN_SUCCESS, out.Message)
 		assert.Nil(t, out.Data)
 	})
 

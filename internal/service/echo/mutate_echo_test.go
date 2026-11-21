@@ -24,16 +24,38 @@ import (
 )
 
 func TestDeleteEchoById_Guards(t *testing.T) {
-	t.Run("non-admin is denied", func(t *testing.T) {
+	t.Run("member cannot delete another user's echo", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
+		tx := txmock.NewMockTransactor(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, userID).
 			Return(helpers.NewUser(), nil).
 			Once()
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		foreign := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = adminID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&foreign, nil).Once()
 
-		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
 		require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID), commonModel.NO_PERMISSION_DENIED)
+	})
+
+	t.Run("member deletes their own echo", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		tx := txmock.NewMockTransactor(t)
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, userID).
+			Return(helpers.NewUser(), nil).
+			Once()
+		own := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = userID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&own, nil).Once()
+		repo.EXPECT().DeleteEchoById(mock.Anything, echoID).Return(nil).Once()
+		repo.EXPECT().InvalidateEchoCaches(echoID).Return().Once()
+
+		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
+		require.NoError(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID))
 	})
 
 	t.Run("user lookup error propagates", func(t *testing.T) {
@@ -150,13 +172,15 @@ func TestDeleteEchoById_DeleteFileRecordError(t *testing.T) {
 }
 
 func TestUpdateEcho_Guards(t *testing.T) {
-	t.Run("non-admin is denied", func(t *testing.T) {
+	t.Run("member cannot edit another user's echo", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		common.EXPECT().
 			CommonGetUserByUserId(mock.Anything, userID).
 			Return(helpers.NewUser(), nil).
 			Once()
+		foreign := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = adminID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&foreign, nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.UpdateEcho(helpers.CtxAsUser(userID), &echoModel.Echo{ID: echoID, Content: "hi"})
@@ -170,6 +194,8 @@ func TestUpdateEcho_Guards(t *testing.T) {
 			CommonGetUserByUserId(mock.Anything, adminID).
 			Return(helpers.NewUser(helpers.AsAdmin), nil).
 			Once()
+		existing := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = adminID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
@@ -188,6 +214,8 @@ func TestUpdateEcho_Guards(t *testing.T) {
 			CommonGetUserByUserId(mock.Anything, adminID).
 			Return(helpers.NewUser(helpers.AsAdmin), nil).
 			Once()
+		existing := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = adminID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{ID: echoID, Content: "   "})
@@ -206,6 +234,8 @@ func TestUpdateEcho_Success(t *testing.T) {
 		CommonGetUserByUserId(mock.Anything, adminID).
 		Return(helpers.NewUser(helpers.AsAdmin), nil).
 		Once()
+	existing := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID; e.UserID = adminID })
+	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 	file.EXPECT().
 		GetFilesByIDs(mock.Anything, []string{"file-1"}).
 		Return([]commonModel.FileDto{{ID: "file-1", Category: "image"}}, nil).
@@ -261,6 +291,8 @@ func TestUpdateEcho_TransactionError(t *testing.T) {
 		CommonGetUserByUserId(mock.Anything, adminID).
 		Return(helpers.NewUser(helpers.AsAdmin), nil).
 		Once()
+	existing := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID; e.UserID = adminID })
+	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 	tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 	repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
 	repo.EXPECT().UpdateEcho(mock.Anything, mock.Anything).Return(boom).Once()

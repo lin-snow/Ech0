@@ -38,6 +38,7 @@ type FileDto struct {
 	Size        int64  `json:"size,omitempty"`
 	Width       int    `json:"width,omitempty"`
 	Height      int    `json:"height,omitempty"`
+	UserID      string `json:"user_id,omitempty"`
 }
 
 type FileDeleteDto struct {

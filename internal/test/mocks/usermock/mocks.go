@@ -170,12 +170,12 @@ func (_c *MockService_GetAllUsers_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
-// GetOwner provides a mock function for the type MockService
-func (_mock *MockService) GetOwner() (model.User, error) {
+// GetPrimaryAdmin provides a mock function for the type MockService
+func (_mock *MockService) GetPrimaryAdmin() (model.User, error) {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetOwner")
+		panic("no return value specified for GetPrimaryAdmin")
 	}
 
 	var r0 model.User
@@ -196,29 +196,29 @@ func (_mock *MockService) GetOwner() (model.User, error) {
 	return r0, r1
 }
 
-// MockService_GetOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOwner'
-type MockService_GetOwner_Call struct {
+// MockService_GetPrimaryAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPrimaryAdmin'
+type MockService_GetPrimaryAdmin_Call struct {
 	*mock.Call
 }
 
-// GetOwner is a helper method to define mock.On call
-func (_e *MockService_Expecter) GetOwner() *MockService_GetOwner_Call {
-	return &MockService_GetOwner_Call{Call: _e.mock.On("GetOwner")}
+// GetPrimaryAdmin is a helper method to define mock.On call
+func (_e *MockService_Expecter) GetPrimaryAdmin() *MockService_GetPrimaryAdmin_Call {
+	return &MockService_GetPrimaryAdmin_Call{Call: _e.mock.On("GetPrimaryAdmin")}
 }
 
-func (_c *MockService_GetOwner_Call) Run(run func()) *MockService_GetOwner_Call {
+func (_c *MockService_GetPrimaryAdmin_Call) Run(run func()) *MockService_GetPrimaryAdmin_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *MockService_GetOwner_Call) Return(user model.User, err error) *MockService_GetOwner_Call {
+func (_c *MockService_GetPrimaryAdmin_Call) Return(user model.User, err error) *MockService_GetPrimaryAdmin_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockService_GetOwner_Call) RunAndReturn(run func() (model.User, error)) *MockService_GetOwner_Call {
+func (_c *MockService_GetPrimaryAdmin_Call) RunAndReturn(run func() (model.User, error)) *MockService_GetPrimaryAdmin_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -711,12 +711,12 @@ func (_c *MockUserRepo_GetAllUsers_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
-// GetOwner provides a mock function for the type MockUserRepo
-func (_mock *MockUserRepo) GetOwner(ctx context.Context) (model.User, error) {
+// GetPrimaryAdmin provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) GetPrimaryAdmin(ctx context.Context) (model.User, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetOwner")
+		panic("no return value specified for GetPrimaryAdmin")
 	}
 
 	var r0 model.User
@@ -737,18 +737,18 @@ func (_mock *MockUserRepo) GetOwner(ctx context.Context) (model.User, error) {
 	return r0, r1
 }
 
-// MockUserRepo_GetOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOwner'
-type MockUserRepo_GetOwner_Call struct {
+// MockUserRepo_GetPrimaryAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPrimaryAdmin'
+type MockUserRepo_GetPrimaryAdmin_Call struct {
 	*mock.Call
 }
 
-// GetOwner is a helper method to define mock.On call
+// GetPrimaryAdmin is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockUserRepo_Expecter) GetOwner(ctx any) *MockUserRepo_GetOwner_Call {
-	return &MockUserRepo_GetOwner_Call{Call: _e.mock.On("GetOwner", ctx)}
+func (_e *MockUserRepo_Expecter) GetPrimaryAdmin(ctx any) *MockUserRepo_GetPrimaryAdmin_Call {
+	return &MockUserRepo_GetPrimaryAdmin_Call{Call: _e.mock.On("GetPrimaryAdmin", ctx)}
 }
 
-func (_c *MockUserRepo_GetOwner_Call) Run(run func(ctx context.Context)) *MockUserRepo_GetOwner_Call {
+func (_c *MockUserRepo_GetPrimaryAdmin_Call) Run(run func(ctx context.Context)) *MockUserRepo_GetPrimaryAdmin_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -761,12 +761,12 @@ func (_c *MockUserRepo_GetOwner_Call) Run(run func(ctx context.Context)) *MockUs
 	return _c
 }
 
-func (_c *MockUserRepo_GetOwner_Call) Return(user model.User, err error) *MockUserRepo_GetOwner_Call {
+func (_c *MockUserRepo_GetPrimaryAdmin_Call) Return(user model.User, err error) *MockUserRepo_GetPrimaryAdmin_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockUserRepo_GetOwner_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockUserRepo_GetOwner_Call {
+func (_c *MockUserRepo_GetPrimaryAdmin_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockUserRepo_GetPrimaryAdmin_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1376,12 +1376,12 @@ func (_c *MockRepository_GetAllUsers_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
-// GetOwner provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetOwner(ctx context.Context) (model.User, error) {
+// GetPrimaryAdmin provides a mock function for the type MockRepository
+func (_mock *MockRepository) GetPrimaryAdmin(ctx context.Context) (model.User, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetOwner")
+		panic("no return value specified for GetPrimaryAdmin")
 	}
 
 	var r0 model.User
@@ -1402,18 +1402,18 @@ func (_mock *MockRepository) GetOwner(ctx context.Context) (model.User, error) {
 	return r0, r1
 }
 
-// MockRepository_GetOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOwner'
-type MockRepository_GetOwner_Call struct {
+// MockRepository_GetPrimaryAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPrimaryAdmin'
+type MockRepository_GetPrimaryAdmin_Call struct {
 	*mock.Call
 }
 
-// GetOwner is a helper method to define mock.On call
+// GetPrimaryAdmin is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockRepository_Expecter) GetOwner(ctx any) *MockRepository_GetOwner_Call {
-	return &MockRepository_GetOwner_Call{Call: _e.mock.On("GetOwner", ctx)}
+func (_e *MockRepository_Expecter) GetPrimaryAdmin(ctx any) *MockRepository_GetPrimaryAdmin_Call {
+	return &MockRepository_GetPrimaryAdmin_Call{Call: _e.mock.On("GetPrimaryAdmin", ctx)}
 }
 
-func (_c *MockRepository_GetOwner_Call) Run(run func(ctx context.Context)) *MockRepository_GetOwner_Call {
+func (_c *MockRepository_GetPrimaryAdmin_Call) Run(run func(ctx context.Context)) *MockRepository_GetPrimaryAdmin_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1426,12 +1426,12 @@ func (_c *MockRepository_GetOwner_Call) Run(run func(ctx context.Context)) *Mock
 	return _c
 }
 
-func (_c *MockRepository_GetOwner_Call) Return(user model.User, err error) *MockRepository_GetOwner_Call {
+func (_c *MockRepository_GetPrimaryAdmin_Call) Return(user model.User, err error) *MockRepository_GetPrimaryAdmin_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockRepository_GetOwner_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockRepository_GetOwner_Call {
+func (_c *MockRepository_GetPrimaryAdmin_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockRepository_GetPrimaryAdmin_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -97,9 +97,6 @@ func (s *FileService) UploadFile(
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 
 	reader, err := file.Open()
 	if err != nil {
@@ -225,9 +222,6 @@ func (s *FileService) CreateExternalFile(
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 
 	rawURL := urlUtil.TrimURL(dto.URL)
 	if rawURL == "" {
@@ -348,9 +342,6 @@ func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 	if id == "" {
 		return errors.New(commonModel.IMAGE_NOT_FOUND)
 	}
@@ -358,6 +349,9 @@ func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		return err
+	}
+	if fileRecord.UserID != "" && fileRecord.UserID != userid && !user.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	if err := s.transactor.Run(context.Background(), func(ctx context.Context) error {
@@ -385,13 +379,12 @@ func (s *FileService) GetFileByID(ctx context.Context, id string) (commonModel.F
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		return commonModel.FileDto{}, err
+	}
+	if fileRecord.UserID != "" && fileRecord.UserID != userid && !user.IsAdmin {
+		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	return commonModel.FileDto{
@@ -432,6 +425,7 @@ func (s *FileService) GetFilesByIDs(ctx context.Context, ids []string) ([]common
 			Size:        f.Size,
 			Width:       f.Width,
 			Height:      f.Height,
+			UserID:      f.UserID,
 		})
 	}
 	return dtos, nil
@@ -447,9 +441,6 @@ func (s *FileService) UpdateFileMeta(
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 	if id == "" || dto.Size < 0 {
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
 	}
@@ -463,6 +454,9 @@ func (s *FileService) UpdateFileMeta(
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		return commonModel.FileDto{}, err
+	}
+	if fileRecord.UserID != "" && fileRecord.UserID != userid && !user.IsAdmin {
+		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 	if storage.NormalizeStorageType(fileRecord.StorageType) != storage.StorageTypeObject {
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
@@ -832,14 +826,9 @@ func (s *FileService) GetFilePresignURL(
 	var result commonModel.PresignDto
 	userid := viewer.MustFromContext(ctx).UserID()
 
-	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
-	if err != nil {
+	if _, err := s.commonRepository.GetUserByUserId(context.Background(), userid); err != nil {
 		return result, err
 	}
-	if !user.IsAdmin {
-		return result, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-
 	if dto.FileName == "" {
 		return result, errors.New(commonModel.INVALID_PARAMS)
 	}
