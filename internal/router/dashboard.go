@@ -37,8 +37,8 @@ func setupDashboardRoutes(
 	)
 }
 
-func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, secured(revoker, authz.ScopeAdminOps), huma.Operation{
+func registerDashboard(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+	api.route(secured(revoker, authz.ScopeAdminOps), huma.Operation{
 		OperationID: "dashboard-check-update",
 		Method:      http.MethodGet,
 		Path:        "/system/check-update",
@@ -46,7 +46,7 @@ func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.Toke
 		Tags:        []string{"Dashboard"},
 	}, h.DashboardHandler.CheckUpdate)
 
-	route(api, secured(revoker, authz.ScopeAdminOps), huma.Operation{
+	api.route(secured(revoker, authz.ScopeAdminOps), huma.Operation{
 		OperationID: "dashboard-system-logs",
 		Method:      http.MethodGet,
 		Path:        "/system/logs",
@@ -54,7 +54,7 @@ func registerDashboard(api huma.API, h *handler.Bundle, revoker authService.Toke
 		Tags:        []string{"Dashboard"},
 	}, h.DashboardHandler.GetSystemLogs)
 
-	route(api, secured(revoker, authz.ScopeAdminOps), huma.Operation{
+	api.route(secured(revoker, authz.ScopeAdminOps), huma.Operation{
 		OperationID: "dashboard-visitor-stats",
 		Method:      http.MethodGet,
 		Path:        "/system/visitor-stats",

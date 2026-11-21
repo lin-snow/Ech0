@@ -49,7 +49,7 @@ func (f *fakeAuthService) ExchangeOAuthCode(code string) (*authModel.TokenPair, 
 	return nil, errors.New("not implemented")
 }
 
-func (f *fakeAuthService) Login(*authModel.LoginDto) (*authModel.TokenPair, error) {
+func (f *fakeAuthService) Login(context.Context, *authModel.LoginDto) (*authModel.TokenPair, error) {
 	panic("not called in auth handler tests")
 }
 

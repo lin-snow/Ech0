@@ -4,78 +4,134 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/clientip"
+	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
+	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/ratelimit"
+	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
-type rateLimiter struct {
-	mu      sync.Mutex
-	buckets map[string]*tokenBucket
-	rps     int
-	burst   int
-}
-
-type tokenBucket struct {
-	tokens    float64
-	lastTime  time.Time
-	ratePerNs float64
-	burst     float64
-}
-
-func newRateLimiter(rps, burst int) *rateLimiter {
-	return &rateLimiter{
-		buckets: make(map[string]*tokenBucket),
-		rps:     rps,
-		burst:   burst,
+// Budget is the fallback allowance applied to every API request: one shared
+// budget per anonymous address, one per signed-in user. It exists so endpoints
+// nobody thought to protect still have a ceiling, and it must run after the
+// request identity is resolved.
+func Budget(limits *ratelimit.MemoryLimiter) gin.HandlerFunc {
+	if limits == nil {
+		return func(c *gin.Context) { c.Next() }
 	}
-}
-
-func (rl *rateLimiter) allow(key string) bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	b, ok := rl.buckets[key]
-	if !ok {
-		b = &tokenBucket{
-			tokens:    float64(rl.burst),
-			lastTime:  time.Now(),
-			ratePerNs: float64(rl.rps) / float64(time.Second),
-			burst:     float64(rl.burst),
-		}
-		rl.buckets[key] = b
-	}
-
-	now := time.Now()
-	elapsed := now.Sub(b.lastTime)
-	b.tokens += float64(elapsed) * b.ratePerNs
-	if b.tokens > b.burst {
-		b.tokens = b.burst
-	}
-	b.lastTime = now
-
-	if b.tokens < 1 {
-		return false
-	}
-	b.tokens--
-	return true
-}
-
-func RateLimit(rps, burst int) gin.HandlerFunc {
-	limiter := newRateLimiter(rps, burst)
-	startBucketGC(limiter, 5*time.Minute, 10*time.Minute)
-
 	return func(c *gin.Context) {
-		key := c.ClientIP()
-		if !limiter.allow(key) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
-			c.Abort()
+		scope, key := ratelimit.ScopeAnonymous, clientAddress(c)
+		if v, ok := viewer.FromContext(c.Request.Context()); ok && v.UserID() != "" {
+			scope, key = ratelimit.ScopeAuthenticated, v.UserID()
+		}
+		if key == "" {
+			c.Next()
+			return
+		}
+		if decision := limits.Consume(scope, key, 1); !decision.Allowed {
+			writeRateLimited(c, decision)
 			return
 		}
 		c.Next()
 	}
+}
+
+// ScopeLimit charges one named budget for every request, keyed by the client
+// address. Registration uses it for its per-address allowance.
+func ScopeLimit(limits *ratelimit.MemoryLimiter, scope ratelimit.Scope, cost int) gin.HandlerFunc {
+	if limits == nil {
+		return func(c *gin.Context) { c.Next() }
+	}
+	return func(c *gin.Context) {
+		key := clientAddress(c)
+		if key == "" {
+			c.Next()
+			return
+		}
+		if decision := limits.Consume(scope, key, cost); !decision.Allowed {
+			writeRateLimited(c, decision)
+			return
+		}
+		c.Next()
+	}
+}
+
+// RateLimit limits each client address to rps requests per second with a
+// burst allowance. The limiter is private to the route that created it.
+func RateLimit(rps, burst int) gin.HandlerFunc {
+	return RateLimitN(rps, time.Second, burst)
+}
+
+// RateLimitN limits each client address to limit requests per window, tolerating
+// up to burst requests at once.
+func RateLimitN(limit int, per time.Duration, burst int) gin.HandlerFunc {
+	if limit <= 0 {
+		limit = 1
+	}
+	if per <= 0 {
+		per = time.Second
+	}
+	if burst < limit {
+		burst = limit
+	}
+	// A window of burst/rate holds exactly burst requests and refills at the
+	// requested sustained rate.
+	window := time.Duration(float64(burst) / float64(limit) * float64(per))
+	limits := ratelimit.NewMemoryLimiter(ratelimit.Policy{
+		ratelimit.ScopeRoute: {Limit: burst, Window: window},
+	})
+
+	return func(c *gin.Context) {
+		key := clientAddress(c)
+		if key == "" {
+			c.Next()
+			return
+		}
+		if decision := limits.Consume(ratelimit.ScopeRoute, key, 1); !decision.Allowed {
+			writeRateLimited(c, decision)
+			return
+		}
+		c.Next()
+	}
+}
+
+// clientAddress prefers the address resolved once per request by ClientIP and
+// falls back to the transport peer for callers that did not install it.
+func clientAddress(c *gin.Context) string {
+	if ip := clientip.FromContext(c.Request.Context()); ip != "" {
+		return ip
+	}
+	if host, _, err := net.SplitHostPort(c.Request.RemoteAddr); err == nil {
+		return host
+	}
+	return c.Request.RemoteAddr
+}
+
+func writeRateLimited(c *gin.Context, decision ratelimit.Decision) {
+	seconds := int((decision.RetryAfter + time.Second - 1) / time.Second)
+	if seconds < 1 {
+		seconds = 1
+	}
+	c.Header("Retry-After", strconv.Itoa(seconds))
+
+	key := commonModel.MsgKeyAuthRateLimited
+	msg := i18nUtil.Localize(
+		i18nUtil.LocalizerFromGin(c),
+		key,
+		commonModel.RATE_LIMIT_EXCEEDED,
+		nil,
+	)
+	c.AbortWithStatusJSON(
+		http.StatusTooManyRequests,
+		commonModel.FailWithLocalized[any](msg, commonModel.ErrCodeRateLimited, key, nil),
+	)
 }
 
 func RateLimitWithIdempotency(
@@ -84,19 +140,27 @@ func RateLimitWithIdempotency(
 	resourceParam string,
 	onIdempotent gin.HandlerFunc,
 ) gin.HandlerFunc {
-	limiter := newRateLimiter(rps, burst)
+	if rps <= 0 {
+		rps = 1
+	}
+	if burst < rps {
+		burst = rps
+	}
+	limits := ratelimit.NewMemoryLimiter(ratelimit.Policy{
+		ratelimit.ScopeRoute: {Limit: burst, Window: time.Duration(burst) * time.Second / time.Duration(rps)},
+	})
 	dedup := newIdempotencyStore(dedupTTL)
 
 	gcInterval := max(dedupTTL, time.Minute)
-	startBucketGC(limiter, gcInterval, 10*time.Minute)
 	startIdempotencyGC(dedup, gcInterval)
 
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
-		if !limiter.allow(ip) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
-			c.Abort()
-			return
+		ip := clientAddress(c)
+		if ip != "" {
+			if decision := limits.Consume(ratelimit.ScopeRoute, ip, 1); !decision.Allowed {
+				writeRateLimited(c, decision)
+				return
+			}
 		}
 
 		resourceID := c.Param(resourceParam)
@@ -108,23 +172,6 @@ func RateLimitWithIdempotency(
 
 		c.Next()
 	}
-}
-
-func startBucketGC(rl *rateLimiter, interval, idle time.Duration) {
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for range ticker.C {
-			rl.mu.Lock()
-			cutoff := time.Now().Add(-idle)
-			for k, b := range rl.buckets {
-				if b.lastTime.Before(cutoff) {
-					delete(rl.buckets, k)
-				}
-			}
-			rl.mu.Unlock()
-		}
-	}()
 }
 
 type idempotencyStore struct {

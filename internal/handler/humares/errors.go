@@ -50,8 +50,12 @@ func Err(ctx context.Context, err error) error {
 	}
 
 	msg := i18nUtil.Localize(localizerFrom(ctx), key, base, params)
+	status := http.StatusBadRequest
+	if code == commonModel.ErrCodeRateLimited {
+		status = http.StatusTooManyRequests
+	}
 	return &apiError{
-		status: http.StatusBadRequest,
+		status: status,
 		body:   commonModel.FailWithLocalized[any](msg, code, key, params),
 	}
 }

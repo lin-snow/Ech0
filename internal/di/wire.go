@@ -24,6 +24,7 @@ import (
 	"github.com/lin-snow/ech0/internal/middleware"
 	"github.com/lin-snow/ech0/internal/migrator"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/internal/repository"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	"github.com/lin-snow/ech0/internal/server"
@@ -146,6 +147,7 @@ var EventSet = wire.NewSet(
 )
 
 var HandlerSet = wire.NewSet(
+	ratelimit.ProviderSet,
 	repository.FileSet,
 	handler.WebSet,
 
@@ -213,6 +215,7 @@ var HandlerSet = wire.NewSet(
 )
 
 var MiddlewareSet = wire.NewSet(
+	ratelimit.ProviderSet,
 	repository.AuthSet,
 	middleware.ProviderSet,
 )

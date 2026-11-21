@@ -16,6 +16,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	authmock "github.com/lin-snow/ech0/internal/test/mocks/authmock"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
@@ -61,7 +62,7 @@ func TestLogin(t *testing.T) {
 			wantErr:   commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY,
 		},
 		{
-			name: "user not found maps to USER_NOTFOUND",
+			name: "unknown user looks like wrong credentials",
 			dto:  authModel.LoginDto{Username: username, Password: plainPassword},
 			setupRepo: func(repo *authmock.MockRepository) {
 				repo.EXPECT().
@@ -69,10 +70,10 @@ func TestLogin(t *testing.T) {
 					Return(userModel.User{}, errors.New("record not found")).
 					Once()
 			},
-			wantErr: commonModel.USER_NOTFOUND,
+			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
 		},
 		{
-			name: "missing local auth row maps to PASSWORD_INCORRECT",
+			name: "missing local auth row looks like wrong credentials",
 			dto:  authModel.LoginDto{Username: username, Password: plainPassword},
 			setupRepo: func(repo *authmock.MockRepository) {
 				repo.EXPECT().
@@ -84,10 +85,10 @@ func TestLogin(t *testing.T) {
 					Return(userModel.UserLocalAuth{}, gorm.ErrRecordNotFound).
 					Once()
 			},
-			wantErr: commonModel.PASSWORD_INCORRECT,
+			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
 		},
 		{
-			name: "local auth lookup db error maps to PASSWORD_INCORRECT",
+			name: "local auth lookup db error looks like wrong credentials",
 			dto:  authModel.LoginDto{Username: username, Password: plainPassword},
 			setupRepo: func(repo *authmock.MockRepository) {
 				repo.EXPECT().
@@ -99,10 +100,10 @@ func TestLogin(t *testing.T) {
 					Return(userModel.UserLocalAuth{}, errors.New("db down")).
 					Once()
 			},
-			wantErr: commonModel.PASSWORD_INCORRECT,
+			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
 		},
 		{
-			name: "wrong password maps to PASSWORD_INCORRECT",
+			name: "wrong password is rejected with the same message",
 			dto:  authModel.LoginDto{Username: username, Password: plainPassword},
 			setupRepo: func(repo *authmock.MockRepository) {
 				repo.EXPECT().
@@ -118,7 +119,7 @@ func TestLogin(t *testing.T) {
 					}, nil).
 					Once()
 			},
-			wantErr: commonModel.PASSWORD_INCORRECT,
+			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
 		},
 	}
 
@@ -127,7 +128,7 @@ func TestLogin(t *testing.T) {
 			svc, repo, _, _ := newSvc(t, kvstore.NewMemory())
 			tc.setupRepo(repo)
 
-			pair, err := svc.Login(&tc.dto)
+			pair, err := svc.Login(context.Background(), &tc.dto)
 			require.EqualError(t, err, tc.wantErr)
 			assert.Nil(t, pair)
 		})
@@ -148,7 +149,7 @@ func TestLogin(t *testing.T) {
 			}, nil).
 			Once()
 
-		pair, err := svc.Login(&authModel.LoginDto{Username: username, Password: plainPassword})
+		pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: plainPassword})
 		require.NoError(t, err)
 		require.NotNil(t, pair)
 		assert.NotEmpty(t, pair.AccessToken)
@@ -175,7 +176,7 @@ func TestLogin(t *testing.T) {
 			Return(nil).
 			Once()
 
-		pair, err := svc.Login(&authModel.LoginDto{Username: username, Password: plainPassword})
+		pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: plainPassword})
 		require.NoError(t, err)
 		require.NotNil(t, pair)
 		assert.NotEmpty(t, pair.AccessToken)
@@ -252,4 +253,91 @@ func TestPasskeyBoundary(t *testing.T) {
 		assert.Empty(t, rpID)
 		assert.Nil(t, origins)
 	})
+}
+
+func TestLoginBlockedAfterRepeatedFailures(t *testing.T) {
+	helpers.SetJWTSecret(t, "login-budget-secret")
+
+	const username = "alice"
+	const userID = "u-1"
+
+	rule := ratelimit.DefaultPolicy()[ratelimit.ScopeSignInAccount]
+	require.Positive(t, rule.Limit)
+
+	svc, repo, _, _ := newSvc(t, kvstore.NewMemory())
+	repo.EXPECT().
+		GetUserByUsername(mock.Anything, username).
+		Return(userModel.User{ID: userID, Username: username}, nil).
+		Times(rule.Limit)
+	repo.EXPECT().
+		GetLocalAuthByUserID(mock.Anything, userID).
+		Return(userModel.UserLocalAuth{
+			UserID:       userID,
+			PasswordHash: cryptoUtil.MD5Encrypt("right-password"),
+			PasswordAlgo: cryptoUtil.AlgoMD5,
+		}, nil).
+		Times(rule.Limit)
+
+	for attempt := range rule.Limit {
+		_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong-password"})
+		require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT, "attempt %d", attempt)
+	}
+
+	// The correct password must not be evaluated once the account budget is
+	// spent: the repo expectations above are already satisfied.
+	_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "right-password"})
+	var bizErr *commonModel.BizError
+	require.ErrorAs(t, err, &bizErr)
+	require.Equal(t, commonModel.ErrCodeRateLimited, bizErr.Code)
+
+	// Account names are folded, so casing and padding cannot buy a new budget.
+	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: "  ALICE ", Password: "right-password"})
+	require.ErrorAs(t, err, &bizErr)
+	require.Equal(t, commonModel.ErrCodeRateLimited, bizErr.Code)
+}
+
+func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
+	helpers.SetJWTSecret(t, "login-refund-secret")
+
+	const username = "alice"
+	const userID = "u-1"
+	const rightPassword = "right-password"
+
+	rule := ratelimit.DefaultPolicy()[ratelimit.ScopeSignInAccount]
+	svc, repo, _, _ := newSvc(t, kvstore.NewMemory())
+
+	failures := rule.Limit - 1
+	repo.EXPECT().
+		GetUserByUsername(mock.Anything, username).
+		Return(userModel.User{ID: userID, Username: username}, nil)
+	repo.EXPECT().
+		GetLocalAuthByUserID(mock.Anything, userID).
+		Return(userModel.UserLocalAuth{
+			UserID:       userID,
+			PasswordHash: cryptoUtil.MD5Encrypt(rightPassword),
+			PasswordAlgo: cryptoUtil.AlgoMD5,
+		}, nil)
+	repo.EXPECT().
+		UpdateLocalAuthPassword(mock.Anything, userID, mock.Anything, cryptoUtil.AlgoBcrypt).
+		Return(nil).
+		Once()
+
+	for range failures {
+		_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong"})
+		require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+	}
+
+	pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: rightPassword})
+	require.NoError(t, err)
+	require.NotNil(t, pair)
+
+	// Refunding the successful attempt hands back only its own slot: the
+	// failures that preceded it still count, so exactly one more try fits.
+	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong"})
+	require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+
+	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: rightPassword})
+	var bizErr *commonModel.BizError
+	require.ErrorAs(t, err, &bizErr)
+	require.Equal(t, commonModel.ErrCodeRateLimited, bizErr.Code)
 }

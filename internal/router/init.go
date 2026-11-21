@@ -5,13 +5,16 @@ package router
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/handler"
+	"github.com/lin-snow/ech0/internal/handler/humares"
+	"github.com/lin-snow/ech0/internal/middleware"
 )
 
-func registerInit(api huma.API, h *handler.Bundle) {
-	route(api, public(), huma.Operation{
+func registerInit(api *apiRegistry, h *handler.Bundle) {
+	api.route(public(), huma.Operation{
 		OperationID: "init-status",
 		Method:      http.MethodGet,
 		Path:        "/init/status",
@@ -20,12 +23,13 @@ func registerInit(api huma.API, h *handler.Bundle) {
 		Tags:        []string{"Init"},
 	}, h.InitHandler.GetInitStatus)
 
-	route(api, public(), huma.Operation{
+	api.route(public(), huma.Operation{
 		OperationID: "init-owner",
 		Method:      http.MethodPost,
 		Path:        "/init/owner",
 		Summary:     "初始化站点 Owner",
 		Description: "创建首个 Owner 账号（仅在未初始化时可用）。",
 		Tags:        []string{"Init"},
+		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimitN(5, time.Minute, 5))},
 	}, h.InitHandler.InitOwner)
 }

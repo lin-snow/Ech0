@@ -16,6 +16,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	authmock "github.com/lin-snow/ech0/internal/test/mocks/authmock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
@@ -79,7 +80,7 @@ func newSvc(
 	repo := authmock.NewMockRepository(t)
 	authRepo := authmock.NewMockAuthRepo(t)
 	tx := txmock.NewMockTransactor(t)
-	svc := NewAuthService(tx, repo, authRepo, kv, nil)
+	svc := NewAuthService(tx, repo, authRepo, kv, nil, ratelimit.NewMemoryLimiter(ratelimit.DefaultPolicy()))
 	return svc, repo, authRepo, tx
 }
 

@@ -11,8 +11,8 @@ import (
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func registerCommon(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, public(), huma.Operation{
+func registerCommon(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+	api.route(public(), huma.Operation{
 		OperationID: "common-heatmap",
 		Method:      http.MethodGet,
 		Path:        "/heatmap",
@@ -20,7 +20,7 @@ func registerCommon(api huma.API, h *handler.Bundle, revoker authService.TokenRe
 		Tags:        []string{"Common"},
 	}, h.CommonHandler.GetHeatMap)
 
-	route(api, public(), huma.Operation{
+	api.route(public(), huma.Operation{
 		OperationID: "common-hello",
 		Method:      http.MethodGet,
 		Path:        "/hello",
@@ -28,7 +28,7 @@ func registerCommon(api huma.API, h *handler.Bundle, revoker authService.TokenRe
 		Tags:        []string{"Common"},
 	}, h.CommonHandler.HelloEch0)
 
-	route(api, secured(revoker), huma.Operation{
+	api.route(secured(revoker), huma.Operation{
 		OperationID: "common-website-title",
 		Method:      http.MethodGet,
 		Path:        "/website/title",

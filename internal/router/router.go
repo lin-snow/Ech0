@@ -30,7 +30,7 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 	catalogState := newCatalogState()
 	r.Use(catalogState.middleware())
 	groups := setupRouterGroup(r, mwDeps)
-	api := setupHumaAPI(r)
+	api := setupHumaAPI(r, mwDeps.Limiter)
 
 	revoker := revokerOf(mwDeps)
 	setupResourceRoutes(groups, h)
@@ -48,6 +48,10 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 	r.GET("/api"+openapiCatalog.RoutePath, catalogState.handle)
 }
 
+// setupStaticFiles serves uploaded media straight off disk. It is deliberately
+// registered outside every API group and without the request budget: media
+// delivery is bandwidth-bounded by the object itself, and the route only
+// exposes the media prefixes (never artifacts, never listings).
 func setupStaticFiles(r *gin.Engine) {
 	root := config.Config().Storage.DataRoot
 	if root == "" {
@@ -73,12 +77,15 @@ func revokerOf(mwDeps *middleware.Deps) authService.TokenRevoker {
 func setupRouterGroup(r *gin.Engine, mwDeps *middleware.Deps) *AppRouterGroup {
 	revoker := revokerOf(mwDeps)
 
+	budget := middleware.Budget(mwDeps.Limiter)
+
 	resource := r.Group("/")
 	public := r.Group("/api")
+	public.Use(budget)
 	auth := r.Group("/api")
-	auth.Use(middleware.NoCache(), middleware.RequireAuth(revoker))
+	auth.Use(middleware.NoCache(), middleware.RequireAuth(revoker), budget)
 	optionalAuth := r.Group("/api")
-	optionalAuth.Use(middleware.NoCache(), middleware.OptionalAuth(revoker))
+	optionalAuth.Use(middleware.NoCache(), middleware.OptionalAuth(revoker), budget)
 	ws := r.Group("/ws")
 	mcpGroup := r.Group(mcp.MCPEndpointPath)
 	mcpGroup.Use(
@@ -87,6 +94,7 @@ func setupRouterGroup(r *gin.Engine, mwDeps *middleware.Deps) *AppRouterGroup {
 			revoker,
 			middleware.ResourceMetadataChallenge("/.well-known/oauth-protected-resource/mcp"),
 		),
+		budget,
 	)
 	return &AppRouterGroup{
 		ResourceGroup:           resource,

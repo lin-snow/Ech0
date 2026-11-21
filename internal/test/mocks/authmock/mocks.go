@@ -679,8 +679,8 @@ func (_c *MockService_ListPasskeys_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // Login provides a mock function for the type MockService
-func (_mock *MockService) Login(loginDto *model.LoginDto) (*model.TokenPair, error) {
-	ret := _mock.Called(loginDto)
+func (_mock *MockService) Login(ctx context.Context, loginDto *model.LoginDto) (*model.TokenPair, error) {
+	ret := _mock.Called(ctx, loginDto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Login")
@@ -688,18 +688,18 @@ func (_mock *MockService) Login(loginDto *model.LoginDto) (*model.TokenPair, err
 
 	var r0 *model.TokenPair
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(*model.LoginDto) (*model.TokenPair, error)); ok {
-		return returnFunc(loginDto)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.LoginDto) (*model.TokenPair, error)); ok {
+		return returnFunc(ctx, loginDto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(*model.LoginDto) *model.TokenPair); ok {
-		r0 = returnFunc(loginDto)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.LoginDto) *model.TokenPair); ok {
+		r0 = returnFunc(ctx, loginDto)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.TokenPair)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(*model.LoginDto) error); ok {
-		r1 = returnFunc(loginDto)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.LoginDto) error); ok {
+		r1 = returnFunc(ctx, loginDto)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -712,19 +712,25 @@ type MockService_Login_Call struct {
 }
 
 // Login is a helper method to define mock.On call
+//   - ctx context.Context
 //   - loginDto *model.LoginDto
-func (_e *MockService_Expecter) Login(loginDto any) *MockService_Login_Call {
-	return &MockService_Login_Call{Call: _e.mock.On("Login", loginDto)}
+func (_e *MockService_Expecter) Login(ctx any, loginDto any) *MockService_Login_Call {
+	return &MockService_Login_Call{Call: _e.mock.On("Login", ctx, loginDto)}
 }
 
-func (_c *MockService_Login_Call) Run(run func(loginDto *model.LoginDto)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) Run(run func(ctx context.Context, loginDto *model.LoginDto)) *MockService_Login_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *model.LoginDto
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(*model.LoginDto)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *model.LoginDto
+		if args[1] != nil {
+			arg1 = args[1].(*model.LoginDto)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -735,7 +741,7 @@ func (_c *MockService_Login_Call) Return(tokenPair *model.TokenPair, err error) 
 	return _c
 }
 
-func (_c *MockService_Login_Call) RunAndReturn(run func(loginDto *model.LoginDto) (*model.TokenPair, error)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) RunAndReturn(run func(ctx context.Context, loginDto *model.LoginDto) (*model.TokenPair, error)) *MockService_Login_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -72,11 +72,12 @@ const (
 	ErrCodeDeviceExpired           = "DEVICE_EXPIRED"
 	ErrCodeDeviceDenied            = "DEVICE_ACCESS_DENIED"
 	ErrCodeDeviceUnknown           = "DEVICE_CODE_UNKNOWN"
+	ErrCodeRateLimited             = "RATE_LIMITED"
 )
 
 const (
 	USERNAME_OR_PASSWORD_NOT_BE_EMPTY = "用户名或密码不能为空"
-	PASSWORD_INCORRECT                = "密码错误"
+	USERNAME_OR_PASSWORD_INCORRECT    = "用户名或密码错误"
 	PASSWORD_TOO_LONG                 = "密码过长，最多 72 字节"
 	USER_NOTFOUND                     = "用户不存在"
 	USER_COUNT_EXCEED_LIMIT           = "用户数量超过限制"
@@ -94,6 +95,7 @@ const (
 	DEVICE_CODE_DENIED                = "设备授权已被拒绝"
 	DEVICE_CODE_UNKNOWN               = "设备码无效"
 	USER_REGISTER_NOT_ALLOW           = "当前系统禁止注册新用户"
+	RATE_LIMIT_EXCEEDED               = "操作过于频繁，请稍后再试"
 )
 
 const (
