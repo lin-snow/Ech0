@@ -181,29 +181,3 @@ func (userRepository *UserRepository) UpdateUser(ctx context.Context, user *mode
 
 	return nil
 }
-
-func (userRepository *UserRepository) DeleteUser(ctx context.Context, id string) error {
-	userToDel, err := userRepository.GetUserByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	err = userRepository.getDB(ctx).Where("id = ?", id).Delete(&model.User{}).Error
-	if err != nil {
-		return err
-	}
-
-	if err := userRepository.getDB(ctx).
-		Where("user_id = ?", id).
-		Delete(&model.UserLocalAuth{}).Error; err != nil {
-		return err
-	}
-
-	userRepository.cache.Delete(GetUserIDKey(userToDel.ID))
-	userRepository.cache.Delete(GetUsernameKey(userToDel.Username))
-	if userToDel.IsAdmin {
-		userRepository.cache.Delete(GetAdminKey(userToDel.ID))
-	}
-
-	return nil
-}

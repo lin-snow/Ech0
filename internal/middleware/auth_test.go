@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 	"github.com/lin-snow/ech0/internal/database"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
+	"github.com/lin-snow/ech0/pkg/viewer"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -185,4 +187,125 @@ func parseAuthErrorCode(body []byte) string {
 	}
 	_ = json.Unmarshal(body, &payload)
 	return payload.ErrorCode
+}
+
+type accountStatusRevoker struct {
+	active bool
+	err    error
+}
+
+func (accountStatusRevoker) RevokeToken(string, time.Duration) {}
+func (accountStatusRevoker) IsTokenRevoked(string) bool        { return false }
+func (r accountStatusRevoker) IsAccountActive(context.Context, string) (bool, error) {
+	return r.active, r.err
+}
+
+func TestRequireAuth_RejectsDisabledAccount(t *testing.T) {
+	initMiddlewareTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(RequireAuth(accountStatusRevoker{active: false}))
+	r.GET("/api/user", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	user := userModel.User{ID: "user-1", Username: "alice"}
+	tokenString, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/user", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "ACCOUNT_DISABLED" {
+		t.Fatalf("expected error code ACCOUNT_DISABLED, got %s", got)
+	}
+}
+
+func TestRequireAuth_AllowsActiveAccount(t *testing.T) {
+	initMiddlewareTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(RequireAuth(accountStatusRevoker{active: true}))
+	r.GET("/api/user", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	user := userModel.User{ID: "user-1", Username: "alice"}
+	tokenString, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/user", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestOptionalAuth_RejectsDisabledAccount(t *testing.T) {
+	initMiddlewareTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(OptionalAuth(accountStatusRevoker{active: false}))
+	r.POST("/api/comments", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	user := userModel.User{ID: "user-1", Username: "alice"}
+	tokenString, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+	}
+	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "ACCOUNT_DISABLED" {
+		t.Fatalf("expected error code ACCOUNT_DISABLED, got %s", got)
+	}
+}
+
+func TestOptionalAuth_AttachesActiveAccount(t *testing.T) {
+	initMiddlewareTestDB(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(OptionalAuth(accountStatusRevoker{active: true}))
+	r.POST("/api/comments", func(c *gin.Context) {
+		if got := viewer.MustFromContext(c.Request.Context()).UserID(); got != "user-1" {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusOK)
+	})
+
+	user := userModel.User{ID: "user-1", Username: "alice"}
+	tokenString, err := jwtUtil.GenerateToken(jwtUtil.CreateClaims(user))
+	if err != nil {
+		t.Fatalf("generate token failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/comments", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
 }

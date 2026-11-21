@@ -336,12 +336,22 @@ func (s *FileService) CreateExternalFile(
 	}, nil
 }
 
-func (s *FileService) DeleteFile(ctx context.Context, id string) error {
+// authorizeFileRead reports whether the viewer may read or manage a stored
+// file's bytes. Records without an owner (anonymous or legacy uploads) stay
+// readable; everything else is limited to the uploader and administrators.
+func (s *FileService) authorizeFileRead(ctx context.Context, record *fileModel.File) error {
 	userid := viewer.MustFromContext(ctx).UserID()
 	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
 	if err != nil {
 		return err
 	}
+	if record.UserID != "" && record.UserID != userid && !user.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	}
+	return nil
+}
+
+func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New(commonModel.IMAGE_NOT_FOUND)
 	}
@@ -350,8 +360,8 @@ func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if fileRecord.UserID != "" && fileRecord.UserID != userid && !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := s.authorizeFileRead(ctx, fileRecord); err != nil {
+		return err
 	}
 
 	if err := s.transactor.Run(context.Background(), func(ctx context.Context) error {
@@ -374,17 +384,12 @@ func (s *FileService) DeleteFile(ctx context.Context, id string) error {
 }
 
 func (s *FileService) GetFileByID(ctx context.Context, id string) (commonModel.FileDto, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
-	if err != nil {
-		return commonModel.FileDto{}, err
-	}
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if fileRecord.UserID != "" && fileRecord.UserID != userid && !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := s.authorizeFileRead(ctx, fileRecord); err != nil {
+		return commonModel.FileDto{}, err
 	}
 
 	return commonModel.FileDto{
@@ -436,11 +441,6 @@ func (s *FileService) UpdateFileMeta(
 	id string,
 	dto commonModel.UpdateFileMetaDto,
 ) (commonModel.FileDto, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := s.commonRepository.GetUserByUserId(context.Background(), userid)
-	if err != nil {
-		return commonModel.FileDto{}, err
-	}
 	if id == "" || dto.Size < 0 {
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
 	}
@@ -455,8 +455,8 @@ func (s *FileService) UpdateFileMeta(
 	if err != nil {
 		return commonModel.FileDto{}, err
 	}
-	if fileRecord.UserID != "" && fileRecord.UserID != userid && !user.IsAdmin {
-		return commonModel.FileDto{}, errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := s.authorizeFileRead(ctx, fileRecord); err != nil {
+		return commonModel.FileDto{}, err
 	}
 	if storage.NormalizeStorageType(fileRecord.StorageType) != storage.StorageTypeObject {
 		return commonModel.FileDto{}, errors.New(commonModel.INVALID_PARAMS)
@@ -690,6 +690,10 @@ func (s *FileService) StreamFileByID(ctx *gin.Context, id string) {
 	fileRecord, err := s.fileRepository.GetByID(context.Background(), id)
 	if err != nil {
 		ctx.String(http.StatusNotFound, "文件不存在")
+		return
+	}
+	if err := s.authorizeFileRead(ctx.Request.Context(), fileRecord); err != nil {
+		ctx.String(http.StatusForbidden, "无权限")
 		return
 	}
 

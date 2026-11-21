@@ -135,7 +135,7 @@ func TestLogin(t *testing.T) {
 	}
 
 	t.Run("success with bcrypt hash issues token pair without upgrade", func(t *testing.T) {
-		svc, repo, _, _ := newSvc(t, kvstore.NewMemory())
+		svc, repo, authRepo, _ := newSvc(t, kvstore.NewMemory())
 		repo.EXPECT().
 			GetUserByUsername(mock.Anything, username).
 			Return(userModel.User{ID: userID, Username: username}, nil).
@@ -148,6 +148,7 @@ func TestLogin(t *testing.T) {
 				PasswordAlgo: cryptoUtil.AlgoBcrypt,
 			}, nil).
 			Once()
+		expectAccountActive(authRepo, userID)
 
 		pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: plainPassword})
 		require.NoError(t, err)
@@ -158,7 +159,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	t.Run("success with legacy md5 hash triggers lazy upgrade to bcrypt", func(t *testing.T) {
-		svc, repo, _, _ := newSvc(t, kvstore.NewMemory())
+		svc, repo, authRepo, _ := newSvc(t, kvstore.NewMemory())
 		repo.EXPECT().
 			GetUserByUsername(mock.Anything, username).
 			Return(userModel.User{ID: userID, Username: username}, nil).
@@ -171,6 +172,7 @@ func TestLogin(t *testing.T) {
 				PasswordAlgo: cryptoUtil.AlgoMD5,
 			}, nil).
 			Once()
+		expectAccountActive(authRepo, userID)
 		repo.EXPECT().
 			UpdateLocalAuthPassword(mock.Anything, userID, mock.Anything, cryptoUtil.AlgoBcrypt).
 			Return(nil).
@@ -181,6 +183,60 @@ func TestLogin(t *testing.T) {
 		require.NotNil(t, pair)
 		assert.NotEmpty(t, pair.AccessToken)
 	})
+}
+
+func TestLogin_RejectsDisabledAccount(t *testing.T) {
+	helpers.SetJWTSecret(t, "login-disabled-secret")
+
+	const username = "alice"
+	const userID = "u-1"
+	const password = "s3cr3t"
+
+	bcryptHash, err := cryptoUtil.HashPassword(password)
+	require.NoError(t, err)
+
+	cases := []struct {
+		name      string
+		active    bool
+		activeErr error
+		wantCode  string
+		wantErr   error
+	}{
+		{name: "disabled account", active: false, wantCode: commonModel.ErrCodeAccountDisabled},
+		{name: "status read failure", activeErr: assert.AnError, wantErr: assert.AnError},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, repo, authRepo, _ := newSvc(t, kvstore.NewMemory())
+			repo.EXPECT().
+				GetUserByUsername(mock.Anything, username).
+				Return(userModel.User{ID: userID, Username: username}, nil).
+				Once()
+			repo.EXPECT().
+				GetLocalAuthByUserID(mock.Anything, userID).
+				Return(userModel.UserLocalAuth{
+					UserID:       userID,
+					PasswordHash: bcryptHash,
+					PasswordAlgo: cryptoUtil.AlgoBcrypt,
+				}, nil).
+				Once()
+			authRepo.EXPECT().
+				IsAccountActive(mock.Anything, userID).
+				Return(tc.active, tc.activeErr).
+				Once()
+
+			pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: password})
+			assert.Nil(t, pair)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			var bizErr *commonModel.BizError
+			require.ErrorAs(t, err, &bizErr)
+			assert.Equal(t, tc.wantCode, bizErr.Code)
+		})
+	}
 }
 
 func TestRevokeToken_Delegates(t *testing.T) {
@@ -304,7 +360,7 @@ func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
 	const rightPassword = "right-password"
 
 	rule := ratelimit.DefaultPolicy()[ratelimit.ScopeSignInAccount]
-	svc, repo, _, _ := newSvc(t, kvstore.NewMemory())
+	svc, repo, authRepo, _ := newSvc(t, kvstore.NewMemory())
 
 	failures := rule.Limit - 1
 	repo.EXPECT().
@@ -321,6 +377,7 @@ func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
 		UpdateLocalAuthPassword(mock.Anything, userID, mock.Anything, cryptoUtil.AlgoBcrypt).
 		Return(nil).
 		Once()
+	expectAccountActive(authRepo, userID)
 
 	for range failures {
 		_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong"})

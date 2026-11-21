@@ -82,6 +82,19 @@ func (authService *AuthService) IsTokenRevoked(jti string) bool {
 	return authService.authRepo.IsTokenRevoked(jti)
 }
 
+func (authService *AuthService) IsAccountActive(ctx context.Context, userID string) (bool, error) {
+	return authService.authRepo.IsAccountActive(ctx, userID)
+}
+
+func accountDisabledError() error {
+	return commonModel.NewBizErrorWithMessageKey(
+		commonModel.ErrCodeAccountDisabled,
+		commonModel.ACCOUNT_DISABLED,
+		commonModel.MsgKeyAuthAccountDisabled,
+		nil,
+	)
+}
+
 func (authService *AuthService) PasskeyBoundary(ctx context.Context) (rpID string, origins []string) {
 	setting, err := coreSetting.Passkey.Get(ctx, authService.durableKV)
 	if err != nil {
@@ -128,6 +141,14 @@ func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.L
 		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 	}
 	attempt.succeeded()
+
+	active, err := authService.IsAccountActive(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return nil, accountDisabledError()
+	}
 
 	if localAuth.PasswordAlgo != cryptoUtil.AlgoBcrypt {
 		if newHash, hashErr := cryptoUtil.HashPassword(loginDto.Password); hashErr == nil {
@@ -429,6 +450,14 @@ func (authService *AuthService) resolveOAuthCallback(
 				slog.String("reason", "identity_not_bound_or_lookup_failed"),
 			)
 			return "", err
+		}
+
+		active, err := authService.IsAccountActive(context.Background(), user.ID)
+		if err != nil {
+			return "", err
+		}
+		if !active {
+			return "", accountDisabledError()
 		}
 
 		tokenPair, err := authService.issueUserToken(user)
@@ -919,6 +948,13 @@ func (authService *AuthService) PasskeyLoginFinish(
 	u, err := authService.repository.GetUserByID(context.Background(), uid)
 	if err != nil {
 		return nil, err
+	}
+	active, err := authService.IsAccountActive(context.Background(), u.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return nil, accountDisabledError()
 	}
 
 	tokenPair, err := authService.issueUserToken(u)

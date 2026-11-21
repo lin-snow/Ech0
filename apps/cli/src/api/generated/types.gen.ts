@@ -333,6 +333,10 @@ export type EchoQueryDto = {
      */
     dateTo?: number;
     /**
+     * Only Echoes authored by the authenticated caller; requires sign-in
+     */
+    mine?: boolean;
+    /**
      * Page number, 1-based (default 1); ignored when cursor is set
      */
     page?: number;
@@ -389,7 +393,7 @@ export type EchoUpsertDto = {
      */
     layout?: string;
     /**
-     * Visible only to the owner
+     * Hidden from anonymous visitors; visible to all signed-in users
      */
     private?: boolean;
     /**
@@ -1592,12 +1596,21 @@ export type UpdateFileMetaDto = {
     [key: string]: unknown;
 };
 
+export type UpdateUserStatusInputBody = {
+    /**
+     * 账户状态：ACTIVE 或 DISABLED
+     */
+    status?: string;
+    [key: string]: unknown;
+};
+
 export type User = {
     avatar?: string;
     email?: string;
     id?: string;
     is_admin?: boolean;
     locale?: string;
+    status?: string;
     username?: string;
     [key: string]: unknown;
 };
@@ -4292,6 +4305,36 @@ export type UserSetAdminResponses = {
 };
 
 export type UserSetAdminResponse = UserSetAdminResponses[keyof UserSetAdminResponses];
+
+export type UserSetStatusData = {
+    body: UpdateUserStatusInputBody;
+    path: {
+        /**
+         * 用户 ID（UUID）
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/user/status/{id}';
+};
+
+export type UserSetStatusErrors = {
+    /**
+     * Error
+     */
+    default: ErrorBody;
+};
+
+export type UserSetStatusError = UserSetStatusErrors[keyof UserSetStatusErrors];
+
+export type UserSetStatusResponses = {
+    /**
+     * OK
+     */
+    200: ResultInterface;
+};
+
+export type UserSetStatusResponse = UserSetStatusResponses[keyof UserSetStatusResponses];
 
 export type UserDeleteData = {
     body?: never;

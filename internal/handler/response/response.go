@@ -82,11 +82,14 @@ func Execute(fn func(ctx *gin.Context) Response) gin.HandlerFunc {
 
 			msg = i18nUtil.Localize(localizer, messageKey, msg, params)
 			status := http.StatusBadRequest
-			if code == commonModel.ErrCodeRateLimited {
+			switch code {
+			case commonModel.ErrCodeRateLimited:
 				status = http.StatusTooManyRequests
 				if seconds := retryAfterSeconds(params); seconds != "" {
 					ctx.Header("Retry-After", seconds)
 				}
+			case commonModel.ErrCodeAccountDisabled:
+				status = http.StatusForbidden
 			}
 			ctx.JSON(status, commonModel.FailWithLocalized[string](msg, code, messageKey, params))
 			return

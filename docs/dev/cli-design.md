@@ -12,7 +12,7 @@
 
 关键决策：**CLI 不内置业务命令**。命令来自服务端下发的 operation catalog，这样服务端加接口不需要用户单独升级 CLI；客户端的 `scope` 白名单决定当下暴露哪些。
 
-v1 目标用户：实例 owner（admin）。非目标：
+v1 目标用户：实例管理员（admin）。非目标：
 
 - 不做 TUI（`internal/cli` 的 Go TUI 与 `cmd/` 保持现状）。
 - 不做离线操作 `data/` 或 SQLite（那是 Go 端 `capsule`/`snapshot` 的职责）。
@@ -350,7 +350,7 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin
 
 命令所需 scope 直接来自 catalog 的 `scopes` 字段并在 help 展示；403 时提示 token 缺 scope，并提示在面板重新铸造。CLI 不做本地 scope 预检（服务端仍是唯一裁判）。
 
-登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:private`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`comment:review`、`comment:delete`、`connect:read`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:private` 让管理员 CLI 能读到私密 echo（`--private` 过滤与私密创建后的回读），`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`comment:review` 只覆盖审核列表 / 状态 / 批量，`comment:delete` 只覆盖评论删除，`connect:read` 只覆盖 `connect health`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除与审核不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
+登录默认申请的 scope 必须覆盖 `catalog/scope.ts` 暴露的命令面，否则默认登录后一部分命令必然 403：`echo:read`、`echo:private`、`echo:write`、`echo:delete`、`profile:read`、`file:read`、`file:write`、`comment:write`、`comment:review`、`comment:delete`、`connect:read`、`connect:write`、`connect:delete`、`admin:webhook`。`echo:private` 让带该 scope 的 token 读到私密 echo（私密只对未登录访客隐藏，登录用户都能看到；access token 读取还需此 scope），`echo:delete` 只覆盖 `echo delete` 与 `tag delete`，`comment:review` 只覆盖审核列表 / 状态 / 批量，`comment:delete` 只覆盖评论删除，`connect:read` 只覆盖 `connect health`，`connect:delete` 只覆盖 `connect delete`，`admin:webhook` 只覆盖 Webhook 面；删除与审核不再借用更宽的写/设置 scope。用户在 `--scopes` 里显式给出时以用户为准（可以更窄，服务端照常拒绝越权调用）。
 
 ## 6. 命令树与 help
 
@@ -375,7 +375,7 @@ ech0 echo update --id <id> --content "edited"        # 同样返回更新后的 
 ech0 echo get --id <uuid>
 ech0 echo delete --id <uuid>                         # 交互确认，需 echo:delete；脚本加 --yes
 
-ech0 echo hot --limit 10                             # 热门（公开；管理员含私密）
+ech0 echo hot --limit 10                             # 热门（公开；登录后含私密）
 ech0 echo today                                      # 今天
 ech0 echo random                                     # 随机一篇
 ech0 echo onthisday                                  # 那年今日

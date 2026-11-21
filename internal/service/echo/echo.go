@@ -148,7 +148,12 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 			return errors.New(commonModel.ECHO_NOT_FOUND)
 		}
 		if echo.UserID != userid && !user.IsAdmin {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
+			return commonModel.NewBizErrorWithMessageKey(
+				commonModel.ErrCodePermissionDenied,
+				commonModel.ECHO_OTHER_USER_FORBIDDEN,
+				commonModel.MsgKeyEchoOtherUserForbidden,
+				nil,
+			)
 		}
 
 		for _, ef := range echo.EchoFiles {
@@ -189,8 +194,9 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 	return nil
 }
 
-// privateScope reports which private echoes a listing may include for the
-// caller: their own, plus public rows. Interactive sessions qualify by
+// privateScope reports whether the caller may read private echoes at all.
+// Private is an audience marker: every signed-in member sees the full
+// timeline, while anonymous visitors never do. Interactive sessions qualify by
 // identity; access tokens also need echo:private, so echo:read alone cannot
 // enumerate private content.
 func (echoService *EchoService) privateScope(ctx context.Context) model.PrivateScope {
@@ -201,27 +207,7 @@ func (echoService *EchoService) privateScope(ctx context.Context) model.PrivateS
 	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
 		return model.PrivateScope{}
 	}
-	return model.PrivateScope{ViewerID: v.UserID()}
-}
-
-// canReadPrivate is the administrator break-glass path for a single echo by id.
-// Feeds never use it: an administrator sees only their own private echoes in
-// listings, but may still open a specific private echo when moderation needs it.
-func (echoService *EchoService) canReadPrivate(ctx context.Context) (bool, error) {
-	v := viewer.MustFromContext(ctx)
-	if v.UserID() == "" {
-		return false, nil
-	}
-	// An access token without echo:private never needs the user lookup: the
-	// answer is public-only regardless of the account's admin flag.
-	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
-		return false, nil
-	}
-	user, err := echoService.commonService.CommonGetUserByUserId(ctx, v.UserID())
-	if err != nil {
-		return false, err
-	}
-	return user.IsAdmin, nil
+	return model.PrivateScope{Authenticated: true}
 }
 
 func (echoService *EchoService) GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
@@ -263,7 +249,12 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
 	if existing.UserID != userid && !user.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, commonModel.NewBizErrorWithMessageKey(
+			commonModel.ErrCodePermissionDenied,
+			commonModel.ECHO_OTHER_USER_FORBIDDEN,
+			commonModel.MsgKeyEchoOtherUserForbidden,
+			nil,
+		)
 	}
 	// An edit never transfers authorship or rewrites the stored author name.
 	echo.UserID = existing.UserID
@@ -331,16 +322,8 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 	if echo == nil {
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
-	if echo.Private {
-		if echo.UserID == "" || echo.UserID != echoService.privateScope(ctx).ViewerID {
-			allowed, err := echoService.canReadPrivate(ctx)
-			if err != nil {
-				return nil, err
-			}
-			if !allowed {
-				return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
-			}
-		}
+	if echo.Private && !echoService.privateScope(ctx).Authenticated {
+		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 	return echoService.hydrateEchoReactions(ctx, echo)
 }
@@ -349,16 +332,10 @@ func (echoService *EchoService) GetAllTags() ([]model.Tag, error) {
 	return echoService.echoRepository.GetAllTags()
 }
 
+// CreateTag mints a tag. Any signed-in writer may create one: tags are a
+// shared vocabulary, and an echo may arrive with a name that does not exist yet
+// (ProcessEchoTags takes the same path). Deletion stays administrator-only.
 func (echoService *EchoService) CreateTag(ctx context.Context, name string) (*model.Tag, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
-		return nil, err
-	}
-	if !user.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-
 	cleaned := strings.TrimSpace(strings.TrimPrefix(name, "#"))
 	if cleaned == "" {
 		return nil, errors.New(commonModel.INVALID_PARAMS)
@@ -472,6 +449,17 @@ func (echoService *EchoService) QueryEchos(
 		queryDto.PageSize = 100
 	}
 	queryDto.Search = strings.TrimSpace(queryDto.Search)
+
+	// "Only mine" is resolved from the caller identity, never from the request
+	// body, so a client cannot enumerate another member's Echoes through it.
+	if queryDto.Mine {
+		userID := viewer.MustFromContext(ctx).UserID()
+		if userID == "" {
+			return commonModel.PageQueryResult[[]model.Echo]{},
+				commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+		}
+		queryDto.UserID = userID
+	}
 
 	if queryDto.SortBy == "" {
 		queryDto.SortBy = "created_at"

@@ -10,6 +10,7 @@ declare namespace App {
         email?: string
         password?: string
         is_admin: boolean
+        status: 'ACTIVE' | 'DISABLED'
         avatar?: string
         locale: string
       }

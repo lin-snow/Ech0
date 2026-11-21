@@ -184,7 +184,7 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 | `ResourceGroup` | `/` | 内嵌 SPA + `/api/files` 静态资源（带 StaticFileSecurity） |
 | `PublicRouterGroup` | `/api` | 公开，无需 token |
 | `AuthRouterGroup` | `/api` | `RequireAuth`：缺失/无效 token 一律 401 |
-| `OptionalAuthRouterGroup` | `/api` | `OptionalAuth`：匿名可读，带 token 则按用户身份（管理员见更多） |
+| `OptionalAuthRouterGroup` | `/api` | `OptionalAuth`：匿名只看公开内容，带 token 则按登录身份放行私密内容（不区分角色） |
 | `WSRouterGroup` | `/ws` | WebSocket（如系统日志流） |
 | `MCPRouterGroup` | `/mcp` | `RequireAuth`，承载 MCP 协议（§8） |
 

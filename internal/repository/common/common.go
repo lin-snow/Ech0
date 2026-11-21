@@ -75,10 +75,8 @@ func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, scope
 
 	switch {
 	case scope.All:
-	case scope.ViewerID == "":
+	case !scope.Authenticated:
 		query = query.Where("private = ?", false)
-	default:
-		query = query.Where("(private = ? OR user_id = ?)", false, scope.ViewerID)
 	}
 
 	if err := query.Find(&echos).Error; err != nil {

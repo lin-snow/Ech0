@@ -35,6 +35,12 @@ type (
 	DeleteUserInput  struct {
 		ID string `path:"id" format:"uuid" doc:"用户 ID（UUID）"`
 	}
+	UpdateUserStatusInput struct {
+		ID   string `path:"id" format:"uuid" doc:"用户 ID（UUID）"`
+		Body struct {
+			Status model.Status `json:"status" doc:"账户状态：ACTIVE 或 DISABLED"`
+		}
+	}
 	GetUserInfoInput struct{}
 )
 
@@ -60,6 +66,13 @@ func (userHandler *UserHandler) UpdateUser(ctx context.Context, in *UpdateUserIn
 
 func (userHandler *UserHandler) UpdateUserAdmin(ctx context.Context, in *UpdateUserAdminInput) (EmptyOutput, error) {
 	if err := userHandler.userService.UpdateUserAdmin(ctx, in.ID); err != nil {
+		return EmptyOutput{}, err
+	}
+	return commonModel.OK[any](nil, commonModel.UPDATE_USER_SUCCESS), nil
+}
+
+func (userHandler *UserHandler) UpdateUserStatus(ctx context.Context, in *UpdateUserStatusInput) (EmptyOutput, error) {
+	if err := userHandler.userService.UpdateUserStatus(ctx, in.ID, in.Body.Status); err != nil {
 		return EmptyOutput{}, err
 	}
 	return commonModel.OK[any](nil, commonModel.UPDATE_USER_SUCCESS), nil

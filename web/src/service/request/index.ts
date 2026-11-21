@@ -86,7 +86,22 @@ export const request = async <T>(requestOptions: RequestOptions): Promise<App.Ap
     }
   }
 
-  if (res.code !== 1 && !requestOptions.silentError) {
+  let accountDisabledHandled = false
+  if (res.error_code === 'ACCOUNT_DISABLED') {
+    // Disabling an account terminates existing sessions. Drop the token and
+    // bounce to the auth page instead of leaving a half-authenticated UI.
+    accountDisabledHandled = true
+    useAuthStore().clearToken()
+    localStorage.setItem('needLoginRedirect', 'true')
+    if (!requestOptions.silentError) {
+      theToast.error(String(i18n.global.t('auth.account_disabled')))
+    }
+    if (!window.location.pathname.endsWith('/auth')) {
+      window.location.assign(`${import.meta.env.BASE_URL}auth`)
+    }
+  }
+
+  if (res.code !== 1 && !requestOptions.silentError && !accountDisabledHandled) {
     if (isSystemReady) {
       const translated =
         res.message_key && i18n.global.te(res.message_key)

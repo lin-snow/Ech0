@@ -44,6 +44,9 @@ type TokenIssuer interface {
 type TokenRevoker interface {
 	RevokeToken(jti string, remainTTL time.Duration)
 	IsTokenRevoked(jti string) bool
+	// IsAccountActive gates tokens that were valid when issued: disabling an
+	// account must invalidate every token already in the wild.
+	IsAccountActive(ctx context.Context, userID string) (bool, error)
 }
 
 type UserRepo interface {

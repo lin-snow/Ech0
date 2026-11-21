@@ -73,6 +73,7 @@ const (
 	ErrCodeDeviceDenied            = "DEVICE_ACCESS_DENIED"
 	ErrCodeDeviceUnknown           = "DEVICE_CODE_UNKNOWN"
 	ErrCodeRateLimited             = "RATE_LIMITED"
+	ErrCodeAccountDisabled         = "ACCOUNT_DISABLED"
 )
 
 const (
@@ -86,9 +87,11 @@ const (
 	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
 	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
 	TOKEN_REVOKED                     = "令牌已被吊销，请重新登录"
+	ACCOUNT_DISABLED                  = "账户已被禁用，请联系管理员"
 	REFRESH_TOKEN_INVALID             = "刷新令牌无效或已过期"
 	EXCHANGE_CODE_INVALID             = "授权码无效或已过期"
 	TOKEN_GENERATE_FAILED             = "令牌生成失败"
+	INTERNAL_SERVER_ERROR             = "服务器内部错误"
 	DEVICE_CODE_PENDING               = "等待在浏览器中确认授权"
 	DEVICE_CODE_SLOW_DOWN             = "轮询过快，请降低频率"
 	DEVICE_CODE_EXPIRED               = "设备码已过期，请重新登录"
@@ -103,6 +106,7 @@ const (
 	ECHO_CAN_NOT_BE_EMPTY        = "ECHO 内容不能为空"
 	ECHO_NOT_FOUND               = "找不到Echo"
 	ECHO_MIXED_FILE_CATEGORIES   = "一条 Echo 只能包含同一类型的文件"
+	ECHO_OTHER_USER_FORBIDDEN    = "不允许编辑或删除其它成员的 Echo"
 	INVALID_ECHO_CURSOR          = "无效的分页游标"
 	ECHO_CURSOR_SORT_UNSUPPORTED = "游标分页不支持按互动排序"
 )

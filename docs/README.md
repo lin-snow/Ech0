@@ -60,6 +60,7 @@
 | 文档 | 说明 |
 |------|------|
 | [dev/auth-design.md](dev/auth-design.md) | 认证体系：双 Token、OAuth / Passkey、吊销策略 |
+| [dev/user-permission-model-design.md](dev/user-permission-model-design.md) | 用户与权限目标模型：身份、三权限域、账户状态与永久删除范围（设计稿） |
 | [dev/mcp-authorization-design.md](dev/mcp-authorization-design.md) | MCP 授权服务器：PRM / AS 元数据、CIMD + DCR、授权码 + PKCE、scope 与撤销 |
 | [dev/access-token-scope-design.md](dev/access-token-scope-design.md) | Access Token 的 `typ` / scope / audience 设计背景（实现以代码为准） |
 | [dev/cli-design.md](dev/cli-design.md) | CLI（`apps/cli`）：Bun/TS 技术栈、catalog 驱动的命令发现、Huma→TS/zod 生成链、三种登录与 device flow、输出契约 |

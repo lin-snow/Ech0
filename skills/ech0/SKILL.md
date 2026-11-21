@@ -86,7 +86,8 @@ ech0 webhook test --id <webhook_id>
 ech0 webhook delete --id <webhook_id> --yes
 ```
 
-Echo create/update/delete, tag delete, Connect add/delete, comment deletion and
+Echo update/delete require being the author or an administrator (create needs
+only a signed-in account); tag delete, Connect add/delete, comment deletion and
 every webhook command require an admin account. Field
 meanings, attachment rules and merge behaviour:
 [references/echo.md](references/echo.md). Comment creation uses the trusted

@@ -43,9 +43,17 @@ func newUserSvc(t *testing.T) (*userService.UserService, *userMocks) {
 		file: filemock.NewMockService(t),
 	}
 	bus := busen.New()
-	svc := userService.NewUserService(m.tx, m.repo, m.kv, m.file, func() *busen.Bus { return bus })
+	svc := userService.NewUserService(m.tx, m.repo, m.kv, m.file, noopEchoCache{}, noopPurger{}, func() *busen.Bus { return bus })
 	return svc, m
 }
+
+type noopEchoCache struct{}
+
+func (noopEchoCache) InvalidateEchoCaches(...string) {}
+
+type noopPurger struct{}
+
+func (noopPurger) Delete(context.Context, string) error { return nil }
 
 func (m *userMocks) expectTxPassthrough() {
 	m.tx.EXPECT().
@@ -410,7 +418,8 @@ func TestDeleteUser_Success(t *testing.T) {
 		Return(helpers.NewUser(withID("admin-1"), helpers.AsAdmin), nil).Once()
 	m.repo.EXPECT().GetUserByID(mock.Anything, "u-2").
 		Return(helpers.NewUser(withID("u-2")), nil).Once()
-	m.repo.EXPECT().DeleteUser(mock.Anything, "u-2").Return(nil).Once()
+	m.repo.EXPECT().PurgeUserContent(mock.Anything, "u-2").
+		Return(userModel.PurgeResult{}, nil).Once()
 
 	err := svc.DeleteUser(helpers.CtxAsUser("admin-1"), "u-2")
 	require.NoError(t, err)

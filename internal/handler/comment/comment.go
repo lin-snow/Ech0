@@ -13,7 +13,6 @@ import (
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/comment"
-	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 type CommentHandler struct {
@@ -47,13 +46,6 @@ func (h *CommentHandler) StashMeta() gin.HandlerFunc {
 			baseURL:   resolveRequestBaseURL(ctx.Request),
 		}
 		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx.Request.Context(), commentMetaKey{}, m))
-		ctx.Next()
-	}
-}
-
-func (h *CommentHandler) OptionalViewer() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		h.attachOptionalViewer(ctx)
 		ctx.Next()
 	}
 }
@@ -236,16 +228,6 @@ func (h *CommentHandler) TestCommentEmail(ctx context.Context, in *TestCommentEm
 		return EmptyOutput{}, err
 	}
 	return commonModel.OK[any](nil), nil
-}
-
-func (h *CommentHandler) attachOptionalViewer(ctx *gin.Context) {
-	auth := strings.TrimSpace(ctx.GetHeader("Authorization"))
-	userID := service.ParseOptionalUserIDFromAuthHeader(auth)
-	if userID != "" {
-		viewer.AttachToRequest(&ctx.Request, viewer.NewUserViewer(userID))
-		return
-	}
-	viewer.AttachToRequest(&ctx.Request, viewer.NewNoopViewer())
 }
 
 func resolveRequestBaseURL(r *http.Request) string {

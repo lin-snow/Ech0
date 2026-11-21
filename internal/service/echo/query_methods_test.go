@@ -84,14 +84,14 @@ func TestReadEchos_VisibilityScope(t *testing.T) {
 			scope: echoModel.PrivateScope{},
 		},
 		{
-			name:  "admin is scoped to their own private echoes",
+			name:  "admin sees the shared private timeline",
 			ctx:   helpers.CtxAsUser(adminID),
-			scope: echoModel.PrivateScope{ViewerID: adminID},
+			scope: echoModel.PrivateScope{Authenticated: true},
 		},
 		{
-			name:  "member is scoped to their own private echoes",
+			name:  "member sees the shared private timeline",
 			ctx:   helpers.CtxAsUser(userID),
-			scope: echoModel.PrivateScope{ViewerID: userID},
+			scope: echoModel.PrivateScope{Authenticated: true},
 		},
 		{
 			name: "echo:read token stays public-only",
@@ -146,12 +146,48 @@ func TestReadEchos_RepoErrorPropagates(t *testing.T) {
 	})
 }
 
+func TestQueryEchos_MineFilter(t *testing.T) {
+	t.Run("resolves the author from the signed-in viewer", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+
+		var captured commonModel.EchoQueryDto
+		repo.EXPECT().
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
+			Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
+			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
+			Once()
+
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		_, err := svc.QueryEchos(helpers.CtxAsUser(adminID), commonModel.EchoQueryDto{
+			Page: 1, PageSize: 10, Mine: true,
+		})
+		require.NoError(t, err)
+		assert.True(t, captured.Mine)
+		assert.Equal(t, adminID, captured.UserID)
+	})
+
+	t.Run("rejects an anonymous caller instead of widening the query", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+
+		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
+		_, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
+			Page: 1, PageSize: 10, Mine: true,
+		})
+		require.Error(t, err)
+		var bizErr *commonModel.BizError
+		require.ErrorAs(t, err, &bizErr)
+		assert.Equal(t, commonModel.ErrCodePermissionDenied, bizErr.Code)
+	})
+}
+
 func TestQueryEchos_ViewerResolution(t *testing.T) {
-	t.Run("admin queries scoped to own private echoes", func(t *testing.T) {
+	t.Run("admin queries the shared private timeline", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().
-			QueryEchos(mock.Anything, echoModel.PrivateScope{ViewerID: adminID}).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 
@@ -185,7 +221,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().
-			QueryEchos(mock.Anything, echoModel.PrivateScope{ViewerID: adminID}).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 

@@ -92,6 +92,9 @@ export const useUserStore = defineStore('userStore', () => {
     sessionStorage.removeItem(HOME_TIMELINE_CURSORS_KEY)
 
     const echoStore = useEchoStore()
+    // "Only mine" has no author once the session ends; drop it before the
+    // anonymous timeline reloads.
+    echoStore.resetMineFilter()
     echoStore.refreshEchos()
 
     localStg.setItem('needLoginRedirect', true)

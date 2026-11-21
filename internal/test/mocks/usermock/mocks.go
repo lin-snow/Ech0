@@ -499,6 +499,69 @@ func (_c *MockService_UpdateUserAdmin_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// UpdateUserStatus provides a mock function for the type MockService
+func (_mock *MockService) UpdateUserStatus(ctx context.Context, id string, status model.Status) error {
+	ret := _mock.Called(ctx, id, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserStatus")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model.Status) error); ok {
+		r0 = returnFunc(ctx, id, status)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_UpdateUserStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserStatus'
+type MockService_UpdateUserStatus_Call struct {
+	*mock.Call
+}
+
+// UpdateUserStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - status model.Status
+func (_e *MockService_Expecter) UpdateUserStatus(ctx any, id any, status any) *MockService_UpdateUserStatus_Call {
+	return &MockService_UpdateUserStatus_Call{Call: _e.mock.On("UpdateUserStatus", ctx, id, status)}
+}
+
+func (_c *MockService_UpdateUserStatus_Call) Run(run func(ctx context.Context, id string, status model.Status)) *MockService_UpdateUserStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 model.Status
+		if args[2] != nil {
+			arg2 = args[2].(model.Status)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_UpdateUserStatus_Call) Return(err error) *MockService_UpdateUserStatus_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_UpdateUserStatus_Call) RunAndReturn(run func(ctx context.Context, id string, status model.Status) error) *MockService_UpdateUserStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockUserRepo creates a new instance of MockUserRepo. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockUserRepo(t interface {
@@ -588,63 +651,6 @@ func (_c *MockUserRepo_CreateUser_Call) Return(err error) *MockUserRepo_CreateUs
 }
 
 func (_c *MockUserRepo_CreateUser_Call) RunAndReturn(run func(ctx context.Context, newUser *model.User) error) *MockUserRepo_CreateUser_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// DeleteUser provides a mock function for the type MockUserRepo
-func (_mock *MockUserRepo) DeleteUser(ctx context.Context, id string) error {
-	ret := _mock.Called(ctx, id)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteUser")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, id)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockUserRepo_DeleteUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUser'
-type MockUserRepo_DeleteUser_Call struct {
-	*mock.Call
-}
-
-// DeleteUser is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id string
-func (_e *MockUserRepo_Expecter) DeleteUser(ctx any, id any) *MockUserRepo_DeleteUser_Call {
-	return &MockUserRepo_DeleteUser_Call{Call: _e.mock.On("DeleteUser", ctx, id)}
-}
-
-func (_c *MockUserRepo_DeleteUser_Call) Run(run func(ctx context.Context, id string)) *MockUserRepo_DeleteUser_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockUserRepo_DeleteUser_Call) Return(err error) *MockUserRepo_DeleteUser_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockUserRepo_DeleteUser_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockUserRepo_DeleteUser_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -903,6 +909,72 @@ func (_c *MockUserRepo_GetUserByUsername_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// PurgeUserContent provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) PurgeUserContent(ctx context.Context, id string) (model.PurgeResult, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeUserContent")
+	}
+
+	var r0 model.PurgeResult
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.PurgeResult, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.PurgeResult); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(model.PurgeResult)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUserRepo_PurgeUserContent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeUserContent'
+type MockUserRepo_PurgeUserContent_Call struct {
+	*mock.Call
+}
+
+// PurgeUserContent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *MockUserRepo_Expecter) PurgeUserContent(ctx any, id any) *MockUserRepo_PurgeUserContent_Call {
+	return &MockUserRepo_PurgeUserContent_Call{Call: _e.mock.On("PurgeUserContent", ctx, id)}
+}
+
+func (_c *MockUserRepo_PurgeUserContent_Call) Run(run func(ctx context.Context, id string)) *MockUserRepo_PurgeUserContent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_PurgeUserContent_Call) Return(purgeResult model.PurgeResult, err error) *MockUserRepo_PurgeUserContent_Call {
+	_c.Call.Return(purgeResult, err)
+	return _c
+}
+
+func (_c *MockUserRepo_PurgeUserContent_Call) RunAndReturn(run func(ctx context.Context, id string) (model.PurgeResult, error)) *MockUserRepo_PurgeUserContent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateUser provides a mock function for the type MockUserRepo
 func (_mock *MockUserRepo) UpdateUser(ctx context.Context, user *model.User) error {
 	ret := _mock.Called(ctx, user)
@@ -956,6 +1028,69 @@ func (_c *MockUserRepo_UpdateUser_Call) Return(err error) *MockUserRepo_UpdateUs
 }
 
 func (_c *MockUserRepo_UpdateUser_Call) RunAndReturn(run func(ctx context.Context, user *model.User) error) *MockUserRepo_UpdateUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateUserStatus provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) UpdateUserStatus(ctx context.Context, id string, status model.Status) error {
+	ret := _mock.Called(ctx, id, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserStatus")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model.Status) error); ok {
+		r0 = returnFunc(ctx, id, status)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepo_UpdateUserStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserStatus'
+type MockUserRepo_UpdateUserStatus_Call struct {
+	*mock.Call
+}
+
+// UpdateUserStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - status model.Status
+func (_e *MockUserRepo_Expecter) UpdateUserStatus(ctx any, id any, status any) *MockUserRepo_UpdateUserStatus_Call {
+	return &MockUserRepo_UpdateUserStatus_Call{Call: _e.mock.On("UpdateUserStatus", ctx, id, status)}
+}
+
+func (_c *MockUserRepo_UpdateUserStatus_Call) Run(run func(ctx context.Context, id string, status model.Status)) *MockUserRepo_UpdateUserStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 model.Status
+		if args[2] != nil {
+			arg2 = args[2].(model.Status)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_UpdateUserStatus_Call) Return(err error) *MockUserRepo_UpdateUserStatus_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepo_UpdateUserStatus_Call) RunAndReturn(run func(ctx context.Context, id string, status model.Status) error) *MockUserRepo_UpdateUserStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1253,63 +1388,6 @@ func (_c *MockRepository_CreateUser_Call) Return(err error) *MockRepository_Crea
 }
 
 func (_c *MockRepository_CreateUser_Call) RunAndReturn(run func(ctx context.Context, newUser *model.User) error) *MockRepository_CreateUser_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// DeleteUser provides a mock function for the type MockRepository
-func (_mock *MockRepository) DeleteUser(ctx context.Context, id string) error {
-	ret := _mock.Called(ctx, id)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteUser")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, id)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockRepository_DeleteUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUser'
-type MockRepository_DeleteUser_Call struct {
-	*mock.Call
-}
-
-// DeleteUser is a helper method to define mock.On call
-//   - ctx context.Context
-//   - id string
-func (_e *MockRepository_Expecter) DeleteUser(ctx any, id any) *MockRepository_DeleteUser_Call {
-	return &MockRepository_DeleteUser_Call{Call: _e.mock.On("DeleteUser", ctx, id)}
-}
-
-func (_c *MockRepository_DeleteUser_Call) Run(run func(ctx context.Context, id string)) *MockRepository_DeleteUser_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepository_DeleteUser_Call) Return(err error) *MockRepository_DeleteUser_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockRepository_DeleteUser_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockRepository_DeleteUser_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1679,6 +1757,72 @@ func (_c *MockRepository_MarkInitialized_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// PurgeUserContent provides a mock function for the type MockRepository
+func (_mock *MockRepository) PurgeUserContent(ctx context.Context, id string) (model.PurgeResult, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeUserContent")
+	}
+
+	var r0 model.PurgeResult
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.PurgeResult, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.PurgeResult); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(model.PurgeResult)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRepository_PurgeUserContent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeUserContent'
+type MockRepository_PurgeUserContent_Call struct {
+	*mock.Call
+}
+
+// PurgeUserContent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *MockRepository_Expecter) PurgeUserContent(ctx any, id any) *MockRepository_PurgeUserContent_Call {
+	return &MockRepository_PurgeUserContent_Call{Call: _e.mock.On("PurgeUserContent", ctx, id)}
+}
+
+func (_c *MockRepository_PurgeUserContent_Call) Run(run func(ctx context.Context, id string)) *MockRepository_PurgeUserContent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_PurgeUserContent_Call) Return(purgeResult model.PurgeResult, err error) *MockRepository_PurgeUserContent_Call {
+	_c.Call.Return(purgeResult, err)
+	return _c
+}
+
+func (_c *MockRepository_PurgeUserContent_Call) RunAndReturn(run func(ctx context.Context, id string) (model.PurgeResult, error)) *MockRepository_PurgeUserContent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateUser provides a mock function for the type MockRepository
 func (_mock *MockRepository) UpdateUser(ctx context.Context, user *model.User) error {
 	ret := _mock.Called(ctx, user)
@@ -1732,6 +1876,69 @@ func (_c *MockRepository_UpdateUser_Call) Return(err error) *MockRepository_Upda
 }
 
 func (_c *MockRepository_UpdateUser_Call) RunAndReturn(run func(ctx context.Context, user *model.User) error) *MockRepository_UpdateUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateUserStatus provides a mock function for the type MockRepository
+func (_mock *MockRepository) UpdateUserStatus(ctx context.Context, id string, status model.Status) error {
+	ret := _mock.Called(ctx, id, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserStatus")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model.Status) error); ok {
+		r0 = returnFunc(ctx, id, status)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_UpdateUserStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserStatus'
+type MockRepository_UpdateUserStatus_Call struct {
+	*mock.Call
+}
+
+// UpdateUserStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - status model.Status
+func (_e *MockRepository_Expecter) UpdateUserStatus(ctx any, id any, status any) *MockRepository_UpdateUserStatus_Call {
+	return &MockRepository_UpdateUserStatus_Call{Call: _e.mock.On("UpdateUserStatus", ctx, id, status)}
+}
+
+func (_c *MockRepository_UpdateUserStatus_Call) Run(run func(ctx context.Context, id string, status model.Status)) *MockRepository_UpdateUserStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 model.Status
+		if args[2] != nil {
+			arg2 = args[2].(model.Status)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_UpdateUserStatus_Call) Return(err error) *MockRepository_UpdateUserStatus_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_UpdateUserStatus_Call) RunAndReturn(run func(ctx context.Context, id string, status model.Status) error) *MockRepository_UpdateUserStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }

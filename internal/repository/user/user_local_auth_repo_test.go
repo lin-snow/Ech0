@@ -45,7 +45,8 @@ func TestUserRepository_DeleteUser_RemovesLocalAuth(t *testing.T) {
 		UserID: "u1", PasswordHash: "h", PasswordAlgo: "bcrypt",
 	}))
 
-	require.NoError(t, repo.DeleteUser(ctx, "u1"))
+	_, err := repo.PurgeUserContent(ctx, "u1")
+	require.NoError(t, err)
 
 	var count int64
 	require.NoError(t, db.Model(&userModel.UserLocalAuth{}).Where("user_id = ?", "u1").Count(&count).Error)

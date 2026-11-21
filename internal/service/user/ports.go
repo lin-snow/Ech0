@@ -19,6 +19,7 @@ type Service interface {
 	GetAllUsers(ctx context.Context) ([]model.User, error)
 	GetPrimaryAdmin() (model.User, error)
 	DeleteUser(ctx context.Context, id string) error
+	UpdateUserStatus(ctx context.Context, id string, status model.Status) error
 	GetUserByID(userId string) (model.User, error)
 }
 
@@ -32,7 +33,18 @@ type UserRepo interface {
 	GetPrimaryAdmin(ctx context.Context) (model.User, error)
 	UpdateUser(ctx context.Context, user *model.User) error
 	UpsertLocalAuth(ctx context.Context, localAuth *model.UserLocalAuth) error
-	DeleteUser(ctx context.Context, id string) error
+	UpdateUserStatus(ctx context.Context, id string, status model.Status) error
+	PurgeUserContent(ctx context.Context, id string) (model.PurgeResult, error)
+}
+
+// EchoCacheInvalidator clears cached echo listings after a bulk removal.
+type EchoCacheInvalidator interface {
+	InvalidateEchoCaches(echoIDs ...string)
+}
+
+// EmbeddingPurger removes the semantic index rows for a deleted echo.
+type EmbeddingPurger interface {
+	Delete(ctx context.Context, echoID string) error
 }
 
 type InstallStateRepo interface {

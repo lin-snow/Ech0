@@ -27,7 +27,7 @@ func setupCommentRoutes(appRouterGroup *AppRouterGroup, _ *handler.Bundle) {
 func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
 	nc := humares.Bridge(middleware.NoCache())
 	stash := humares.Bridge(h.CommentHandler.StashMeta())
-	optViewer := humares.Bridge(h.CommentHandler.OptionalViewer())
+	optViewer := humares.Bridge(middleware.OptionalAuth(revoker))
 	review := secured(revoker, authz.ScopeCommentReview)
 	deleteComments := secured(revoker, authz.ScopeCommentDelete)
 	settings := secured(revoker, authz.ScopeCommentSettings)
@@ -41,22 +41,20 @@ func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Middlewares: huma.Middlewares{nc, stash, optViewer},
 	}, h.CommentHandler.GetFormMeta)
 
-	api.route(public(), huma.Operation{
+	api.route(optional(revoker), huma.Operation{
 		OperationID: "comment-list-by-echo",
 		Method:      http.MethodGet,
 		Path:        "/comments",
-		Summary:     "按 echo 列出公开评论",
+		Summary:     "按 echo 列出评论",
 		Tags:        []string{"Comment"},
-		Middlewares: huma.Middlewares{nc},
 	}, h.CommentHandler.ListCommentsByEchoID)
 
-	api.route(public(), huma.Operation{
+	api.route(optional(revoker), huma.Operation{
 		OperationID: "comment-list-public",
 		Method:      http.MethodGet,
 		Path:        "/comments/public",
-		Summary:     "列出最新公开评论",
+		Summary:     "列出最新评论",
 		Tags:        []string{"Comment"},
-		Middlewares: huma.Middlewares{nc},
 	}, h.CommentHandler.ListPublicComments)
 
 	api.route(public(), huma.Operation{

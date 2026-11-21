@@ -33,6 +33,18 @@
               {{ description }}
             </DialogDescription>
 
+            <div v-if="requireText" class="mt-4">
+              <p class="text-xs text-[var(--dialog-text-color)]">{{ requireTextHint }}</p>
+              <input
+                v-model="typed"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                :placeholder="requireText"
+                class="mt-2 w-full rounded-[var(--radius-md)] bg-[var(--input-bg-color)] px-3 py-2 text-sm text-[var(--input-text-color)] ring-1 ring-inset ring-[var(--color-border-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]"
+              />
+            </div>
+
             <div class="mt-6 flex justify-end gap-3">
               <button
                 @click="cancel"
@@ -42,7 +54,8 @@
               </button>
               <button
                 @click="confirm"
-                class="cursor-pointer px-3 py-2 rounded-[var(--radius-md)] bg-[var(--dialog-confirm-btn-bg-color)] text-[var(--dialog-confirm-text-color)] shadow-[var(--shadow-sm)] hover:opacity-90"
+                :disabled="!canConfirm"
+                class="cursor-pointer px-3 py-2 rounded-[var(--radius-md)] bg-[var(--dialog-confirm-btn-bg-color)] text-[var(--dialog-confirm-text-color)] shadow-[var(--shadow-sm)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {{ t('commonUi.confirm') }}
               </button>
@@ -55,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   Dialog,
@@ -66,17 +79,26 @@ import {
   TransitionRoot,
 } from '@headlessui/vue'
 
-defineProps({
+const props = defineProps({
   title: String,
   description: String,
+  requireText: { type: String, default: '' },
+  requireTextHint: { type: String, default: '' },
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
 const { t } = useI18n()
 
 const isOpen = ref(false)
+const typed = ref('')
+const canConfirm = computed(() => !props.requireText || typed.value.trim() === props.requireText)
+
+watch(isOpen, (value) => {
+  if (!value) typed.value = ''
+})
 
 function open() {
+  typed.value = ''
   isOpen.value = true
 }
 
@@ -90,6 +112,7 @@ function handleDialogClose() {
 }
 
 function confirm() {
+  if (!canConfirm.value) return
   emit('confirm')
   close()
 }

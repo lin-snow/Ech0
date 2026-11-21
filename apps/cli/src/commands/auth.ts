@@ -21,8 +21,8 @@ import type { CommandOutput } from "./types.ts";
 // Every scope the exposed command surface needs: Echo CRUD (delete included,
 // private reads included), the file surface, the comment publish + review
 // lifecycle, Connect add/delete plus the read-only health probe, and webhook
-// management. The CLI v1 target is the instance owner, so review/delete come by
-// default; `--scopes` still narrows a token for a read-only or CI profile.
+// management. The CLI v1 target is the instance administrator, so review/delete
+// come by default; `--scopes` still narrows a token for a read-only or CI profile.
 export const DEFAULT_CLI_SCOPES = [
   "echo:read",
   "echo:private",
