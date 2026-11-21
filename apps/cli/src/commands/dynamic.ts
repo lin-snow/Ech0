@@ -160,7 +160,7 @@ function composeHints(id: string, op: CatalogOp): string[] {
 
   if (id === "echo.update") {
     hints.push("更新是整体覆盖：--content / --echo-files / --extension / --tags 没传的部分会被清空；先用 ech0 echo get --id <id> 取回再改");
-    hints.push("--id 必填，且需要管理员账号");
+    hints.push("--id 必填；只有作者本人或管理员能改");
   }
   if (fields.has("tags")) {
     hints.push('--tag 追加标签（可重复）；--tags 接收 JSON 数组：[{"name":"daily"}]');
@@ -170,6 +170,9 @@ function composeHints(id: string, op: CatalogOp): string[] {
   }
   if (fields.has("extension")) {
     hints.push('--extension 接收 JSON 对象：{"type":"weather","payload":{...}}，用于渲染扩展卡片');
+  }
+  if (id === "echo.create" && fields.has("private")) {
+    hints.push("--private 只对未登录访客隐藏；所有登录用户都能看到");
   }
   hints.push("--from/--edit 提交完整 payload：同名逐项参数被 payload 覆盖，tags 与 echo_files 累加");
   return hints;
@@ -181,6 +184,7 @@ function echoQueryExamples(id: string): string[] | undefined {
     case "echo.list":
       return [
         "ech0 echo list --page 1 --page-size 20",
+        "ech0 echo list --mine --page-size 20",
         'ech0 echo list --cursor "" --page-size 50',
         "ech0 echo list --search daily --tag-ids <tag_id>",
         "ech0 echo list --sort-by reactions --json",
@@ -204,12 +208,13 @@ function echoQueryHints(id: string): string[] {
   if (id === "echo.list") {
     return [
       "标签 ID 来自 ech0 tag list；多个 ID 命中任意一个即可",
-      "私密可见性由账号决定：管理员可用 --private / --no-private 过滤，其他账号只看公开",
+      "私密是受众标记：未登录只看公开，登录后（token 需 echo:private）看到完整时间线",
+      "--private / --no-private 只筛选私密/公开；--mine 只看自己发布的（需登录）",
       '游标翻页：--cursor "" 取第一页，之后回传上一页的 nextCursor；只支持 --sort-by created_at，忽略 --page',
     ];
   }
   if (id === "echo.hot" || id === "echo.today" || id === "echo.random" || id === "echo.onthisday") {
-    return ["只返回公开 Echo；管理员 token 会包含私密"];
+    return ["未登录只返回公开 Echo；登录后（token 带 echo:private）会包含私密"];
   }
   return [];
 }

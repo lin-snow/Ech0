@@ -193,6 +193,7 @@ export const zEchoQueryDto = z.object({
     cursor: z.string().optional(),
     dateFrom: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     dateTo: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    mine: z.boolean().optional(),
     page: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     pageSize: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     private: z.boolean().optional(),
@@ -1147,12 +1148,17 @@ export const zUpdateFileMetaDto = z.object({
     width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
+export const zUpdateUserStatusInputBody = z.object({
+    status: z.string().optional()
+});
+
 export const zUser = z.object({
     avatar: z.string().optional(),
     email: z.string().optional(),
     id: z.string().optional(),
     is_admin: z.boolean().optional(),
     locale: z.string().optional(),
+    status: z.string().optional(),
     username: z.string().optional()
 });
 
@@ -1929,6 +1935,17 @@ export const zUserSetAdminPath = z.object({
  * OK
  */
 export const zUserSetAdminResponse = zResultInterface;
+
+export const zUserSetStatusBody = zUpdateUserStatusInputBody;
+
+export const zUserSetStatusPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * OK
+ */
+export const zUserSetStatusResponse = zResultInterface;
 
 export const zUserDeletePath = z.object({
     id: z.uuid()
