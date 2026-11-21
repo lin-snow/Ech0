@@ -62,7 +62,7 @@ func TestCatalogMatchesRouter(t *testing.T) {
 	engine := gin.New()
 	SetupRouter(engine, handlers, buildTestMWDeps())
 
-	api := setupHumaAPI(gin.New())
+	api := setupHumaAPI(gin.New(), nil)
 	registerOperations(api, handlers, nil)
 	doc, _, _, err := openapiCatalog.Build(api.OpenAPI())
 	if err != nil {

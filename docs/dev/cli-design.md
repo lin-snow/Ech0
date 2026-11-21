@@ -264,7 +264,7 @@ payload 文件就是 JSON 形态的 `EchoUpsertDto`：
 - `tag.list` 提供 `id / name / usage_count`，`echo list --tag-ids <id,...>` 才有可用的输入；`echo.by.tag` 已弃用，不再暴露。
 - `tag.delete` 会同时删除 `echo_tags` 关联；服务层还要求 admin，危险操作走 `--yes`，scope 为 `echo:delete`。
 
-Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin:webhook`，不再需要 `admin:settings`。CLI v1 的目标用户是实例 owner/admin。`WebhookDto` 的 `name` / `url` 标了 Huma `required` 与 `doc`，CLI 的必填校验和 help 直接来自 schema。`webhook.update` 是整体覆盖，省略 `--is-active` 会把 webhook 停用、省略 `--secret` 会清空签名密钥，help 里要显式提示。
+Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin:webhook`，不再需要 `admin:settings`。CLI v1 的目标用户是实例管理员。`WebhookDto` 的 `name` / `url` 标了 Huma `required` 与 `doc`，CLI 的必填校验和 help 直接来自 schema。`webhook.update` 是整体覆盖，省略 `--is-active` 会把 webhook 停用、省略 `--secret` 会清空签名密钥，help 里要显式提示。
 
 ### 4.9 `ech0 info`：实例自述（本地命令，无 scope）
 

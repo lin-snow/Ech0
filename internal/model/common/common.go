@@ -85,6 +85,7 @@ const (
 	UsersPasswordColumnDroppedKey  = "users_password_column_dropped_v1"
 	EchosFavCountColumnDroppedKey  = "echos_fav_count_column_dropped_v1"
 	EchosPrivateCreatedDroppedKey  = "echos_private_created_index_dropped_v1"
+	OwnerRoleCollapsedKey          = "owner_role_collapsed_v1"
 	ChatSessionKeyPrefix           = "chat_session:"
 )
 

@@ -53,83 +53,13 @@
       <div class="mx-auto flex my-4 w-full max-w-screen-lg rounded-md panel-main">
         <div class="hidden md:flex flex-col gap-2 w-52 pr-4 shrink-0 panel-nav">
           <BaseButton
-            :icon="Dashboard"
-            @click="router.push('/panel/dashboard')"
-            :class="getButtonClasses('panel-dashboard')"
+            v-for="item in navItems"
+            :key="item.path"
+            :icon="item.icon"
+            @click="router.push(item.path)"
+            :class="getButtonClasses(item.path)"
           >
-            {{ t('panelPageNav.dashboard') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Setting"
-            @click="router.push('/panel/setting')"
-            :class="getButtonClasses('panel-setting')"
-          >
-            {{ t('panelPageNav.setting') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="User"
-            @click="router.push('/panel/user')"
-            :class="getButtonClasses('panel-user')"
-          >
-            {{ t('panelPageNav.userCenter') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Storage"
-            @click="router.push('/panel/storage')"
-            :class="getButtonClasses('panel-storage')"
-          >
-            {{ t('panelPageNav.storage') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Data"
-            @click="router.push('/panel/data-management')"
-            :class="getButtonClasses('panel-data-management')"
-          >
-            {{ t('panelPageNav.dataManagement') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Extension"
-            @click="router.push('/panel/comment')"
-            :class="getButtonClasses('panel-comment')"
-          >
-            {{ t('panelPageNav.comment') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Sso"
-            @click="router.push('/panel/sso')"
-            :class="getButtonClasses('panel-sso')"
-          >
-            {{ t('panelPageNav.sso') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Extension"
-            @click="router.push('/panel/extension')"
-            :class="getButtonClasses('panel-extension')"
-          >
-            {{ t('panelPageNav.extension') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Others"
-            @click="router.push('/panel/advance')"
-            :class="getButtonClasses('panel-advance')"
-          >
-            {{ t('panelPageNav.advance') }}
-          </BaseButton>
-
-          <BaseButton
-            :icon="Log"
-            @click="router.push('/panel/system-log')"
-            :class="getButtonClasses('panel-system-log')"
-          >
-            {{ t('panelPageNav.systemLog') }}
+            {{ t(item.labelKey) }}
           </BaseButton>
 
           <div class="h-px bg-[var(--color-border-subtle)] mx-2" />
@@ -144,7 +74,15 @@
         </div>
 
         <div class="flex-1 min-w-0 panel-content">
-          <router-view />
+          <TheNoPermission v-if="adminBlocked">
+            <BaseButton @click="router.push('/')">
+              {{ t('common.noPermission.backHome') }}
+            </BaseButton>
+            <BaseButton @click="router.push('/panel/user')">
+              {{ t('common.noPermission.accountSettings') }}
+            </BaseButton>
+          </TheNoPermission>
+          <router-view v-else />
         </div>
       </div>
     </div>
@@ -154,6 +92,7 @@
 <script setup lang="ts">
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
+import TheNoPermission from '@/components/common/TheNoPermission.vue'
 import User from '@/components/icons/user.vue'
 import Auth from '@/components/icons/auth.vue'
 import BackHand from '@/components/icons/backhand.vue'
@@ -180,7 +119,55 @@ const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 
-const currentRoute = computed(() => route.name as string)
+const isAdmin = computed(() => userStore.user?.is_admin === true)
+const adminBlocked = computed(() => route.meta.requiresAdmin === true && !isAdmin.value)
+
+const navItems = computed(() => {
+  const items = [
+    {
+      path: '/panel/dashboard',
+      labelKey: 'panelPageNav.dashboard',
+      icon: Dashboard,
+      adminOnly: true,
+    },
+    { path: '/panel/setting', labelKey: 'panelPageNav.setting', icon: Setting, adminOnly: true },
+    {
+      path: '/panel/user',
+      labelKey: 'panelPageNav.userCenter',
+      icon: User,
+      adminOnly: false,
+    },
+    { path: '/panel/storage', labelKey: 'panelPageNav.storage', icon: Storage, adminOnly: true },
+    {
+      path: '/panel/data-management',
+      labelKey: 'panelPageNav.dataManagement',
+      icon: Data,
+      adminOnly: true,
+    },
+    {
+      path: '/panel/comment',
+      labelKey: 'panelPageNav.comment',
+      icon: Extension,
+      adminOnly: true,
+    },
+    { path: '/panel/sso', labelKey: 'panelPageNav.sso', icon: Sso, adminOnly: true },
+    {
+      path: '/panel/extension',
+      labelKey: 'panelPageNav.extension',
+      icon: Extension,
+      adminOnly: true,
+    },
+    { path: '/panel/advance', labelKey: 'panelPageNav.advance', icon: Others, adminOnly: true },
+    {
+      path: '/panel/system-log',
+      labelKey: 'panelPageNav.systemLog',
+      icon: Log,
+      adminOnly: true,
+    },
+  ]
+  return items.filter((item) => !item.adminOnly || isAdmin.value)
+})
+
 const selectedRoute = ref(route.path)
 const username = computed(() => userStore.user?.username || String(t('panelPage.friend')))
 const greeting = computed(() => {
@@ -198,11 +185,11 @@ const dateText = computed(() => {
   }).format(new Date())
 })
 
-const getButtonClasses = (routeName: string) => {
+const getButtonClasses = (path: string) => {
   const baseClasses =
     'w-full flex items-center gap-2 pl-3 py-1.5 rounded-[var(--radius-md)] transition-all duration-200 border-none !ring-0 justify-start bg-transparent whitespace-nowrap'
   const activeClasses =
-    currentRoute.value === routeName
+    route.path === path
       ? 'text-[var(--color-text-primary)]! bg-[var(--nav-link-active-bg)]! shadow-[var(--shadow-soft)]!'
       : 'text-[var(--color-text-secondary)] !shadow-none hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)]'
 
@@ -213,18 +200,9 @@ const getBottomButtonClasses = () => {
   return 'w-full flex items-center gap-2 pl-3 py-1.5 rounded-[var(--radius-md)] transition-all duration-200 border-none !shadow-none !ring-0 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)] justify-start bg-transparent whitespace-nowrap'
 }
 
-const routeOptions = computed(() => [
-  { label: String(t('panelPageNav.dashboard')), value: '/panel/dashboard' },
-  { label: String(t('panelPageNav.setting')), value: '/panel/setting' },
-  { label: String(t('panelPageNav.userCenter')), value: '/panel/user' },
-  { label: String(t('panelPageNav.storage')), value: '/panel/storage' },
-  { label: String(t('panelPageNav.dataManagement')), value: '/panel/data-management' },
-  { label: String(t('panelPageNav.comment')), value: '/panel/comment' },
-  { label: String(t('panelPageNav.sso')), value: '/panel/sso' },
-  { label: String(t('panelPageNav.extension')), value: '/panel/extension' },
-  { label: String(t('panelPageNav.advance')), value: '/panel/advance' },
-  { label: String(t('panelPageNav.systemLog')), value: '/panel/system-log' },
-])
+const routeOptions = computed(() =>
+  navItems.value.map((item) => ({ label: String(t(item.labelKey)), value: item.path })),
+)
 
 watch(
   () => route.path,

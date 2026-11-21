@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/job"
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
@@ -101,7 +102,7 @@ func TestStartGlobalMigration(t *testing.T) {
 	validReq := func() migratorModel.StartGlobalMigrationRequest {
 		return migratorModel.StartGlobalMigrationRequest{
 			SourceType:    migratorModel.MigrationSourceEch0,
-			SourcePayload: map[string]any{"tmp_dir": "files/tmp/ech0_x"},
+			SourcePayload: map[string]any{"tmp_dir": artifact.TmpDir + "/ech0_x"},
 		}
 	}
 
@@ -169,7 +170,7 @@ func TestStartGlobalMigration(t *testing.T) {
 		assert.Equal(t, migratorModel.MigrationSourceEch0, dto.SourceType)
 		assert.Equal(t, string(jobModel.StatusPending), dto.Status)
 		require.NotNil(t, dto.SourcePayload)
-		assert.Equal(t, "files/tmp/ech0_x", dto.SourcePayload["tmp_dir"])
+		assert.Equal(t, artifact.TmpDir+"/ech0_x", dto.SourcePayload["tmp_dir"])
 		assert.Equal(t, adminID, dto.SourcePayload["created_by"])
 	})
 }
@@ -289,7 +290,7 @@ func TestCleanupGlobalMigration(t *testing.T) {
 		repo.seed(jobModel.Job{
 			Type:    string(jobModel.Migration),
 			Status:  jobModel.StatusSuccess,
-			Payload: `{"source_type":"ech0","source_payload":{"tmp_dir":"files/tmp/ech0_done"}}`,
+			Payload: `{"source_type":"ech0","source_payload":{"tmp_dir":"artifacts/tmp/ech0_done"}}`,
 		})
 		s := newService(common, repo, nil)
 		require.NoError(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID)))
@@ -480,7 +481,7 @@ func TestDownloadExport(t *testing.T) {
 
 	t.Run("streams latest snapshot and emits event", func(t *testing.T) {
 		chdirTemp(t)
-		snapDir := filepath.Join("data", "files", "snapshots")
+		snapDir := artifact.Snapshots().Dir()
 		require.NoError(t, os.MkdirAll(snapDir, 0o755))
 		content := []byte("PK-fake-zip-bytes")
 		require.NoError(t, os.WriteFile(filepath.Join(snapDir, "ech0-snapshot-2026-01-01.zip"), content, 0o644))
@@ -502,12 +503,12 @@ func TestDownloadExport(t *testing.T) {
 		chdirTemp(t)
 		snapshotBytes := []byte("PK-snapshot")
 		capsuleBytes := []byte("PK-capsule")
-		require.NoError(t, os.MkdirAll(filepath.Join("data", "files", "snapshots"), 0o755))
-		require.NoError(t, os.MkdirAll(filepath.Join("data", "files", "capsules"), 0o755))
+		require.NoError(t, os.MkdirAll(artifact.Snapshots().Dir(), 0o755))
+		require.NoError(t, os.MkdirAll(artifact.Capsules().Dir(), 0o755))
 		require.NoError(t, os.WriteFile(
-			filepath.Join("data", "files", "snapshots", "ech0_snapshot_2026-01-01_00-00-00.zip"), snapshotBytes, 0o644))
+			artifact.Snapshots().Path("ech0_snapshot_2026-01-01_00-00-00.zip"), snapshotBytes, 0o644))
 		require.NoError(t, os.WriteFile(
-			filepath.Join("data", "files", "capsules", "ech0_capsule_2026-01-01_00-00-00.zip"), capsuleBytes, 0o644))
+			artifact.Capsules().Path("ech0_capsule_2026-01-01_00-00-00.zip"), capsuleBytes, 0o644))
 
 		for _, tc := range []struct {
 			format string
@@ -634,10 +635,10 @@ func TestUploadSourceZip(t *testing.T) {
 		resp, err := s.UploadSourceZip(helpers.CtxAsUser(adminID), migratorModel.MigrationSourceEch0, header)
 		require.NoError(t, err)
 		assert.Equal(t, migratorModel.MigrationSourceEch0, resp.SourceType)
-		assert.Contains(t, resp.TmpDir, "files/tmp/ech0_")
+		assert.Contains(t, resp.TmpDir, artifact.TmpDir+"/ech0_")
 		require.NotNil(t, resp.SourcePayload)
 		assert.Equal(t, resp.TmpDir, resp.SourcePayload["tmp_dir"])
-		_, statErr := os.Stat(filepath.Join("data", filepath.FromSlash(resp.TmpDir)))
+		_, statErr := os.Stat(filepath.Join(artifact.DataDir, filepath.FromSlash(resp.TmpDir)))
 		assert.NoError(t, statErr)
 	})
 }

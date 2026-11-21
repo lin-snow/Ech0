@@ -71,7 +71,7 @@ func TestGenerateRSS_NormalFeed(t *testing.T) {
 		},
 	}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
@@ -110,7 +110,7 @@ func TestGenerateRSS_TagHTMLEntityEscaping(t *testing.T) {
 		},
 	}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
@@ -139,7 +139,7 @@ func TestGenerateRSS_RendersEchoImages(t *testing.T) {
 		},
 	}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
@@ -170,7 +170,7 @@ func TestGenerateRSS_RendersMediaByCategory(t *testing.T) {
 		},
 	}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
@@ -206,7 +206,7 @@ func TestGenerateRSS_MediaFieldEscaping(t *testing.T) {
 		},
 	}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
@@ -224,7 +224,7 @@ func TestGenerateRSS_ReadThrough(t *testing.T) {
 
 	echos := []echoModel.Echo{{ID: "e1", Username: "u", Content: "c", CreatedAt: time.Now().UTC().Unix()}}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
 
 	ctx := newRSSContext(t, "example.com")
@@ -241,7 +241,7 @@ func TestGenerateRSS_RepositoryError(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
 	svc := newRSSService(t, repo)
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(nil, assert.AnError).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(nil, assert.AnError).Once()
 
 	ctx := newRSSContext(t, "example.com")
 	doc, err := svc.GenerateRSS(ctx)
@@ -267,7 +267,7 @@ func TestGenerateRSS_AbsolutizesRelativeContentURLs(t *testing.T) {
 		},
 	}
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Once()
 
 	doc, err := svc.GenerateRSS(newRSSContext(t, "example.com"))
@@ -287,7 +287,7 @@ func TestGenerateRSS_EmptyFeedLandingPage(t *testing.T) {
 	repo := commonmock.NewMockCommonRepository(t)
 	svc := newRSSService(t, repo)
 
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(nil, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(nil, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
 
 	doc, err := svc.GenerateRSS(newRSSContext(t, "example.com"))
@@ -306,7 +306,7 @@ func TestGenerateRSS_UsesSiteIdentity(t *testing.T) {
 	})
 
 	echos := []echoModel.Echo{{ID: "e1", Username: "alice", Content: "hi", CreatedAt: time.Now().UTC().Unix()}}
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Once()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Once()
 	repo.EXPECT().TrackRSSCacheKey(matchesRSSCacheKey("rss:http:example.com")).Return().Once()
 
 	doc, err := svc.GenerateRSS(newRSSContext(t, "example.com"))
@@ -329,7 +329,7 @@ func TestGenerateRSS_RenameMissesCache(t *testing.T) {
 	svc := commonService.NewCommonService(repo, cached, kv)
 
 	echos := []echoModel.Echo{{ID: "e1", Username: "alice", Content: "hi", CreatedAt: time.Now().UTC().Unix()}}
-	repo.EXPECT().GetAllEchos(mock.Anything, false).Return(echos, nil).Twice()
+	repo.EXPECT().GetAllEchos(mock.Anything, echoModel.PrivateScope{}).Return(echos, nil).Twice()
 	repo.EXPECT().TrackRSSCacheKey(mock.Anything).Return().Twice()
 
 	ctx := newRSSContext(t, "example.com")

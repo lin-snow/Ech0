@@ -52,7 +52,6 @@ interface InitStatusDto {
 interface UserDto {
   username?: string;
   is_admin?: boolean;
-  is_owner?: boolean;
 }
 
 interface CatalogInfo {
@@ -320,7 +319,7 @@ export async function info(ctx: CliContext): Promise<CommandOutput> {
     rows.push(["echos", `${self.total_echos}（今天 ${self.today_echos ?? 0}）`]);
   }
   if (init !== undefined) {
-    rows.push(["initialized", `${init.initialized === true ? "yes" : "no"}${init.owner_exists === true ? " · owner 已创建" : " · 无 owner"}`]);
+    rows.push(["initialized", `${init.initialized === true ? "yes" : "no"}${init.owner_exists === true ? " · 管理员已创建" : " · 无管理员"}`]);
   }
   if (site !== undefined) {
     rows.push([

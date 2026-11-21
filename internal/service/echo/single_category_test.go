@@ -133,6 +133,9 @@ func TestUpdateEcho_MixedFileCategoriesRejected(t *testing.T) {
 		CommonGetUserByUserId(mock.Anything, adminID).
 		Return(helpers.NewUser(helpers.AsAdmin), nil).
 		Once()
+	existing := echoWithFileIDs("f1", "f2")
+	existing.UserID = adminID
+	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(existing, nil).Once()
 	file.EXPECT().
 		GetFilesByIDs(mock.Anything, mock.Anything).
 		Return([]commonModel.FileDto{fileDto("f1", "image"), fileDto("f2", "audio")}, nil).

@@ -14,7 +14,7 @@ import (
 )
 
 type Service interface {
-	Login(loginDto *authModel.LoginDto) (*authModel.TokenPair, error)
+	Login(ctx context.Context, loginDto *authModel.LoginDto) (*authModel.TokenPair, error)
 	BindOAuth(ctx context.Context, provider string, redirectURI string) (string, error)
 	GetOAuthLoginURL(provider string, redirectURI string) (string, error)
 	HandleOAuthCallback(provider string, code string, state string) (string, error)

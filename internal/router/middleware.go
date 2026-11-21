@@ -16,6 +16,7 @@ func setupMiddleware(r *gin.Engine) {
 	}
 	r.Use(gin.Recovery())
 	r.Use(middleware.PoweredBy())
+	r.Use(middleware.ClientIP())
 	r.Use(middleware.Cors())
 	r.Use(middleware.VisitorIdentity())
 	r.Use(i18nUtil.Middleware())

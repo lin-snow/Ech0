@@ -42,7 +42,7 @@ type Repository interface {
 }
 
 type EchoReader interface {
-	GetEchosByPage(page, pageSize int, search string, showPrivate bool) ([]echoModel.Echo, int64)
+	GetEchosByPage(page, pageSize int, search string, scope echoModel.PrivateScope) ([]echoModel.Echo, int64)
 }
 
 type BackfillResult struct {

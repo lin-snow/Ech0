@@ -295,12 +295,11 @@
   <section class="card c-deploy" data-screen-label="05 Deploy">
     <div class="eyebrow"><span class="dot"></span><span>05 / 06</span><span class="sep">·</span><span>Deploy</span></div>
     <h2>60 seconds. <span class="l2">One command.</span></h2>
-    <p class="lede">No database to provision. No build step. Pull the image, mount a folder, set a secret. That's it.</p>
+    <p class="lede">No database to provision. No build step. Pull the image, mount a folder, open it. That's it.</p>
 <pre class="code"><span class="k">docker run</span> -d \
   --name ech0 \
   -p <span class="s">6277:6277</span> \
   -v <span class="s">/opt/ech0/data:/app/data</span> \
-  -e JWT_SECRET=<span class="s">"Hello Echos"</span> \
   <span class="s">sn0wl1n/ech0:latest</span>
 <span class="c"># then open http://&lt;your-ip&gt;:6277</span></pre>
     <div class="steps">

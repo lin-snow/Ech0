@@ -116,7 +116,7 @@ func init() {
 	exportCapsuleCmd.Flags().BoolVar(&exportCapsuleOpts.Zip, "zip", false, "pack the capsule into a single .zip")
 
 	exportSnapshotCmd.Flags().
-		StringVarP(&exportSnapshotOut, "output", "o", "", "copy the archive to this path (default: keep it under data/files/snapshots)")
+		StringVarP(&exportSnapshotOut, "output", "o", "", "copy the archive to this path (default: keep it under data/artifacts/snapshots)")
 
 	importCapsuleCmd.Flags().
 		BoolVar(&importCapsuleOpts.IncludePrivate, "include-private", false, "include private echoes")

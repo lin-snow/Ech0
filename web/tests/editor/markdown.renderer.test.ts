@@ -54,4 +54,20 @@ describe('renderMarkdown renderer behaviors', () => {
     expect(html).toContain('>站点</a>')
     expect(html).toContain('和 ech0.cc 与')
   })
+
+  it('代码围栏的语言名不得逃逸出 class 属性', async () => {
+    const html = await renderMarkdown('```x"onmouseover="alert(1)"\nhello\n```')
+
+    const host = document.createElement('div')
+    host.innerHTML = html
+    expect(host.querySelector('[onmouseover]')).toBeNull()
+    expect(host.querySelector('code.hljs')?.getAttribute('class')).toBe('hljs')
+    expect(host.textContent).toContain('hello')
+  })
+
+  it('合法语言名仍写入语言 class', async () => {
+    const html = await renderMarkdown('```c++\nint main() {}\n```')
+
+    expect(html).toContain('class="hljs language-c++"')
+  })
 })

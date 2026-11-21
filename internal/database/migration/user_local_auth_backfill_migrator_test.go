@@ -37,8 +37,8 @@ func addLegacyPasswordColumn(t *testing.T, db *gorm.DB) {
 func seedLegacyUser(t *testing.T, db *gorm.DB, id, username, md5pw string) {
 	t.Helper()
 	require.NoError(t, db.Exec(
-		`INSERT INTO users (id, username, password, is_admin, is_owner, locale) VALUES (?,?,?,?,?,?)`,
-		id, username, md5pw, false, false, "zh-CN",
+		`INSERT INTO users (id, username, password, is_admin, locale) VALUES (?,?,?,?,?)`,
+		id, username, md5pw, false, "zh-CN",
 	).Error)
 }
 
@@ -109,7 +109,7 @@ func TestUserLocalAuthBackfillMigrator_Idempotent(t *testing.T) {
 func TestUserLocalAuthBackfillMigrator_NoOpWhenNoPasswordColumn(t *testing.T) {
 	db := newLocalAuthTestDB(t)
 	require.NoError(t, db.Exec(
-		`INSERT INTO users (id, username, is_admin, is_owner, locale) VALUES ('u1','alice',0,0,'zh-CN')`,
+		`INSERT INTO users (id, username, is_admin, locale) VALUES ('u1','alice',0,'zh-CN')`,
 	).Error)
 
 	require.NoError(t, dbMigration.NewUserLocalAuthBackfillMigrator().Migrate(db))

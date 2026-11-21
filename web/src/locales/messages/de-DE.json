@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "Anfrage fehlgeschlagen",
     "save": "Speichern",
-    "saving": "Wird gespeichert…"
+    "saving": "Wird gespeichert…",
+    "noPermission": {
+      "title": "Kein Zugriff",
+      "description": "Diese Seite ist nur für Administratoren. Du kannst weiterhin veröffentlichen und dein Profil sowie deine Dateien verwalten.",
+      "backHome": "Zurück zur Startseite",
+      "accountSettings": "Kontoeinstellungen"
+    }
   },
   "commonUi": {
     "apply": "Übernehmen",
@@ -241,7 +247,7 @@
     "testEmailSending": "Wird gesendet...",
     "testEmailSuccess": "Test-E-Mail gesendet",
     "emailNotifyTitle": "E-Mail-Benachrichtigungen",
-    "emailNotifyDesc": "Benachrichtigt nur den Owner über neue Kommentare, Moderationsänderungen und Hot-Markierungen.",
+    "emailNotifyDesc": "Benachrichtigt nur Admins über neue Kommentare, Moderationsänderungen und Hot-Markierungen.",
     "emailNotifyEnableFirst": "Bitte zuerst E-Mail-Benachrichtigungen aktivieren",
     "smtpHostPlaceholder": "SMTP-Host",
     "smtpPortPlaceholder": "SMTP-Port",
@@ -293,18 +299,18 @@
     "passkeyLoginFailed": "Passkey-Anmeldung fehlgeschlagen"
   },
   "init": {
-    "ownerEmailPlaceholder": "Owner-E-Mail",
-    "ownerUsernamePlaceholder": "Owner-Benutzername",
-    "ownerPasswordPlaceholder": "Owner-Passwort",
     "initializing": "Wird initialisiert…",
     "initialize": "Initialisieren",
     "initDone": "Initialisierung abgeschlossen",
     "alreadyInitializedRedirect": "System bereits initialisiert, Weiterleitung zur Anmeldung",
     "initFailed": "Initialisierung fehlgeschlagen",
     "introHeading": "Mit Ech0 loslegen",
-    "introDescription": "Erstelle das Owner-Konto, schließe die Grundeinrichtung der Seite ab und eröffne deinen persönlichen Aufzeichnungsraum.",
+    "introDescription": "Erstelle das Admin-Konto, schließe die Grundeinrichtung der Seite ab und eröffne deinen persönlichen Aufzeichnungsraum.",
     "siteTitlePlaceholder": "Seitenname (optional)",
-    "autoLoginFailed": "Owner erstellt. Bitte anmelden."
+    "autoLoginFailed": "Admin erstellt. Bitte anmelden.",
+    "adminEmailPlaceholder": "Admin-E-Mail",
+    "adminUsernamePlaceholder": "Admin-Benutzername",
+    "adminPasswordPlaceholder": "Admin-Passwort"
   },
   "onboarding": {
     "title": "Mach deine Instanz fertig",
@@ -486,13 +492,13 @@
   "connectWidget": {
     "noConnections": "Keine aktiven Verbindungen",
     "loading": "Wird geladen…",
-    "tooltipOwner": "Owner",
     "tooltipTotal": "Gesamt",
     "tooltipToday": "Heute",
     "tooltipVersion": "Version",
     "jumpToEchoDetail": "Zum zugehörigen Echo",
     "randomCommentLoading": "Ein hervorgehobener Kommentar wird ausgewählt…",
-    "noFeaturedComment": "Keine hervorgehobenen Kommentare vorhanden."
+    "noFeaturedComment": "Keine hervorgehobenen Kommentare vorhanden.",
+    "tooltipAdmin": "Admin"
   },
   "heatmap": {
     "tooltip": "{date}: {count} Einträge"
@@ -578,7 +584,6 @@
     "avatarUploadSuccess": "Avatar hochgeladen!",
     "uploadFailed": "Upload fehlgeschlagen, bitte später erneut versuchen",
     "role": "Rolle",
-    "roleOwner": "Inhaber",
     "roleAdmin": "Admin",
     "roleMember": "Mitglied"
   },

@@ -12,6 +12,7 @@ import (
 
 	"github.com/lin-snow/ech0/internal/authz"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 )
 
 type fakeTokenIssuer struct {
@@ -30,7 +31,7 @@ func (issuer *fakeTokenIssuer) IssueForViewer(
 
 func newDeviceService() (*AuthService, *fakeTokenIssuer) {
 	issuer := &fakeTokenIssuer{token: "device-access-token"}
-	return NewAuthService(nil, nil, nil, nil, issuer), issuer
+	return NewAuthService(nil, nil, nil, nil, issuer, ratelimit.NewMemoryLimiter(ratelimit.DefaultPolicy())), issuer
 }
 
 func TestStartDeviceAuthorization(t *testing.T) {

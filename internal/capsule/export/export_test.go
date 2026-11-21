@@ -60,7 +60,7 @@ func newFixture(t *testing.T) (Deps, string) {
 	require.NoError(t, coreSetting.System.Set(context.Background(), kv, testSite))
 
 	require.NoError(t, db.Create(&userModel.User{
-		ID: "u-owner", Username: "linsnow", IsAdmin: true, IsOwner: true,
+		ID: "u-owner", Username: "linsnow", IsAdmin: true,
 	}).Error)
 	require.NoError(t, db.Create(&userModel.User{ID: "u-other", Username: "guest"}).Error)
 

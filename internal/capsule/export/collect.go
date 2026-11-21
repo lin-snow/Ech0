@@ -195,8 +195,8 @@ func collectSite(ctx context.Context, deps Deps, data *dataset) error {
 
 func collectOwner(db *gorm.DB, data *dataset) error {
 	var owner userModel.User
-	if err := db.Where("is_owner = ?", true).First(&owner).Error; err != nil {
-		return fmt.Errorf("capsule export: load owner user: %w", err)
+	if err := db.Where("is_admin = ?", true).Order("id ASC").First(&owner).Error; err != nil {
+		return fmt.Errorf("capsule export: load primary admin: %w", err)
 	}
 	data.owner = capsule.Owner{Username: owner.Username}
 	return nil

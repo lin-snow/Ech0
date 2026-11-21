@@ -21,7 +21,7 @@ Ech0 采用 **Access Token + Refresh Token** 双令牌机制，遵循 OWASP 推�
 
 ## 2. Token 类型与 JWT Claims
 
-所有 token 使用 HS256 签名，密钥为 `JWT_SECRET` 环境变量。
+所有 token 使用 HS256 签名，密钥唯一来源是设置 KV 的 `jwt_secret` 键（首次启动由 `config.EnsureJWTSecret` 生成并写入）；`JWT_SECRET` / `ECH0_JWT_SECRET` 已废弃，会被忽略并告警。
 
 ### 2.1 JWT Claims 结构
 
@@ -268,7 +268,6 @@ Set-Cookie: ech0_refresh_token=<jwt>;
 | `ECH0_JWT_REFRESH_EXPIRES` | `604800` (7天) | Refresh token 有效期（秒） |
 | `ECH0_JWT_ISSUER` | `ech0` | JWT 签发者 |
 | `ECH0_JWT_AUDIENCE` | `ech0` | JWT 受众 |
-| `JWT_SECRET` | 随机生成 | JWT 签名密钥 |
 | `ECH0_AUTH_REDIRECT_ALLOWED_RETURN_URLS` | 空 | OAuth 回调后允许的前端重定向 URL 白名单（逗号分隔） |
 | `ECH0_AUTH_WEBAUTHN_RP_ID` | 空 | WebAuthn Relying Party ID（通常为域名，如 `example.com`） |
 | `ECH0_AUTH_WEBAUTHN_ORIGINS` | 空 | WebAuthn 允许的 Origins（逗号分隔，如 `https://example.com`） |

@@ -34,7 +34,7 @@ func (f *fakeInitRepo) IsInitialized() (bool, error) {
 	return f.initialized, f.initializedErr
 }
 
-func (f *fakeInitRepo) GetOwner() (userModel.User, error) {
+func (f *fakeInitRepo) GetPrimaryAdmin() (userModel.User, error) {
 	f.getOwnerCalls++
 	return f.owner, f.getOwnerErr
 }

@@ -27,8 +27,8 @@ type Repository interface {
 }
 
 type EchoRepository interface {
-	GetTodayEchos(showPrivate bool, timezone string) []echoModel.Echo
-	GetEchosByPage(page, pageSize int, search string, showPrivate bool) ([]echoModel.Echo, int64)
+	GetTodayEchos(scope echoModel.PrivateScope, timezone string) []echoModel.Echo
+	GetEchosByPage(page, pageSize int, search string, scope echoModel.PrivateScope) ([]echoModel.Echo, int64)
 }
 
 type CommonService = commonService.Service

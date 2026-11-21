@@ -21,11 +21,6 @@ func NewUser(opts ...func(*userModel.User)) userModel.User {
 
 func AsAdmin(u *userModel.User) { u.IsAdmin = true }
 
-func AsOwner(u *userModel.User) {
-	u.IsAdmin = true
-	u.IsOwner = true
-}
-
 func NewEcho(opts ...func(*echoModel.Echo)) echoModel.Echo {
 	e := echoModel.Echo{
 		ID:      "echo-test-0001",

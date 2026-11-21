@@ -4,15 +4,21 @@
 package config
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
+	"github.com/lin-snow/ech0/internal/kvstore"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 var (
@@ -193,7 +199,6 @@ func Config() *AppConfig {
 				"Invalid environment overrides (affected values keep their defaults): %v\n", err,
 			)
 		}
-		cfg.Security.JWTSecret = getJWTSecret()
 	})
 	return cfg
 }
@@ -329,26 +334,90 @@ func defaultConfig() *AppConfig {
 	}
 }
 
-func getJWTSecret() []byte {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		// ECH0_JWT_SECRET is accepted as an alias so the prefixed namespace
-		// (used by every other knob) does not silently produce a random secret.
-		secret = os.Getenv("ECH0_JWT_SECRET")
+// jwtSecretKey is the settings key-value entry that holds the signing secret.
+// It deliberately has no setting spec, so the value can never be serialized
+// back to a client.
+const jwtSecretKey = "jwt_secret"
+
+// EnsureJWTSecret pins the instance's JWT signing secret before the server
+// starts serving. The secret persisted in the settings key-value store is the
+// single source of truth: it is read when present and generated once (then
+// written back) when it is missing. Persisting it keeps sessions, access
+// tokens and refresh tokens valid across restarts and upgrades, and having no
+// second input means a removed environment variable can never silently revert
+// the instance to an older key.
+//
+// Call it once, after the database is ready and before any request can be
+// authenticated. A failing store is returned as an error rather than silently
+// falling back to an ephemeral secret, which would invalidate every issued
+// token on the next restart.
+func EnsureJWTSecret(ctx context.Context, kv kvstore.Store) error {
+	cfg := Config()
+
+	raw, err := kv.Get(ctx, jwtSecretKey)
+	if err != nil && !errors.Is(err, kvstore.ErrNotFound) {
+		return fmt.Errorf("read jwt secret: %w", err)
 	}
-	if secret == "" {
-		b := make([]byte, 16)
-		_, err := rand.Read(b)
-		if err != nil {
-			panic(fmt.Sprintf("failed to generate random JWT secret: %v", err))
-		}
-		secret = hex.EncodeToString(b)
-		_, _ = fmt.Fprintln(
-			os.Stderr,
-			"JWT_SECRET is not set; using an ephemeral secret — every restart invalidates issued tokens. "+
-				"Set JWT_SECRET (or ECH0_JWT_SECRET) for persistent sessions.",
+	if secret := strings.TrimSpace(raw); secret != "" {
+		cfg.Security.JWTSecret = []byte(secret)
+		logUtil.Info(
+			"Loaded JWT signing secret from the database",
+			slog.String("module", "config"),
+			slog.String("fingerprint", jwtSecretFingerprint(secret)),
 		)
+		warnLegacyJWTSecretEnv()
+		return nil
 	}
 
-	return []byte(secret)
+	secret := randomJWTSecret()
+	if err := kv.Set(ctx, jwtSecretKey, secret); err != nil {
+		return fmt.Errorf("persist jwt secret: %w", err)
+	}
+	// Re-read: a second process starting against a fresh database may have won
+	// the write, and both must end up signing with the same key.
+	if raw, err := kv.Get(ctx, jwtSecretKey); err == nil {
+		if stored := strings.TrimSpace(raw); stored != "" {
+			secret = stored
+		}
+	}
+	cfg.Security.JWTSecret = []byte(secret)
+	logUtil.Info(
+		"Generated JWT signing secret and stored it in the database",
+		slog.String("module", "config"),
+		slog.String("fingerprint", jwtSecretFingerprint(secret)),
+	)
+	warnLegacyJWTSecretEnv()
+	return nil
+}
+
+// warnLegacyJWTSecretEnv reports a JWT_SECRET / ECH0_JWT_SECRET left over from
+// earlier versions. The variables are ignored on purpose (the database is the
+// only source), but silently ignoring them would leave operators convinced
+// their instance is pinned to a key they no longer control.
+func warnLegacyJWTSecretEnv() {
+	for _, name := range []string{"JWT_SECRET", "ECH0_JWT_SECRET"} {
+		if os.Getenv(name) == "" {
+			continue
+		}
+		logUtil.Warn(
+			"JWT_SECRET/ECH0_JWT_SECRET is set but no longer used; the signing secret lives in the database. Remove the variable.",
+			slog.String("module", "config"),
+			slog.String("variable", name),
+		)
+	}
+}
+
+// jwtSecretFingerprint identifies a secret in logs without revealing it, so an
+// operator can tell whether two boots (or a restore) used the same key.
+func jwtSecretFingerprint(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:4])
+}
+
+func randomJWTSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("failed to generate random JWT secret: %v", err))
+	}
+	return hex.EncodeToString(b)
 }

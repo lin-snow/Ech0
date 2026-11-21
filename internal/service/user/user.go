@@ -109,7 +109,6 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			Username: registerDto.Username,
 			Email:    email,
 			IsAdmin:  true,
-			IsOwner:  true,
 			Locale:   ownerLocale,
 		}
 
@@ -169,7 +168,6 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		Username: registerDto.Username,
 		Email:    email,
 		IsAdmin:  false,
-		IsOwner:  false,
 		Locale:   string(commonModel.DefaultLocale),
 	}
 
@@ -208,9 +206,6 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	user, err := userService.userRepository.GetUserByID(ctx, userid)
 	if err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	if userdto.Username != "" && userdto.Username != user.Username {
@@ -279,8 +274,8 @@ func (userService *UserService) UpdateUserAdmin(ctx context.Context, id string) 
 	if err != nil {
 		return err
 	}
-	if !operator.IsOwner {
-		return errors.New(commonModel.ONLY_OWNER_CAN_MANAGE)
+	if !operator.IsAdmin {
+		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	user, err := userService.userRepository.GetUserByID(ctx, id)
@@ -288,8 +283,18 @@ func (userService *UserService) UpdateUserAdmin(ctx context.Context, id string) 
 		return err
 	}
 
-	if userid == user.ID || user.IsOwner {
+	if userid == user.ID {
 		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	}
+
+	if user.IsAdmin {
+		admins, err := userService.countAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return lastAdminRequiredError()
+		}
 	}
 
 	user.IsAdmin = !user.IsAdmin
@@ -315,33 +320,48 @@ func (userService *UserService) GetAllUsers(ctx context.Context) ([]model.User, 
 		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
-	allures, err := userService.userRepository.GetAllUsers(ctx)
+	allUsers, err := userService.userRepository.GetAllUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	owner, err := userService.GetOwner()
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range allures {
-		if allures[i].ID == owner.ID {
-			allures = append(allures[:i], allures[i+1:]...)
-			break
+	// The caller manages other accounts only; self-service lives in UpdateUser.
+	users := make([]model.User, 0, len(allUsers))
+	for _, u := range allUsers {
+		if u.ID == caller.ID {
+			continue
 		}
+		users = append(users, u)
 	}
 
-	return allures, nil
+	return users, nil
 }
 
-func (userService *UserService) GetOwner() (model.User, error) {
-	owner, err := userService.userRepository.GetOwner(context.Background())
-	if err != nil {
-		return model.User{}, err
-	}
+func (userService *UserService) GetPrimaryAdmin() (model.User, error) {
+	return userService.userRepository.GetPrimaryAdmin(context.Background())
+}
 
-	return owner, nil
+func (userService *UserService) countAdmins(ctx context.Context) (int, error) {
+	users, err := userService.userRepository.GetAllUsers(ctx)
+	if err != nil {
+		return 0, err
+	}
+	admins := 0
+	for i := range users {
+		if users[i].IsAdmin {
+			admins++
+		}
+	}
+	return admins, nil
+}
+
+func lastAdminRequiredError() error {
+	return commonModel.NewBizErrorWithMessageKey(
+		commonModel.ErrCodePermissionDenied,
+		commonModel.LAST_ADMIN_REQUIRED,
+		commonModel.MsgKeyUserLastAdminRequired,
+		nil,
+	)
 }
 
 func (userService *UserService) DeleteUser(ctx context.Context, id string) error {
@@ -352,8 +372,8 @@ func (userService *UserService) DeleteUser(ctx context.Context, id string) error
 		if err != nil {
 			return err
 		}
-		if !operator.IsOwner {
-			return errors.New(commonModel.ONLY_OWNER_CAN_MANAGE)
+		if !operator.IsAdmin {
+			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 
 		user, err := userService.userRepository.GetUserByID(txCtx, id)
@@ -361,16 +381,22 @@ func (userService *UserService) DeleteUser(ctx context.Context, id string) error
 			return err
 		}
 
-		if userid == user.ID || user.IsOwner {
+		if userid == user.ID {
 			return errors.New(commonModel.INVALID_PARAMS_BODY)
 		}
 
-		deletedUser = user
-		if err := userService.userRepository.DeleteUser(txCtx, id); err != nil {
-			return err
+		if user.IsAdmin {
+			admins, err := userService.countAdmins(txCtx)
+			if err != nil {
+				return err
+			}
+			if admins <= 1 {
+				return lastAdminRequiredError()
+			}
 		}
 
-		return nil
+		deletedUser = user
+		return userService.userRepository.DeleteUser(txCtx, id)
 	})
 	if err != nil {
 		return err

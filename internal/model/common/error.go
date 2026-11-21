@@ -72,11 +72,12 @@ const (
 	ErrCodeDeviceExpired           = "DEVICE_EXPIRED"
 	ErrCodeDeviceDenied            = "DEVICE_ACCESS_DENIED"
 	ErrCodeDeviceUnknown           = "DEVICE_CODE_UNKNOWN"
+	ErrCodeRateLimited             = "RATE_LIMITED"
 )
 
 const (
 	USERNAME_OR_PASSWORD_NOT_BE_EMPTY = "用户名或密码不能为空"
-	PASSWORD_INCORRECT                = "密码错误"
+	USERNAME_OR_PASSWORD_INCORRECT    = "用户名或密码错误"
 	PASSWORD_TOO_LONG                 = "密码过长，最多 72 字节"
 	USER_NOTFOUND                     = "用户不存在"
 	USER_COUNT_EXCEED_LIMIT           = "用户数量超过限制"
@@ -94,6 +95,7 @@ const (
 	DEVICE_CODE_DENIED                = "设备授权已被拒绝"
 	DEVICE_CODE_UNKNOWN               = "设备码无效"
 	USER_REGISTER_NOT_ALLOW           = "当前系统禁止注册新用户"
+	RATE_LIMIT_EXCEEDED               = "操作过于频繁，请稍后再试"
 )
 
 const (
@@ -112,13 +114,13 @@ const (
 	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
 	IMAGE_NOT_FOUND        = "图片未找到"
 	INVALID_PARAMS         = "错误的参数"
-	SIGNUP_FIRST           = "请先初始化Owner账号"
+	SIGNUP_FIRST           = "请先初始化管理员账号"
 	S3_NOT_ENABLED         = "S3存储未启用"
 	S3_NOT_CONFIGURED      = "S3存储未配置"
 	S3_CONFIG_ERROR        = "S3存储配置错误"
 	SYSTEM_ALREADY_INITED  = "系统已初始化"
-	OWNER_ALREADY_EXISTS   = "Owner已存在"
-	ONLY_OWNER_CAN_MANAGE  = "仅Owner可管理管理员权限"
+	OWNER_ALREADY_EXISTS   = "管理员已存在"
+	LAST_ADMIN_REQUIRED    = "至少保留一位管理员"
 )
 
 const (

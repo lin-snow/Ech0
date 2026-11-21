@@ -70,7 +70,7 @@ capsule/
 设计要点：
 
 - **每条 Echo 一个文件**，而不是一个大 YAML。理由：可 diff、可单独编辑、frontmatter-markdown 是 Hugo/Astro/Obsidian 通吃的生态标准，`Echo.Content` 本来就是 markdown。
-- **files/ 内部结构原样 mirror `DataRoot`（默认 `data/files`）**：胶囊内相对路径 = `files/ + schema.Resolve(key)`，与本地磁盘布局逐一对应（`files/files/` 即 `DefaultRoute` 兜底类别的 mirror，属预期布局）。导出按 `files` 表**记录驱动**落位（非盲目目录拷贝，`data/files/snapshots/` 等非托管产物不进胶囊）；对本地实例，效果上仍近似一次目录拷贝。
+- **files/ 内部结构原样 mirror `DataRoot`（默认 `data/files`）**：胶囊内相对路径 = `files/ + schema.Resolve(key)`，与本地磁盘布局逐一对应（`files/files/` 即 `DefaultRoute` 兜底类别的 mirror，属预期布局）。导出按 `files` 表**记录驱动**落位（非盲目目录拷贝，`data/artifacts/` 等非托管产物不进胶囊）；对本地实例，效果上仍近似一次目录拷贝。
 - **胶囊自包含（托管文件）**：本地与对象存储（S3）的托管文件在导出时**字节入胶囊**，胶囊内一律相对路径、不依赖 `File.url`（URL 是运行时表示：`File.AfterFind` 会按当前配置重算，胶囊作为离线交换格式不该携带它）。**例外——外链文件（`storage_type=external`）**：字节不在 Ech0 存储里，`url` 即其权威表示，导出时原样透传、不下载本地化（版权与预期问题）。
 
 ### 4.2 清单文件 `ech0.yaml`
@@ -245,7 +245,7 @@ ech0 import capsule [路径，默认 ./capsule] [--dry-run] [--include-private]
 - **幂等按 `id`**：目标库已存在同 `id` 的 Echo 时**跳过并报告**，不覆盖不合并，无 `--overwrite`。重复执行安全。（原 Q12 已裁决）
 - **Echo**：frontmatter + 正文 → `Echo` 行；`created_at` 转回 Unix 秒；Tag 按名称 find-or-create，`UsageCount` 重新统计。
 - **媒体**：字节写入目标实例**当前配置的存储后端**（本地或 S3），生成新的 `files` 行与新的 `url` 快照。胶囊内相对路径只是交换表示，落地后回归运行时表示——跨存储后端迁移（本地 → S3）因此自然成立，不再需要 `docs/usage/storage-migration.md` 里的手工脚本流程。
-- **原样导入**（原 Q12 已裁决）：胶囊字段值 1:1 入库，禁止数值转换——`username` 逐字保留不改写；唯一例外是补全内部必填外键 `Echo.UserID`（同名用户挂接，否则挂执行导入的 owner），展示归属始终以 `username` 为准。
+- **原样导入**（原 Q12 已裁决）：胶囊字段值 1:1 入库，禁止数值转换——`username` 逐字保留不改写；唯一例外是补全内部必填外键 `Echo.UserID`（同名用户挂接，否则挂执行导入的主管理员），展示归属始终以 `username` 为准。
 - **评论**：按 Public 投影字段导入，`status` 保留，Email/IPHash 为空（§4.4 的有意取舍）。
 - **站点设置**：`site` 子集仅在目标实例对应项为空时填充，不覆盖已有配置。
 - **不发布事件**（原 Q13 已裁决）：导入不触发事件总线——webhook 回放历史内容是语义错误（消费者会理解为「刚刚发布」），embedding 增量索引本就「存量由回填命令兜底」（`internal/event/subscriber/embedding.go`），agent 处理器忽略事件载荷。导入报告末尾提醒可在后台触发索引重建。
@@ -312,7 +312,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 
 - **服务端零侵入（v1 约束，已在 Web 集成时解除）**：v1 刻意不碰服务端——不改路由、不改 handler，胶囊只有 CLI 一条路。这条约束保证了胶囊能作为纯增量能力落地，但也把「导出内容/搬家」挡在了只会用面板的用户之外。Web 集成推翻了它：`POST /migration/export` 增加 `format`、`GET /migration/export/download` 增加 `?format=`、`source_type` 增加 `capsule`，DI 里多一个 `migrator.CapsuleEngine`。推翻的理由是这条约束保护的是**实现的整洁**，而拦住的是**用户的实际需要**；且集成代价很低——胶囊三个包的入口本就是不依赖作业框架的纯函数，接进既有 job.Manager 只是加了个分派分支。
   - 边界仍在：胶囊包**依旧**不过 service 层（直连 GORM）、**依旧**不发布事件（原 Q13）。Web 只是多了一个调用方，胶囊本身的语义一个字没改。
-  - 产物落位是新增的正确性约束：胶囊产物独占 `data/files/capsules/`，因为它与快照都遵循「只保留最新一份」，共用目录会互删——尤其定时快照走 gocron 直连 ExportEngine、不过 job.Manager，作业互斥拦不住它。同理该目录**必须**进快照排除列表，否则每次快照都把上一个胶囊打进去、雪球式膨胀。两条不变量都在 `internal/migrator/artifact` 里收口。
+  - 产物落位是新增的正确性约束：胶囊产物独占 `data/artifacts/capsules/`，因为它与快照都遵循「只保留最新一份」，共用目录会互删——尤其定时快照走 gocron 直连 ExportEngine、不过 job.Manager，作业互斥拦不住它。同理该目录**必须**进快照排除列表，否则每次快照都把上一个胶囊打进去、雪球式膨胀。两条不变量都在 `internal/migrator/artifact` 里收口。
 - **Migrator zip 快照**继续作为字节级灾备（含 SQLite 原文件与全部运行时状态）；胶囊负责内容级交换与迁移（§4.8）。
 - 新增 Extension 类型时，schema 映射表（§4.3）**必须同步更新**——这是发布公开契约后的持续纪律成本，需写进贡献指南。
 
@@ -350,7 +350,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 - **文件命名**（原 Q5，实现阶段修订）：`echoes/<年>/<YYYY-MM-DD>-<id 末 8 位>.md`；命名仅浏览友好，语义一律以 frontmatter 为准。原定「前 8 位」被真实数据推翻——UUIDv7 前 48 位是时间戳，实测 287 条里 270 条共用同一前缀，判别位必须取随机段。
 - **site 子集**（原 Q7）：「渲染所需皆入，运维行为皆弃」——键集 = `SystemSetting` 全部字段仅踢运维开关（`allow_register`、`disable_agent_discovery`）；键名 = json tag 原样（import 整块反序列化零映射）；`server_logo` 原样字符串不本地化；`custom_js`/`custom_css` 非空时 check 警告（第三方胶囊 = 执行对方代码）。
 - **产出 `api/connect`**（原 Q10，推翻此前倾向）：与活实例响应体同形的冻结快照，远端探测路径零改动可消费；无扩展名文件的 Content-Type 局限记入 spec。
-- **原样导入**（原 Q12）：胶囊形态尽量贴近 DB 形态，导入 1:1 入库禁止数值转换；`username` 逐字保留，仅补全内部必填外键 `UserID`（同名挂接，否则挂 owner）；无 `--overwrite`。
+- **原样导入**（原 Q12）：胶囊形态尽量贴近 DB 形态，导入 1:1 入库禁止数值转换；`username` 逐字保留，仅补全内部必填外键 `UserID`（同名挂接，否则挂主管理员）；无 `--overwrite`。
 - **内嵌实例 URL 不改写**（原 Q15）：保「逐字一致」契约，`check` 警告级检测（`site.server_url` 前缀或 `/api/files/` 引用）；`--rewrite-content` 留作后续。
 - **「导出即转储，构建即转换」**（总纲，Q12 原则的最终形态）：`export`/`import` 是 DB 的 1:1 序列化边界，字段名与值一律原样；一切消费导向的转换（URL 计算、dataset 烘焙、统计冻结）归 `build`。仅有的表示层差异为无损双射：时间 Unix 秒 ↔ RFC3339 UTC、行 ↔ frontmatter-markdown、关系实体以内容字段表示（Tags → 名称数组、SortOrder → 数组顺序）。
 - **静态站互动痕迹 = 冻结展示**（原 Q4）：点赞数、评论快照按导出时状态只读展示，操作入口隐藏——互动痕迹是内容史的一部分，与 `api/connect` 冻结统计（Q10）逻辑自洽；隐藏会让存档站显得比原站「死」。

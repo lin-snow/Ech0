@@ -167,3 +167,24 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Image: \`${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pull: \`docker pull ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the server process is not root
+        run: |
+          set -euo pipefail
+          ref="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}"
+          docker pull --quiet --platform linux/amd64 "$ref"
+          docker rm -f ech0-guard >/dev/null 2>&1 || true
+          trap 'docker rm -f ech0-guard >/dev/null 2>&1 || true' EXIT
+          docker run -d --name ech0-guard --platform linux/amd64 "$ref" >/dev/null
+          # docker/entrypoint.sh drops to 10001 with su-exec before exec'ing the
+          # server, so PID 1 must report uid 10001.
+          for _ in $(seq 1 30); do
+            if docker exec ech0-guard sh -c 'grep -q "^Uid:.*10001" /proc/1/status' 2>/dev/null; then
+              echo "the server process runs as uid 10001"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::${ref}: the server process is not running as uid 10001"
+          docker logs ech0-guard || true
+          exit 1

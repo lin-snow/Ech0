@@ -17,7 +17,7 @@ type Service interface {
 
 type Repository interface {
 	IsInitialized() (bool, error)
-	GetOwner() (userModel.User, error)
+	GetPrimaryAdmin() (userModel.User, error)
 }
 
 type (

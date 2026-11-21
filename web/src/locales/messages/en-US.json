@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "Request failed",
     "save": "Save",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "noPermission": {
+      "title": "No access",
+      "description": "This page is for administrators only. You can still publish and manage your own profile and files.",
+      "backHome": "Back to home",
+      "accountSettings": "Account settings"
+    }
   },
   "commonUi": {
     "apply": "Apply",
@@ -241,7 +247,7 @@
     "testEmailSending": "Sending...",
     "testEmailSuccess": "Test email sent",
     "emailNotifyTitle": "Email notifications",
-    "emailNotifyDesc": "Notify owner only for new comments, moderation updates, and hot actions.",
+    "emailNotifyDesc": "Notify admins only for new comments, moderation updates, and hot actions.",
     "emailNotifyEnableFirst": "Please enable email notifications first",
     "smtpHostPlaceholder": "SMTP host",
     "smtpPortPlaceholder": "SMTP port",
@@ -293,18 +299,18 @@
     "passkeyLoginFailed": "Passkey login failed"
   },
   "init": {
-    "ownerEmailPlaceholder": "Owner email",
-    "ownerUsernamePlaceholder": "Owner username",
-    "ownerPasswordPlaceholder": "Owner password",
     "initializing": "Initializing...",
     "initialize": "Initialize",
     "initDone": "Initialization completed",
     "alreadyInitializedRedirect": "System already initialized, redirecting to login",
     "initFailed": "Initialization failed",
     "introHeading": "Get started with Ech0",
-    "introDescription": "Create the owner account, finish the basic site setup, and open your personal record space.",
+    "introDescription": "Create the administrator account, finish the basic site setup, and open your personal record space.",
     "siteTitlePlaceholder": "Site name (optional)",
-    "autoLoginFailed": "Owner created. Please sign in."
+    "autoLoginFailed": "Administrator created. Please sign in.",
+    "adminEmailPlaceholder": "Admin email",
+    "adminUsernamePlaceholder": "Admin username",
+    "adminPasswordPlaceholder": "Admin password"
   },
   "onboarding": {
     "title": "Get your instance ready",
@@ -486,13 +492,13 @@
   "connectWidget": {
     "noConnections": "No active connections",
     "loading": "Loading...",
-    "tooltipOwner": "Owner",
     "tooltipTotal": "Total",
     "tooltipToday": "Today",
     "tooltipVersion": "Version",
     "jumpToEchoDetail": "View related Echo details",
     "randomCommentLoading": "Picking a featured comment...",
-    "noFeaturedComment": "No featured comments to show."
+    "noFeaturedComment": "No featured comments to show.",
+    "tooltipAdmin": "Admin"
   },
   "heatmap": {
     "tooltip": "{date}: {count} entries"
@@ -578,7 +584,6 @@
     "avatarUploadSuccess": "Avatar uploaded successfully!",
     "uploadFailed": "Upload failed, please try again later",
     "role": "Role",
-    "roleOwner": "Owner",
     "roleAdmin": "Admin",
     "roleMember": "Member"
   },

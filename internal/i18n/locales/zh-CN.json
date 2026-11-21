@@ -18,9 +18,11 @@
   { "id": "auth.refresh_token_invalid", "translation": "刷新令牌无效或已过期" },
   { "id": "auth.exchange_code_invalid", "translation": "授权码无效或已过期" },
   { "id": "auth.token_generate_failed", "translation": "令牌生成失败" },
+  { "id": "auth.rate_limited", "translation": "操作过于频繁，请稍后再试" },
   { "id": "comment_manager.title", "translation": "评论系统设置" },
   { "id": "comment_manager.subtitle", "translation": "统一管理评论开关、审核策略与验证码配置。" },
   { "id": "dashboard.logs.success", "translation": "获取系统日志成功" },
   { "id": "dashboard.logs.tail_invalid", "translation": "tail 必须是大于 0 的数字" },
-  { "id": "dashboard.check_update_failed", "translation": "检查更新失败" }
+  { "id": "dashboard.check_update_failed", "translation": "检查更新失败" },
+  { "id": "user.last_admin_required", "translation": "至少保留一位管理员" }
 ]

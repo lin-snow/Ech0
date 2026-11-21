@@ -50,7 +50,7 @@
     :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
   >
     <div class="font-bold mb-1">{{ tooltip.data?.server_name }}</div>
-    <div>{{ t('connectWidget.tooltipOwner') }}: {{ tooltip.data?.sys_username || '-' }}</div>
+    <div>{{ t('connectWidget.tooltipAdmin') }}: {{ tooltip.data?.sys_username || '-' }}</div>
     <div>{{ t('connectWidget.tooltipTotal') }}: {{ tooltip.data?.total_echos ?? 0 }}</div>
     <div>{{ t('connectWidget.tooltipToday') }}: {{ tooltip.data?.today_echos ?? 0 }}</div>
     <div>{{ t('connectWidget.tooltipVersion') }}: {{ tooltip.data?.version || '-' }}</div>

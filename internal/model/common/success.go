@@ -10,7 +10,7 @@ const (
 const (
 	LOGIN_SUCCESS      = "登陆成功"
 	REGISTER_SUCCESS   = "注册成功"
-	INIT_OWNER_SUCCESS = "Owner初始化成功"
+	INIT_ADMIN_SUCCESS = "管理员初始化成功"
 )
 
 const (

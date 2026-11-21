@@ -139,7 +139,9 @@ data/files/images/a1b2c3d4_1735689600_deadbeef.png
 
 #### 1.3.3 本地静态映射（与 stream 的区分）
 
-- 注册方式：`ctx.Engine.Static("api/files", root)`，`root` 为配置中的 **`DataRoot`**（默认 `data/files`）。  
+- 注册方式：`ctx.Engine.StaticFS("api/files", storage.NewPublicFS(root))`，`root` 为配置中的 **`DataRoot`**（默认 `data/files`）。
+- **只有** 五个媒体类别目录（`images/ audios/ videos/ documents/ files/`，即 `schema` 的路由前缀）可匿名读取；
+  目录本身与其它任何路径（包括根下的配置文件、快照、非托管目录）一律 404，不产生目录列举。
 - 浏览器请求 `GET /api/files/images/xxx.png` 时，等价于读磁盘 `data/files/images/xxx.png`（路径与 `schema.Resolve(key)` 一致）。  
 - **这是前台本地媒体的主路径**；除非产品改为全部走代理，否则**不必**用 `/api/file/:id/stream` 展示本地图。
 

@@ -28,9 +28,11 @@ const (
 	MsgKeyAuthRefreshTokenInvalid     = "auth.refresh_token_invalid"
 	MsgKeyAuthExchangeCodeInvalid     = "auth.exchange_code_invalid"
 	MsgKeyAuthTokenGenerateFailed     = "auth.token_generate_failed"
+	MsgKeyAuthRateLimited             = "auth.rate_limited"
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
 	MsgKeyDashboardCheckUpdateFailed  = "dashboard.check_update_failed"
+	MsgKeyUserLastAdminRequired       = "user.last_admin_required"
 )
 
 func MessageKeyFromErrorCode(code string) string {
@@ -57,6 +59,8 @@ func MessageKeyFromErrorCode(code string) string {
 		return MsgKeyAuthExchangeCodeInvalid
 	case ErrCodeTokenGenerateFailed:
 		return MsgKeyAuthTokenGenerateFailed
+	case ErrCodeRateLimited:
+		return MsgKeyAuthRateLimited
 	default:
 		return ""
 	}

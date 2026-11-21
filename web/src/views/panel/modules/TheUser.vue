@@ -15,11 +15,16 @@ import { useI18n } from 'vue-i18n'
 import BaseSegmented from '@/components/common/BaseSegmented.vue'
 import TheUserSetting from './TheSetting/TheUserSetting.vue'
 import TheUserManager from './TheSetting/TheUserManager.vue'
+import { useUserStore } from '@/stores'
 
 const { t } = useI18n()
+const userStore = useUserStore()
 const tab = ref('account')
-const tabOptions = computed(() => [
-  { label: String(t('userManagement.tabAccount')), value: 'account' },
-  { label: String(t('userManagement.tabManage')), value: 'manage' },
-])
+const tabOptions = computed(() => {
+  const options = [{ label: String(t('userManagement.tabAccount')), value: 'account' }]
+  if (userStore.user?.is_admin) {
+    options.push({ label: String(t('userManagement.tabManage')), value: 'manage' })
+  }
+  return options
+})
 </script>

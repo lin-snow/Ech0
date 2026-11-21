@@ -21,8 +21,8 @@ func setupCopilotRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	)
 }
 
-func registerCopilot(api huma.API, h *handler.Bundle, revoker authService.TokenRevoker) {
-	route(api, public(), huma.Operation{
+func registerCopilot(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+	api.route(public(), huma.Operation{
 		OperationID: "copilot-recent",
 		Method:      http.MethodGet,
 		Path:        "/agent/recent",
@@ -30,7 +30,7 @@ func registerCopilot(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.GetRecent)
 
-	route(api, secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "copilot-session-get",
 		Method:      http.MethodGet,
 		Path:        "/chat/session",
@@ -38,7 +38,7 @@ func registerCopilot(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.GetSession)
 
-	route(api, secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "copilot-session-clear",
 		Method:      http.MethodDelete,
 		Path:        "/chat/session",
@@ -46,7 +46,7 @@ func registerCopilot(api huma.API, h *handler.Bundle, revoker authService.TokenR
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.ClearSession)
 
-	route(api, secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "copilot-chat-answer",
 		Method:      http.MethodPost,
 		Path:        "/chat/answer",

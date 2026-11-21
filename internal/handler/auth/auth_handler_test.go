@@ -49,7 +49,7 @@ func (f *fakeAuthService) ExchangeOAuthCode(code string) (*authModel.TokenPair, 
 	return nil, errors.New("not implemented")
 }
 
-func (f *fakeAuthService) Login(*authModel.LoginDto) (*authModel.TokenPair, error) {
+func (f *fakeAuthService) Login(context.Context, *authModel.LoginDto) (*authModel.TokenPair, error) {
 	panic("not called in auth handler tests")
 }
 
@@ -131,7 +131,7 @@ func (f *fakeUserService) UpdateUserAdmin(context.Context, string) error { panic
 func (f *fakeUserService) GetAllUsers(context.Context) ([]userModel.User, error) {
 	panic("not called")
 }
-func (f *fakeUserService) GetOwner() (userModel.User, error) { panic("not called") }
+func (f *fakeUserService) GetPrimaryAdmin() (userModel.User, error) { panic("not called") }
 func (f *fakeUserService) DeleteUser(context.Context, string) error {
 	panic("not called")
 }

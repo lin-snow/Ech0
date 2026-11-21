@@ -22,7 +22,7 @@ var errRepoBoom = errors.New("repo boom")
 
 func expectAdmin(t *testing.T, d deps, userID string) {
 	t.Helper()
-	owner := helpers.NewUser(helpers.AsOwner)
+	owner := helpers.NewUser(helpers.AsAdmin)
 	owner.ID = userID
 	d.common.EXPECT().
 		CommonGetUserByUserId(mock.Anything, userID).
@@ -401,7 +401,7 @@ func TestResolveParentID_ValidParentSetsParentID(t *testing.T) {
 	d := newDeps(t)
 	d.expectSetting(t, enabledSetting())
 
-	owner := helpers.NewUser(helpers.AsOwner)
+	owner := helpers.NewUser(helpers.AsAdmin)
 	owner.ID = "owner-1"
 	d.common.EXPECT().
 		CommonGetUserByUserId(mock.Anything, "owner-1").

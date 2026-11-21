@@ -82,26 +82,12 @@ func TestUserRepository_UpdateUser_CacheCoordination(t *testing.T) {
 		assert.Equal(t, updated, gotID)
 	})
 
-	t.Run("owner downgrade deletes the owner key", func(t *testing.T) {
-		repo, db, c := newUserRepo(t)
-		existing := seedUser(t, db, userModel.User{ID: "u1", Username: "o", IsAdmin: true, IsOwner: true})
-		c.Set(GetOwnerKey(), existing, 1)
-
-		updated := existing
-		updated.IsOwner = false
-		require.NoError(t, repo.UpdateUser(context.Background(), &updated))
-
-		_, ok := cacheGetUser(t, c, GetOwnerKey())
-		assert.False(t, ok, "owner key must be deleted when demoting from owner")
-	})
-
-	t.Run("promotion to admin and owner sets id/username/admin/owner keys", func(t *testing.T) {
+	t.Run("promotion to admin sets id/username/admin keys", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
 		existing := seedUser(t, db, userModel.User{ID: "u1", Username: "x"})
 
 		updated := existing
 		updated.IsAdmin = true
-		updated.IsOwner = true
 		require.NoError(t, repo.UpdateUser(context.Background(), &updated))
 
 		gotID, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
@@ -115,10 +101,6 @@ func TestUserRepository_UpdateUser_CacheCoordination(t *testing.T) {
 		gotAdmin, ok := cacheGetUser(t, c, GetAdminKey("u1"))
 		require.True(t, ok)
 		assert.Equal(t, updated, gotAdmin)
-
-		gotOwner, ok := cacheGetUser(t, c, GetOwnerKey())
-		require.True(t, ok)
-		assert.Equal(t, updated, gotOwner)
 	})
 
 	t.Run("updating a missing user errors and writes no cache", func(t *testing.T) {
@@ -134,7 +116,7 @@ func TestUserRepository_UpdateUser_CacheCoordination(t *testing.T) {
 }
 
 func TestUserRepository_CreateUser_KeyFanout(t *testing.T) {
-	t.Run("non-owner sets only id and username keys", func(t *testing.T) {
+	t.Run("regular user sets only id and username keys", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
 
 		user := userModel.User{ID: "u1", Username: "alice", IsAdmin: true}
@@ -148,8 +130,6 @@ func TestUserRepository_CreateUser_KeyFanout(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, user, gotName)
 
-		_, ok = cacheGetUser(t, c, GetOwnerKey())
-		assert.False(t, ok, "create must not set owner key for a non-owner")
 		_, ok = cacheGetUser(t, c, GetAdminKey("u1"))
 		assert.False(t, ok, "create does not populate the admin key")
 
@@ -157,36 +137,19 @@ func TestUserRepository_CreateUser_KeyFanout(t *testing.T) {
 		require.NoError(t, db.Model(&userModel.User{}).Where("id = ?", "u1").Count(&n).Error)
 		assert.Equal(t, int64(1), n)
 	})
-
-	t.Run("owner also sets the owner key", func(t *testing.T) {
-		repo, _, c := newUserRepo(t)
-
-		user := userModel.User{ID: "u1", Username: "boss", IsAdmin: true, IsOwner: true}
-		require.NoError(t, repo.CreateUser(context.Background(), &user))
-
-		gotOwner, ok := cacheGetUser(t, c, GetOwnerKey())
-		require.True(t, ok)
-		assert.Equal(t, user, gotOwner)
-
-		_, ok = cacheGetUser(t, c, GetUserIDKey("u1"))
-		assert.True(t, ok)
-		_, ok = cacheGetUser(t, c, GetUsernameKey("boss"))
-		assert.True(t, ok)
-	})
 }
 
 func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
-	t.Run("admin owner deletes id/username/admin/owner keys", func(t *testing.T) {
+	t.Run("admin deletes id/username/admin keys", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
-		u := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", IsAdmin: true, IsOwner: true})
+		u := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", IsAdmin: true})
 		c.Set(GetUserIDKey("u1"), u, 1)
 		c.Set(GetUsernameKey("boss"), u, 1)
 		c.Set(GetAdminKey("u1"), u, 1)
-		c.Set(GetOwnerKey(), u, 1)
 
 		require.NoError(t, repo.DeleteUser(context.Background(), "u1"))
 
-		for _, key := range []string{GetUserIDKey("u1"), GetUsernameKey("boss"), GetAdminKey("u1"), GetOwnerKey()} {
+		for _, key := range []string{GetUserIDKey("u1"), GetUsernameKey("boss"), GetAdminKey("u1")} {
 			_, ok := cacheGetUser(t, c, key)
 			assert.Falsef(t, ok, "key %q must be invalidated", key)
 		}
@@ -196,13 +159,12 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 		assert.Equal(t, int64(0), n)
 	})
 
-	t.Run("regular user deletes only id/username keys and leaves admin/owner keys", func(t *testing.T) {
+	t.Run("regular user deletes only id/username keys and leaves the admin key", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
 		u := seedUser(t, db, userModel.User{ID: "u1", Username: "bob"})
 		c.Set(GetUserIDKey("u1"), u, 1)
 		c.Set(GetUsernameKey("bob"), u, 1)
 		c.Set(GetAdminKey("u1"), u, 1)
-		c.Set(GetOwnerKey(), u, 1)
 
 		require.NoError(t, repo.DeleteUser(context.Background(), "u1"))
 
@@ -213,8 +175,6 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 
 		_, ok = cacheGetUser(t, c, GetAdminKey("u1"))
 		assert.True(t, ok, "admin key must survive deleting a non-admin user")
-		_, ok = cacheGetUser(t, c, GetOwnerKey())
-		assert.True(t, ok, "owner key must survive deleting a non-owner user")
 	})
 
 	t.Run("deleting a missing user errors", func(t *testing.T) {
@@ -274,7 +234,6 @@ func TestUserCacheKeyBuilders(t *testing.T) {
 	assert.Equal(t, "id:u1", GetUserIDKey("u1"))
 	assert.Equal(t, "username:alice", GetUsernameKey("alice"))
 	assert.Equal(t, "admin:u1", GetAdminKey("u1"))
-	assert.Equal(t, OwnerKey, GetOwnerKey())
 	assert.Equal(t, "passkey:reg:nonce1", GetPasskeyRegisterSessionKey("nonce1"))
 	assert.Equal(t, "passkey:login:nonce2", GetPasskeyLoginSessionKey("nonce2"))
 }
@@ -373,50 +332,26 @@ func TestUserRepository_GetUserByUsername_ReadThrough(t *testing.T) {
 	})
 }
 
-func TestUserRepository_GetOwner_ReadThrough(t *testing.T) {
-	t.Run("cache hit returns cached without db", func(t *testing.T) {
-		repo, _, c := newUserRepo(t)
-		sentinel := userModel.User{ID: "u1", Username: "owner", IsOwner: true}
-		c.Set(GetOwnerKey(), sentinel, 1)
-
-		got, err := repo.GetOwner(context.Background())
-		require.NoError(t, err)
-		assert.Equal(t, sentinel, got)
-	})
-
-	t.Run("cache miss reads db and backfills", func(t *testing.T) {
+func TestUserRepository_GetPrimaryAdmin(t *testing.T) {
+	t.Run("returns the earliest admin and never caches it", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
 		seedUser(t, db, userModel.User{ID: "u2", Username: "plain"})
-		want := seedUser(t, db, userModel.User{ID: "u1", Username: "owner", IsAdmin: true, IsOwner: true})
+		want := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", IsAdmin: true})
 
-		got, err := repo.GetOwner(context.Background())
+		got, err := repo.GetPrimaryAdmin(context.Background())
 		require.NoError(t, err)
-		assert.Equal(t, want, got)
+		assert.Equal(t, want.ID, got.ID)
+		assert.True(t, got.IsAdmin)
 
-		cached, ok := cacheGetUser(t, c, GetOwnerKey())
-		require.True(t, ok)
-		assert.Equal(t, want, cached)
+		_, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
+		assert.False(t, ok, "primary admin lookup must stay uncached")
 	})
 
-	t.Run("transaction context bypasses cache", func(t *testing.T) {
-		repo, db, c := newUserRepo(t)
-		want := seedUser(t, db, userModel.User{ID: "u1", Username: "owner", IsAdmin: true, IsOwner: true})
-		stale := userModel.User{ID: "u9", Username: "stale-owner", IsOwner: true}
-		c.Set(GetOwnerKey(), stale, 1)
+	t.Run("no admin returns record-not-found", func(t *testing.T) {
+		repo, db, _ := newUserRepo(t)
+		seedUser(t, db, userModel.User{ID: "u2", Username: "plain"})
 
-		ctxTx := context.WithValue(context.Background(), transaction.TxKey, db)
-		got, err := repo.GetOwner(ctxTx)
-		require.NoError(t, err)
-		assert.Equal(t, want, got)
-
-		cached, ok := cacheGetUser(t, c, GetOwnerKey())
-		require.True(t, ok)
-		assert.Equal(t, stale, cached)
-	})
-
-	t.Run("no owner returns record-not-found", func(t *testing.T) {
-		repo, _, _ := newUserRepo(t)
-		_, err := repo.GetOwner(context.Background())
+		_, err := repo.GetPrimaryAdmin(context.Background())
 		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	})
 }

@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-)
 
-const TmpRelativeDir = "files/tmp"
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
+)
 
 func CleanupTmpDirFromPayload(sourcePayload map[string]any) error {
 	tmpDir, ok := resolveTmpDir(sourcePayload)
@@ -32,8 +32,8 @@ func resolveTmpDir(sourcePayload map[string]any) (string, bool) {
 		return "", false
 	}
 
-	allowedBaseDir := filepath.Clean(filepath.Join("data", TmpRelativeDir))
-	targetDir := filepath.Clean(filepath.Join("data", cleanRelPath))
+	allowedBaseDir := filepath.Clean(artifact.TmpRoot())
+	targetDir := filepath.Clean(filepath.Join(artifact.DataDir, cleanRelPath))
 	if targetDir != allowedBaseDir && !strings.HasPrefix(targetDir, allowedBaseDir+string(os.PathSeparator)) {
 		return "", false
 	}

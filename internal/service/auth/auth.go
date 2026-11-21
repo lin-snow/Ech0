@@ -28,6 +28,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	model "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/internal/ratelimit"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/transaction"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
@@ -48,6 +49,7 @@ type AuthService struct {
 	durableKV      kvstore.Store
 	resolveAdapter func(provider string) (oauthProviderAdapter, error)
 	tokenIssuer    TokenIssuer
+	limits         *ratelimit.MemoryLimiter
 	deviceMu       sync.Mutex
 	devices        map[string]*deviceEntry
 }
@@ -58,6 +60,7 @@ func NewAuthService(
 	authRepo AuthRepo,
 	durableKV kvstore.Store,
 	tokenIssuer TokenIssuer,
+	limits *ratelimit.MemoryLimiter,
 ) *AuthService {
 	return &AuthService{
 		transactor:     tx,
@@ -66,6 +69,7 @@ func NewAuthService(
 		durableKV:      durableKV,
 		resolveAdapter: getOAuthProviderAdapter,
 		tokenIssuer:    tokenIssuer,
+		limits:         limits,
 		devices:        make(map[string]*deviceEntry),
 	}
 }
@@ -90,15 +94,22 @@ func (authService *AuthService) ExchangeOAuthCode(code string) (*authModel.Token
 	return authService.authRepo.GetAndDeleteOAuthCode(code)
 }
 
-func (authService *AuthService) Login(loginDto *authModel.LoginDto) (*authModel.TokenPair, error) {
+func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.LoginDto) (*authModel.TokenPair, error) {
 	if loginDto.Username == "" || loginDto.Password == "" {
 		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
 	}
 
-	ctx := context.Background()
+	attempt, err := authService.reserveSignIn(ctx, loginDto.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unknown user, missing local credentials and a wrong password must look
+	// identical from the outside, otherwise the endpoint becomes an account
+	// oracle. The distinguishers stay in the server log only.
 	user, err := authService.repository.GetUserByUsername(ctx, loginDto.Username)
 	if err != nil {
-		return nil, errors.New(commonModel.USER_NOTFOUND)
+		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 	}
 
 	localAuth, err := authService.repository.GetLocalAuthByUserID(ctx, user.ID)
@@ -111,11 +122,12 @@ func (authService *AuthService) Login(loginDto *authModel.LoginDto) (*authModel.
 				logUtil.Err(err),
 			)
 		}
-		return nil, errors.New(commonModel.PASSWORD_INCORRECT)
+		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 	}
 	if !cryptoUtil.CheckPassword(localAuth.PasswordAlgo, localAuth.PasswordHash, loginDto.Password) {
-		return nil, errors.New(commonModel.PASSWORD_INCORRECT)
+		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 	}
+	attempt.succeeded()
 
 	if localAuth.PasswordAlgo != cryptoUtil.AlgoBcrypt {
 		if newHash, hashErr := cryptoUtil.HashPassword(loginDto.Password); hashErr == nil {

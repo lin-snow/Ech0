@@ -10,7 +10,6 @@ declare namespace App {
         email?: string
         password?: string
         is_admin: boolean
-        is_owner?: boolean
         avatar?: string
         locale: string
       }
@@ -20,7 +19,6 @@ declare namespace App {
         password: string
         email?: string
         is_admin: boolean
-        is_owner?: boolean
         avatar: string
         avatar_file_id?: string
         locale: string

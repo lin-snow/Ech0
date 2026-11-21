@@ -299,8 +299,8 @@ func TestQueryEchos_PageSizeClamp(t *testing.T) {
 
 			var captured commonModel.EchoQueryDto
 			repo.EXPECT().
-				QueryEchos(mock.Anything, false).
-				Run(func(dto commonModel.EchoQueryDto, _ bool) { captured = dto }).
+				QueryEchos(mock.Anything, echoModel.PrivateScope{}).
+				Run(func(dto commonModel.EchoQueryDto, _ echoModel.PrivateScope) { captured = dto }).
 				Return([]echoModel.Echo{}, int64(0), nil).
 				Once()
 

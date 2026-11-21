@@ -287,6 +287,7 @@ export const zFileDto = z.object({
     size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     storage_type: z.string().optional(),
     url: z.string().optional(),
+    user_id: z.string().optional(),
     width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
@@ -1008,9 +1009,11 @@ export const zSystemSetting = z.object({
     footer_content: z.string().optional(),
     footer_link: z.string().optional(),
     meting_api: z.string().optional(),
+    privacy_policy: z.string().optional(),
     server_logo: z.string().optional(),
     server_name: z.string().optional(),
     server_url: z.string().optional(),
+    show_privacy_footer: z.boolean().optional(),
     site_title: z.string().optional()
 });
 
@@ -1033,10 +1036,12 @@ export const zSystemSettingDto = z.object({
     footer_content: z.string().optional(),
     footer_link: z.string().optional(),
     meting_api: z.string().optional(),
+    privacy_policy: z.string().optional(),
     server_logo: z.string().optional(),
     server_logo_file_id: z.string().optional(),
     server_name: z.string().optional(),
     server_url: z.string().optional(),
+    show_privacy_footer: z.boolean().optional(),
     site_title: z.string().optional()
 });
 
@@ -1147,7 +1152,6 @@ export const zUser = z.object({
     email: z.string().optional(),
     id: z.string().optional(),
     is_admin: z.boolean().optional(),
-    is_owner: z.boolean().optional(),
     locale: z.string().optional(),
     username: z.string().optional()
 });
@@ -1175,7 +1179,6 @@ export const zUserInfoDto = z.object({
     avatar_file_id: z.string().optional(),
     email: z.string().optional(),
     is_admin: z.boolean().optional(),
-    is_owner: z.boolean().optional(),
     locale: z.string().optional(),
     password: z.string().optional(),
     username: z.string().optional()

@@ -7,7 +7,7 @@
 
 ## 核心模型
 
-- **Snapshot = `data/` 的 zip 归档**（排除 `files/snapshots`、`files/tmp`）。它既是导出的产物，
+- **Snapshot = `data/` 的 zip 归档**（排除 `artifacts/`：快照、胶囊、迁移临时产物都不进快照）。它既是导出的产物，
   也是导入的源（导出的快照可经 `ech0` 源往返导入）。资源代码在
   `internal/migrator/snapshot`（`writer.go` 打包 / `Unpack` 解包 / `reader.go` 定位 / `s3.go` 上传与保留），
   无 DI 依赖。
@@ -41,7 +41,8 @@
 
 本次「彻底清除 backup 语义」涉及对外/持久化契约的改名，升级时注意：
 
-- **磁盘**：快照目录 `data/files/backups/` → `data/files/snapshots/`，文件名 `ech0_backup_*.zip` →
+- **磁盘**：快照目录 `data/files/snapshots/` → `data/artifacts/snapshots/`（同版本还把胶囊与迁移临时目录一并迁到
+  `data/artifacts/{capsules,tmp}/`；`/api/files` 不再服务这些路径，升级启动时自动搬移旧目录）。文件名保持
   `ech0_snapshot_*.zip`。旧的 `data/files/backups/` 不再被识别（可手动删除）。
 - **S3**：对象前缀 `backups/` → `snapshots/`。旧对象成为孤儿（可手动清理）。
 - **Webhook 事件主题**：`system.backup` → `system.snapshot`，`system.backup_schedule.updated` →

@@ -21,7 +21,6 @@
 
 ```bash
 # 最小 .env 示例（放在工作目录）
-JWT_SECRET=please-change-me
 ECH0_SERVER_PORT=6277
 ECH0_DB_PATH=data/ech0.db
 ```
@@ -93,7 +92,6 @@ ECH0_DB_PATH=data/ech0.db
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `JWT_SECRET` | `(空)` | **注意没有 `ECH0_` 前缀**。也可用 `ECH0_JWT_SECRET`（别名，前者优先）。不设置则每次启动随机生成，**重启后所有已签发 token 失效**，stderr 会给出警告 |
 | `ECH0_JWT_EXPIRES` | `900` | access token 有效期（秒） |
 | `ECH0_JWT_REFRESH_EXPIRES` | `604800` | refresh token 有效期（秒） |
 | `ECH0_JWT_ISSUER` | `ech0` | JWT `iss` |
@@ -117,7 +115,7 @@ ECH0_DB_PATH=data/ech0.db
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `ECH0_STORAGE_DATA_ROOT` | `data/files` | 本地存储根目录，同时决定 `/api/files` 静态路由 |
+| `ECH0_STORAGE_DATA_ROOT` | `data/files` | 本地存储根目录；`/api/files` 只对其中的媒体类别目录（`images/ audios/ videos/ documents/ files/`）提供匿名只读访问 |
 | `ECH0_OBJECT_ENABLED` | `false` | S3 设置首次落库的默认开关 |
 | `ECH0_S3_ENDPOINT` | `(空)` | S3 兼容端点（不带 `http(s)://`） |
 | `ECH0_S3_ACCESS_KEY` | `(空)` | 访问密钥 |
@@ -203,7 +201,7 @@ ECH0_DB_PATH=data/ech0.db
 
 ## 常见坑
 
-1. **`JWT_SECRET` 没有前缀。** 写成 `ECH0_JWT_SECRET` 现在也可用；两者都没设则每次重启换密钥，表现为「所有客户端突然需要重新登录」。
+1. **`JWT_SECRET` / `ECH0_JWT_SECRET` 已废弃。** 密钥存在数据库（设置 KV 的 `jwt_secret`），这两个变量会被忽略并在启动日志告警；要轮换就删掉该 KV 键后重启（已签发 token 全部失效）。
 2. **改 `ECH0_SETTING_*` 不生效。** 该实例已经落库过设置，env 只是首次默认值。请到后台改，或删掉对应 KV key 后重启。
 3. **`docker logs` 空。** 镜像内 `ECH0_LOG_CONSOLE` 默认 `true`；若被显式设为 `false`，日志只进 `data/app.log` 与 TUI 日志流。
 4. **自定义 `ECH0_DB_PATH`。** 文件名任意（如 `data/mydb.sqlite`），父目录会自动创建；空值会让启动失败。

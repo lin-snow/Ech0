@@ -247,7 +247,7 @@ func TestSendOwnerMail(t *testing.T) {
 
 	t.Run("nil mailer is unavailable", func(t *testing.T) {
 		s := &CommentService{}
-		err := s.sendOwnerMail(context.Background(), validCfg, validMsg)
+		err := s.sendAdminMail(context.Background(), validCfg, validMsg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "mailer unavailable")
 	})
@@ -257,7 +257,7 @@ func TestSendOwnerMail(t *testing.T) {
 		s := &CommentService{mailer: stub}
 		badCfg := validCfg
 		badCfg.SMTPHost = ""
-		err := s.sendOwnerMail(context.Background(), badCfg, validMsg)
+		err := s.sendAdminMail(context.Background(), badCfg, validMsg)
 		require.Error(t, err)
 		assert.False(t, stub.called, "mailer must not be invoked when config is invalid")
 	})
@@ -267,7 +267,7 @@ func TestSendOwnerMail(t *testing.T) {
 		s := &CommentService{mailer: stub}
 		cfg := validCfg
 		cfg.SMTPHost = "  smtp.example.com  "
-		err := s.sendOwnerMail(context.Background(), cfg, validMsg)
+		err := s.sendAdminMail(context.Background(), cfg, validMsg)
 		require.NoError(t, err)
 		assert.True(t, stub.called)
 	})
@@ -275,7 +275,7 @@ func TestSendOwnerMail(t *testing.T) {
 	t.Run("mailer error is propagated", func(t *testing.T) {
 		stub := &stubMailer{err: errors.New("smtp down")}
 		s := &CommentService{mailer: stub}
-		err := s.sendOwnerMail(context.Background(), validCfg, validMsg)
+		err := s.sendAdminMail(context.Background(), validCfg, validMsg)
 		require.Error(t, err)
 		assert.True(t, stub.called)
 		assert.Contains(t, strings.ToLower(err.Error()), "smtp")
