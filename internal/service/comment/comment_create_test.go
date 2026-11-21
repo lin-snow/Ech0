@@ -192,6 +192,24 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 			},
 			wantMsg: "网址格式无效",
 		},
+		{
+			// ParseRequestURI accepts any scheme with a host, so a
+			// javascript: URL used to pass and then ran on author-link click.
+			name: "javascript website scheme",
+			dto: commentModel.CreateCommentDto{
+				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
+				Website: "javascript://evil.example/%0aalert(document.domain)",
+			},
+			wantMsg: "网址格式无效",
+		},
+		{
+			name: "data website scheme",
+			dto: commentModel.CreateCommentDto{
+				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
+				Website: "data:text/html,<script>alert(1)</script>",
+			},
+			wantMsg: "网址格式无效",
+		},
 	}
 
 	for _, tc := range cases {

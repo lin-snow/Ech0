@@ -28,6 +28,7 @@ const COPIED_PLACEHOLDER = '__ECHO_MD_COPIED__'
 const TASK_CHECKBOX_LABEL_PLACEHOLDER = '__ECHO_MD_TASK_CHECKBOX_LABEL__'
 const TASK_LIST_MARKER_RE = /^\[( |x|X)\]\s+/
 const CODE_FENCE_RE = /(^|\n)\s{0,3}(```|~~~)/
+const CODE_LANG_TOKEN_RE = /^[A-Za-z0-9_+#.-]+$/
 const RENDER_CACHE_MAX_SIZE = 120
 const renderCache = new Map<string, string>()
 
@@ -48,8 +49,13 @@ function getLineCount(code: string): number {
 function renderCodeBlock(code: string, rendered: string, language?: string): string {
   const lineCount = getLineCount(code)
   const isCollapsible = lineCount >= CODE_BLOCK_COLLAPSE_THRESHOLD
-  const langRaw = language?.trim() || 'text'
-  const languageClass = language ? ` language-${language}` : ''
+  // The fence info string is attacker-controlled (guest comments included) and
+  // lands in an attribute here. Only a conservative language token may be
+  // emitted; anything else drops the class rather than escaping it, because a
+  // `"` in the class value would otherwise start a new attribute.
+  const langName = language?.trim() ?? ''
+  const langRaw = langName || 'text'
+  const languageClass = CODE_LANG_TOKEN_RE.test(langName) ? ` language-${langName}` : ''
   const pre = `<pre><code class="hljs${languageClass}">${rendered}</code></pre>`
 
   const langLabel = escapeHtml(langRaw)

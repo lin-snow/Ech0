@@ -171,8 +171,12 @@ func (s *CommentService) CreateComment(
 				commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "邮箱格式无效")
 		}
 		if website != "" {
+			// The website is rendered as an <a href> on the public page, so only
+			// http(s) is allowed: any other scheme (javascript:, data:, ...)
+			// becomes script execution in the visitor's origin on click.
 			parsed, err := url.ParseRequestURI(website)
-			if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			if err != nil || parsed.Host == "" ||
+				(parsed.Scheme != "http" && parsed.Scheme != "https") {
 				return model.CreateCommentResult{},
 					commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "网址格式无效")
 			}
