@@ -11,6 +11,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ### Changed
 
+- **The JWT signing secret now lives in the database, so restarts and upgrades stop logging everyone out.** The first boot generates a 256-bit secret and stores it in the settings key-value table (`jwt_secret`), then every later boot reuses it; sessions, access tokens, refresh tokens and passkey state stay valid. Deleting that key and restarting is the only rotation path, and it invalidates every issued token.
+
+- **No shipped JWT secret, not even a placeholder.** The compose file, `README*`, `DEPLOYMENT.md`, the install/upgrade guides on the docs site and the release page no longer ship or recommend `JWT_SECRET="Hello Echos"`; the install commands drop the variable entirely. `charts/ech0` 1.2.0 has no secret value or Secret template at all — it only renders `extraEnv`.
+
 - **Music cards no longer fall back to a built-in Meting endpoint.** The hardcoded `https://meting.soopy.cn/api` resolver is gone, so a `meting_api` the operator never set can no longer route visitors through a third-party service. While the setting is empty, a music card for NetEase or QQ Music renders a "no music source available" notice instead of fetching, and the editor blocks publishing such a link and points to **System settings → Meting API**. Apple Music links are unaffected because they render through Apple's own embed.
 
 ### Fixed
@@ -26,6 +30,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 - **Rotate credentials if an instance ever ran an exposed version with a snapshot present.** The archives above contained plaintext access tokens, the S3 access/secret keys, the OAuth2/OIDC client secret, the SMTP password and the LLM/embedding API keys. Delete and re-issue all access tokens, rotate the S3 keys, the OAuth client secret, the SMTP password and any provider API keys, and check `app.log` / reverse-proxy logs for requests to `/api/files/snapshots/`, `/api/files/tmp/` and `/api/files/capsules/` (up to and including v5.9.10). `custom_js` is also publicly readable, so review it for injected script.
 
 - **The container image no longer lets the server run as root.** `docker/entrypoint.sh`, installed by `docker/Dockerfile` (the released image) and `docker/build.Dockerfile`, starts as root only to hand `/app/data` to uid/gid `10001`, then `su-exec`s into the server as `10001` — the server process itself never has root, and release CI now proves it by starting the published image and asserting PID 1 reports uid `10001`. The target uid is fixed on purpose: the entrypoint `exec`s the server binary instead of re-entering itself, so there is no configurable uid and no re-entry guard to keep tested, and no environment variable can turn root back on. Nothing needed root: the server only writes under `/app/data` and binds the unprivileged port `6277`. The Helm chart's defaults now match (`runAsNonRoot`, `runAsUser`/`runAsGroup`/`fsGroup` `10001`, `seccompProfile: RuntimeDefault`, all capabilities dropped, `allowPrivilegeEscalation: false`), so a default chart install is accepted by namespaces with restricted pod-security enforcement. **Upgrade note:** none — a bind-mounted data directory left root-owned by an older image is handed over on first start. Where that handoff is impossible (read-only mount), startup stops with a message naming `sudo chown -R 10001:10001 /opt/ech0/data` instead of an opaque SQLite error.
+
+### Removed
+
+- **`JWT_SECRET` / `ECH0_JWT_SECRET` are no longer read.** The signing secret's single source is the database, so the environment variable cannot override it any more: setting it is ignored and logs a warning at startup (remove it). Consequently `charts/ech0` 1.2.0 drops `config.JWT_SECRET`, `config.existingSecret` and `config.existingSecretKey`, and `scripts/ech0.sh` no longer appends a `JWT_SECRET` to the generated `.env`. An instance that upgrades with the variable still set signs with the stored key from then on, so tokens issued under the old env secret are invalidated once — one last round of sign-ins.
 
 ## [5.9.10] - 2026-11-17
 

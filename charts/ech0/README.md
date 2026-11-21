@@ -8,19 +8,25 @@ This chart runs the single-binary server image with a persistent volume for the 
 ```bash
 helm repo add ech0 https://lin-snow.github.io/Ech0
 helm repo update
-helm install ech0 ech0/ech0 --set config.JWT_SECRET="$(openssl rand -hex 32)"
+helm install ech0 ech0/ech0
 ```
 
 The same package is also published as an OCI artifact to GitHub Container Registry:
 
 ```bash
-helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 \
-  --version <chart-version> \
-  --set config.JWT_SECRET="$(openssl rand -hex 32)"
+helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
-`config.JWT_SECRET` defaults to a placeholder (`Hello Echos`) that is public in this repository, so
-**always override it in production** — tokens signed with the default are forgeable.
+### Signing secret
+
+Nothing to configure. The server generates a 256-bit JWT signing secret on first boot and keeps it in
+the SQLite database (settings key-value `jwt_secret`), so restarts and `helm upgrade` keep sessions and
+access tokens valid. The key travels with `persistence`, and it is part of any database snapshot you
+export.
+
+`JWT_SECRET` is not supported any more: the value is ignored and the server logs a warning on boot.
+Because the key lives in the database, a data volume that is recreated on every deploy also rotates
+it — mount `persistence` if sessions must survive.
 
 ## Configuration
 
@@ -32,7 +38,6 @@ helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 \
 | `service.type` / `service.httpPort` | Service type and port | `ClusterIP` / `6277` |
 | `ingress.*` | Ingress configuration | disabled |
 | `httpRoute.*` | Gateway API HTTPRoute configuration | disabled |
-| `config.JWT_SECRET` | JWT signing secret. **Change this in production.** | `Hello Echos` |
 | `extraEnv` / `extraEnvFrom` | Extra environment variables / env sources | `[]` |
 | `persistence.enabled` / `persistence.size` / `persistence.mountPath` | PVC for `/app/data` (SQLite + uploads) | `true` / `1Gi` / `/app/data` |
 | `probes.*` | Liveness and readiness probes | enabled |

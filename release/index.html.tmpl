@@ -217,12 +217,11 @@
   --name ech0 \
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
-  -e JWT_SECRET="Hello Echos" \
   sn0wl1n/ech0:latest</code></pre>
 
         <h3>Docker Compose</h3>
         <pre><code>docker-compose up -d</code></pre>
-        <p class="muted">In <code>docker-compose.yml</code>, set <code>JWT_SECRET</code> under <code>environment</code>.</p>
+        <p class="muted">Nothing else to configure — the signing secret is generated on first boot and stored in the data volume.</p>
 
         <details>
           <summary>More install options</summary>

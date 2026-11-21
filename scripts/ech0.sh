@@ -258,52 +258,6 @@ install_package_files() {
   chmod 755 "$target_path/ech0" || return 1
 }
 
-generate_secret() {
-  if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 32
-  elif [ -r /dev/urandom ]; then
-    od -An -tx1 -N32 /dev/urandom | tr -d ' \n'
-  else
-    return 1
-  fi
-}
-
-# 未配置 JWT_SECRET 时服务每次重启都会让登录态失效，这里生成一次并持久化到 .env
-ensure_jwt_secret() {
-  local target_path=$1
-  local env_file="$target_path/.env"
-
-  if [ -f "$env_file" ]; then
-    local configured
-    configured=$(grep -E '^[[:space:]]*(ECH0_)?JWT_SECRET[[:space:]]*=' "$env_file" | tail -n1 \
-      | sed -E 's/^[^=]*=[[:space:]]*//' \
-      | tr -d '"' \
-      | tr -d "'" \
-      | tr -d '[:space:]')
-    if [ -n "$configured" ]; then
-      return
-    fi
-  fi
-  if [ -n "${JWT_SECRET:-}" ] || [ -n "${ECH0_JWT_SECRET:-}" ]; then
-    return
-  fi
-
-  local secret
-  if ! secret=$(generate_secret); then
-    log_warn "无法生成 JWT_SECRET，服务重启后登录态会失效，请自行在 ${env_file} 中配置"
-    return
-  fi
-
-  if [ -f "$env_file" ]; then
-    printf '\nJWT_SECRET=%s\n' "$secret" >>"$env_file" || log_warn "写入 ${env_file} 失败"
-  else
-    printf '# 由 ech0.sh 生成，保留此文件可避免重启后登录态失效\nJWT_SECRET=%s\n' "$secret" \
-      >"$env_file" || log_warn "写入 ${env_file} 失败"
-  fi
-  chmod 600 "$env_file" 2>/dev/null || true
-  log_info "已生成 JWT_SECRET: ${env_file}"
-}
-
 ensure_service() {
   local install_path=$1
   local force=${2:-false}
@@ -573,7 +527,6 @@ install_ech0() {
 
   prepare_install_dir "$target_path"
   install_package_files "$package_dir" "$target_path" || handle_error 1 "写入程序文件失败"
-  ensure_jwt_secret "$target_path"
   ensure_service "$target_path" true
 
   systemctl restart "$SERVICE_NAME"
@@ -643,7 +596,6 @@ update_ech0() {
     handle_error 1 "更新文件失败，已恢复旧版本"
   fi
 
-  ensure_jwt_secret "$target_path"
   ensure_service "$target_path"
   systemctl restart "$SERVICE_NAME"
 

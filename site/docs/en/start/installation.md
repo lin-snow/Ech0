@@ -13,7 +13,7 @@ description: Docker / Compose / binary / Helm; ports, data, and security essenti
 | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Port           | Default **6277**. If it is taken, change the left side of `-p` to a host port, e.g. `-p 8080:6277`.                     |
 | Data directory | Always map a host path with `-v`, otherwise deleting the container deletes your data.                                   |
-| `JWT_SECRET`   | Signs sessions; **must** be changed to a sufficiently long random string; a leaked or weak key lets sessions be forged. |
+| Signing secret | Nothing to do: on first boot the server generates a 256-bit JWT secret and stores it in the database, so restarts and upgrades keep sessions valid. The key is not configurable — `JWT_SECRET` is ignored with a startup warning. |
 | Public access  | On cloud servers, allow the port in the console's **security group**; for internal-only use, bind `127.0.0.1`.          |
 
 **HTTPS**: Ech0 itself can run over HTTP; for public-facing deployments, strongly prefer putting **Nginx / Caddy / Traefik** in front for TLS termination; certificates can come from Let’s Encrypt. Point the reverse proxy at `http://127.0.0.1:6277` (or your container port).
@@ -27,12 +27,11 @@ docker run -d \
   --name ech0 \
   -p 6277:6277 \
   -v /opt/ech0/data:/app/data \
-  -e JWT_SECRET="Hello Echos" \
   sn0wl1n/ech0:latest
 ```
 
 - Once deployed, open `http://<server IP>:6277` in a browser (locally, `http://127.0.0.1:6277`).
-- **Change** `JWT_SECRET="Hello Echos"` **to your own random string**; do not keep using the example value long-term.
+- No signing secret to configure: the first boot generates one and keeps it in the database (`jwt_secret` in the settings key-value table). `JWT_SECRET` is no longer read — remove it from older compose files.
 - The **first account registered** becomes the administrator (Owner); in the current version only high-privilege accounts can post by default.
 - Data persists in `/opt/ech0/data` in the example above (change the mount path as needed; make sure the directory is writable by the container).
 
@@ -76,8 +75,6 @@ services:
       - "6277:6277"
     volumes:
       - ./data:/app/data
-    environment:
-      - JWT_SECRET=change-to-a-random-strong-secret
     restart: unless-stopped
 ```
 
@@ -126,7 +123,7 @@ The chart is also published as an OCI artifact, so it can be installed without a
 helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
-`JWT_SECRET` and other values can be passed via `values.yaml` or `--set`; see the notes in the chart directory for details.
+No secret is required: the chart injects nothing and the server generates and persists the key itself. There is no value for it — `JWT_SECRET` is unsupported, so just make sure the data volume is persistent.
 
 If you need to install from local source, you can also keep the old approach:
 
@@ -160,8 +157,8 @@ The number of users, posting permissions, and role names follow the **settings i
 
 ## Environment variables and advanced configuration
 
-Besides `JWT_SECRET`, other variables (database path, log level, object storage, and so on) are set in `.env` or Compose depending on your deployment method; use the names in your deployment template. Time zone semantics: site-level statistics always use UTC, while user-facing endpoints (such as “today” and heatmaps) use the **`X-Timezone`** sent by the browser. For production we recommend:
+Variables such as the database path, log level, object storage, and so on are set in `.env` or Compose depending on your deployment method; use the names in your deployment template. Time zone semantics: site-level statistics always use UTC, while user-facing endpoints (such as “today” and heatmaps) use the **`X-Timezone`** sent by the browser. For production we recommend:
 
-- Do not use the default example secret;
+- Leave the signing secret alone unless you have a reason to pin it — it is generated per instance and never shipped in the image;
 - Back up the data directory and snapshots regularly;
 - When you need automation, create an [access token](/docs/guide/accesstoken) in the admin panel, and never commit tokens to public repositories.

@@ -56,6 +56,6 @@ To change the layout, styles, or static content of the public release page,
 edit `index.html.tmpl` directly. The `<!-- RELEASES -->` comment must remain
 intact — the CI pipeline uses it as the injection point for dynamic release
 entries. Keep Docker / Compose install snippets aligned with the repository
-root `README.md` (including `JWT_SECRET` and `TZ`). After merging your changes,
+root `README.md` (including `TZ`). After merging your changes,
 the next published release (or a manual workflow dispatch) will regenerate and
 deploy the updated page.

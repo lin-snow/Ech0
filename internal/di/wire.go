@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/wire"
 	"github.com/lin-snow/ech0/internal/cache"
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
@@ -46,8 +47,9 @@ import (
 var AppSet = wire.NewSet(ProvideApp)
 
 // ProvideApp composes Ech0's runtime on the generic app lifecycle: components
-// start in order job → task → server; settings are seeded and event
-// subscriptions registered before any of them, and torn down after all stop.
+// start in order job → task → server; the JWT signing secret is pinned and
+// settings seeded before any of them, and event subscriptions registered and
+// torn down around them.
 func ProvideApp(
 	registrar *eventbus.EventRegistrar,
 	jobManager *job.Manager,
@@ -58,6 +60,9 @@ func ProvideApp(
 	return app.New(
 		app.Components(jobManager, taskManager, httpServer),
 		app.BeforeStart(func(ctx context.Context) error {
+			if err := config.EnsureJWTSecret(ctx, durableKV); err != nil {
+				return err
+			}
 			if err := setting.Seed(ctx, durableKV); err != nil {
 				return err
 			}

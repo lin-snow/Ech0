@@ -11,6 +11,7 @@ import (
 	"github.com/google/wire"
 	"github.com/lin-snow/ech0/internal/access"
 	"github.com/lin-snow/ech0/internal/cache"
+	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/event/subscriber"
@@ -264,8 +265,9 @@ func BuildTasker(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transacti
 var AppSet = wire.NewSet(ProvideApp)
 
 // ProvideApp composes Ech0's runtime on the generic app lifecycle: components
-// start in order job → task → server; settings are seeded and event
-// subscriptions registered before any of them, and torn down after all stop.
+// start in order job → task → server; the JWT signing secret is pinned and
+// settings seeded before any of them, and event subscriptions registered and
+// torn down around them.
 func ProvideApp(
 	registrar *bus.EventRegistrar,
 	jobManager *job.Manager,
@@ -274,6 +276,9 @@ func ProvideApp(
 	durableKV kvstore.Store,
 ) *app.App {
 	return app.New(app.Components(jobManager, taskManager, httpServer), app.BeforeStart(func(ctx context.Context) error {
+		if err := config.EnsureJWTSecret(ctx, durableKV); err != nil {
+			return err
+		}
 		if err := setting.Seed(ctx, durableKV); err != nil {
 			return err
 		}

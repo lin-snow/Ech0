@@ -21,9 +21,9 @@
 
 ```bash
 # 最小 .env 示例（放在工作目录）
-JWT_SECRET=please-change-me
 ECH0_SERVER_PORT=6277
 ECH0_DB_PATH=data/ech0.db
+# 签名密钥无需配置：首次启动自动生成并存入数据库；JWT_SECRET 已废弃，设置后会被忽略
 ```
 
 ## 两层配置：env 改不动已有的后台设置
@@ -93,7 +93,6 @@ ECH0_DB_PATH=data/ech0.db
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `JWT_SECRET` | `(空)` | **注意没有 `ECH0_` 前缀**。也可用 `ECH0_JWT_SECRET`（别名，前者优先）。不设置则每次启动随机生成，**重启后所有已签发 token 失效**，stderr 会给出警告 |
 | `ECH0_JWT_EXPIRES` | `900` | access token 有效期（秒） |
 | `ECH0_JWT_REFRESH_EXPIRES` | `604800` | refresh token 有效期（秒） |
 | `ECH0_JWT_ISSUER` | `ech0` | JWT `iss` |
@@ -203,7 +202,7 @@ ECH0_DB_PATH=data/ech0.db
 
 ## 常见坑
 
-1. **`JWT_SECRET` 没有前缀。** 写成 `ECH0_JWT_SECRET` 现在也可用；两者都没设则每次重启换密钥，表现为「所有客户端突然需要重新登录」。
+1. **签名密钥已不能通过环境变量设置。** `JWT_SECRET` / `ECH0_JWT_SECRET` 在旧版本里是配置项，现在会被忽略并在启动日志里告警——密钥只存在于数据库（设置 KV 的 `jwt_secret` 键）。首次启动自动生成，重启/升级沿用，因此不会再「重启就全员重新登录」；要轮换就删掉该 KV 键后重启（所有已签发 token 失效）。
 2. **改 `ECH0_SETTING_*` 不生效。** 该实例已经落库过设置，env 只是首次默认值。请到后台改，或删掉对应 KV key 后重启。
 3. **`docker logs` 空。** 镜像内 `ECH0_LOG_CONSOLE` 默认 `true`；若被显式设为 `false`，日志只进 `data/app.log` 与 TUI 日志流。
 4. **自定义 `ECH0_DB_PATH`。** 文件名任意（如 `data/mydb.sqlite`），父目录会自动创建；空值会让启动失败。

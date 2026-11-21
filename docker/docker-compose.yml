@@ -10,4 +10,6 @@ services:
       # before the server starts, so no manual chown is needed.
       - ./ech0/data:/app/data
     environment:
-      - JWT_SECRET="Hello Echos"
+      # Nothing to set for the JWT signing secret: the server generates one on
+      # first boot and keeps it with the data volume (settings `jwt_secret`), so
+      # restarts, upgrades and `docker compose up --build` keep sessions valid.

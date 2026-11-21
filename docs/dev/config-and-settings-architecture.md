@@ -20,7 +20,7 @@ Ech0 的配置分两层，刻意不合并，因为它们的**生命周期**和**
 
 **为什么 bootstrap 配置搬不进设置页** —— 鸡生蛋：设置表本身就在 DB 里。要打开 DB 你得先知道 DB 路径；要在 DB 没起来前返回错误页你得先有端口。这些参数在「能读设置表」之前就被用到了，只能来自 env / config。
 
-> **JWT 密钥是这层最容易踩的坑。** 它不走 caarlos0/env 的 tag，而是裸 `os.Getenv("JWT_SECRET")`（`config.go` 的 `getJWTSecret`，同时接受 `ECH0_JWT_SECRET` 别名）。**不设就每次启动随机生成**——结果是每次重启所有已签发 token 全部失效，启动时 stderr 会给出警告。所以生产环境务必固化 `JWT_SECRET`。这也是「为什么少数项必须留在 env」最直白的例子。
+> **JWT 密钥是这层最容易踩的坑。** 它不是 env 配置项：`config.EnsureJWTSecret` 在 app 的 `BeforeStart` 钩子里读设置 KV 的 `jwt_secret` 键，缺失时生成一次并写回，随后在内存里定值。库是唯一来源，因此重启/升级不再让 token 失效，也不存在「env 覆盖 / 撤销后回退旧密钥」这一类状态。旧变量 `JWT_SECRET` / `ECH0_JWT_SECRET` 会被忽略并打一条 warn。它没有对应的 `Spec`，因此不会被任何设置接口序列化回客户端；要主动轮换就删掉这个 KV 键后重启。它仍属于 bootstrap 语义：HTTP 服务起来之前就必须就位，因此不能搬进后台设置页。
 
 `config.go` 用 `caarlos0/env` 给 80 余个字段挂了 `env:"ECH0_*"` tag（完整清单见 [usage/configuration.md](../usage/configuration.md)），技术上端口、S3、日志、上传上限、事件运行时参数都能用 env 覆盖。**但「能覆盖」不等于「推荐这么用」**：除了上面的 bootstrap 项，其余用户可调项都应走设置页（落 KV），env 只是兜底。`config.Config()` 是 `sync.Once` 单例，全局只解析一次。
 
@@ -189,4 +189,4 @@ return s.transactor.Run(ctx, func(ctx context.Context) error {        // ← 开
 - 找默认值 → `internal/config/config.go` + `internal/setting/registry.go` 的 `Spec.Default()`。
 - 加一个新设置项 → 在 `registry.go` 加 `Spec[T]`（key + Default + Normalize），seeder 自动落库；读处直接 `coreSetting.Xxx.Get`，写处走 `SettingService`。
 - 事务为什么「凭空生效」→ `transactor.Run` 把 tx 塞进 `ctx`，repo 的 `getDB(ctx)` 捞出来用；中间各层只转发 `ctx`。
-- token 重启就失效 → `JWT_SECRET` 没设，被 `getJWTSecret` 随机生成了（`config.go` 的 `getJWTSecret`）。
+- token 重启就失效 → 看启动日志里的 `signing key` 指纹是否变了，再确认 `ECH0_DB_PATH` 指向的库是否每次都新建（密钥跟库走；`key_values` 里 `jwt_secret` 缺失时 `config.EnsureJWTSecret` 会重新生成）。
