@@ -500,6 +500,9 @@ components:
           description: Only Echoes created at or before this Unix time (seconds)
           format: int64
           type: integer
+        mine:
+          description: Only Echoes authored by the authenticated caller; requires sign-in
+          type: boolean
         page:
           description: Page number, 1-based (default 1); ignored when cursor is set
           format: int64

@@ -443,6 +443,10 @@
     "visibilityPublic": "公開のみ",
     "visibilityPrivate": "ログイン者のみ",
     "activeChipVisibilityPrefix": "公開範囲",
+    "authorLabel": "投稿者",
+    "authorAll": "すべてのメンバー",
+    "authorMine": "自分のみ",
+    "activeChipAuthorPrefix": "投稿者",
     "tagsLabel": "タグ",
     "tagsHint": "いずれか一致",
     "tagsEmpty": "タグがありません",
@@ -567,7 +571,8 @@
     "deleteSuccess": "削除しました！",
     "editAnotherEchoTitle": "別の Echo を編集しますか？",
     "editAnotherEchoDesc": "すでに別の Echo を編集中です。現在の変更を破棄してこの Echo を編集しますか？",
-    "openDetail": "詳細を開く"
+    "openDetail": "詳細を開く",
+    "manageOwnOnlyHint": "編集・削除できるのは自分の Echo だけです"
   },
   "userSetting": {
     "title": "ユーザーセンター",

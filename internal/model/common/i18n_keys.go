@@ -16,6 +16,7 @@ const (
 	MsgKeySettingUpdateOK             = "setting.update_success"
 	MsgKeyAgentModelMissing           = "agent.model_missing"
 	MsgKeyEchoMixedFileCategories     = "echo.mixed_file_categories"
+	MsgKeyEchoOtherUserForbidden      = "echo.other_user_forbidden"
 	MsgKeyEchoInvalidCursor           = "echo.invalid_cursor"
 	MsgKeyEchoCursorSortUnsupported   = "echo.cursor_sort_unsupported"
 	MsgKeyAuthTokenMissing            = "auth.token_missing"
@@ -79,6 +80,8 @@ func MessageKeyFromMessage(msg string) string {
 		return MsgKeyAgentModelMissing
 	case ECHO_MIXED_FILE_CATEGORIES:
 		return MsgKeyEchoMixedFileCategories
+	case ECHO_OTHER_USER_FORBIDDEN:
+		return MsgKeyEchoOtherUserForbidden
 	case ACCOUNT_DISABLED:
 		return MsgKeyAuthAccountDisabled
 	default:

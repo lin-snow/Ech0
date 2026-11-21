@@ -37,7 +37,7 @@ func TestDeleteEchoById_Guards(t *testing.T) {
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&foreign, nil).Once()
 
 		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-		require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID), commonModel.NO_PERMISSION_DENIED)
+		require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID), commonModel.ECHO_OTHER_USER_FORBIDDEN)
 	})
 
 	t.Run("member deletes their own echo", func(t *testing.T) {
@@ -184,7 +184,10 @@ func TestUpdateEcho_Guards(t *testing.T) {
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.UpdateEcho(helpers.CtxAsUser(userID), &echoModel.Echo{ID: echoID, Content: "hi"})
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		require.EqualError(t, err, commonModel.ECHO_OTHER_USER_FORBIDDEN)
+		bizErr, ok := errors.AsType[*commonModel.BizError](err)
+		require.True(t, ok)
+		assert.Equal(t, commonModel.ErrCodePermissionDenied, bizErr.Code)
 	})
 
 	t.Run("invalid extension rejected before transaction", func(t *testing.T) {

@@ -443,6 +443,10 @@
     "visibilityPublic": "Public only",
     "visibilityPrivate": "Signed-in only",
     "activeChipVisibilityPrefix": "Visibility",
+    "authorLabel": "Author",
+    "authorAll": "All members",
+    "authorMine": "Only mine",
+    "activeChipAuthorPrefix": "Author",
     "tagsLabel": "Tags",
     "tagsHint": "Match any",
     "tagsEmpty": "No tags yet",
@@ -567,7 +571,8 @@
     "deleteSuccess": "Deleted successfully",
     "editAnotherEchoTitle": "Edit another Echo?",
     "editAnotherEchoDesc": "You are already editing an Echo. Discard those changes and edit this one?",
-    "openDetail": "Open detail"
+    "openDetail": "Open detail",
+    "manageOwnOnlyHint": "You can only edit or delete your own echoes"
   },
   "userSetting": {
     "title": "User Center",

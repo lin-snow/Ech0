@@ -6,6 +6,7 @@
   { "id": "setting.update_success", "translation": "Settings updated successfully!" },
   { "id": "agent.model_missing", "translation": "Agent model name is not configured or is empty" },
   { "id": "echo.mixed_file_categories", "translation": "An Echo can only contain files of a single type" },
+  { "id": "echo.other_user_forbidden", "translation": "You can only edit or delete your own echoes" },
   { "id": "echo.invalid_cursor", "translation": "Invalid pagination cursor" },
   { "id": "echo.cursor_sort_unsupported", "translation": "Cursor pagination does not support reaction sorting" },
   { "id": "auth.token_missing", "translation": "Missing token. Please sign in first." },

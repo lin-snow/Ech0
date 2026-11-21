@@ -106,6 +106,7 @@ const (
 	ECHO_CAN_NOT_BE_EMPTY        = "ECHO 内容不能为空"
 	ECHO_NOT_FOUND               = "找不到Echo"
 	ECHO_MIXED_FILE_CATEGORIES   = "一条 Echo 只能包含同一类型的文件"
+	ECHO_OTHER_USER_FORBIDDEN    = "不允许编辑或删除其它成员的 Echo"
 	INVALID_ECHO_CURSOR          = "无效的分页游标"
 	ECHO_CURSOR_SORT_UNSUPPORTED = "游标分页不支持按互动排序"
 )

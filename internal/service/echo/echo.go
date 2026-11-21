@@ -148,7 +148,12 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 			return errors.New(commonModel.ECHO_NOT_FOUND)
 		}
 		if echo.UserID != userid && !user.IsAdmin {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
+			return commonModel.NewBizErrorWithMessageKey(
+				commonModel.ErrCodePermissionDenied,
+				commonModel.ECHO_OTHER_USER_FORBIDDEN,
+				commonModel.MsgKeyEchoOtherUserForbidden,
+				nil,
+			)
 		}
 
 		for _, ef := range echo.EchoFiles {
@@ -244,7 +249,12 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
 	if existing.UserID != userid && !user.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, commonModel.NewBizErrorWithMessageKey(
+			commonModel.ErrCodePermissionDenied,
+			commonModel.ECHO_OTHER_USER_FORBIDDEN,
+			commonModel.MsgKeyEchoOtherUserForbidden,
+			nil,
+		)
 	}
 	// An edit never transfers authorship or rewrites the stored author name.
 	echo.UserID = existing.UserID
@@ -439,6 +449,17 @@ func (echoService *EchoService) QueryEchos(
 		queryDto.PageSize = 100
 	}
 	queryDto.Search = strings.TrimSpace(queryDto.Search)
+
+	// "Only mine" is resolved from the caller identity, never from the request
+	// body, so a client cannot enumerate another member's Echoes through it.
+	if queryDto.Mine {
+		userID := viewer.MustFromContext(ctx).UserID()
+		if userID == "" {
+			return commonModel.PageQueryResult[[]model.Echo]{},
+				commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+		}
+		queryDto.UserID = userID
+	}
 
 	if queryDto.SortBy == "" {
 		queryDto.SortBy = "created_at"

@@ -443,6 +443,10 @@
     "visibilityPublic": "仅公开",
     "visibilityPrivate": "仅登录可见",
     "activeChipVisibilityPrefix": "可见性",
+    "authorLabel": "作者",
+    "authorAll": "全部成员",
+    "authorMine": "仅我发布",
+    "activeChipAuthorPrefix": "作者",
     "tagsLabel": "标签",
     "tagsHint": "任一匹配",
     "tagsEmpty": "暂无标签",
@@ -567,7 +571,8 @@
     "deleteSuccess": "删除成功！",
     "editAnotherEchoTitle": "编辑另一条 Echo？",
     "editAnotherEchoDesc": "你正在编辑另一条 Echo。放弃当前修改并编辑这条吗？",
-    "openDetail": "查看详情"
+    "openDetail": "查看详情",
+    "manageOwnOnlyHint": "只能编辑或删除自己的 Echo"
   },
   "userSetting": {
     "title": "用户中心",

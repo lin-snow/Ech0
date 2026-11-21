@@ -443,6 +443,10 @@
     "visibilityPublic": "Nur öffentlich",
     "visibilityPrivate": "Nur für Angemeldete",
     "activeChipVisibilityPrefix": "Sichtbarkeit",
+    "authorLabel": "Autor",
+    "authorAll": "Alle Mitglieder",
+    "authorMine": "Nur meine",
+    "activeChipAuthorPrefix": "Autor",
     "tagsLabel": "Tags",
     "tagsHint": "Beliebiges passt",
     "tagsEmpty": "Noch keine Tags",
@@ -567,7 +571,8 @@
     "deleteSuccess": "Gelöscht",
     "editAnotherEchoTitle": "Anderen Echo bearbeiten?",
     "editAnotherEchoDesc": "Du bearbeitest bereits einen Echo. Aktuelle Änderungen verwerfen und diesen Echo bearbeiten?",
-    "openDetail": "Detail öffnen"
+    "openDetail": "Detail öffnen",
+    "manageOwnOnlyHint": "Du kannst nur deine eigenen Echo-Einträge bearbeiten oder löschen"
   },
   "userSetting": {
     "title": "Benutzerverwaltung",
