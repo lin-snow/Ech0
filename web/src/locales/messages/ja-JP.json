@@ -98,7 +98,7 @@
     "fetchTitleSuccess": "サイトタイトルを取得しました",
     "fetchTitleFailed": "サイトタイトルの取得に失敗しました",
     "tagManagerTitle": "タグ管理",
-    "tagManagerHint": "Tip: タグをクリックして絞り込みや削除ができます",
+    "tagManagerHint": "Tip: タグをクリックして絞り込めます",
     "tagManagerEmpty": "タグはまだありません",
     "filterByTag": "このタグで絞り込み",
     "deleteTag": "このタグを削除",

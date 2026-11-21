@@ -98,7 +98,7 @@
     "fetchTitleSuccess": "Website title fetched",
     "fetchTitleFailed": "Failed to fetch website title",
     "tagManagerTitle": "Tag Manager",
-    "tagManagerHint": "Tip: Click a tag to filter by it or delete it",
+    "tagManagerHint": "Tip: Click a tag to filter by it",
     "tagManagerEmpty": "No tags yet",
     "filterByTag": "Filter by this tag",
     "deleteTag": "Delete this tag",

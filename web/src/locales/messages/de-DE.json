@@ -98,7 +98,7 @@
     "fetchTitleSuccess": "Seitentitel abgerufen",
     "fetchTitleFailed": "Seitentitel konnte nicht abgerufen werden",
     "tagManagerTitle": "Tag-Verwaltung",
-    "tagManagerHint": "Tipp: Klicke auf einen Tag, um danach zu filtern oder ihn zu löschen",
+    "tagManagerHint": "Tipp: Klicke auf einen Tag, um danach zu filtern",
     "tagManagerEmpty": "Noch keine Tags",
     "filterByTag": "Nach diesem Tag filtern",
     "deleteTag": "Tag löschen",

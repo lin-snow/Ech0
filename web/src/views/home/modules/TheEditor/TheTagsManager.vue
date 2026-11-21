@@ -80,9 +80,12 @@
                 >
                   <Filter class="w-5 h-5" />
                 </button>
-                <div v-if="isLogin" class="w-px bg-[var(--color-bg-muted)]"></div>
+                <div
+                  v-if="userStore.user?.is_admin === true"
+                  class="w-px bg-[var(--color-bg-muted)]"
+                ></div>
                 <button
-                  v-if="isLogin"
+                  v-if="userStore.user?.is_admin === true"
                   @click="
                     () => {
                       handleDeleteTag(tag.id)

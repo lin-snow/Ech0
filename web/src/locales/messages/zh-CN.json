@@ -98,7 +98,7 @@
     "fetchTitleSuccess": "已获取网站标题",
     "fetchTitleFailed": "获取网站标题失败",
     "tagManagerTitle": "标签管理",
-    "tagManagerHint": "Tip: 点击标签可以按标签过滤或删除",
+    "tagManagerHint": "Tip: 点击标签可以按标签过滤",
     "tagManagerEmpty": "暂无标签",
     "filterByTag": "按标签过滤内容",
     "deleteTag": "删除该标签",
