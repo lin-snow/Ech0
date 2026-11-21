@@ -208,7 +208,7 @@ Für den schnellsten Einstieg reicht der oben gezeigte [In 60 Sekunden ausprobie
    Setze die URL deiner aktuellen Instanz in `Systemeinstellungen — Service-URL`, z. B. `https://memo.sn0w.fyi/` (mit `http://` oder `https://`).
 
 9. **Was ist die Option MetingAPI in den Einstellungen?**
-   Das ist der API-Endpunkt, den Music-Cards verwenden, um abspielbare Stream-Metadaten aufzulösen. Du kannst einen eigenen, vertrauenswürdigen Endpunkt angeben; bleibt das Feld leer, fällt Ech0 auf einen Standard-Resolver zurück. Für den produktiven Einsatz empfiehlt sich ein selbstgehosteter Endpunkt.
+   Das ist der API-Endpunkt, den Music-Cards verwenden, um abspielbare Stream-Metadaten aufzulösen. Ech0 bringt keinen Standard-Resolver mehr mit: Bleibt das Feld leer, melden Music-Cards anderer Anbieter als Apple Music, dass keine Musikquelle verfügbar ist, und der Editor veröffentlicht solche Links nicht. Apple-Music-Links laufen über das Apple-Embed und funktionieren unabhängig davon. Für den produktiven Einsatz empfiehlt sich ein selbstgehosteter Endpunkt.
 
 10. **Warum zeigt eine neu hinzugefügte Connect nur Teilergebnisse?**
     Das Backend versucht, Instanz-Informationen für alle Connect-Einträge abzurufen. Ist eine Instanz offline oder nicht erreichbar, wird sie verworfen — nur gültige/erreichbare Connect-Daten werden ans Frontend zurückgegeben.

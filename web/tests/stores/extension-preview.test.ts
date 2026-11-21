@@ -8,7 +8,8 @@ import { ExtensionType } from '@/enums/enums'
 
 const PREVIEW_DEBOUNCE_MS = 350
 
-const setup = () => useExtensionModule({ t: (key) => String(key) })
+const setup = (metingApi = '') =>
+  useExtensionModule({ t: (key) => String(key), metingApi: () => metingApi })
 
 const settle = async () => {
   await nextTick()
@@ -120,5 +121,34 @@ describe('useExtensionModule extension preview', () => {
       payload: { latitude: 31.2, longitude: 121.4, placeholder: 'Shanghai' },
     })
     expect(payload.value).toEqual(extensionPreview.value)
+  })
+})
+
+describe('useExtensionModule music source gate', () => {
+  const prepare = (metingApi: string, url: string) => {
+    const module = setup(metingApi)
+    module.extensionToAdd.value = { extension: url, extension_type: ExtensionType.MUSIC }
+    return module
+  }
+
+  it('rejects a streamed provider when no Meting endpoint is configured', () => {
+    const { checkEchoExtension } = prepare('', 'https://music.163.com/#/song?id=123')
+
+    expect(checkEchoExtension()).toBe(false)
+  })
+
+  it('accepts an Apple Music link without a Meting endpoint', () => {
+    const { checkEchoExtension } = prepare('', 'https://music.apple.com/cn/album/example/123?i=456')
+
+    expect(checkEchoExtension()).toBe(true)
+  })
+
+  it('accepts a streamed provider once a Meting endpoint is configured', () => {
+    const { checkEchoExtension } = prepare(
+      'https://meting.example.com/api',
+      'https://music.163.com/#/song?id=123',
+    )
+
+    expect(checkEchoExtension()).toBe(true)
   })
 })
