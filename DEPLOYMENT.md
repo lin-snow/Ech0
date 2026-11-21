@@ -34,6 +34,8 @@ All variables, defaults, precedence rules, and the boundary between bootstrap en
 ### 🐳 Docker (Recommended)
 
 ```shell
+mkdir -p /opt/ech0/data
+
 docker run -d \
   --name ech0 \
   -p 6277:6277 \
@@ -46,13 +48,14 @@ docker run -d \
 > 🚷 For better security, replace `Hello Echos` in `-e JWT_SECRET="Hello Echos"` with your own secret
 > 📍 The first registered account becomes administrator (currently only admins can publish)
 > 🎈 Data is stored under `/opt/ech0/data`
+> 🔒 The server runs as uid `10001`, never root. On start the entrypoint hands `/opt/ech0/data` to that uid, so a directory created by an older root-running image keeps working with no manual step. Only when that handoff is impossible (read-only mount) does startup stop and tell you to run `sudo chown -R 10001:10001 /opt/ech0/data`.
 
 ### 🐋 Docker Compose
 
 A ready-to-use example lives at [`docker/docker-compose.yml`](./docker/docker-compose.yml). Copy it into a new directory and run:
 
 ```shell
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 🧙 Script Deployment
@@ -125,6 +128,10 @@ docker rm ech0
 
 # Pull latest image
 docker pull sn0wl1n/ech0:latest
+
+# No permission step: images from 5.10 on run the server as uid 10001 and the
+# entrypoint hands /app/data to that uid before starting, including a data
+# directory left root-owned by an older image.
 
 # Start new version
 docker run -d \

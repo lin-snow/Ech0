@@ -37,6 +37,7 @@ helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 \
 | `persistence.enabled` / `persistence.size` / `persistence.mountPath` | PVC for `/app/data` (SQLite + uploads) | `true` / `1Gi` / `/app/data` |
 | `probes.*` | Liveness and readiness probes | enabled |
 | `resources`, `autoscaling`, `nodeSelector`, `tolerations`, `affinity` | Standard scheduling and scaling knobs | see `values.yaml` |
+| `podSecurityContext` / `securityContext` | Pod and container security context. Defaults pin the server to uid/gid `10001`, set `fsGroup` so the data PVC stays writable, and drop all capabilities. | non-root, `seccompProfile: RuntimeDefault` |
 
 See [`values.yaml`](values.yaml) for the complete list. Server-side settings are documented in
 [docs/usage/configuration.md](https://github.com/lin-snow/Ech0/blob/main/docs/usage/configuration.md);

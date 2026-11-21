@@ -5,6 +5,7 @@ package database
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -89,6 +90,33 @@ func ensureDBDir(dbPath string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
+// ensureWritable fails fast when the server cannot create files in dir.
+//
+// A data directory created by an image that ran as root stays root-owned, so a
+// container upgraded to the non-root image otherwise dies deep inside SQLite
+// with an opaque "unable to open database file" — and SQLite needs the
+// directory itself writable for its WAL/SHM files, not just the .db file. The
+// probe file is created and removed immediately.
+func ensureWritable(dir string) error {
+	if dir == "." || dir == string(filepath.Separator) {
+		return nil
+	}
+
+	probe, err := os.CreateTemp(dir, ".ech0-write-probe-*")
+	if err != nil {
+		return fmt.Errorf(
+			"data directory %s is not writable by this process (%w); "+
+				"a container upgraded from an image that ran as root keeps a root-owned data directory — "+
+				"hand it over once with `sudo chown -R 10001:10001 <host data dir>`",
+			dir, err,
+		)
+	}
+	name := probe.Name()
+	_ = probe.Close()
+	_ = os.Remove(name)
+	return nil
+}
+
 func configLogLevel() logger.LogLevel {
 	if config.Config().Database.LogMode == "release" {
 		return logger.Silent
@@ -114,6 +142,13 @@ func InitDatabase() {
 	if err := ensureDBDir(dbPath); err != nil {
 		util.HandlePanicError(&commonModel.ServerError{
 			Msg: commonModel.CREATE_DB_PATH_PANIC,
+			Err: err,
+		})
+	}
+
+	if err := ensureWritable(filepath.Dir(dbPath)); err != nil {
+		util.HandlePanicError(&commonModel.ServerError{
+			Msg: commonModel.INIT_DATABASE_PANIC,
 			Err: err,
 		})
 	}

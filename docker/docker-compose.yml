@@ -1,4 +1,3 @@
-version: "3"
 services:
   ech0:
     image: sn0wl1n/ech0:latest
@@ -6,6 +5,9 @@ services:
     ports:
       - "6277:6277"
     volumes:
+      # The server runs as uid/gid 10001. A data directory left behind by an
+      # older root-running image is handed over by the image's entrypoint
+      # before the server starts, so no manual chown is needed.
       - ./ech0/data:/app/data
     environment:
       - JWT_SECRET="Hello Echos"

@@ -17,6 +17,12 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 - **`linux/amd64` release binaries run on pre-Haswell CPUs again.** The v5.9.10 tarball was linked with the CI runner's `gcc -static`, and that runner's glibc now targets `x86-64-v3`, so the binary took a `SIGILL` on any CPU without AVX2 (an Ivy Bridge Xeon, for example) before it printed its first log line. Both release architectures are now cross-compiled with `zig cc` against musl at the baseline ISA, independent of the runner image, and CI fails if the amd64 ELF declares `x86-64-v2` or newer as required.
 
+- **`docker/build.Dockerfile` builds again.** The frontend stage now copies `web/pnpm-workspace.yaml` — pnpm 12 reads the lockfile's `overrides` from it, so the frozen install aborted with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` — and the backend stage synthesizes the `sqlite3.h` that `sqlite-vec`'s cgo binding includes from the go-sqlite3 header, exactly as the release workflow does.
+
+### Security
+
+- **The container image no longer lets the server run as root.** `docker/entrypoint.sh`, installed by `docker/Dockerfile` (the released image) and `docker/build.Dockerfile`, starts as root only to hand `/app/data` to uid/gid `10001`, then `su-exec`s into the server as `10001` — the server process itself never has root, and release CI now proves it by starting the published image and asserting PID 1 reports uid `10001`. The target uid is fixed on purpose: the entrypoint `exec`s the server binary instead of re-entering itself, so there is no configurable uid and no re-entry guard to keep tested, and no environment variable can turn root back on. Nothing needed root: the server only writes under `/app/data` and binds the unprivileged port `6277`. The Helm chart's defaults now match (`runAsNonRoot`, `runAsUser`/`runAsGroup`/`fsGroup` `10001`, `seccompProfile: RuntimeDefault`, all capabilities dropped, `allowPrivilegeEscalation: false`), so a default chart install is accepted by namespaces with restricted pod-security enforcement. **Upgrade note:** none — a bind-mounted data directory left root-owned by an older image is handed over on first start. Where that handoff is impossible (read-only mount), startup stops with a message naming `sudo chown -R 10001:10001 /opt/ech0/data` instead of an opaque SQLite error.
+
 ## [5.9.10] - 2026-11-17
 
 ### Added
