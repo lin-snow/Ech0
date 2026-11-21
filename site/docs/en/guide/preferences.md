@@ -33,7 +33,7 @@ What you set here decides the world seen by **visitors who are not signed in** (
 
 4. **Footer: a closing line** — Copy and optional links (ICP filing, about page, and so on) give the page a quiet ending.
 
-5. **Meting API: the resolution behind music cards** — Enter a trusted Meting service address; in production, a self-hosted or otherwise controlled endpoint is preferable, so that a key experience is not tied to an unfamiliar service.
+5. **Meting API: the resolution behind music cards** — Enter a trusted Meting service address; left empty, music cards other than Apple Music cannot resolve. In production, a self-hosted or otherwise controlled endpoint is preferable, so that a key experience is not tied to an unfamiliar service.
 
 6. **Custom CSS / Script: only for those who know what they're doing** — Styles fine-tune the mood; scripts are more powerful but affect every visitor-facing page. **Only trusted administrators** should edit these; malicious or broken scripts can cause anomalies or even security risks (XSS), so back up before changing anything.
 

@@ -2,21 +2,24 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { computed, ref, watch } from 'vue'
-import { ExtensionType } from '@/enums/enums'
+import { ExtensionType, MusicProvider } from '@/enums/enums'
 import {
   buildEchoExtension,
   isExtensionPreviewReady,
   type EchoExtensionDraft,
 } from '@/utils/extension'
 import { theToast } from '@/utils/toast'
+import { parseMusicURL } from '@/utils/other'
 import { parseTweetUrl } from '@/utils/tweet'
 import type { ExtensionToAdd, LocationToAdd, Translate, TweetToAdd, WebsiteToAdd } from './types'
 
 type ExtensionModuleDeps = {
   t: Translate
+  /** Configured Meting endpoint; empty when the operator has not set one. */
+  metingApi: () => string
 }
 
-export function useExtensionModule({ t }: ExtensionModuleDeps) {
+export function useExtensionModule({ t, metingApi }: ExtensionModuleDeps) {
   const websiteToAdd = ref<WebsiteToAdd>({ title: '', site: '' })
   const videoURL = ref<string>('')
   const musicURL = ref<string>('')
@@ -139,13 +142,26 @@ export function useExtensionModule({ t }: ExtensionModuleDeps) {
 
   /** Normalizes the draft and reports whether it can be submitted. */
   function checkEchoExtension(): boolean {
-    const { extension_type } = extensionToAdd.value
+    const { extension_type, extension } = extensionToAdd.value
     if (!extension_type) {
       clearExtension()
       return true
     }
 
     switch (extension_type) {
+      case ExtensionType.MUSIC: {
+        const value = extension.trim()
+        if (!value) break
+
+        // Apple links render through an embed and need no resolver; every other
+        // provider is resolved by the operator's Meting endpoint.
+        const provider = parseMusicURL(value)
+        if (provider && provider.server !== MusicProvider.APPLE && !metingApi().trim()) {
+          theToast.error(t('editor.musicSourceMissing'))
+          return false
+        }
+        break
+      }
       case ExtensionType.WEBSITE:
         if (!handleWebsiteExtension()) return false
         break

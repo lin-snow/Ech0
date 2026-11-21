@@ -23,8 +23,26 @@
     </div>
   </ExtensionCardShell>
 
+  <div
+    v-else-if="
+      musicInfo && musicInfo.server !== MusicProvider.APPLE && !settingsLoading && !metingAPI
+    "
+    class="extension-card-invalid"
+  >
+    <Music class="invalid-icon" />
+    <div class="invalid-copy">
+      <p class="invalid-title">{{ t('extensionCard.musicSourceMissing') }}</p>
+      <p class="invalid-subtitle">{{ t('extensionCard.musicSourceMissingHint') }}</p>
+    </div>
+  </div>
+
   <ExtensionCardShell
-    v-else-if="musicInfo && musicInfo.server !== MusicProvider.APPLE && !loadFailed"
+    v-else-if="
+      musicInfo &&
+      musicInfo.server !== MusicProvider.APPLE &&
+      !loadFailed &&
+      (settingsLoading || metingAPI)
+    "
     size="wide"
     padding="compact"
     :header-label="t('extensionCard.music')"
@@ -221,12 +239,8 @@ const musicURL = computed(() => {
 
 const musicInfo = computed(() => parseMusicURL(musicURL.value))
 
-const metingAPI = computed(() => {
-  if (!settingsLoading.value && SystemSetting.value?.meting_api?.length) {
-    return SystemSetting.value.meting_api
-  }
-  return 'https://meting.soopy.cn/api'
-})
+// No built-in resolver: music cards only play when the operator configured one.
+const metingAPI = computed(() => SystemSetting.value?.meting_api?.trim() ?? '')
 
 const musicSourceKey = computed(() => {
   const info = musicInfo.value
@@ -296,6 +310,7 @@ async function loadTrack() {
 
   const info = musicInfo.value
   if (!info || info.server === MusicProvider.APPLE) return
+  if (!metingAPI.value) return
 
   const controller = new AbortController()
   requestController = controller

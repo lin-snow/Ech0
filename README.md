@@ -210,7 +210,7 @@ For the simplest path, the [Try in 60 Seconds](#try-in-60-seconds) snippet above
    Set your current instance URL in `System Settings - Service URL`, for example `https://memo.sn0w.fyi/` (must include `http://` or `https://`).
 
 9. **What is the MetingAPI option in settings?**
-   It is the API endpoint used by music cards to resolve playable stream metadata. You can provide your own trusted endpoint; when left empty, Ech0 falls back to a default resolver endpoint. For production, a self-controlled endpoint is recommended.
+   It is the API endpoint used by music cards to resolve playable stream metadata. Ech0 ships no built-in resolver: while the field is empty, music cards for providers other than Apple Music report that no source is available, and the editor refuses to publish such links. Apple Music links render through Apple's embed and are unaffected. For production, a self-controlled endpoint is recommended.
 
 10. **Why does a newly added Connect show only partial results?**
     The backend tries to fetch instance information for all Connect entries. If an instance is down or unreachable, it is discarded, and only valid/accessible Connect data is returned to the frontend.

@@ -9,6 +9,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ## [Unreleased]
 
+### Changed
+
+- **Music cards no longer fall back to a built-in Meting endpoint.** The hardcoded `https://meting.soopy.cn/api` resolver is gone, so a `meting_api` the operator never set can no longer route visitors through a third-party service. While the setting is empty, a music card for NetEase or QQ Music renders a "no music source available" notice instead of fetching, and the editor blocks publishing such a link and points to **System settings → Meting API**. Apple Music links are unaffected because they render through Apple's own embed.
+
 ### Fixed
 
 - **`linux/amd64` release binaries run on pre-Haswell CPUs again.** The v5.9.10 tarball was linked with the CI runner's `gcc -static`, and that runner's glibc now targets `x86-64-v3`, so the binary took a `SIGILL` on any CPU without AVX2 (an Ivy Bridge Xeon, for example) before it printed its first log line. Both release architectures are now cross-compiled with `zig cc` against musl at the baseline ISA, independent of the runner image, and CI fails if the amd64 ELF declares `x86-64-v2` or newer as required.

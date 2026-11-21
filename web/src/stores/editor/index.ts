@@ -12,7 +12,7 @@ import {
   HOME_TIMELINE_CURSORS_KEY,
   HOME_TIMELINE_PAGE_KEY,
 } from '@/utils/timeline'
-import { useEchoStore } from '@/stores'
+import { useEchoStore, useSettingStore } from '@/stores'
 import { getEchoFiles } from '@/utils/echo'
 import { localStg } from '@/utils/storage'
 import { globalFileRegistry } from '@/lib/file'
@@ -25,6 +25,7 @@ import type { EditorSession, Translate } from './types'
 
 export const useEditorStore = defineStore('editorStore', () => {
   const echoStore = useEchoStore()
+  const settingStore = useSettingStore()
   const t: Translate = (key, params) => String(i18n.global.t(key, params || {}))
 
   const ShowEditor = ref<boolean>(true)
@@ -43,7 +44,10 @@ export const useEditorStore = defineStore('editorStore', () => {
 
   const hasContent = computed(() => !!echoToAdd.value.content?.trim())
 
-  const extension = useExtensionModule({ t })
+  const extension = useExtensionModule({
+    t,
+    metingApi: () => settingStore.SystemSetting.meting_api,
+  })
   const files = useFilesModule({ t })
   const draft = useDraftModule({
     echoToAdd,
