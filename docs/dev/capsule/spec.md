@@ -135,7 +135,7 @@
 
 - 内部结构 = 本地存储 `DataRoot`（默认 `data/files`）的**原样 mirror**：相对路径 = `files/ + schema.Resolve(key)`（`internal/storage/schema.go`）。
 - 子目录固定五类：`images/ audios/ videos/ documents/ files/`（对应 `RouteByExt` 四类 + `DefaultRoute("files/")` 兜底；`files/files/` 即兜底类别的 mirror，属预期布局）。
-- 生产者**必须**按 `files` 表记录驱动写入（`Resolve(key)` 落位），**禁止**盲目拷贝 `DataRoot`：`data/files/snapshots/` 等非托管产物不得进入胶囊。「目录拷贝」仅是近似心智模型。
+- 生产者**必须**按 `files` 表记录驱动写入（`Resolve(key)` 落位），**禁止**盲目拷贝 `DataRoot`：`data/artifacts/` 等非托管产物不得进入胶囊。「目录拷贝」仅是近似心智模型。
 - 胶囊**必须**自包含：所有 `files[].key` 对应 `files/ + Resolve(key)` 的字节都在胶囊内；S3 托管文件由生产者下载入胶囊。外链（`url`）文件除外。
 - 既不被任何 Echo 的 `files[]`、也不被清单 `files` 块声明的字节：合法，`check` **应当**告警（悬空文件）。真实导出不会产生这种情况——未挂 Echo 的文件行都会进清单 `files` 块；它只在手写胶囊里出现。
 
@@ -199,8 +199,8 @@ ech0 build            [<path>=./capsule] [-o ./dist] [--base-url /]
 | `POST /migration/start` | `source_type: "capsule"` 时，`source_payload.include_private` 控制是否导入私密条目 |
 
 - 未知 `format` **必须**拒绝，**禁止**静默回落到快照——悄悄给出另一种产物会让用户拿错东西。
-- 胶囊产物落在 `data/files/capsules/`，与快照的 `data/files/snapshots/` 分居两个槽位，各自只保留最新
-  一份。两个目录都**必须**排除在快照打包之外（`internal/migrator/artifact` 收口）。
+- 胶囊产物落在 `data/artifacts/capsules/`，与快照的 `data/artifacts/snapshots/` 分居两个槽位，各自只保留最新
+  一份。两个目录都**必须**排除在快照打包之外（`internal/migrator/artifact` 收口），且都不在 `/api/files` 的匿名可读范围内。
 - Web 导入与 CLI 一样把校验作为硬前置：有错误级发现即拒绝落库，错误摘要回填进作业的 `error_message`。
 - 导出胶囊**禁止**发布 `SystemSnapshot` 事件：webhook 订阅它来确认「备份已完成」，而胶囊不是备份。
 

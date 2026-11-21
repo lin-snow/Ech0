@@ -70,7 +70,7 @@ capsule/
 设计要点：
 
 - **每条 Echo 一个文件**，而不是一个大 YAML。理由：可 diff、可单独编辑、frontmatter-markdown 是 Hugo/Astro/Obsidian 通吃的生态标准，`Echo.Content` 本来就是 markdown。
-- **files/ 内部结构原样 mirror `DataRoot`（默认 `data/files`）**：胶囊内相对路径 = `files/ + schema.Resolve(key)`，与本地磁盘布局逐一对应（`files/files/` 即 `DefaultRoute` 兜底类别的 mirror，属预期布局）。导出按 `files` 表**记录驱动**落位（非盲目目录拷贝，`data/files/snapshots/` 等非托管产物不进胶囊）；对本地实例，效果上仍近似一次目录拷贝。
+- **files/ 内部结构原样 mirror `DataRoot`（默认 `data/files`）**：胶囊内相对路径 = `files/ + schema.Resolve(key)`，与本地磁盘布局逐一对应（`files/files/` 即 `DefaultRoute` 兜底类别的 mirror，属预期布局）。导出按 `files` 表**记录驱动**落位（非盲目目录拷贝，`data/artifacts/` 等非托管产物不进胶囊）；对本地实例，效果上仍近似一次目录拷贝。
 - **胶囊自包含（托管文件）**：本地与对象存储（S3）的托管文件在导出时**字节入胶囊**，胶囊内一律相对路径、不依赖 `File.url`（URL 是运行时表示：`File.AfterFind` 会按当前配置重算，胶囊作为离线交换格式不该携带它）。**例外——外链文件（`storage_type=external`）**：字节不在 Ech0 存储里，`url` 即其权威表示，导出时原样透传、不下载本地化（版权与预期问题）。
 
 ### 4.2 清单文件 `ech0.yaml`
@@ -312,7 +312,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 
 - **服务端零侵入（v1 约束，已在 Web 集成时解除）**：v1 刻意不碰服务端——不改路由、不改 handler，胶囊只有 CLI 一条路。这条约束保证了胶囊能作为纯增量能力落地，但也把「导出内容/搬家」挡在了只会用面板的用户之外。Web 集成推翻了它：`POST /migration/export` 增加 `format`、`GET /migration/export/download` 增加 `?format=`、`source_type` 增加 `capsule`，DI 里多一个 `migrator.CapsuleEngine`。推翻的理由是这条约束保护的是**实现的整洁**，而拦住的是**用户的实际需要**；且集成代价很低——胶囊三个包的入口本就是不依赖作业框架的纯函数，接进既有 job.Manager 只是加了个分派分支。
   - 边界仍在：胶囊包**依旧**不过 service 层（直连 GORM）、**依旧**不发布事件（原 Q13）。Web 只是多了一个调用方，胶囊本身的语义一个字没改。
-  - 产物落位是新增的正确性约束：胶囊产物独占 `data/files/capsules/`，因为它与快照都遵循「只保留最新一份」，共用目录会互删——尤其定时快照走 gocron 直连 ExportEngine、不过 job.Manager，作业互斥拦不住它。同理该目录**必须**进快照排除列表，否则每次快照都把上一个胶囊打进去、雪球式膨胀。两条不变量都在 `internal/migrator/artifact` 里收口。
+  - 产物落位是新增的正确性约束：胶囊产物独占 `data/artifacts/capsules/`，因为它与快照都遵循「只保留最新一份」，共用目录会互删——尤其定时快照走 gocron 直连 ExportEngine、不过 job.Manager，作业互斥拦不住它。同理该目录**必须**进快照排除列表，否则每次快照都把上一个胶囊打进去、雪球式膨胀。两条不变量都在 `internal/migrator/artifact` 里收口。
 - **Migrator zip 快照**继续作为字节级灾备（含 SQLite 原文件与全部运行时状态）；胶囊负责内容级交换与迁移（§4.8）。
 - 新增 Extension 类型时，schema 映射表（§4.3）**必须同步更新**——这是发布公开契约后的持续纪律成本，需写进贡献指南。
 

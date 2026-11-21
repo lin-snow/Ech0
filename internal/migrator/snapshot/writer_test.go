@@ -214,12 +214,17 @@ func TestShouldExcludeFromSnapshot(t *testing.T) {
 		key      string
 		expected bool
 	}{
-		{key: "files/snapshots", expected: true},
+		{key: "artifacts", expected: true},
+		{key: "artifacts/snapshots", expected: true},
+		{key: "artifacts/snapshots/a.zip", expected: true},
+		{key: "artifacts/tmp", expected: true},
+		{key: "artifacts/tmp/a.zip", expected: true},
+		{key: "artifacts/capsules", expected: true},
+		{key: "artifacts/capsules/ech0_capsule_2026-08-02_10-00-00.zip", expected: true},
+		// Legacy slots from <= 5.9.10, still excluded until migration moves them.
 		{key: "files/snapshots/a.zip", expected: true},
-		{key: "files/tmp", expected: true},
 		{key: "files/tmp/a.zip", expected: true},
-		{key: "files/capsules", expected: true},
-		{key: "files/capsules/ech0_capsule_2026-08-02_10-00-00.zip", expected: true},
+		{key: "files/capsules/a.zip", expected: true},
 		{key: "files/images/a.png", expected: false},
 		{key: "ech0.db", expected: false},
 	}

@@ -117,7 +117,7 @@ ECH0_DB_PATH=data/ech0.db
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `ECH0_STORAGE_DATA_ROOT` | `data/files` | 本地存储根目录，同时决定 `/api/files` 静态路由 |
+| `ECH0_STORAGE_DATA_ROOT` | `data/files` | 本地存储根目录；`/api/files` 只对其中的媒体类别目录（`images/ audios/ videos/ documents/ files/`）提供匿名只读访问 |
 | `ECH0_OBJECT_ENABLED` | `false` | S3 设置首次落库的默认开关 |
 | `ECH0_S3_ENDPOINT` | `(空)` | S3 兼容端点（不带 `http(s)://`） |
 | `ECH0_S3_ACCESS_KEY` | `(空)` | 访问密钥 |

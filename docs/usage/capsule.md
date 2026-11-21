@@ -88,11 +88,13 @@ ech0 export capsule -o ./my-capsule
 自托管的话，这几条磁盘行为值得先知道。网页导出的产物按格式分开存放：
 
 ```text
-data/files/capsules/    # 胶囊
-data/files/snapshots/   # 快照
+data/artifacts/capsules/    # 胶囊
+data/artifacts/snapshots/   # 快照
 ```
 
 - 两个目录**各自只保留最新一份**，再导一次就顶掉上一份。想留历史版本，自己把文件挪走，或改用 CLI 指定输出路径。
+- 它们**不在** `data/files`（`/api/files` 静态根）之下，匿名请求拿不到；只能经管理端下载接口取回。旧版本的
+  `data/files/{capsules,snapshots,tmp}` 会在启动时自动搬到新位置。
 - **快照不会把胶囊打包进去**。实测：盘上躺着 114 MB 胶囊时，快照仍是 110 MB 且不含胶囊，两者不会互相套娃越滚越大。
 - 导出胶囊不会删掉已有快照，反之亦然。两条线互不干扰。
 - 权限与既有导出一致：需要 `admin:data`。

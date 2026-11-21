@@ -7,17 +7,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/lin-snow/ech0/internal/migrator/artifact"
 )
 
 func TestResolveTmpDir(t *testing.T) {
 	t.Run("valid tmp dir", func(t *testing.T) {
 		path, ok := resolveTmpDir(map[string]any{
-			"tmp_dir": "files/tmp/ech0_v4_test",
+			"tmp_dir": artifact.TmpDir + "/ech0_v4_test",
 		})
 		if !ok {
 			t.Fatalf("expected valid tmp dir")
 		}
-		expected := filepath.Clean(filepath.Join("data", "files/tmp/ech0_v4_test"))
+		expected := filepath.Clean(filepath.Join(artifact.TmpRoot(), "ech0_v4_test"))
 		if path != expected {
 			t.Fatalf("unexpected path: got=%s want=%s", path, expected)
 		}
@@ -33,9 +35,17 @@ func TestResolveTmpDir(t *testing.T) {
 
 	t.Run("reject non tmp subtree", func(t *testing.T) {
 		if _, ok := resolveTmpDir(map[string]any{
-			"tmp_dir": "files/static",
+			"tmp_dir": artifact.ArtifactDir + "/static",
 		}); ok {
 			t.Fatalf("expected non tmp dir to be rejected")
+		}
+	})
+
+	t.Run("reject legacy public storage subtree", func(t *testing.T) {
+		if _, ok := resolveTmpDir(map[string]any{
+			"tmp_dir": "files/tmp/ech0_v4_test",
+		}); ok {
+			t.Fatalf("expected legacy public tmp dir to be rejected")
 		}
 	})
 }
@@ -51,7 +61,7 @@ func TestCleanupTmpDirFromPayload(t *testing.T) {
 	}
 
 	tmpName := "cleanup_test_dir"
-	targetDir := filepath.Join("data", "files/tmp", tmpName)
+	targetDir := filepath.Join(artifact.TmpRoot(), tmpName)
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		t.Fatalf("create target dir failed: %v", err)
 	}
@@ -61,7 +71,7 @@ func TestCleanupTmpDirFromPayload(t *testing.T) {
 	}
 
 	if err := CleanupTmpDirFromPayload(map[string]any{
-		"tmp_dir": filepath.ToSlash(filepath.Join("files/tmp", tmpName)),
+		"tmp_dir": filepath.ToSlash(filepath.Join(artifact.TmpDir, tmpName)),
 	}); err != nil {
 		t.Fatalf("CleanupTmpDirFromPayload failed: %v", err)
 	}

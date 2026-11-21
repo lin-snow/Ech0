@@ -4,8 +4,6 @@
 package router
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
@@ -13,6 +11,7 @@ import (
 	"github.com/lin-snow/ech0/internal/middleware"
 	openapiCatalog "github.com/lin-snow/ech0/internal/openapi/catalog"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
+	"github.com/lin-snow/ech0/internal/storage"
 )
 
 type AppRouterGroup struct {
@@ -54,7 +53,14 @@ func setupStaticFiles(r *gin.Engine) {
 	if root == "" {
 		root = "data/files"
 	}
-	r.Group("api/files", middleware.StaticFileSecurity()).StaticFS("/", http.Dir(root))
+	registerStaticFiles(r, root)
+}
+
+// registerStaticFiles mounts the unauthenticated media route. Only the storage
+// schema's category directories are served; directories themselves and any
+// other path under the root answer 404.
+func registerStaticFiles(r *gin.Engine, root string) {
+	r.Group("api/files", middleware.StaticFileSecurity()).StaticFS("/", storage.NewPublicFS(root))
 }
 
 func revokerOf(mwDeps *middleware.Deps) authService.TokenRevoker {
