@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "リクエストに失敗しました",
     "save": "保存",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "noPermission": {
+      "title": "アクセス権がありません",
+      "description": "このページは管理者専用です。投稿や自分のプロフィール・ファイルの管理は引き続き行えます。",
+      "backHome": "ホームに戻る",
+      "accountSettings": "アカウント設定"
+    }
   },
   "commonUi": {
     "apply": "適用",

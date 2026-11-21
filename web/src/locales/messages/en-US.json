@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "Request failed",
     "save": "Save",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "noPermission": {
+      "title": "No access",
+      "description": "This page is for administrators only. You can still publish and manage your own profile and files.",
+      "backHome": "Back to home",
+      "accountSettings": "Account settings"
+    }
   },
   "commonUi": {
     "apply": "Apply",

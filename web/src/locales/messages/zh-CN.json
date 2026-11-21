@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "请求失败",
     "save": "保存",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "noPermission": {
+      "title": "没有访问权限",
+      "description": "此页面仅管理员可用。你仍可以发布内容，并管理自己的资料与文件。",
+      "backHome": "返回首页",
+      "accountSettings": "账户设置"
+    }
   },
   "commonUi": {
     "apply": "应用",

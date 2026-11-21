@@ -15,7 +15,13 @@
   "common": {
     "requestFailed": "Anfrage fehlgeschlagen",
     "save": "Speichern",
-    "saving": "Wird gespeichert…"
+    "saving": "Wird gespeichert…",
+    "noPermission": {
+      "title": "Kein Zugriff",
+      "description": "Diese Seite ist nur für Administratoren. Du kannst weiterhin veröffentlichen und dein Profil sowie deine Dateien verwalten.",
+      "backHome": "Zurück zur Startseite",
+      "accountSettings": "Kontoeinstellungen"
+    }
   },
   "commonUi": {
     "apply": "Übernehmen",
