@@ -39,8 +39,9 @@ automatically.
 
 `--scopes a,b,c` applies when a login mints a token. The default is
 `echo:read,echo:private,echo:write,echo:delete,profile:read,file:read,file:write,comment:write,comment:review,comment:delete,connect:read,connect:write,connect:delete,admin:webhook`.
-The delete scopes cover the destructive commands, `echo:private` lets an admin
-read private echoes, `comment:review` covers the moderation list/status,
+The delete scopes cover the destructive commands, `echo:private` lets the token
+read private echoes (private is hidden from anonymous visitors but visible to
+every signed-in member), `comment:review` covers the moderation list/status,
 `comment:delete` covers comment deletion, `connect:read` covers `connect health`,
 and `admin:webhook` only covers the webhook surface. Tokens minted elsewhere keep
 their own scopes.
@@ -88,4 +89,6 @@ ech0 auth logout --purge    # delete the token and the profile
 - `401` — token missing, invalid or expired: `ech0 auth status --verify`, then
   log in again.
 - `403` — the token lacks a required scope, or the account is not an admin.
+- `403` with `error_code` `ACCOUNT_DISABLED` — the account was disabled by an
+  administrator; every token it holds is dead. Ask an admin to re-enable it.
 - No profile or server — the CLI exits 2 and names the missing piece.

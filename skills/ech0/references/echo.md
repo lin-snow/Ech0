@@ -2,9 +2,9 @@
 
 The Echo commands are `echo.create`, `echo.list`, `echo.get`, `echo.update`,
 `echo.delete`, plus the read-only views `echo.hot`, `echo.today`,
-`echo.random` and `echo.onthisday`. Attachments use `file.upload`. **Create,
-update and delete require an admin account.** Reads work for any logged-in
-account.
+`echo.random` and `echo.onthisday`. Attachments use `file.upload`. **Create
+needs any signed-in account with `echo:write`; update and delete additionally
+require being the author or an administrator.** Reads work for any account.
 
 An Echo carries:
 
@@ -14,7 +14,7 @@ An Echo carries:
 | `tags` | names; an existing tag with the same name is reused |
 | `echo_files` | attachments: `{file_id, sort_order}` |
 | `extension` | card payload: `{type, payload}` |
-| `private` | visible only to the owner |
+| `private` | hidden from anonymous visitors; visible to every signed-in member |
 | `layout` | `waterfall` (default), `grid`, `horizontal`, `carousel`, `stack`, `none` |
 | `created_at` | Unix seconds; defaults to now |
 
@@ -26,7 +26,7 @@ and audio or video is limited to one per Echo.
 
 ```bash
 ech0 echo create --content "今天的想法" --tag daily
-ech0 echo create --content "只给自己看" --private
+ech0 echo create --content "登录后可见" --private
 ech0 echo create --content "配图" --file-id <file_id>
 ```
 
@@ -94,7 +94,8 @@ ech0 echo update --id <echo_id> --content "改过的正文" --tag daily
 Update is a **full replacement**: `content`, `private` and `layout` are written
 as sent, and `echo_files`, `extension` and `tags` are replaced by what you pass.
 Omitted values are cleared, so fetch the Echo first and send back the fields you
-want to keep. `--id` is required.
+want to keep. `--id` is required, and only the author or an administrator may
+update the Echo.
 
 ## Delete
 
@@ -102,7 +103,8 @@ want to keep. `--id` is required.
 ech0 echo delete --id <echo_id> --yes
 ```
 
-Destructive and admin-only. Interactive terminals print the exact `DELETE`
+Destructive; only the author or an administrator may delete. Interactive
+terminals print the exact `DELETE`
 target and ask `[y/N]`; non-interactive runs (agents, pipes, CI) never prompt
 and require `--yes`, so ask the human before passing it. Verify `--server` and
 the id first. Deleting an Echo also deletes its attachments.
@@ -129,7 +131,8 @@ ech0 echo onthisday
 | `--tag-ids` | Tag IDs; matches an Echo carrying **any** listed tag. Repeat the flag or use commas |
 | `--sort-by`, `--sort-order` | `created_at` (default) or `reactions`; `asc` or `desc` (default) |
 | `--date-from`, `--date-to` | Unix seconds, inclusive |
-| `--private`, `--no-private` | Private-only or public-only; omit both for no filter. Only admins are honoured; other accounts always see public Echoes |
+| `--private`, `--no-private` | Private-only or public-only; omit both for no filter. Honoured for signed-in callers; anonymous visitors always see public Echoes only |
+| `--mine` | Only Echoes authored by the caller; requires sign-in |
 
 Boolean flags are tri-state: passing neither sends no filter. Tag IDs come from
 `ech0 tag list`. Responses look like `{code, msg, data}`; `ech0 echo list`
