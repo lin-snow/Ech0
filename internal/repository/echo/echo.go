@@ -74,7 +74,7 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 			var echos []model.Echo
 			var total int64
 
-			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
+			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private")
 			if search != "" {
 				query = query.Where("content LIKE ?", "%"+search+"%")
 			}
@@ -206,7 +206,7 @@ func (echoRepository *EchoRepository) GetTodayEchos(scope model.PrivateScope, ti
 			startOfDayUTC := startOfDayUser.UTC().Unix()
 			endOfDayUTC := endOfDayUser.UTC().Unix()
 
-			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
+			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private")
 			query = query.Where("created_at >= ? AND created_at < ?", startOfDayUTC, endOfDayUTC)
 			if err := query.
 				Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
@@ -410,13 +410,10 @@ func (echoRepository *EchoRepository) QueryEchos(
 			if queryDto.Private != nil {
 				db = db.Where("echos.private = ?", *queryDto.Private)
 			}
-		} else if scope.ViewerID == "" {
+		} else if !scope.Authenticated {
 			db = db.Where("echos.private = ?", false)
-		} else {
-			db = db.Where("(echos.private = ? OR echos.user_id = ?)", false, scope.ViewerID)
-			if queryDto.Private != nil {
-				db = db.Where("echos.private = ?", *queryDto.Private)
-			}
+		} else if queryDto.Private != nil {
+			db = db.Where("echos.private = ?", *queryDto.Private)
 		}
 		if queryDto.UserID != "" {
 			db = db.Where("echos.user_id = ?", queryDto.UserID)
@@ -510,7 +507,7 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 		db = db.Joins("JOIN echo_tags ON echo_tags.echo_id = echos.id").
 			Where("echo_tags.tag_id = ?", tagId)
 
-		db = applyPrivateScope(db, scope, "echos.private", "echos.user_id")
+		db = applyPrivateScope(db, scope, "echos.private")
 
 		if search != "" {
 			db = db.Where("echos.content LIKE ?", "%"+search+"%")
@@ -570,7 +567,7 @@ func (echoRepository *EchoRepository) GetHotEchos(limit int, scope model.Private
 
 	recentQuery := applyPrivateScope(
 		echoRepository.db().Model(&model.Echo{}).Select("id").Order("created_at DESC").Limit(recentPool),
-		scope, "private", "user_id",
+		scope, "private",
 	)
 
 	type hotRow struct {
@@ -631,7 +628,7 @@ func (echoRepository *EchoRepository) GetRandomEcho(scope model.PrivateScope) (*
 		randomExpr = "RAND()"
 	}
 
-	query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
+	query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private")
 
 	var echos []model.Echo
 	if err := query.
@@ -658,7 +655,7 @@ func (echoRepository *EchoRepository) GetOnThisDayEchos(scope model.PrivateScope
 	now := time.Now().In(loc)
 	month, day, currentYear := now.Month(), now.Day(), now.Year()
 
-	minQuery := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private", "user_id")
+	minQuery := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private")
 	var minTs int64
 	if err := minQuery.Select("MIN(created_at)").Scan(&minTs).Error; err != nil || minTs == 0 {
 		return []model.Echo{}
@@ -680,12 +677,9 @@ func (echoRepository *EchoRepository) GetOnThisDayEchos(scope model.PrivateScope
 	where := "(" + strings.Join(conds, " OR ") + ")"
 	switch {
 	case scope.All:
-	case scope.ViewerID == "":
+	case !scope.Authenticated:
 		where += " AND private = ?"
 		args = append(args, false)
-	default:
-		where += " AND (private = ? OR user_id = ?)"
-		args = append(args, false, scope.ViewerID)
 	}
 
 	var echos []model.Echo
@@ -717,17 +711,17 @@ func onThisDayUnixRanges(earliestYear, currentYear int, month time.Month, day in
 	return ranges
 }
 
-// applyPrivateScope narrows a listing to the private echoes the caller may
-// read. Trusted internal aggregates see everything; anonymous callers see only
-// public rows; a signed-in viewer sees public rows plus their own private ones.
-// The columns are spelled out because callers mix bare and qualified queries.
-func applyPrivateScope(db *gorm.DB, scope model.PrivateScope, privateColumn, userColumn string) *gorm.DB {
+// applyPrivateScope narrows a listing to rows the caller may read. Trusted
+// internal aggregates see everything; anonymous callers see only public rows;
+// signed-in members see the full timeline, private rows included. The column
+// is spelled out because callers mix bare and qualified queries.
+func applyPrivateScope(db *gorm.DB, scope model.PrivateScope, privateColumn string) *gorm.DB {
 	switch {
 	case scope.All:
 		return db
-	case scope.ViewerID == "":
+	case !scope.Authenticated:
 		return db.Where(privateColumn+" = ?", false)
 	default:
-		return db.Where("("+privateColumn+" = ? OR "+userColumn+" = ?)", false, scope.ViewerID)
+		return db
 	}
 }

@@ -56,6 +56,14 @@ func registerUser(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 	}, h.UserHandler.DeleteUser)
 
 	api.route(secured(revoker, authz.ScopeAdminUser), huma.Operation{
+		OperationID: "user-set-status",
+		Method:      http.MethodPut,
+		Path:        "/user/status/{id}",
+		Summary:     "启用或禁用用户",
+		Tags:        []string{"User"},
+	}, h.UserHandler.UpdateUserStatus)
+
+	api.route(secured(revoker, authz.ScopeAdminUser), huma.Operation{
 		OperationID: "user-set-admin",
 		Method:      http.MethodPut,
 		Path:        "/user/admin/{id}",

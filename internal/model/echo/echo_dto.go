@@ -17,7 +17,7 @@ type EchoUpsertDto struct {
 	Content   string            `json:"content" doc:"Markdown body; supply at least one of content, files, or extension"`
 	EchoFiles []EchoFile        `json:"echo_files,omitempty" swaggertype:"array,object" doc:"Attachments as {file_id, sort_order}; upload files first to get file_id"`
 	Layout    string            `json:"layout,omitempty" doc:"Layout: waterfall / grid / horizontal / carousel / stack / none"`
-	Private   bool              `json:"private" doc:"Visible only to the owner"`
+	Private   bool              `json:"private" doc:"Hidden from anonymous visitors; visible to all signed-in users"`
 	Extension *EchoExtensionDto `json:"extension,omitempty" doc:"Card payload: {type, payload}"`
 	Tags      []Tag             `json:"tags,omitempty" doc:"Tags as {name}; an existing tag with the same name is reused"`
 	CreatedAt *int64            `json:"created_at,omitempty" doc:"Publish time in Unix seconds; defaults to now"`

@@ -93,6 +93,28 @@ func (s *CommentService) GetFormMeta(ctx context.Context, clientIP, apiBaseURL s
 	}, nil
 }
 
+// viewerSeesPrivate mirrors the echo listing rule: private is an audience
+// marker, so any signed-in member may read those rows, while anonymous
+// visitors and access tokens without echo:private may not.
+func (s *CommentService) viewerSeesPrivate(ctx context.Context) bool {
+	v := viewer.MustFromContext(ctx)
+	if v.UserID() == "" {
+		return false
+	}
+	return v.TokenType() == authModel.TokenTypeSession || authz.Has(v.Scopes(), authz.ScopeEchoPrivate)
+}
+
+// assertEchoCommentable rejects comments whose target echo is missing or
+// private to this caller. Anonymous visitors cannot even name a private echo;
+// signed-in members can comment on what they can read.
+func (s *CommentService) assertEchoCommentable(ctx context.Context, echoID string) error {
+	private, err := s.repo.IsEchoPrivate(ctx, echoID)
+	if err != nil || (private && !s.viewerSeesPrivate(ctx)) {
+		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+	}
+	return nil
+}
+
 func (s *CommentService) CreateComment(
 	ctx context.Context,
 	clientIP string,
@@ -145,7 +167,6 @@ func (s *CommentService) CreateComment(
 		return model.CreateCommentResult{},
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
 	}
-
 	parentID, err := s.resolveParentID(ctx, comment.EchoID, dto.ParentID)
 	if err != nil {
 		return model.CreateCommentResult{}, err
@@ -192,6 +213,10 @@ func (s *CommentService) CreateComment(
 		if err := s.checkRateLimit(ctx, comment.IPHash, email, ""); err != nil {
 			return model.CreateCommentResult{}, err
 		}
+	}
+
+	if err := s.assertEchoCommentable(ctx, comment.EchoID); err != nil {
+		return model.CreateCommentResult{}, err
 	}
 
 	duplicated, err := s.repo.ExistsRecentDuplicate(
@@ -275,7 +300,6 @@ func (s *CommentService) CreateIntegrationComment(
 		return model.CreateCommentResult{},
 			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
 	}
-
 	nickname := strings.TrimSpace(dto.Nickname)
 	if nickname == "" {
 		nickname = "Integration"
@@ -291,6 +315,10 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 
 	if err := s.checkIntegrationRateLimit(ctx, comment.IPHash, userID, tokenID); err != nil {
+		return model.CreateCommentResult{}, err
+	}
+
+	if err := s.assertEchoCommentable(ctx, comment.EchoID); err != nil {
 		return model.CreateCommentResult{}, err
 	}
 
@@ -368,7 +396,7 @@ func (s *CommentService) ListPublicByEchoID(ctx context.Context, echoID string) 
 	if !setting.EnableComment {
 		return []model.PublicComment{}, nil
 	}
-	rows, err := s.repo.ListPublicByEchoID(ctx, strings.TrimSpace(echoID))
+	rows, err := s.repo.ListPublicByEchoID(ctx, strings.TrimSpace(echoID), s.viewerSeesPrivate(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +417,7 @@ func (s *CommentService) ListPublicComments(ctx context.Context, limit int) ([]m
 	if limit > 100 {
 		limit = 100
 	}
-	rows, err := s.repo.ListPublicComments(ctx, limit)
+	rows, err := s.repo.ListPublicComments(ctx, limit, s.viewerSeesPrivate(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -915,16 +943,25 @@ func (s *CommentService) resolveRequestUser(ctx context.Context) (user userModel
 	return u, true, nil
 }
 
-func ParseOptionalUserIDFromAuthHeader(authHeader string) string {
+// ParseOptionalViewerFromAuthHeader builds the viewer for comment endpoints
+// that run outside the auth middleware. It keeps token type and scopes so the
+// private-echo audience check sees the same identity as secured routes.
+func ParseOptionalViewerFromAuthHeader(authHeader string) *viewer.UserViewer {
 	parts := strings.SplitN(strings.TrimSpace(authHeader), " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return ""
+		return nil
 	}
 	claims, err := jwtUtil.ParseToken(strings.TrimSpace(parts[1]))
 	if err != nil {
-		return ""
+		return nil
 	}
-	return claims.Userid
+	return viewer.NewUserViewerWithToken(
+		claims.Userid,
+		claims.Type,
+		claims.Scopes,
+		[]string(claims.Audience),
+		claims.ID,
+	).WithAdmin(claims.IsAdmin)
 }
 
 func hashClientIP(ip string) string {

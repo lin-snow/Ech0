@@ -240,9 +240,8 @@ func (h *CommentHandler) TestCommentEmail(ctx context.Context, in *TestCommentEm
 
 func (h *CommentHandler) attachOptionalViewer(ctx *gin.Context) {
 	auth := strings.TrimSpace(ctx.GetHeader("Authorization"))
-	userID := service.ParseOptionalUserIDFromAuthHeader(auth)
-	if userID != "" {
-		viewer.AttachToRequest(&ctx.Request, viewer.NewUserViewer(userID))
+	if v := service.ParseOptionalViewerFromAuthHeader(auth); v != nil {
+		viewer.AttachToRequest(&ctx.Request, v)
 		return
 	}
 	viewer.AttachToRequest(&ctx.Request, viewer.NewNoopViewer())

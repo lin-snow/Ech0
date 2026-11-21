@@ -155,7 +155,8 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	echoRepository := repository2.NewEchoRepository(dbProvider, appCache)
 	echoService := service5.NewEchoService(tx, commonService, fileService, echoRepository, ebProvider)
 	webHandler := handler2.NewWebHandler(tracker, settingService, echoService)
-	userService := service6.NewUserService(tx, userRepository, persistent, fileService, ebProvider)
+	embeddingRepository := repository.NewEmbeddingRepository(dbProvider)
+	userService := service6.NewUserService(tx, userRepository, persistent, fileService, echoRepository, embeddingRepository, ebProvider)
 	userHandler := handler3.NewUserHandler(userService)
 	memoryLimiter := ratelimit.ProvideLimiter()
 	authService := auth.NewAuthService(tx, authRepository, authRepository, persistent, accessService, memoryLimiter)
@@ -178,7 +179,6 @@ func BuildHandlers(dbProvider func() *gorm.DB, appCache *cache.Cache, tx transac
 	migrationHandler := handler12.NewMigrationHandler(migratorService)
 	dashboardService := service11.NewDashboardService(tracker)
 	dashboardHandler := handler13.NewDashboardHandler(dashboardService)
-	embeddingRepository := repository.NewEmbeddingRepository(dbProvider)
 	embeddingService := service.NewEmbeddingService(embeddingRepository, persistent, echoRepository)
 	copilotService := service12.NewCopilotService(echoService, embeddingService, userService, persistent, storageManager)
 	copilotHandler := handler14.NewCopilotHandler(copilotService, copilotService)
@@ -339,7 +339,7 @@ var RuntimeSet = server.ProviderSet
 
 var EventSet = wire.NewSet(repository14.EchoSet, repository14.UserSet, repository14.KeyValueSet, repository14.WebhookSet, repository14.EmbeddingSet, webhook.NewDispatcher, subscriber.NewAgentProcessor, subscriber.NewEmbeddingProcessor, service13.EmbeddingSet, ProvideSubscriptionProviders, bus.NewEventRegistry)
 
-var HandlerSet = wire.NewSet(ratelimit.ProviderSet, repository14.FileSet, handler.WebSet, repository14.UserSet, repository14.AuthSet, service13.UserSet, service13.AuthSet, service13.AccessSet, handler.UserSet, handler.AuthSet, repository14.EchoSet, service13.EchoSet, handler.EchoSet, repository14.CommentSet, service13.CommentSet, handler.CommentSet, repository14.CommonSet, service13.FileSet, handler.FileSet, repository14.InitSet, service13.InitSet, handler.InitSet, service13.CommonSet, handler.CommonSet, repository14.WebhookSet, webhook.NewSender, repository14.KeyValueSet, repository14.SettingSet, service13.SettingSet, handler.SettingSet, repository14.ConnectSet, service13.ConnectSet, handler.ConnectSet, service13.DashboardSet, handler.DashboardSet, repository14.EmbeddingSet, service13.EmbeddingSet, handler.EmbeddingSet, service13.CopilotSet, wire.Bind(new(service12.UserReader), new(*service6.UserService)), handler.CopilotSet, service13.MigratorSet, handler.MigrationSet, handler.MCPSet, repository14.OAuthServerSet, service13.OAuthServerSet, handler.OAuthServerSet, wire.Bind(new(handler2.SettingsReader), new(*service4.SettingService)), wire.Bind(new(handler2.EchoReader), new(*service5.EchoService)), handler.NewBundle)
+var HandlerSet = wire.NewSet(ratelimit.ProviderSet, repository14.FileSet, handler.WebSet, repository14.UserSet, repository14.AuthSet, service13.UserSet, wire.Bind(new(service6.EchoCacheInvalidator), new(*repository2.EchoRepository)), wire.Bind(new(service6.EmbeddingPurger), new(*repository.EmbeddingRepository)), service13.AuthSet, service13.AccessSet, handler.UserSet, handler.AuthSet, repository14.EchoSet, service13.EchoSet, handler.EchoSet, repository14.CommentSet, service13.CommentSet, handler.CommentSet, repository14.CommonSet, service13.FileSet, handler.FileSet, repository14.InitSet, service13.InitSet, handler.InitSet, service13.CommonSet, handler.CommonSet, repository14.WebhookSet, webhook.NewSender, repository14.KeyValueSet, repository14.SettingSet, service13.SettingSet, handler.SettingSet, repository14.ConnectSet, service13.ConnectSet, handler.ConnectSet, service13.DashboardSet, handler.DashboardSet, repository14.EmbeddingSet, service13.EmbeddingSet, handler.EmbeddingSet, service13.CopilotSet, wire.Bind(new(service12.UserReader), new(*service6.UserService)), handler.CopilotSet, service13.MigratorSet, handler.MigrationSet, handler.MCPSet, repository14.OAuthServerSet, service13.OAuthServerSet, handler.OAuthServerSet, wire.Bind(new(handler2.SettingsReader), new(*service4.SettingService)), wire.Bind(new(handler2.EchoReader), new(*service5.EchoService)), handler.NewBundle)
 
 var MiddlewareSet = wire.NewSet(ratelimit.ProviderSet, repository14.AuthSet, middleware.ProviderSet)
 

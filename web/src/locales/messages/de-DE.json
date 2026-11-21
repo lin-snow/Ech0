@@ -138,7 +138,7 @@
     "addImage": "Anhang hinzufügen",
     "publishEcho": "Echo veröffentlichen",
     "publishEchoPublic": "Öffentlich veröffentlichen",
-    "publishEchoPrivate": "Privat veröffentlichen",
+    "publishEchoPrivate": "Nur für Angemeldete",
     "exitUpdateMode": "Bearbeitungsmodus verlassen",
     "updateEcho": "Echo aktualisieren",
     "extMusic": "Musik",
@@ -205,7 +205,6 @@
     "enableCaptchaDesc": "Bei Aktivierung wird der integrierte gocap-Dienst genutzt, ohne separate Bereitstellung.",
     "searchPlaceholder": "Nickname, E-Mail oder Inhalt suchen",
     "statusAll": "Alle Status",
-    "status": "Status",
     "statusPending": "Ausstehend",
     "statusApproved": "Freigegeben",
     "statusRejected": "Abgelehnt",
@@ -281,6 +280,7 @@
   },
   "auth": {
     "loginSuccess": "Anmeldung erfolgreich – willkommen zurück! 🎉",
+    "account_disabled": "Dieses Konto wurde deaktiviert. Bitte wenden Sie sich an einen Administrator.",
     "signupSuccess": "Registrierung erfolgreich, bitte anmelden."
   },
   "authPage": {
@@ -441,7 +441,7 @@
     "visibilityLabel": "Sichtbarkeit",
     "visibilityAll": "Alle",
     "visibilityPublic": "Nur öffentlich",
-    "visibilityPrivate": "Nur privat",
+    "visibilityPrivate": "Nur für Angemeldete",
     "activeChipVisibilityPrefix": "Sichtbarkeit",
     "tagsLabel": "Tags",
     "tagsHint": "Beliebiges passt",
@@ -514,7 +514,7 @@
     "shareCopyFailed": "Kopieren fehlgeschlagen, bitte erneut versuchen.",
     "shareMarkdownCopied": "Markdown in die Zwischenablage kopiert!",
     "metaWordCountValue": "{count} Wörter",
-    "metaPrivate": "Privat"
+    "metaPrivate": "Nur für Angemeldete"
   },
   "commentSection": {
     "disabled": "Kommentare sind deaktiviert.",
@@ -558,7 +558,7 @@
     "submittedAtPending": "Eingereicht am {time}. Wird nach Freigabe angezeigt."
   },
   "echoCard": {
-    "privateStatus": "Privat",
+    "privateStatus": "Nur für Angemeldete",
     "moreActions": "Echo-Aktionen",
     "delete": "Löschen",
     "update": "Bearbeiten",
@@ -595,8 +595,14 @@
     "email": "E-Mail",
     "isAdmin": "Admin",
     "deleteUser": "Benutzer löschen",
-    "deleteConfirmTitle": "Diesen Benutzer wirklich löschen?",
-    "deleteConfirmDesc": "Diese Aktion kann nicht rückgängig gemacht werden."
+    "deleteConfirmTitle": "Benutzer endgültig löschen?",
+    "deleteConfirmDesc": "Diese Aktion kann nicht rückgängig gemacht werden. Alle von diesem Benutzer erstellten Echos samt Anhängen, alle Kommentare unter diesen Echos (auch von anderen Benutzern) sowie seine Kommentare unter fremden Echos werden dauerhaft gelöscht. Echos anderer Benutzer bleiben unberührt.",
+    "status": "Status",
+    "statusActive": "Aktiv",
+    "statusDisabled": "Deaktiviert",
+    "disableUser": "Benutzer deaktivieren",
+    "enableUser": "Benutzer aktivieren",
+    "deleteConfirmHint": "Benutzernamen {username} zur Bestätigung eingeben"
   },
   "systemSetting": {
     "title": "Systemeinstellungen",
@@ -738,7 +744,7 @@
     "formatSnapshotDesc": "Vollständige Sicherung, mit Konten und Zugangsdaten",
     "formatCapsuleTitle": "Kapsel",
     "formatCapsuleDesc": "Nur Inhalte, zum Teilen oder für statische Seiten",
-    "includePrivate": "Private Inhalte einbeziehen",
+    "includePrivate": "Nur für Angemeldete Inhalte einbeziehen",
     "loginRequired": "Bitte zuerst anmelden",
     "exporting": "Wird exportiert… bitte warten",
     "exportStarted": "Export gestartet!",
@@ -853,7 +859,7 @@
     "scopeEchoRead": "Echos lesen",
     "scopeEchoWrite": "Echos erstellen/bearbeiten",
     "scopeEchoDelete": "Echos löschen",
-    "scopeEchoPrivate": "Private Echos lesen",
+    "scopeEchoPrivate": "Nur für Angemeldete Echos lesen",
     "scopeCommentRead": "Kommentare lesen",
     "scopeCommentWrite": "Kommentare schreiben",
     "scopeCommentReview": "Kommentare prüfen",
@@ -974,7 +980,7 @@
     "sourceCapsuleTitle": "Ech0-Kapsel",
     "sourceCapsule": "Unterstützt Import aus Ech0-Kapseln",
     "capsuleNote": "Ergänzt Inhalte, per ID dedupliziert, überschreibt nichts",
-    "capsuleIncludePrivate": "Private Inhalte einschließen",
+    "capsuleIncludePrivate": "Nur für Angemeldete Inhalte einschließen",
     "statusIdle": "Bereit",
     "statusPending": "Wartend",
     "statusRunning": "Läuft",

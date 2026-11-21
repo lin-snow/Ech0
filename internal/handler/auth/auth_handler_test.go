@@ -29,6 +29,10 @@ type fakeAuthService struct {
 	exchangeOAuthCodeFn func(code string) (*authModel.TokenPair, error)
 }
 
+func (f *fakeAuthService) IsAccountActive(context.Context, string) (bool, error) {
+	return true, nil
+}
+
 func (f *fakeAuthService) IsTokenRevoked(jti string) bool {
 	if f.isTokenRevokedFn != nil {
 		return f.isTokenRevokedFn(jti)
@@ -128,6 +132,10 @@ func (f *fakeUserService) UpdateUser(context.Context, userModel.UserInfoDto) err
 	panic("not called")
 }
 func (f *fakeUserService) UpdateUserAdmin(context.Context, string) error { panic("not called") }
+func (f *fakeUserService) UpdateUserStatus(context.Context, string, userModel.Status) error {
+	panic("not called")
+}
+
 func (f *fakeUserService) GetAllUsers(context.Context) ([]userModel.User, error) {
 	panic("not called")
 }

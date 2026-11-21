@@ -26,6 +26,8 @@ import (
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/internal/repository"
+	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
+	embeddingRepository "github.com/lin-snow/ech0/internal/repository/embedding"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/service"
@@ -154,6 +156,8 @@ var HandlerSet = wire.NewSet(
 	repository.UserSet,
 	repository.AuthSet,
 	service.UserSet,
+	wire.Bind(new(userService.EchoCacheInvalidator), new(*echoRepository.EchoRepository)),
+	wire.Bind(new(userService.EmbeddingPurger), new(*embeddingRepository.EmbeddingRepository)),
 	service.AuthSet,
 	service.AccessSet,
 	handler.UserSet,

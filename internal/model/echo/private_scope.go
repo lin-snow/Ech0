@@ -3,25 +3,25 @@
 
 package model
 
-// PrivateScope decides which private echoes a listing may return. A signed-in
-// viewer sees public echoes plus their own private ones; administrators get no
-// extra reach here, because the feed must never surface somebody else's private
-// echo. All is reserved for trusted server-side aggregates (instance counters,
-// the embedding index) that legitimately need every row.
+// PrivateScope decides which private echoes a listing may return. Private is
+// an audience marker, not an isolation boundary: hidden from anonymous
+// visitors, visible to every signed-in member. All is reserved for trusted
+// server-side aggregates (instance counters, the embedding index) that
+// legitimately need every row.
 type PrivateScope struct {
-	ViewerID string
-	All      bool
+	Authenticated bool
+	All           bool
 }
 
 // CacheTag renders the scope as the cache-key fragment used by echo listings,
-// so a cached page can never be replayed to a different viewer.
+// so a cached anonymous page can never be replayed to a signed-in viewer.
 func (s PrivateScope) CacheTag() string {
 	switch {
 	case s.All:
 		return "all"
-	case s.ViewerID == "":
-		return "public"
+	case s.Authenticated:
+		return "authed"
 	default:
-		return "u:" + s.ViewerID
+		return "public"
 	}
 }

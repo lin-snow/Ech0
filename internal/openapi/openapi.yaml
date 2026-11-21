@@ -561,7 +561,7 @@ components:
           description: "Layout: waterfall / grid / horizontal / carousel / stack / none"
           type: string
         private:
-          description: Visible only to the owner
+          description: Hidden from anonymous visitors; visible to all signed-in users
           type: boolean
         tags:
           description: Tags as {name}; an existing tag with the same name is reused
@@ -2528,6 +2528,13 @@ components:
           format: int64
           type: integer
       type: object
+    UpdateUserStatusInputBody:
+      additionalProperties: true
+      properties:
+        status:
+          description: 账户状态：ACTIVE 或 DISABLED
+          type: string
+      type: object
     User:
       additionalProperties: true
       properties:
@@ -2540,6 +2547,8 @@ components:
         is_admin:
           type: boolean
         locale:
+          type: string
+        status:
           type: string
         username:
           type: string
@@ -2902,7 +2911,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
-      summary: 按 echo 列出公开评论
+      summary: 按 echo 列出评论
       tags:
         - Comment
     post:
@@ -3002,7 +3011,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
           description: Error
-      summary: 列出最新公开评论
+      summary: 列出最新评论
       tags:
         - Comment
   /connect:
@@ -5254,6 +5263,43 @@ paths:
         - bearerAuth:
             - admin:user
       summary: 切换用户管理员权限
+      tags:
+        - User
+  /user/status/{id}:
+    put:
+      operationId: user-set-status
+      parameters:
+        - description: 用户 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 用户 ID（UUID）
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserStatusInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultInterface {}"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 启用或禁用用户
       tags:
         - User
   /user/{id}:

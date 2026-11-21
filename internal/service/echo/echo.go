@@ -189,8 +189,9 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 	return nil
 }
 
-// privateScope reports which private echoes a listing may include for the
-// caller: their own, plus public rows. Interactive sessions qualify by
+// privateScope reports whether the caller may read private echoes at all.
+// Private is an audience marker: every signed-in member sees the full
+// timeline, while anonymous visitors never do. Interactive sessions qualify by
 // identity; access tokens also need echo:private, so echo:read alone cannot
 // enumerate private content.
 func (echoService *EchoService) privateScope(ctx context.Context) model.PrivateScope {
@@ -201,27 +202,7 @@ func (echoService *EchoService) privateScope(ctx context.Context) model.PrivateS
 	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
 		return model.PrivateScope{}
 	}
-	return model.PrivateScope{ViewerID: v.UserID()}
-}
-
-// canReadPrivate is the administrator break-glass path for a single echo by id.
-// Feeds never use it: an administrator sees only their own private echoes in
-// listings, but may still open a specific private echo when moderation needs it.
-func (echoService *EchoService) canReadPrivate(ctx context.Context) (bool, error) {
-	v := viewer.MustFromContext(ctx)
-	if v.UserID() == "" {
-		return false, nil
-	}
-	// An access token without echo:private never needs the user lookup: the
-	// answer is public-only regardless of the account's admin flag.
-	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
-		return false, nil
-	}
-	user, err := echoService.commonService.CommonGetUserByUserId(ctx, v.UserID())
-	if err != nil {
-		return false, err
-	}
-	return user.IsAdmin, nil
+	return model.PrivateScope{Authenticated: true}
 }
 
 func (echoService *EchoService) GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error) {
@@ -331,16 +312,8 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 	if echo == nil {
 		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
 	}
-	if echo.Private {
-		if echo.UserID == "" || echo.UserID != echoService.privateScope(ctx).ViewerID {
-			allowed, err := echoService.canReadPrivate(ctx)
-			if err != nil {
-				return nil, err
-			}
-			if !allowed {
-				return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
-			}
-		}
+	if echo.Private && !echoService.privateScope(ctx).Authenticated {
+		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 	return echoService.hydrateEchoReactions(ctx, echo)
 }

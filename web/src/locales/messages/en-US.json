@@ -138,7 +138,7 @@
     "addImage": "Add attachment",
     "publishEcho": "Publish Echo",
     "publishEchoPublic": "Publish as public",
-    "publishEchoPrivate": "Publish as private",
+    "publishEchoPrivate": "Signed-in only",
     "exitUpdateMode": "Exit update mode",
     "updateEcho": "Update Echo",
     "extMusic": "Music",
@@ -205,7 +205,6 @@
     "enableCaptchaDesc": "When enabled, the built-in gocap verifier is used with no extra deployment.",
     "searchPlaceholder": "Search nickname, email, or content",
     "statusAll": "All statuses",
-    "status": "Status",
     "statusPending": "Pending",
     "statusApproved": "Approved",
     "statusRejected": "Rejected",
@@ -281,6 +280,7 @@
   },
   "auth": {
     "loginSuccess": "Signed in successfully, welcome back! 🎉",
+    "account_disabled": "This account has been disabled. Contact an administrator.",
     "signupSuccess": "Sign up successful, please sign in."
   },
   "authPage": {
@@ -441,7 +441,7 @@
     "visibilityLabel": "Visibility",
     "visibilityAll": "All",
     "visibilityPublic": "Public only",
-    "visibilityPrivate": "Private only",
+    "visibilityPrivate": "Signed-in only",
     "activeChipVisibilityPrefix": "Visibility",
     "tagsLabel": "Tags",
     "tagsHint": "Match any",
@@ -514,7 +514,7 @@
     "shareCopyFailed": "Copy failed, please try again.",
     "shareMarkdownCopied": "Markdown copied to clipboard!",
     "metaWordCountValue": "{count} words",
-    "metaPrivate": "Private"
+    "metaPrivate": "Signed-in only"
   },
   "commentSection": {
     "disabled": "Commenting is disabled.",
@@ -558,7 +558,7 @@
     "submittedAtPending": "Submitted at {time}. It will appear after approval."
   },
   "echoCard": {
-    "privateStatus": "Private status",
+    "privateStatus": "Signed-in only",
     "moreActions": "Echo actions",
     "delete": "Delete",
     "update": "Update",
@@ -595,8 +595,14 @@
     "email": "Email",
     "isAdmin": "Admin",
     "deleteUser": "Delete user",
-    "deleteConfirmTitle": "Are you sure to delete this user?",
-    "deleteConfirmDesc": "This action cannot be undone."
+    "deleteConfirmTitle": "Permanently delete user?",
+    "deleteConfirmDesc": "This cannot be undone. Permanently deletes every Echo created by this user and its attachments, all comments under those Echoes (including comments by other users), and this user’s comments on other Echoes. Echoes created by other users are not affected.",
+    "status": "Status",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "disableUser": "Disable user",
+    "enableUser": "Enable user",
+    "deleteConfirmHint": "Type the username {username} to confirm"
   },
   "systemSetting": {
     "title": "System Settings",
@@ -738,7 +744,7 @@
     "formatSnapshotDesc": "Full backup, with accounts and credentials",
     "formatCapsuleTitle": "Capsule",
     "formatCapsuleDesc": "Content only, for sharing or building a static site",
-    "includePrivate": "Include private content",
+    "includePrivate": "Include signed-in-only content",
     "loginRequired": "Please sign in first",
     "exporting": "Exporting... please wait",
     "exportStarted": "Export started!",
@@ -853,7 +859,7 @@
     "scopeEchoRead": "Read echoes",
     "scopeEchoWrite": "Create/Edit echoes",
     "scopeEchoDelete": "Delete echoes",
-    "scopeEchoPrivate": "Read private echoes",
+    "scopeEchoPrivate": "Read signed-in-only echoes",
     "scopeCommentRead": "Read comments",
     "scopeCommentWrite": "Write comments",
     "scopeCommentReview": "Review comments",
@@ -974,7 +980,7 @@
     "sourceCapsuleTitle": "Ech0 Capsule",
     "sourceCapsule": "Supports importing from Ech0 capsules",
     "capsuleNote": "Appends content, de-duplicated by id, never overwrites",
-    "capsuleIncludePrivate": "Include private content",
+    "capsuleIncludePrivate": "Include signed-in-only content",
     "statusIdle": "Idle",
     "statusPending": "Pending",
     "statusRunning": "Running",

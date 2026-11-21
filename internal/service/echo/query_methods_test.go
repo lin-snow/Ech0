@@ -86,12 +86,12 @@ func TestReadEchos_VisibilityScope(t *testing.T) {
 		{
 			name:  "admin is scoped to their own private echoes",
 			ctx:   helpers.CtxAsUser(adminID),
-			scope: echoModel.PrivateScope{ViewerID: adminID},
+			scope: echoModel.PrivateScope{Authenticated: true},
 		},
 		{
 			name:  "member is scoped to their own private echoes",
 			ctx:   helpers.CtxAsUser(userID),
-			scope: echoModel.PrivateScope{ViewerID: userID},
+			scope: echoModel.PrivateScope{Authenticated: true},
 		},
 		{
 			name: "echo:read token stays public-only",
@@ -151,7 +151,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().
-			QueryEchos(mock.Anything, echoModel.PrivateScope{ViewerID: adminID}).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 
@@ -185,7 +185,7 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
 		repo.EXPECT().
-			QueryEchos(mock.Anything, echoModel.PrivateScope{ViewerID: adminID}).
+			QueryEchos(mock.Anything, echoModel.PrivateScope{Authenticated: true}).
 			Return([]echoModel.Echo{helpers.NewEcho()}, int64(1), nil).
 			Once()
 

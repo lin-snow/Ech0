@@ -9,6 +9,7 @@ import (
 	"time"
 
 	model "github.com/lin-snow/ech0/internal/model/comment"
+	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commentRepository "github.com/lin-snow/ech0/internal/repository/comment"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,16 @@ func insert(t *testing.T, repo *commentRepository.CommentRepository, c model.Com
 	require.NoError(t, repo.CreateComment(context.Background(), &c))
 	require.NotEmpty(t, c.ID, "BeforeCreate 应生成 UUID")
 	return c.ID
+}
+
+func insertEcho(t *testing.T, db *gorm.DB, id string, private bool) {
+	t.Helper()
+	require.NoError(t, db.Create(&echoModel.Echo{
+		ID:      id,
+		Content: "content of " + id,
+		UserID:  "user-1",
+		Private: private,
+	}).Error)
 }
 
 func countRows(t *testing.T, db *gorm.DB) int64 {
@@ -451,9 +462,11 @@ func TestCreateGetUpdateDelete(t *testing.T) {
 }
 
 func TestListPublicByEchoID(t *testing.T) {
-	repo, _ := newRepo(t)
+	repo, db := newRepo(t)
 	ctx := context.Background()
 	base := time.Now().UTC().Unix() - 100
+	insertEcho(t, db, "pub-e", false)
+	insertEcho(t, db, "other-e", false)
 
 	insert(t, repo, newComment(func(c *model.Comment) {
 		c.EchoID = "pub-e"
@@ -479,7 +492,7 @@ func TestListPublicByEchoID(t *testing.T) {
 		c.CreatedAt = base + 4
 	}))
 
-	out, err := repo.ListPublicByEchoID(ctx, "pub-e")
+	out, err := repo.ListPublicByEchoID(ctx, "pub-e", false)
 	require.NoError(t, err)
 	require.Len(t, out, 2)
 	assert.Equal(t, "earlier", out[0].Content, "应按 created_at 升序")
@@ -487,9 +500,10 @@ func TestListPublicByEchoID(t *testing.T) {
 }
 
 func TestListPublicComments(t *testing.T) {
-	repo, _ := newRepo(t)
+	repo, db := newRepo(t)
 	ctx := context.Background()
 	base := time.Now().UTC().Unix() - 100
+	insertEcho(t, db, "echo-1", false)
 
 	for i := range 3 {
 		insert(t, repo, newComment(func(c *model.Comment) {
@@ -500,7 +514,7 @@ func TestListPublicComments(t *testing.T) {
 	insert(t, repo, newComment(func(c *model.Comment) { c.Status = model.StatusPending; c.CreatedAt = base + 10 }))
 
 	t.Run("only approved, desc, limited", func(t *testing.T) {
-		out, err := repo.ListPublicComments(ctx, 2)
+		out, err := repo.ListPublicComments(ctx, 2, false)
 		require.NoError(t, err)
 		require.Len(t, out, 2)
 		assert.Equal(t, model.StatusApproved, out[0].Status)
@@ -508,8 +522,51 @@ func TestListPublicComments(t *testing.T) {
 	})
 
 	t.Run("limit larger than rows", func(t *testing.T) {
-		out, err := repo.ListPublicComments(ctx, 100)
+		out, err := repo.ListPublicComments(ctx, 100, false)
 		require.NoError(t, err)
 		assert.Len(t, out, 3, "pending 不计入")
 	})
+}
+
+func TestPublicListingsHidePrivateEchoes(t *testing.T) {
+	repo, db := newRepo(t)
+	ctx := context.Background()
+	insertEcho(t, db, "echo-public", false)
+	insertEcho(t, db, "echo-private", true)
+
+	insert(t, repo, newComment(func(c *model.Comment) {
+		c.EchoID = "echo-public"
+		c.Status = model.StatusApproved
+		c.Content = "public comment"
+	}))
+	insert(t, repo, newComment(func(c *model.Comment) {
+		c.EchoID = "echo-private"
+		c.Status = model.StatusApproved
+		c.Content = "leaked comment"
+	}))
+
+	byEcho, err := repo.ListPublicByEchoID(ctx, "echo-private", false)
+	require.NoError(t, err)
+	assert.Empty(t, byEcho, "私密 echo 的评论不得出现在公开列表")
+
+	byEcho, err = repo.ListPublicByEchoID(ctx, "echo-public", false)
+	require.NoError(t, err)
+	require.Len(t, byEcho, 1)
+	assert.Equal(t, "public comment", byEcho[0].Content)
+
+	feed, err := repo.ListPublicComments(ctx, 20, false)
+	require.NoError(t, err)
+	require.Len(t, feed, 1)
+	assert.Equal(t, "echo-public", feed[0].EchoID)
+
+	private, err := repo.IsEchoPrivate(ctx, "echo-private")
+	require.NoError(t, err)
+	assert.True(t, private)
+
+	private, err = repo.IsEchoPrivate(ctx, "echo-public")
+	require.NoError(t, err)
+	assert.False(t, private)
+
+	_, err = repo.IsEchoPrivate(ctx, "echo-missing")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }

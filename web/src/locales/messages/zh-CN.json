@@ -138,7 +138,7 @@
     "addImage": "添加附件",
     "publishEcho": "发布Echo",
     "publishEchoPublic": "公开发布",
-    "publishEchoPrivate": "私密发布",
+    "publishEchoPrivate": "仅登录可见",
     "exitUpdateMode": "退出更新模式",
     "updateEcho": "更新Echo",
     "extMusic": "音乐",
@@ -205,7 +205,6 @@
     "enableCaptchaDesc": "启用后使用内置 gocap 验证，无需额外部署。",
     "searchPlaceholder": "搜索昵称、邮箱、内容",
     "statusAll": "全部状态",
-    "status": "状态",
     "statusPending": "待审核",
     "statusApproved": "已通过",
     "statusRejected": "已拒绝",
@@ -281,6 +280,7 @@
   },
   "auth": {
     "loginSuccess": "登录成功,欢迎回来！🎉",
+    "account_disabled": "账户已被禁用，请联系管理员。",
     "signupSuccess": "注册成功,请登录！"
   },
   "authPage": {
@@ -441,7 +441,7 @@
     "visibilityLabel": "可见性",
     "visibilityAll": "全部",
     "visibilityPublic": "仅公开",
-    "visibilityPrivate": "仅私密",
+    "visibilityPrivate": "仅登录可见",
     "activeChipVisibilityPrefix": "可见性",
     "tagsLabel": "标签",
     "tagsHint": "任一匹配",
@@ -514,7 +514,7 @@
     "shareCopyFailed": "复制失败，请重试。",
     "shareMarkdownCopied": "Markdown 已复制到剪贴板！",
     "metaWordCountValue": "{count} 字",
-    "metaPrivate": "私有"
+    "metaPrivate": "仅登录可见"
   },
   "commentSection": {
     "disabled": "评论功能未开启。",
@@ -558,7 +558,7 @@
     "submittedAtPending": "已于 {time} 提交，审核通过后会显示在评论列表中。"
   },
   "echoCard": {
-    "privateStatus": "私密状态",
+    "privateStatus": "仅登录可见",
     "moreActions": "Echo 操作",
     "delete": "删除",
     "update": "更新",
@@ -595,8 +595,14 @@
     "email": "邮箱",
     "isAdmin": "管理员",
     "deleteUser": "删除用户",
-    "deleteConfirmTitle": "确定要删除该用户吗？",
-    "deleteConfirmDesc": "删除后将无法恢复，请谨慎操作"
+    "deleteConfirmTitle": "永久删除用户？",
+    "deleteConfirmDesc": "此操作不可撤销。将永久删除该用户创建的全部 Echo 及其附件、这些 Echo 下的全部评论（包括其他用户发表的评论），以及该用户在其他 Echo 下发表的评论。其他用户创建的 Echo 不受影响。",
+    "status": "状态",
+    "statusActive": "正常",
+    "statusDisabled": "已禁用",
+    "disableUser": "禁用用户",
+    "enableUser": "启用用户",
+    "deleteConfirmHint": "请输入用户名 {username} 以确认删除"
   },
   "systemSetting": {
     "title": "系统设置",
@@ -738,7 +744,7 @@
     "formatSnapshotDesc": "完整备份，含账号与凭据",
     "formatCapsuleTitle": "胶囊",
     "formatCapsuleDesc": "仅内容，可分享或生成静态站",
-    "includePrivate": "包含私密内容",
+    "includePrivate": "包含仅登录可见内容",
     "loginRequired": "请登录后使用",
     "exporting": "导出中...请稍等",
     "exportStarted": "导出已开始！",
@@ -853,7 +859,7 @@
     "scopeEchoRead": "查看 Echo",
     "scopeEchoWrite": "创建/编辑 Echo",
     "scopeEchoDelete": "删除 Echo",
-    "scopeEchoPrivate": "查看私密 Echo",
+    "scopeEchoPrivate": "查看仅登录可见 Echo",
     "scopeCommentRead": "查看评论",
     "scopeCommentWrite": "发表评论",
     "scopeCommentReview": "评论审核",
@@ -974,7 +980,7 @@
     "sourceCapsuleTitle": "Ech0 胶囊",
     "sourceCapsule": "支持从 Ech0 胶囊导入",
     "capsuleNote": "追加导入，按 id 去重，不覆盖现有内容",
-    "capsuleIncludePrivate": "包含私密内容",
+    "capsuleIncludePrivate": "包含仅登录可见内容",
     "statusIdle": "空闲",
     "statusPending": "等待中",
     "statusRunning": "迁移中",

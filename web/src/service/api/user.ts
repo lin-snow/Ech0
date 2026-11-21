@@ -32,6 +32,14 @@ export function fetchUpdateUserPermission(id: string) {
   })
 }
 
+export function fetchUpdateUserStatus(id: string, status: 'ACTIVE' | 'DISABLED') {
+  return request({
+    url: `/user/status/${id}`,
+    method: 'PUT',
+    data: { status },
+  })
+}
+
 export function fetchDeleteUser(id: string) {
   return request({
     url: `/user/${id}`,

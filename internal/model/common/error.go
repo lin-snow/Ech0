@@ -73,6 +73,7 @@ const (
 	ErrCodeDeviceDenied            = "DEVICE_ACCESS_DENIED"
 	ErrCodeDeviceUnknown           = "DEVICE_CODE_UNKNOWN"
 	ErrCodeRateLimited             = "RATE_LIMITED"
+	ErrCodeAccountDisabled         = "ACCOUNT_DISABLED"
 )
 
 const (
@@ -86,6 +87,7 @@ const (
 	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
 	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
 	TOKEN_REVOKED                     = "令牌已被吊销，请重新登录"
+	ACCOUNT_DISABLED                  = "账户已被禁用，请联系管理员"
 	REFRESH_TOKEN_INVALID             = "刷新令牌无效或已过期"
 	EXCHANGE_CODE_INVALID             = "授权码无效或已过期"
 	TOKEN_GENERATE_FAILED             = "令牌生成失败"

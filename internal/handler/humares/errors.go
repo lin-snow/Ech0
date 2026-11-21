@@ -51,8 +51,11 @@ func Err(ctx context.Context, err error) error {
 
 	msg := i18nUtil.Localize(localizerFrom(ctx), key, base, params)
 	status := http.StatusBadRequest
-	if code == commonModel.ErrCodeRateLimited {
+	switch code {
+	case commonModel.ErrCodeRateLimited:
 		status = http.StatusTooManyRequests
+	case commonModel.ErrCodeAccountDisabled:
+		status = http.StatusForbidden
 	}
 	return &apiError{
 		status: status,

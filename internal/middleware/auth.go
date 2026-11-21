@@ -58,6 +58,18 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 		return &rejection{http.StatusForbidden, commonModel.ErrCodeTokenTransportForbidden, commonModel.MsgKeyAuthTokenTransportForbidden, commonModel.NO_PERMISSION_DENIED}, true
 	}
 
+	// Account status lives in the database, not in the signed token: a token
+	// minted before an account was disabled must stop working immediately.
+	if tokenBlacklist != nil {
+		active, err := tokenBlacklist.IsAccountActive(ctx.Request.Context(), mc.Userid)
+		if err != nil {
+			return &rejection{http.StatusInternalServerError, commonModel.ErrCodeInternal, commonModel.MsgKeyCommonRequestFailed, ""}, true
+		}
+		if !active {
+			return &rejection{http.StatusForbidden, commonModel.ErrCodeAccountDisabled, commonModel.MsgKeyAuthAccountDisabled, commonModel.ACCOUNT_DISABLED}, true
+		}
+	}
+
 	viewer.AttachToRequest(
 		&ctx.Request,
 		viewer.NewUserViewerWithToken(

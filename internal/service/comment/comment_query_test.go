@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
@@ -80,7 +81,7 @@ func TestListPublicByEchoID(t *testing.T) {
 		d := newDeps(t)
 		d.expectSetting(t, enabledSetting())
 		d.repo.EXPECT().
-			ListPublicByEchoID(mock.Anything, "echo-1").
+			ListPublicByEchoID(mock.Anything, "echo-1", false).
 			Return(nil, errRepoBoom).
 			Once()
 		_, err := d.service().ListPublicByEchoID(context.Background(), "echo-1")
@@ -91,7 +92,7 @@ func TestListPublicByEchoID(t *testing.T) {
 		d := newDeps(t)
 		d.expectSetting(t, enabledSetting())
 		d.repo.EXPECT().
-			ListPublicByEchoID(mock.Anything, "echo-1").
+			ListPublicByEchoID(mock.Anything, "echo-1", false).
 			Return([]commentModel.Comment{
 				{ID: "c-1", EchoID: "echo-1", Status: commentModel.StatusApproved, Nickname: "A"},
 				{ID: "c-2", EchoID: "echo-1", Status: commentModel.StatusApproved, Nickname: "B"},
@@ -141,8 +142,8 @@ func TestListPublicComments(t *testing.T) {
 			d.expectSetting(t, enabledSetting())
 			var captured int
 			d.repo.EXPECT().
-				ListPublicComments(mock.Anything, mock.Anything).
-				Run(func(_ context.Context, limit int) { captured = limit }).
+				ListPublicComments(mock.Anything, mock.Anything, false).
+				Run(func(_ context.Context, limit int, _ bool) { captured = limit }).
 				Return([]commentModel.Comment{}, nil).
 				Once()
 			_, err := d.service().ListPublicComments(context.Background(), tc.in)
@@ -155,7 +156,7 @@ func TestListPublicComments(t *testing.T) {
 		d := newDeps(t)
 		d.expectSetting(t, enabledSetting())
 		d.repo.EXPECT().
-			ListPublicComments(mock.Anything, mock.Anything).
+			ListPublicComments(mock.Anything, mock.Anything, false).
 			Return(nil, errRepoBoom).
 			Once()
 		_, err := d.service().ListPublicComments(context.Background(), 10)
@@ -319,7 +320,7 @@ func TestSendTestEmail(t *testing.T) {
 	})
 }
 
-func TestParseOptionalUserIDFromAuthHeader(t *testing.T) {
+func TestParseOptionalViewerFromAuthHeader(t *testing.T) {
 	helpers.SetJWTSecret(t, testSecret)
 	user := helpers.NewUser()
 	user.ID = "u-42"
@@ -340,8 +341,14 @@ func TestParseOptionalUserIDFromAuthHeader(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := commentService.ParseOptionalUserIDFromAuthHeader(tc.header)
-			assert.Equal(t, tc.want, got)
+			got := commentService.ParseOptionalViewerFromAuthHeader(tc.header)
+			if tc.want == "" {
+				assert.Nil(t, got)
+				return
+			}
+			require.NotNil(t, got)
+			assert.Equal(t, tc.want, got.UserID())
+			assert.Equal(t, authModel.TokenTypeSession, got.TokenType())
 		})
 	}
 }

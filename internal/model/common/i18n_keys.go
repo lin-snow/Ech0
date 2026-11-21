@@ -29,6 +29,7 @@ const (
 	MsgKeyAuthExchangeCodeInvalid     = "auth.exchange_code_invalid"
 	MsgKeyAuthTokenGenerateFailed     = "auth.token_generate_failed"
 	MsgKeyAuthRateLimited             = "auth.rate_limited"
+	MsgKeyAuthAccountDisabled         = "auth.account_disabled"
 	MsgKeyDashboardLogsOk             = "dashboard.logs.success"
 	MsgKeyDashboardTailBad            = "dashboard.logs.tail_invalid"
 	MsgKeyDashboardCheckUpdateFailed  = "dashboard.check_update_failed"
@@ -61,6 +62,8 @@ func MessageKeyFromErrorCode(code string) string {
 		return MsgKeyAuthTokenGenerateFailed
 	case ErrCodeRateLimited:
 		return MsgKeyAuthRateLimited
+	case ErrCodeAccountDisabled:
+		return MsgKeyAuthAccountDisabled
 	default:
 		return ""
 	}
@@ -76,6 +79,8 @@ func MessageKeyFromMessage(msg string) string {
 		return MsgKeyAgentModelMissing
 	case ECHO_MIXED_FILE_CATEGORIES:
 		return MsgKeyEchoMixedFileCategories
+	case ACCOUNT_DISABLED:
+		return MsgKeyAuthAccountDisabled
 	default:
 		return ""
 	}

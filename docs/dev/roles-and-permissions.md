@@ -1,5 +1,7 @@
 # 角色与权限
 
+> **本文只描述当前已实现的行为。** 目标模型（账户状态 `ACTIVE` / `DISABLED`、账户永久删除的数据范围、三权限域）见 [user-permission-model-design.md](./user-permission-model-design.md)；两者冲突时，以设计文档为目标、以本文为现状。
+
 Ech0 的账号只有两种角色，另有未登录访客。判定字段是 `users.is_admin`：
 
 | 角色 | 判定 | 说明 |

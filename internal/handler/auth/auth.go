@@ -90,6 +90,19 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 			return
 		}
 
+		if !user.IsActive() {
+			cookieUtil.ClearRefreshTokenCookie(ctx)
+			ctx.JSON(http.StatusForbidden, commonModel.FailWithLocalized[any](
+				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthAccountDisabled, errUtil.HandleError(&commonModel.ServerError{
+					Msg: commonModel.ACCOUNT_DISABLED, Err: nil,
+				}), nil),
+				commonModel.ErrCodeAccountDisabled,
+				commonModel.MsgKeyAuthAccountDisabled,
+				nil,
+			))
+			return
+		}
+
 		accessClaims := jwtUtil.CreateClaims(user)
 		accessToken, err := jwtUtil.GenerateToken(accessClaims)
 		if err != nil {
