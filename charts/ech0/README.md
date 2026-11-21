@@ -19,14 +19,8 @@ helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 
 ### Signing secret
 
-Nothing to configure. The server generates a 256-bit JWT signing secret on first boot and keeps it in
-the SQLite database (settings key-value `jwt_secret`), so restarts and `helm upgrade` keep sessions and
-access tokens valid. The key travels with `persistence`, and it is part of any database snapshot you
-export.
-
-`JWT_SECRET` is not supported any more: the value is ignored and the server logs a warning on boot.
-Because the key lives in the database, a data volume that is recreated on every deploy also rotates
-it — mount `persistence` if sessions must survive.
+Sessions and access tokens survive restarts and `helm upgrade`: the signing secret lives in the SQLite
+database under `persistence`, and a recreated data volume rotates it. `JWT_SECRET` is no longer read.
 
 ## Configuration
 

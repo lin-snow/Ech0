@@ -23,7 +23,7 @@ docker run -d \
   sn0wl1n/ech0:latest
 ```
 
-There is no secret to carry over: the signing key lives in the database under the data volume. If you set **`TZ`** initially, keep it in the upgrade command as well. Make sure the data volume path is correct. If the instance fails to start after upgrading, roll the image tag back and check the release notes first — do not try to troubleshoot by wiping the data directory.
+If you set **`TZ`** initially, keep it in the upgrade command as well. Make sure the data volume path is correct. If the instance fails to start after upgrading, roll the image tag back and check the release notes first — do not try to troubleshoot by wiping the data directory.
 
 ---
 

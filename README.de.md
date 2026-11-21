@@ -80,8 +80,6 @@ docker run -d \
 
 Öffne anschließend `http://ip:6277`:
 
-> Der Server läuft als uid `10001`. Beim Start übergibt das Entrypoint `/opt/ech0/data` an diese uid, ein Verzeichnis aus einem älteren, als root laufenden Container (oder von Docker selbst angelegt) braucht also keinen manuellen Schritt.
-
 1. Registriere deinen ersten Account.
 2. Der erste Account wird automatisch zum Owner (Admin-Rechte).
 3. Standardmäßig dürfen nur privilegierte Accounts veröffentlichen.

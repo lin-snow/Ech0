@@ -5,11 +5,6 @@ services:
     ports:
       - "6277:6277"
     volumes:
-      # The server runs as uid/gid 10001. A data directory left behind by an
-      # older root-running image is handed over by the image's entrypoint
-      # before the server starts, so no manual chown is needed.
+      # The entrypoint hands over a data directory left behind by an older
+      # root-running image, so no manual chown is needed.
       - ./ech0/data:/app/data
-    environment:
-      # Nothing to set for the JWT signing secret: the server generates one on
-      # first boot and keeps it with the data volume (settings `jwt_secret`), so
-      # restarts, upgrades and `docker compose up --build` keep sessions valid.

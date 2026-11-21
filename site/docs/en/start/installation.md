@@ -13,7 +13,6 @@ description: Docker / Compose / binary / Helm; ports, data, and security essenti
 | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Port           | Default **6277**. If it is taken, change the left side of `-p` to a host port, e.g. `-p 8080:6277`.                     |
 | Data directory | Always map a host path with `-v`, otherwise deleting the container deletes your data.                                   |
-| Signing secret | Nothing to do: on first boot the server generates a 256-bit JWT secret and stores it in the database, so restarts and upgrades keep sessions valid. The key is not configurable — `JWT_SECRET` is ignored with a startup warning. |
 | Public access  | On cloud servers, allow the port in the console's **security group**; for internal-only use, bind `127.0.0.1`.          |
 
 **HTTPS**: Ech0 itself can run over HTTP; for public-facing deployments, strongly prefer putting **Nginx / Caddy / Traefik** in front for TLS termination; certificates can come from Let’s Encrypt. Point the reverse proxy at `http://127.0.0.1:6277` (or your container port).
@@ -31,7 +30,6 @@ docker run -d \
 ```
 
 - Once deployed, open `http://<server IP>:6277` in a browser (locally, `http://127.0.0.1:6277`).
-- No signing secret to configure: the first boot generates one and keeps it in the database (`jwt_secret` in the settings key-value table). `JWT_SECRET` is no longer read — remove it from older compose files.
 - The **first account registered** becomes the administrator (Owner); in the current version only high-privilege accounts can post by default.
 - Data persists in `/opt/ech0/data` in the example above (change the mount path as needed; make sure the directory is writable by the container).
 
@@ -123,7 +121,7 @@ The chart is also published as an OCI artifact, so it can be installed without a
 helm install ech0 oci://ghcr.io/lin-snow/charts/ech0 --version <chart-version>
 ```
 
-No secret is required: the chart injects nothing and the server generates and persists the key itself. There is no value for it — `JWT_SECRET` is unsupported, so just make sure the data volume is persistent.
+If you use `persistence`, keep the volume durable: it holds both your data and the session state.
 
 If you need to install from local source, you can also keep the old approach:
 
@@ -159,6 +157,5 @@ The number of users, posting permissions, and role names follow the **settings i
 
 Variables such as the database path, log level, object storage, and so on are set in `.env` or Compose depending on your deployment method; use the names in your deployment template. Time zone semantics: site-level statistics always use UTC, while user-facing endpoints (such as “today” and heatmaps) use the **`X-Timezone`** sent by the browser. For production we recommend:
 
-- Leave the signing secret alone unless you have a reason to pin it — it is generated per instance and never shipped in the image;
 - Back up the data directory and snapshots regularly;
 - When you need automation, create an [access token](/docs/guide/accesstoken) in the admin panel, and never commit tokens to public repositories.

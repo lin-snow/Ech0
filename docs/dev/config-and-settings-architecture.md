@@ -20,7 +20,7 @@ Ech0 的配置分两层，刻意不合并，因为它们的**生命周期**和**
 
 **为什么 bootstrap 配置搬不进设置页** —— 鸡生蛋：设置表本身就在 DB 里。要打开 DB 你得先知道 DB 路径；要在 DB 没起来前返回错误页你得先有端口。这些参数在「能读设置表」之前就被用到了，只能来自 env / config。
 
-> **JWT 密钥是这层最容易踩的坑。** 它不是 env 配置项：`config.EnsureJWTSecret` 在 app 的 `BeforeStart` 钩子里读设置 KV 的 `jwt_secret` 键，缺失时生成一次并写回，随后在内存里定值。库是唯一来源，因此重启/升级不再让 token 失效，也不存在「env 覆盖 / 撤销后回退旧密钥」这一类状态。旧变量 `JWT_SECRET` / `ECH0_JWT_SECRET` 会被忽略并打一条 warn。它没有对应的 `Spec`，因此不会被任何设置接口序列化回客户端；要主动轮换就删掉这个 KV 键后重启。它仍属于 bootstrap 语义：HTTP 服务起来之前就必须就位，因此不能搬进后台设置页。
+> **JWT 密钥不在这层。** `config.EnsureJWTSecret` 在 `BeforeStart` 读设置 KV 的 `jwt_secret`，缺失时生成并写回，库是唯一来源；旧变量 `JWT_SECRET` / `ECH0_JWT_SECRET` 被忽略并告警。它没有 `Spec`，不会被任何设置接口序列化回客户端；要轮换就删掉该 KV 键后重启。
 
 `config.go` 用 `caarlos0/env` 给 80 余个字段挂了 `env:"ECH0_*"` tag（完整清单见 [usage/configuration.md](../usage/configuration.md)），技术上端口、S3、日志、上传上限、事件运行时参数都能用 env 覆盖。**但「能覆盖」不等于「推荐这么用」**：除了上面的 bootstrap 项，其余用户可调项都应走设置页（落 KV），env 只是兜底。`config.Config()` 是 `sync.Once` 单例，全局只解析一次。
 

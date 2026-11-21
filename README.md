@@ -81,8 +81,6 @@ docker run -d \
 
 Then open `http://ip:6277`:
 
-> The server runs as uid `10001`. On start the entrypoint hands `/opt/ech0/data` to that uid, so a directory created by an older root-running container (or by Docker itself) needs no manual step.
-
 1. Register your first account.
 2. The first account becomes the administrator.
 3. Every signed-in account can publish; administrators additionally manage instance settings and accounts.

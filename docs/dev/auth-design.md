@@ -21,7 +21,7 @@ Ech0 采用 **Access Token + Refresh Token** 双令牌机制，遵循 OWASP 推�
 
 ## 2. Token 类型与 JWT Claims
 
-所有 token 使用 HS256 签名，密钥唯一来源是设置 KV 的 `jwt_secret` 键：首次启动由 `config.EnsureJWTSecret` 生成 256 位密钥并写入，此后重启/升级沿用同一密钥。环境变量 `JWT_SECRET` / `ECH0_JWT_SECRET` 已废弃（会被忽略并告警），因此密钥不存在「env 优先」的第二种状态。
+所有 token 使用 HS256 签名，密钥唯一来源是设置 KV 的 `jwt_secret` 键（首次启动由 `config.EnsureJWTSecret` 生成并写入）；`JWT_SECRET` / `ECH0_JWT_SECRET` 已废弃，会被忽略并告警。
 
 ### 2.1 JWT Claims 结构
 

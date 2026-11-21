@@ -27,7 +27,7 @@ All variables, defaults, precedence rules, and the boundary between bootstrap en
 [`docs/usage/configuration.md`](./docs/usage/configuration.md). The essentials:
 
 - **Precedence:** process env → `./.env` (working directory only, no `--env-file` flag) → built-in defaults. Changes need a restart.
-- **The JWT signing secret is not configurable.** A 256-bit secret is generated on first boot and stored in the database (`jwt_secret` key in the settings key-value table), so restarts and upgrades keep issued tokens valid. `JWT_SECRET` / `ECH0_JWT_SECRET` are ignored and produce a startup warning; to rotate, delete that key and restart (every issued token is invalidated): `sqlite3 data/ech0.db "DELETE FROM key_values WHERE key='jwt_secret';"`
+- **The JWT signing secret lives in the database.** It is generated on first boot and stored as the `jwt_secret` key in the settings key-value table, so restarts and upgrades keep issued tokens valid; `JWT_SECRET` / `ECH0_JWT_SECRET` are ignored (with a startup warning). To rotate it, delete that key and restart: `sqlite3 data/ech0.db "DELETE FROM key_values WHERE key='jwt_secret';"`
 - `ECH0_SERVER_HOST` / `ECH0_SERVER_PORT` control the bind address (default all interfaces, port `6277`); `ECH0_DB_PATH` accepts any SQLite file path.
 - `ECH0_SETTING_*`, `ECH0_S3_*`, Passkey and OAuth2 redirect env vars are only **first-boot defaults** seeded into the database — once the instance is initialized, change them in the admin panel.
 
@@ -44,10 +44,9 @@ docker run -d \
 ```
 
 > 💡 After deployment, access `ip:6277`
-> 🔑 No signing secret to set: the first boot generates a 256-bit JWT secret and stores it in the database, so restarts and upgrades keep sessions valid. `JWT_SECRET` is ignored now — remove it from older compose files and the log will stop warning.
 > 📍 The first registered account becomes administrator (currently only admins can publish)
 > 🎈 Data is stored under `/opt/ech0/data`
-> 🔒 The server runs as uid `10001`, never root. On start the entrypoint hands `/opt/ech0/data` to that uid, so a directory created by an older root-running image keeps working with no manual step. Only when that handoff is impossible (read-only mount) does startup stop and tell you to run `sudo chown -R 10001:10001 /opt/ech0/data`.
+> 🔒 A data directory left behind by an older root-running image needs no attention: the entrypoint takes it over on start.
 
 ### 🐋 Docker Compose
 
@@ -128,9 +127,8 @@ docker rm ech0
 # Pull latest image
 docker pull sn0wl1n/ech0:latest
 
-# No permission step: images from 5.10 on run the server as uid 10001 and the
-# entrypoint hands /app/data to that uid before starting, including a data
-# directory left root-owned by an older image.
+# No permission step: the entrypoint takes over a data directory left
+# root-owned by an older image before starting the server.
 
 # Start new version
 docker run -d \
