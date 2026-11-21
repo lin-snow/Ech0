@@ -1,0 +1,69 @@
+name: CLI Checks
+
+# The CLI's client types and Zod schemas are generated from
+# `internal/openapi/openapi.yaml` (the Huma spec, itself generated from Go).
+# Server-side commits that touch handlers, DTOs or routes must regenerate
+# `apps/cli/src/api/generated` in the same change; this workflow fails the PR
+# when they drift, and typechecks/tests the CLI against the fresh schema.
+
+on:
+  pull_request:
+    paths:
+      - "apps/cli/**"
+      - "internal/openapi/**"
+      - "skills/ech0/**"
+      - ".github/workflows/cli-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/cli/**"
+      - "internal/openapi/**"
+      - "skills/ech0/**"
+      - ".github/workflows/cli-check.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: cli-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.4.3"
+
+jobs:
+  check:
+    name: bun typecheck + test + gen-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        working-directory: apps/cli
+        run: bun install --frozen-lockfile
+
+      - name: Regenerate the client from the committed OpenAPI spec
+        working-directory: apps/cli
+        run: bun run gen:api
+
+      - name: Fail when the committed client is stale
+        run: |
+          if ! git diff --exit-code -- apps/cli/src/api/generated; then
+            echo "::error title=Generated client out of date::apps/cli/src/api/generated is stale. Run 'just cli gen-check' (or 'bun run gen:api' in apps/cli) and commit the result."
+            exit 1
+          fi
+
+      - name: Typecheck
+        working-directory: apps/cli
+        run: bun run typecheck
+
+      - name: Test
+        working-directory: apps/cli
+        run: bun test
