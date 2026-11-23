@@ -2,5 +2,9 @@
   "ciraos": {
     "url": "https://ech0.ciraos.top",
     "unhealthy_since": "2026-11-21T05:00:29.307Z"
+  },
+  "sean": {
+    "url": "https://echo.ssean.cn",
+    "unhealthy_since": "2026-11-23T05:00:59.875Z"
   }
 }
