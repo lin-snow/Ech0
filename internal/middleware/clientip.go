@@ -5,7 +5,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/clientip"
+	"github.com/lin-snow/ech0/internal/util/clientip"
 )
 
 // ClientIP resolves the request address once and stores it on the request

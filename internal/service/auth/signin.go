@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/lin-snow/ech0/internal/apperr"
-	"github.com/lin-snow/ech0/internal/clientip"
 	"github.com/lin-snow/ech0/internal/ratelimit"
+	"github.com/lin-snow/ech0/internal/util/clientip"
 )
 
 // signInAttempt is budget reserved for one sign-in try. It is refunded only

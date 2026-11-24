@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/apperr"
-	"github.com/lin-snow/ech0/internal/clientip"
 	"github.com/lin-snow/ech0/internal/httperr"
 	"github.com/lin-snow/ech0/internal/ratelimit"
+	"github.com/lin-snow/ech0/internal/util/clientip"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
