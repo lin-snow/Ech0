@@ -168,7 +168,11 @@ func (s *CopilotService) queryEchos(ctx context.Context, userID, search string, 
 	for i := range page.Items {
 		results = append(results, echoToSearchResult(page.Items[i]))
 	}
-	return results, page.Total, nil
+	var total int64
+	if page.Total != nil {
+		total = *page.Total
+	}
+	return results, total, nil
 }
 
 func echoToSearchResult(e echoModel.Echo) embeddingModel.SearchResult {

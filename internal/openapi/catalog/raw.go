@@ -22,7 +22,7 @@ var rawOps = map[string]Op{
 		Path:    "/system/logs/stream",
 		Effect:  EffectRead,
 		Kind:    KindStream,
-		// RequireSession/RequireAdminSession reject access tokens; only the
+		// RequireSession plus a live-rank gate reject access tokens; only the
 		// browser session (sent as `?token=` for EventSource) works.
 		SessionOnly: true,
 		Input: objectSchema(
@@ -56,21 +56,26 @@ var rawOps = map[string]Op{
 		},
 	},
 	"file.upload": {
-		Summary: "上传文件（multipart）",
+		Summary: "上传文件（multipart；也可登记外部 URL 或申请直传）",
 		Method:  "POST",
-		Path:    "/files/upload",
+		Path:    "/files",
 		Scopes:  []string{"file:write"},
 		Effect:  EffectWrite,
 		Kind:    KindJSON,
 		Input: objectSchema(
-			[]string{"file"},
+			nil,
 			map[string]any{
-				"file":         described(binarySchema(), "File contents to upload"),
-				"category":     described(stringSchema(), "Category: image, video, audio, pdf, markdown, or file; inferred from the file name when omitted"),
-				"storage_type": described(stringSchema(), "Target storage: local or object (s3 maps to object); defaults to local"),
+				"file":         described(binarySchema(), "File contents; omitted when external_url or mode=direct is used"),
+				"profile":      described(stringSchema(), "Upload profile: attachment (default), draft, avatar, instance"),
+				"mode":         described(stringSchema(), "direct asks for a presigned upload; attachment profile only"),
+				"name":         described(stringSchema(), "Display name; defaults to the uploaded file name"),
+				"external_url": described(stringSchema(), "Register an existing http(s) URL instead of uploading bytes"),
+				"content_type": described(stringSchema(), "Override the detected content type"),
+				"width":        described(integerSchema(), "Intrinsic width in pixels"),
+				"height":       described(integerSchema(), "Intrinsic height in pixels"),
 			},
 		),
-		Bind: map[string]string{"file": BindForm, "category": BindForm, "storage_type": BindForm},
+		Bind: map[string]string{"file": BindForm, "profile": BindForm, "mode": BindForm, "name": BindForm, "external_url": BindForm, "content_type": BindForm, "width": BindForm, "height": BindForm},
 		Transport: &Transport{
 			Request: &RequestTransport{ContentType: ContentFormData},
 		},
@@ -91,33 +96,11 @@ var rawOps = map[string]Op{
 			Request: &RequestTransport{ContentType: ContentFormData},
 		},
 	},
-	"file.stream": {
-		Summary: "按存储路径读取文件内容（二进制）",
-		Method:  "GET",
-		Path:    "/file/stream",
-		Scopes:  []string{"file:read"},
-		Effect:  EffectRead,
-		Kind:    KindBinary,
-		Input: objectSchema(
-			[]string{"path", "storage_type"},
-			map[string]any{
-				"path":         stringSchema(),
-				"storage_type": stringSchema(),
-				"name":         stringSchema(),
-				"content_type": stringSchema(),
-			},
-		),
-		Bind: map[string]string{
-			"path": BindQuery, "storage_type": BindQuery,
-			"name": BindQuery, "content_type": BindQuery,
-		},
-		Transport: &Transport{Response: &ResponseTransport{Kind: KindBinary}},
-	},
-	"file.stream.by_id": {
-		Summary:   "按文件 ID 读取内容（二进制）",
+	"file.content": {
+		Summary:   "按文件 ID 读取内容（二进制网关，含 Range/304）",
 		Method:    "GET",
-		Path:      "/file/{id}/stream",
-		Scopes:    []string{"file:read"},
+		Path:      "/files/{id}/content",
+		Scopes:    []string{},
 		Effect:    EffectRead,
 		Kind:      KindBinary,
 		Input:     objectSchema([]string{"id"}, map[string]any{"id": described(stringSchema(), "File ID")}),
@@ -256,6 +239,10 @@ func objectSchema(required []string, properties map[string]any) map[string]any {
 
 func stringSchema() map[string]any {
 	return map[string]any{"type": "string"}
+}
+
+func integerSchema() map[string]any {
+	return map[string]any{"type": "integer"}
 }
 
 // described attaches the field doc the CLI renders beside the flag.

@@ -26,6 +26,7 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useInitStore, useSettingStore, useUserStore } from '@/stores'
 import { theToast } from '@/utils/toast'
+import { i18n } from '@/locales'
 import TheInitForm from './TheInitForm.vue'
 import TheInitIntro from './TheInitIntro.vue'
 import { useI18n } from 'vue-i18n'
@@ -83,8 +84,8 @@ const onSubmit = async () => {
       password: form.password,
       ...(siteTitle ? { site_title: siteTitle } : {}),
     })
-    if (res.code === 1) {
-      theToast.success(res.msg || String(t('init.initDone')))
+    if (res) {
+      theToast.success(String(i18n.global.t('common.success')))
       await enterAfterInit()
       return
     }
@@ -93,7 +94,6 @@ const onSubmit = async () => {
       await router.replace({ name: 'auth' })
       return
     }
-    theToast.error(res.msg || String(t('init.initFailed')))
   } finally {
     submitting.value = false
   }

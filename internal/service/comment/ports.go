@@ -7,6 +7,7 @@ import (
 	"context"
 
 	model "github.com/lin-snow/ech0/internal/model/comment"
+	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 )
@@ -18,22 +19,23 @@ type Service interface {
 		clientIP,
 		userAgent string,
 		dto *model.CreateCommentDto,
-	) (model.CreateCommentResult, error)
+	) (*model.Comment, error)
 	CreateIntegrationComment(
 		ctx context.Context,
 		clientIP,
 		userAgent string,
 		dto *model.CreateIntegrationCommentDto,
-	) (model.CreateCommentResult, error)
+	) (*model.Comment, error)
 	ListPublicByEchoID(ctx context.Context, echoID string) ([]model.PublicComment, error)
 	ListPublicComments(ctx context.Context, limit int) ([]model.PublicComment, error)
-	ListPanelComments(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error)
+	ListPanelComments(ctx context.Context, query model.ListCommentQuery) (commonModel.List[model.Comment], error)
 	GetCommentByID(ctx context.Context, id string) (model.Comment, error)
 	UpdateCommentStatus(ctx context.Context, id string, status model.Status) error
 	UpdateCommentHot(ctx context.Context, id string, hot bool) error
 	DeleteComment(ctx context.Context, id string) error
 	BatchAction(ctx context.Context, action string, ids []string) error
 	GetSystemSetting(ctx context.Context) (model.SystemSetting, error)
+	GetSystemSettingForAdmin(ctx context.Context) (model.SystemSetting, error)
 	UpdateSystemSetting(ctx context.Context, setting model.SystemSetting) error
 	SendTestEmail(ctx context.Context, setting model.SystemSetting) error
 }
@@ -45,7 +47,7 @@ type Repository interface {
 	// IsEchoPrivate reports whether the target echo is marked private; a
 	// missing echo returns an error so callers can reject unknown targets.
 	IsEchoPrivate(ctx context.Context, echoID string) (bool, error)
-	ListComments(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error)
+	ListComments(ctx context.Context, query model.ListCommentQuery) (commonModel.List[model.Comment], error)
 	GetCommentByID(ctx context.Context, id string) (model.Comment, error)
 	UpdateCommentStatus(ctx context.Context, id string, status model.Status) error
 	UpdateCommentHot(ctx context.Context, id string, hot bool) error

@@ -4,373 +4,256 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	filemock "github.com/lin-snow/ech0/internal/test/mocks/filemock"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	service "github.com/lin-snow/ech0/internal/service/file"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func init() {
-	gin.SetMode(gin.TestMode)
+func init() { gin.SetMode(gin.TestMode) }
+
+// stubService inherits every Service method as a nil-returning trap; the tests
+// below only ever reach the methods they set.
+type stubService struct {
+	service.Service
+	open   func(ctx context.Context, id string, rng *service.ByteRange) (*service.OpenResult, error)
+	browse func(ctx context.Context, in service.BrowseInput) (fileModel.Page, error)
+	create func(ctx context.Context, in service.CreateInput) (*service.CreateResult, error)
 }
 
-func newGinCtx(t *testing.T, rawURL string) (*gin.Context, *httptest.ResponseRecorder) {
+func (s stubService) Open(ctx context.Context, id string, rng *service.ByteRange) (*service.OpenResult, error) {
+	return s.open(ctx, id, rng)
+}
+
+func (s stubService) Browse(ctx context.Context, in service.BrowseInput) (fileModel.Page, error) {
+	return s.browse(ctx, in)
+}
+
+func (s stubService) Create(ctx context.Context, in service.CreateInput) (*service.CreateResult, error) {
+	return s.create(ctx, in)
+}
+
+// postForm runs a raw route against an urlencoded body.
+func postForm(t *testing.T, h gin.HandlerFunc, target string, form url.Values) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodGet, rawURL, nil)
-	return c, rec
+	c.Request = httptest.NewRequest(http.MethodPost, target, strings.NewReader(form.Encode()))
+	c.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h(c)
+	return rec
 }
 
-func TestStreamFileByID_EmptyID_NoServiceCall(t *testing.T) {
-	mockSvc := filemock.NewMockService(t)
-	h := NewFileHandler(mockSvc)
-
-	c, _ := newGinCtx(t, "/")
-	h.StreamFileByID(c)
-
-	assert.Equal(t, http.StatusBadRequest, c.Writer.Status())
-}
-
-func TestStreamFileByID_DelegatesToService(t *testing.T) {
-	cases := []struct {
-		name         string
-		simulate     func(*gin.Context)
-		wantCode     int
-		wantLocation string
-	}{
-		{"ok", func(c *gin.Context) { c.Status(http.StatusOK) }, http.StatusOK, ""},
-		{"auth-rejected", func(c *gin.Context) { c.Status(http.StatusForbidden) }, http.StatusForbidden, ""},
-		{"not-found", func(c *gin.Context) { c.Status(http.StatusNotFound) }, http.StatusNotFound, ""},
-		{
-			"external-redirect",
-			func(c *gin.Context) { c.Redirect(http.StatusFound, "https://cdn.example/x.png") },
-			http.StatusFound,
-			"https://cdn.example/x.png",
-		},
+func serveContent(t *testing.T, svc service.Service, method, target, rangeHeader, ifNoneMatch string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(method, target, nil)
+	if rangeHeader != "" {
+		c.Request.Header.Set("Range", rangeHeader)
 	}
+	if ifNoneMatch != "" {
+		c.Request.Header.Set("If-None-Match", ifNoneMatch)
+	}
+	c.Params = gin.Params{{Key: "id", Value: "abc"}}
+	NewFileHandler(svc).Content(c)
+	return rec
+}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			mockSvc := filemock.NewMockService(t)
-			var gotID string
-			var gotCtx *gin.Context
-			mockSvc.EXPECT().
-				StreamFileByID(mock.Anything, "file-1").
-				Run(func(ctx *gin.Context, id string) {
-					gotID = id
-					gotCtx = ctx
-					tc.simulate(ctx)
-				}).
-				Return().
-				Once()
+func TestContentUnknownFileAnswers404(t *testing.T) {
+	svc := stubService{open: func(context.Context, string, *service.ByteRange) (*service.OpenResult, error) {
+		return nil, service.ErrNotFound
+	}}
+	rec := serveContent(t, svc, http.MethodGet, "/api/files/abc/content", "", "")
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Empty(t, rec.Header().Get("ETag"), "a miss must not disclose an identity")
+}
 
-			h := NewFileHandler(mockSvc)
-			c, rec := newGinCtx(t, "/files/file-1")
-			c.Params = gin.Params{{Key: "id", Value: "file-1"}}
+func TestContentRedirectIsNeverCached(t *testing.T) {
+	svc := stubService{open: func(context.Context, string, *service.ByteRange) (*service.OpenResult, error) {
+		return &service.OpenResult{Redirect: "https://cdn.example/a.png?sig=1"}, nil
+	}}
+	rec := serveContent(t, svc, http.MethodGet, "/api/files/abc/content", "", "")
+	assert.Equal(t, http.StatusFound, rec.Code)
+	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+	assert.Equal(t, "https://cdn.example/a.png?sig=1", rec.Header().Get("Location"))
+}
 
-			h.StreamFileByID(c)
+func TestContentPublicBytesAreImmutableAndRevalidateById(t *testing.T) {
+	body := []byte("png-bytes")
+	svc := stubService{open: func(_ context.Context, id string, rng *service.ByteRange) (*service.OpenResult, error) {
+		assert.Nil(t, rng)
+		return &service.OpenResult{
+			File:         fileModel.FileDTO{ID: id, Name: "a.png"},
+			Reader:       io.NopCloser(bytes.NewReader(body)),
+			Size:         int64(len(body)),
+			ContentType:  "image/png",
+			CacheControl: "public, max-age=31536000, immutable",
+			Rangeable:    true,
+		}, nil
+	}}
 
-			assert.Equal(t, "file-1", gotID, "id 应原样透传")
-			assert.Same(t, c, gotCtx, "应透传同一个 *gin.Context")
-			assert.Equal(t, tc.wantCode, c.Writer.Status())
-			if tc.wantLocation != "" {
-				assert.Equal(t, tc.wantLocation, rec.Header().Get("Location"))
+	rec := serveContent(t, svc, http.MethodGet, "/api/files/abc/content", "", "")
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, body, rec.Body.Bytes())
+	assert.Equal(t, `"abc"`, rec.Header().Get("ETag"))
+	assert.Equal(t, "public, max-age=31536000, immutable", rec.Header().Get("Cache-Control"))
+	assert.Equal(t, "image/png", rec.Header().Get("Content-Type"))
+	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, `inline; filename="a.png"`, rec.Header().Get("Content-Disposition"))
+	assert.Equal(t, "bytes", rec.Header().Get("Accept-Ranges"))
+
+	rec = serveContent(t, svc, http.MethodGet, "/api/files/abc/content", "", `"abc"`)
+	assert.Equal(t, http.StatusNotModified, rec.Code)
+	assert.Empty(t, rec.Body.Bytes())
+}
+
+func TestContentRangeServesPartialBytes(t *testing.T) {
+	body := []byte("0123456789")
+	svc := stubService{open: func(_ context.Context, _ string, rng *service.ByteRange) (*service.OpenResult, error) {
+		start, length := int64(0), int64(len(body))
+		if rng != nil {
+			if rng.Start < 0 || rng.Start >= int64(len(body)) {
+				return nil, service.ErrRangeNotSatisfiable
 			}
-		})
-	}
-}
+			start, length = rng.Start, rng.Length
+			if length <= 0 || start+length > int64(len(body)) {
+				length = int64(len(body)) - start
+			}
+		}
+		return &service.OpenResult{
+			File:         fileModel.FileDTO{ID: "abc", Name: "a.bin"},
+			Reader:       io.NopCloser(bytes.NewReader(body[start : start+length])),
+			Size:         length,
+			Total:        int64(len(body)),
+			ContentType:  "application/octet-stream",
+			CacheControl: "public, max-age=31536000, immutable",
+			Rangeable:    true,
+		}, nil
+	}}
 
-func TestStreamFileByPath_BadQuery_NoServiceCall(t *testing.T) {
-	cases := []struct {
-		name   string
-		rawURL string
-	}{
-		{"missing-all", "/files/stream"},
-		{"missing-path", "/files/stream?storage_type=local"},
-		{"missing-storage-type", "/files/stream?path=img%2Fa.png"},
-	}
+	rec := serveContent(t, svc, http.MethodGet, "/api/files/abc/content", "bytes=2-5", "")
+	require.Equal(t, http.StatusPartialContent, rec.Code)
+	assert.Equal(t, []byte("2345"), rec.Body.Bytes())
+	assert.Equal(t, "bytes 2-5/10", rec.Header().Get("Content-Range"))
+	assert.Equal(t, "attachment; filename=\"a.bin\"", rec.Header().Get("Content-Disposition"))
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			mockSvc := filemock.NewMockService(t)
-			h := NewFileHandler(mockSvc)
-
-			c, rec := newGinCtx(t, tc.rawURL)
-			h.StreamFileByPath(c)
-
-			assert.Equal(t, http.StatusBadRequest, rec.Code)
-			assert.Equal(t, commonModel.INVALID_QUERY_PARAMS, rec.Body.String())
-		})
-	}
-}
-
-func TestStreamFileByPath_DelegatesParsedQuery(t *testing.T) {
-	mockSvc := filemock.NewMockService(t)
-	var got commonModel.FilePathStreamQueryDto
-	var gotCtx *gin.Context
-	mockSvc.EXPECT().
-		StreamFileByPath(mock.Anything, mock.Anything).
-		Run(func(ctx *gin.Context, q commonModel.FilePathStreamQueryDto) {
-			got = q
-			gotCtx = ctx
-			ctx.Status(http.StatusOK)
-		}).
-		Return().
-		Once()
-
-	h := NewFileHandler(mockSvc)
-	c, rec := newGinCtx(
-		t,
-		"/files/stream?storage_type=local&path=img%2Fa.png&name=a.png&content_type=image%2Fpng",
-	)
-
-	h.StreamFileByPath(c)
-
-	assert.Equal(t, "local", got.StorageType)
-	assert.Equal(t, "img/a.png", got.Path)
-	assert.Equal(t, "a.png", got.Name)
-	assert.Equal(t, "image/png", got.ContentType)
-	assert.Same(t, c, gotCtx)
+	rec = serveContent(t, svc, http.MethodHead, "/api/files/abc/content", "", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Empty(t, rec.Body.Bytes())
 }
 
-var errBoom = errors.New("boom")
-
-func TestListFiles(t *testing.T) {
-	t.Run("success forwards query and wraps OK", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		var gotQuery commonModel.FileListQueryDto
-		mockSvc.EXPECT().
-			ListFiles(mock.Anything, mock.Anything).
-			Run(func(_ context.Context, q commonModel.FileListQueryDto) { gotQuery = q }).
-			Return(commonModel.FileListResultDto{Total: 7}, nil).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.ListFiles(context.Background(), &ListFilesInput{
-			Page: 2, PageSize: 20, Search: "kw", StorageType: "s3",
-		})
-
-		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, int64(7), out.Data.Total)
-		assert.Equal(t, commonModel.FileListQueryDto{Page: 2, PageSize: 20, Search: "kw", StorageType: "s3"}, gotQuery)
-	})
-
-	t.Run("error is propagated, zero envelope", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			ListFiles(mock.Anything, mock.Anything).
-			Return(commonModel.FileListResultDto{}, errBoom).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.ListFiles(context.Background(), &ListFilesInput{})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, FileListOutput{}, out)
-	})
+func TestContentRejectsUnparseableRange(t *testing.T) {
+	svc := stubService{open: func(context.Context, string, *service.ByteRange) (*service.OpenResult, error) {
+		t.Fatal("service must not be consulted for a malformed range")
+		return nil, nil
+	}}
+	rec := serveContent(t, svc, http.MethodGet, "/api/files/abc/content", "bytes=0-1,4-5", "")
+	assert.Equal(t, http.StatusRequestedRangeNotSatisfiable, rec.Code)
 }
 
-func TestListFileTree(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		var gotQuery commonModel.FileTreeQueryDto
-		mockSvc.EXPECT().
-			ListFileTree(mock.Anything, mock.Anything).
-			Run(func(_ context.Context, q commonModel.FileTreeQueryDto) { gotQuery = q }).
-			Return(commonModel.FileTreeResultDto{}, nil).
-			Once()
+func TestListCarriesOffsetTotal(t *testing.T) {
+	svc := stubService{browse: func(_ context.Context, in service.BrowseInput) (fileModel.Page, error) {
+		require.Equal(t, 2, in.Page)
+		require.Equal(t, 10, in.PageSize)
+		return fileModel.Page{Total: 7, Items: []fileModel.FileDTO{{ID: "f1"}}}, nil
+	}}
 
-		h := NewFileHandler(mockSvc)
-		out, err := h.ListFileTree(context.Background(), &ListFileTreeInput{StorageType: "local", Prefix: "img/"})
-
-		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.FileTreeQueryDto{StorageType: "local", Prefix: "img/"}, gotQuery)
-	})
-
-	t.Run("error", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			ListFileTree(mock.Anything, mock.Anything).
-			Return(commonModel.FileTreeResultDto{}, errBoom).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.ListFileTree(context.Background(), &ListFileTreeInput{StorageType: "local"})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, FileTreeOutput{}, out)
-	})
+	out, err := NewFileHandler(svc).List(context.Background(), &ListFilesInput{Page: 2, PageSize: 10})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	require.NotNil(t, out.Body.Total)
+	assert.Equal(t, int64(7), *out.Body.Total)
+	assert.Len(t, out.Body.Items, 1)
 }
 
-func TestGetFileByID(t *testing.T) {
-	t.Run("success forwards id", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			GetFileByID(mock.Anything, "f-9").
-			Return(commonModel.FileDto{ID: "f-9", Name: "a.png"}, nil).
-			Once()
+func TestListMapsDomainErrors(t *testing.T) {
+	svc := stubService{browse: func(context.Context, service.BrowseInput) (fileModel.Page, error) {
+		return fileModel.Page{}, service.ErrInvalid
+	}}
 
-		h := NewFileHandler(mockSvc)
-		out, err := h.GetFileByID(context.Background(), &GetFileByIDInput{ID: "f-9"})
-
-		require.NoError(t, err)
-		assert.Equal(t, "f-9", out.Data.ID)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	})
-
-	t.Run("error", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			GetFileByID(mock.Anything, "missing").
-			Return(commonModel.FileDto{}, errBoom).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.GetFileByID(context.Background(), &GetFileByIDInput{ID: "missing"})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, FileOutput{}, out)
-	})
+	out, err := NewFileHandler(svc).List(context.Background(), &ListFilesInput{})
+	require.Error(t, err)
+	assert.Nil(t, out)
+	var statusErr *commonModel.StatusError
+	require.True(t, errors.As(err, &statusErr))
+	assert.Equal(t, http.StatusBadRequest, statusErr.Status)
 }
 
-func TestUpdateFileMeta(t *testing.T) {
-	t.Run("success forwards id and body", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		var gotID string
-		var gotBody commonModel.UpdateFileMetaDto
-		mockSvc.EXPECT().
-			UpdateFileMeta(mock.Anything, mock.Anything, mock.Anything).
-			Run(func(_ context.Context, id string, dto commonModel.UpdateFileMetaDto) {
-				gotID = id
-				gotBody = dto
-			}).
-			Return(commonModel.FileDto{ID: "f-1"}, nil).
-			Once()
+func TestUploadAnswers201WithTheFile(t *testing.T) {
+	svc := stubService{create: func(_ context.Context, in service.CreateInput) (*service.CreateResult, error) {
+		require.Equal(t, "https://cdn.example/a.png", in.ExternalURL)
+		return &service.CreateResult{File: fileModel.FileDTO{ID: "f1", Name: "a.png"}}, nil
+	}}
 
-		h := NewFileHandler(mockSvc)
-		body := commonModel.UpdateFileMetaDto{Size: 123}
-		out, err := h.UpdateFileMeta(context.Background(), &UpdateFileMetaInput{ID: "f-1", Body: body})
-
-		require.NoError(t, err)
-		assert.Equal(t, "f-1", gotID)
-		assert.Equal(t, body, gotBody)
-		assert.Equal(t, "f-1", out.Data.ID)
+	rec := postForm(t, NewFileHandler(svc).Upload(), "/api/files", url.Values{
+		"profile":      {"image"},
+		"external_url": {"https://cdn.example/a.png"},
 	})
 
-	t.Run("error", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			UpdateFileMeta(mock.Anything, mock.Anything, mock.Anything).
-			Return(commonModel.FileDto{}, errBoom).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.UpdateFileMeta(context.Background(), &UpdateFileMetaInput{ID: "f-1"})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, FileOutput{}, out)
-	})
+	require.Equal(t, http.StatusCreated, rec.Code)
+	var got service.CreateResult
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	assert.Equal(t, "f1", got.File.ID)
+	assert.Equal(t, "a.png", got.File.Name)
 }
 
-func TestCreateExternalFile(t *testing.T) {
-	t.Run("success uses UPLOAD_SUCCESS message", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			CreateExternalFile(mock.Anything, mock.Anything).
-			Return(commonModel.FileDto{ID: "ext-1"}, nil).
-			Once()
+func TestUploadMapsDomainStatuses(t *testing.T) {
+	svc := stubService{create: func(context.Context, service.CreateInput) (*service.CreateResult, error) {
+		return nil, service.ErrTooLarge
+	}}
 
-		h := NewFileHandler(mockSvc)
-		out, err := h.CreateExternalFile(context.Background(), &CreateExternalFileInput{
-			Body: commonModel.CreateExternalFileDto{URL: "https://x/y.png"},
-		})
-
-		require.NoError(t, err)
-		assert.Equal(t, "ext-1", out.Data.ID)
-		assert.Equal(t, commonModel.UPLOAD_SUCCESS, out.Message)
+	rec := postForm(t, NewFileHandler(svc).Upload(), "/api/files", url.Values{
+		"external_url": {"https://cdn.example/a.png"},
 	})
-
-	t.Run("error", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			CreateExternalFile(mock.Anything, mock.Anything).
-			Return(commonModel.FileDto{}, errBoom).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.CreateExternalFile(context.Background(), &CreateExternalFileInput{})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, FileOutput{}, out)
-	})
+	require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
+	assert.Contains(t, rec.Header().Get("Content-Type"), "application/problem+json")
 }
 
-func TestDeleteFile(t *testing.T) {
-	t.Run("success uses DELETE_SUCCESS message", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().DeleteFile(mock.Anything, "f-1").Return(nil).Once()
+func TestUploadRejectsMissingInput(t *testing.T) {
+	svc := stubService{create: func(context.Context, service.CreateInput) (*service.CreateResult, error) {
+		t.Fatal("service must not be consulted without a file, url or direct request")
+		return nil, nil
+	}}
 
-		h := NewFileHandler(mockSvc)
-		out, err := h.DeleteFile(context.Background(), &DeleteFileInput{ID: "f-1"})
-
-		require.NoError(t, err)
-		assert.Equal(t, commonModel.DELETE_SUCCESS, out.Message)
-		assert.Nil(t, out.Data)
-	})
-
-	t.Run("error", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().DeleteFile(mock.Anything, "f-1").Return(errBoom).Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.DeleteFile(context.Background(), &DeleteFileInput{ID: "f-1"})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, EmptyOutput{}, out)
-	})
+	rec := postForm(t, NewFileHandler(svc).Upload(), "/api/files", url.Values{"profile": {"image"}})
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestGetFilePresignURL(t *testing.T) {
-	t.Run("success uses presign message", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			GetFilePresignURL(mock.Anything, mock.Anything).
-			Return(commonModel.PresignDto{ID: "p-1", PresignURL: "https://x/put"}, nil).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.GetFilePresignURL(context.Background(), &GetFilePresignURLInput{
-			Body: commonModel.GetPresignURLDto{FileName: "a.png"},
-		})
-
-		require.NoError(t, err)
-		assert.Equal(t, "p-1", out.Data.ID)
-		assert.Equal(t, commonModel.GET_S3_PRESIGN_URL_SUCCESS, out.Message)
-	})
-
-	t.Run("error", func(t *testing.T) {
-		mockSvc := filemock.NewMockService(t)
-		mockSvc.EXPECT().
-			GetFilePresignURL(mock.Anything, mock.Anything).
-			Return(commonModel.PresignDto{}, errBoom).
-			Once()
-
-		h := NewFileHandler(mockSvc)
-		out, err := h.GetFilePresignURL(context.Background(), &GetFilePresignURLInput{})
-
-		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, PresignOutput{}, out)
-	})
+func TestParseRange(t *testing.T) {
+	cases := []struct {
+		header string
+		want   *service.ByteRange
+		ok     bool
+	}{
+		{header: "", want: nil, ok: true},
+		{header: "bytes=0-99", want: &service.ByteRange{Start: 0, Length: 100}, ok: true},
+		{header: "bytes=100-", want: &service.ByteRange{Start: 100}, ok: true},
+		{header: "bytes=-500", want: &service.ByteRange{Suffix: 500}, ok: true},
+		{header: "bytes=5-4", ok: false},
+		{header: "bytes=-0", ok: false},
+		{header: "items=0-1", ok: false},
+		{header: "bytes=0-1,3-4", ok: false},
+		{header: "bytes=abc-def", ok: false},
+	}
+	for _, tc := range cases {
+		got, ok := parseRange(tc.header)
+		assert.Equal(t, tc.ok, ok, tc.header)
+		if tc.ok {
+			assert.Equal(t, tc.want, got, tc.header)
+		}
+	}
 }

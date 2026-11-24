@@ -87,7 +87,10 @@ func newSvc(
 // expectAccountActive stubs the uncached account-status read performed by every
 // login entry point before a token pair is issued.
 func expectAccountActive(authRepo *authmock.MockAuthRepo, userID string) {
-	authRepo.EXPECT().IsAccountActive(mock.Anything, userID).Return(true, nil).Once()
+	authRepo.EXPECT().
+		AccountState(mock.Anything, userID).
+		Return(userModel.AccountState{Found: true, Status: userModel.StatusActive}, nil).
+		Once()
 }
 
 func runsTxInline(tx *txmock.MockTransactor) {

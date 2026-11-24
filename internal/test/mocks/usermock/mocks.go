@@ -170,12 +170,12 @@ func (_c *MockService_GetAllUsers_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
-// GetPrimaryAdmin provides a mock function for the type MockService
-func (_mock *MockService) GetPrimaryAdmin() (model.User, error) {
+// GetOwner provides a mock function for the type MockService
+func (_mock *MockService) GetOwner() (model.User, error) {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetPrimaryAdmin")
+		panic("no return value specified for GetOwner")
 	}
 
 	var r0 model.User
@@ -196,29 +196,29 @@ func (_mock *MockService) GetPrimaryAdmin() (model.User, error) {
 	return r0, r1
 }
 
-// MockService_GetPrimaryAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPrimaryAdmin'
-type MockService_GetPrimaryAdmin_Call struct {
+// MockService_GetOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOwner'
+type MockService_GetOwner_Call struct {
 	*mock.Call
 }
 
-// GetPrimaryAdmin is a helper method to define mock.On call
-func (_e *MockService_Expecter) GetPrimaryAdmin() *MockService_GetPrimaryAdmin_Call {
-	return &MockService_GetPrimaryAdmin_Call{Call: _e.mock.On("GetPrimaryAdmin")}
+// GetOwner is a helper method to define mock.On call
+func (_e *MockService_Expecter) GetOwner() *MockService_GetOwner_Call {
+	return &MockService_GetOwner_Call{Call: _e.mock.On("GetOwner")}
 }
 
-func (_c *MockService_GetPrimaryAdmin_Call) Run(run func()) *MockService_GetPrimaryAdmin_Call {
+func (_c *MockService_GetOwner_Call) Run(run func()) *MockService_GetOwner_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *MockService_GetPrimaryAdmin_Call) Return(user model.User, err error) *MockService_GetPrimaryAdmin_Call {
+func (_c *MockService_GetOwner_Call) Return(user model.User, err error) *MockService_GetOwner_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockService_GetPrimaryAdmin_Call) RunAndReturn(run func() (model.User, error)) *MockService_GetPrimaryAdmin_Call {
+func (_c *MockService_GetOwner_Call) RunAndReturn(run func() (model.User, error)) *MockService_GetOwner_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -385,6 +385,63 @@ func (_c *MockService_Register_Call) RunAndReturn(run func(registerDto *model0.R
 	return _c
 }
 
+// TransferOwnership provides a mock function for the type MockService
+func (_mock *MockService) TransferOwnership(ctx context.Context, newOwnerID string) error {
+	ret := _mock.Called(ctx, newOwnerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TransferOwnership")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, newOwnerID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_TransferOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferOwnership'
+type MockService_TransferOwnership_Call struct {
+	*mock.Call
+}
+
+// TransferOwnership is a helper method to define mock.On call
+//   - ctx context.Context
+//   - newOwnerID string
+func (_e *MockService_Expecter) TransferOwnership(ctx any, newOwnerID any) *MockService_TransferOwnership_Call {
+	return &MockService_TransferOwnership_Call{Call: _e.mock.On("TransferOwnership", ctx, newOwnerID)}
+}
+
+func (_c *MockService_TransferOwnership_Call) Run(run func(ctx context.Context, newOwnerID string)) *MockService_TransferOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_TransferOwnership_Call) Return(err error) *MockService_TransferOwnership_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_TransferOwnership_Call) RunAndReturn(run func(ctx context.Context, newOwnerID string) error) *MockService_TransferOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateUser provides a mock function for the type MockService
 func (_mock *MockService) UpdateUser(ctx context.Context, userdto model.UserInfoDto) error {
 	ret := _mock.Called(ctx, userdto)
@@ -442,36 +499,37 @@ func (_c *MockService_UpdateUser_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
-// UpdateUserAdmin provides a mock function for the type MockService
-func (_mock *MockService) UpdateUserAdmin(ctx context.Context, id string) error {
-	ret := _mock.Called(ctx, id)
+// UpdateUserRole provides a mock function for the type MockService
+func (_mock *MockService) UpdateUserRole(ctx context.Context, id string, newRole model.Role) error {
+	ret := _mock.Called(ctx, id, newRole)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateUserAdmin")
+		panic("no return value specified for UpdateUserRole")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model.Role) error); ok {
+		r0 = returnFunc(ctx, id, newRole)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockService_UpdateUserAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserAdmin'
-type MockService_UpdateUserAdmin_Call struct {
+// MockService_UpdateUserRole_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserRole'
+type MockService_UpdateUserRole_Call struct {
 	*mock.Call
 }
 
-// UpdateUserAdmin is a helper method to define mock.On call
+// UpdateUserRole is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *MockService_Expecter) UpdateUserAdmin(ctx any, id any) *MockService_UpdateUserAdmin_Call {
-	return &MockService_UpdateUserAdmin_Call{Call: _e.mock.On("UpdateUserAdmin", ctx, id)}
+//   - newRole model.Role
+func (_e *MockService_Expecter) UpdateUserRole(ctx any, id any, newRole any) *MockService_UpdateUserRole_Call {
+	return &MockService_UpdateUserRole_Call{Call: _e.mock.On("UpdateUserRole", ctx, id, newRole)}
 }
 
-func (_c *MockService_UpdateUserAdmin_Call) Run(run func(ctx context.Context, id string)) *MockService_UpdateUserAdmin_Call {
+func (_c *MockService_UpdateUserRole_Call) Run(run func(ctx context.Context, id string, newRole model.Role)) *MockService_UpdateUserRole_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -481,20 +539,25 @@ func (_c *MockService_UpdateUserAdmin_Call) Run(run func(ctx context.Context, id
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 model.Role
+		if args[2] != nil {
+			arg2 = args[2].(model.Role)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockService_UpdateUserAdmin_Call) Return(err error) *MockService_UpdateUserAdmin_Call {
+func (_c *MockService_UpdateUserRole_Call) Return(err error) *MockService_UpdateUserRole_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockService_UpdateUserAdmin_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockService_UpdateUserAdmin_Call {
+func (_c *MockService_UpdateUserRole_Call) RunAndReturn(run func(ctx context.Context, id string, newRole model.Role) error) *MockService_UpdateUserRole_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -717,12 +780,12 @@ func (_c *MockUserRepo_GetAllUsers_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
-// GetPrimaryAdmin provides a mock function for the type MockUserRepo
-func (_mock *MockUserRepo) GetPrimaryAdmin(ctx context.Context) (model.User, error) {
+// GetOwner provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) GetOwner(ctx context.Context) (model.User, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetPrimaryAdmin")
+		panic("no return value specified for GetOwner")
 	}
 
 	var r0 model.User
@@ -743,18 +806,18 @@ func (_mock *MockUserRepo) GetPrimaryAdmin(ctx context.Context) (model.User, err
 	return r0, r1
 }
 
-// MockUserRepo_GetPrimaryAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPrimaryAdmin'
-type MockUserRepo_GetPrimaryAdmin_Call struct {
+// MockUserRepo_GetOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOwner'
+type MockUserRepo_GetOwner_Call struct {
 	*mock.Call
 }
 
-// GetPrimaryAdmin is a helper method to define mock.On call
+// GetOwner is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockUserRepo_Expecter) GetPrimaryAdmin(ctx any) *MockUserRepo_GetPrimaryAdmin_Call {
-	return &MockUserRepo_GetPrimaryAdmin_Call{Call: _e.mock.On("GetPrimaryAdmin", ctx)}
+func (_e *MockUserRepo_Expecter) GetOwner(ctx any) *MockUserRepo_GetOwner_Call {
+	return &MockUserRepo_GetOwner_Call{Call: _e.mock.On("GetOwner", ctx)}
 }
 
-func (_c *MockUserRepo_GetPrimaryAdmin_Call) Run(run func(ctx context.Context)) *MockUserRepo_GetPrimaryAdmin_Call {
+func (_c *MockUserRepo_GetOwner_Call) Run(run func(ctx context.Context)) *MockUserRepo_GetOwner_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -767,12 +830,12 @@ func (_c *MockUserRepo_GetPrimaryAdmin_Call) Run(run func(ctx context.Context)) 
 	return _c
 }
 
-func (_c *MockUserRepo_GetPrimaryAdmin_Call) Return(user model.User, err error) *MockUserRepo_GetPrimaryAdmin_Call {
+func (_c *MockUserRepo_GetOwner_Call) Return(user model.User, err error) *MockUserRepo_GetOwner_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockUserRepo_GetPrimaryAdmin_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockUserRepo_GetPrimaryAdmin_Call {
+func (_c *MockUserRepo_GetOwner_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockUserRepo_GetOwner_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -975,6 +1038,69 @@ func (_c *MockUserRepo_PurgeUserContent_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// TransferOwnership provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) TransferOwnership(ctx context.Context, currentOwnerID string, newOwnerID string) error {
+	ret := _mock.Called(ctx, currentOwnerID, newOwnerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TransferOwnership")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, currentOwnerID, newOwnerID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepo_TransferOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferOwnership'
+type MockUserRepo_TransferOwnership_Call struct {
+	*mock.Call
+}
+
+// TransferOwnership is a helper method to define mock.On call
+//   - ctx context.Context
+//   - currentOwnerID string
+//   - newOwnerID string
+func (_e *MockUserRepo_Expecter) TransferOwnership(ctx any, currentOwnerID any, newOwnerID any) *MockUserRepo_TransferOwnership_Call {
+	return &MockUserRepo_TransferOwnership_Call{Call: _e.mock.On("TransferOwnership", ctx, currentOwnerID, newOwnerID)}
+}
+
+func (_c *MockUserRepo_TransferOwnership_Call) Run(run func(ctx context.Context, currentOwnerID string, newOwnerID string)) *MockUserRepo_TransferOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_TransferOwnership_Call) Return(err error) *MockUserRepo_TransferOwnership_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepo_TransferOwnership_Call) RunAndReturn(run func(ctx context.Context, currentOwnerID string, newOwnerID string) error) *MockUserRepo_TransferOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateUser provides a mock function for the type MockUserRepo
 func (_mock *MockUserRepo) UpdateUser(ctx context.Context, user *model.User) error {
 	ret := _mock.Called(ctx, user)
@@ -1028,6 +1154,69 @@ func (_c *MockUserRepo_UpdateUser_Call) Return(err error) *MockUserRepo_UpdateUs
 }
 
 func (_c *MockUserRepo_UpdateUser_Call) RunAndReturn(run func(ctx context.Context, user *model.User) error) *MockUserRepo_UpdateUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateUserRole provides a mock function for the type MockUserRepo
+func (_mock *MockUserRepo) UpdateUserRole(ctx context.Context, id string, newRole model.Role) error {
+	ret := _mock.Called(ctx, id, newRole)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserRole")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model.Role) error); ok {
+		r0 = returnFunc(ctx, id, newRole)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepo_UpdateUserRole_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserRole'
+type MockUserRepo_UpdateUserRole_Call struct {
+	*mock.Call
+}
+
+// UpdateUserRole is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - newRole model.Role
+func (_e *MockUserRepo_Expecter) UpdateUserRole(ctx any, id any, newRole any) *MockUserRepo_UpdateUserRole_Call {
+	return &MockUserRepo_UpdateUserRole_Call{Call: _e.mock.On("UpdateUserRole", ctx, id, newRole)}
+}
+
+func (_c *MockUserRepo_UpdateUserRole_Call) Run(run func(ctx context.Context, id string, newRole model.Role)) *MockUserRepo_UpdateUserRole_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 model.Role
+		if args[2] != nil {
+			arg2 = args[2].(model.Role)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_UpdateUserRole_Call) Return(err error) *MockUserRepo_UpdateUserRole_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepo_UpdateUserRole_Call) RunAndReturn(run func(ctx context.Context, id string, newRole model.Role) error) *MockUserRepo_UpdateUserRole_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1248,57 +1437,6 @@ func (_c *MockInstallStateRepo_IsInitialized_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
-// MarkInitialized provides a mock function for the type MockInstallStateRepo
-func (_mock *MockInstallStateRepo) MarkInitialized(ctx context.Context) error {
-	ret := _mock.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for MarkInitialized")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
-		r0 = returnFunc(ctx)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockInstallStateRepo_MarkInitialized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkInitialized'
-type MockInstallStateRepo_MarkInitialized_Call struct {
-	*mock.Call
-}
-
-// MarkInitialized is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockInstallStateRepo_Expecter) MarkInitialized(ctx any) *MockInstallStateRepo_MarkInitialized_Call {
-	return &MockInstallStateRepo_MarkInitialized_Call{Call: _e.mock.On("MarkInitialized", ctx)}
-}
-
-func (_c *MockInstallStateRepo_MarkInitialized_Call) Run(run func(ctx context.Context)) *MockInstallStateRepo_MarkInitialized_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockInstallStateRepo_MarkInitialized_Call) Return(err error) *MockInstallStateRepo_MarkInitialized_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockInstallStateRepo_MarkInitialized_Call) RunAndReturn(run func(ctx context.Context) error) *MockInstallStateRepo_MarkInitialized_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // NewMockRepository creates a new instance of MockRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockRepository(t interface {
@@ -1454,12 +1592,12 @@ func (_c *MockRepository_GetAllUsers_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
-// GetPrimaryAdmin provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetPrimaryAdmin(ctx context.Context) (model.User, error) {
+// GetOwner provides a mock function for the type MockRepository
+func (_mock *MockRepository) GetOwner(ctx context.Context) (model.User, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetPrimaryAdmin")
+		panic("no return value specified for GetOwner")
 	}
 
 	var r0 model.User
@@ -1480,18 +1618,18 @@ func (_mock *MockRepository) GetPrimaryAdmin(ctx context.Context) (model.User, e
 	return r0, r1
 }
 
-// MockRepository_GetPrimaryAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPrimaryAdmin'
-type MockRepository_GetPrimaryAdmin_Call struct {
+// MockRepository_GetOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOwner'
+type MockRepository_GetOwner_Call struct {
 	*mock.Call
 }
 
-// GetPrimaryAdmin is a helper method to define mock.On call
+// GetOwner is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockRepository_Expecter) GetPrimaryAdmin(ctx any) *MockRepository_GetPrimaryAdmin_Call {
-	return &MockRepository_GetPrimaryAdmin_Call{Call: _e.mock.On("GetPrimaryAdmin", ctx)}
+func (_e *MockRepository_Expecter) GetOwner(ctx any) *MockRepository_GetOwner_Call {
+	return &MockRepository_GetOwner_Call{Call: _e.mock.On("GetOwner", ctx)}
 }
 
-func (_c *MockRepository_GetPrimaryAdmin_Call) Run(run func(ctx context.Context)) *MockRepository_GetPrimaryAdmin_Call {
+func (_c *MockRepository_GetOwner_Call) Run(run func(ctx context.Context)) *MockRepository_GetOwner_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1504,12 +1642,12 @@ func (_c *MockRepository_GetPrimaryAdmin_Call) Run(run func(ctx context.Context)
 	return _c
 }
 
-func (_c *MockRepository_GetPrimaryAdmin_Call) Return(user model.User, err error) *MockRepository_GetPrimaryAdmin_Call {
+func (_c *MockRepository_GetOwner_Call) Return(user model.User, err error) *MockRepository_GetOwner_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockRepository_GetPrimaryAdmin_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockRepository_GetPrimaryAdmin_Call {
+func (_c *MockRepository_GetOwner_Call) RunAndReturn(run func(ctx context.Context) (model.User, error)) *MockRepository_GetOwner_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1706,57 +1844,6 @@ func (_c *MockRepository_IsInitialized_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
-// MarkInitialized provides a mock function for the type MockRepository
-func (_mock *MockRepository) MarkInitialized(ctx context.Context) error {
-	ret := _mock.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for MarkInitialized")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
-		r0 = returnFunc(ctx)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockRepository_MarkInitialized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkInitialized'
-type MockRepository_MarkInitialized_Call struct {
-	*mock.Call
-}
-
-// MarkInitialized is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockRepository_Expecter) MarkInitialized(ctx any) *MockRepository_MarkInitialized_Call {
-	return &MockRepository_MarkInitialized_Call{Call: _e.mock.On("MarkInitialized", ctx)}
-}
-
-func (_c *MockRepository_MarkInitialized_Call) Run(run func(ctx context.Context)) *MockRepository_MarkInitialized_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepository_MarkInitialized_Call) Return(err error) *MockRepository_MarkInitialized_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockRepository_MarkInitialized_Call) RunAndReturn(run func(ctx context.Context) error) *MockRepository_MarkInitialized_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // PurgeUserContent provides a mock function for the type MockRepository
 func (_mock *MockRepository) PurgeUserContent(ctx context.Context, id string) (model.PurgeResult, error) {
 	ret := _mock.Called(ctx, id)
@@ -1823,6 +1910,69 @@ func (_c *MockRepository_PurgeUserContent_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
+// TransferOwnership provides a mock function for the type MockRepository
+func (_mock *MockRepository) TransferOwnership(ctx context.Context, currentOwnerID string, newOwnerID string) error {
+	ret := _mock.Called(ctx, currentOwnerID, newOwnerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TransferOwnership")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, currentOwnerID, newOwnerID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_TransferOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferOwnership'
+type MockRepository_TransferOwnership_Call struct {
+	*mock.Call
+}
+
+// TransferOwnership is a helper method to define mock.On call
+//   - ctx context.Context
+//   - currentOwnerID string
+//   - newOwnerID string
+func (_e *MockRepository_Expecter) TransferOwnership(ctx any, currentOwnerID any, newOwnerID any) *MockRepository_TransferOwnership_Call {
+	return &MockRepository_TransferOwnership_Call{Call: _e.mock.On("TransferOwnership", ctx, currentOwnerID, newOwnerID)}
+}
+
+func (_c *MockRepository_TransferOwnership_Call) Run(run func(ctx context.Context, currentOwnerID string, newOwnerID string)) *MockRepository_TransferOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_TransferOwnership_Call) Return(err error) *MockRepository_TransferOwnership_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_TransferOwnership_Call) RunAndReturn(run func(ctx context.Context, currentOwnerID string, newOwnerID string) error) *MockRepository_TransferOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateUser provides a mock function for the type MockRepository
 func (_mock *MockRepository) UpdateUser(ctx context.Context, user *model.User) error {
 	ret := _mock.Called(ctx, user)
@@ -1876,6 +2026,69 @@ func (_c *MockRepository_UpdateUser_Call) Return(err error) *MockRepository_Upda
 }
 
 func (_c *MockRepository_UpdateUser_Call) RunAndReturn(run func(ctx context.Context, user *model.User) error) *MockRepository_UpdateUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateUserRole provides a mock function for the type MockRepository
+func (_mock *MockRepository) UpdateUserRole(ctx context.Context, id string, newRole model.Role) error {
+	ret := _mock.Called(ctx, id, newRole)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateUserRole")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model.Role) error); ok {
+		r0 = returnFunc(ctx, id, newRole)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_UpdateUserRole_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserRole'
+type MockRepository_UpdateUserRole_Call struct {
+	*mock.Call
+}
+
+// UpdateUserRole is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - newRole model.Role
+func (_e *MockRepository_Expecter) UpdateUserRole(ctx any, id any, newRole any) *MockRepository_UpdateUserRole_Call {
+	return &MockRepository_UpdateUserRole_Call{Call: _e.mock.On("UpdateUserRole", ctx, id, newRole)}
+}
+
+func (_c *MockRepository_UpdateUserRole_Call) Run(run func(ctx context.Context, id string, newRole model.Role)) *MockRepository_UpdateUserRole_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 model.Role
+		if args[2] != nil {
+			arg2 = args[2].(model.Role)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_UpdateUserRole_Call) Return(err error) *MockRepository_UpdateUserRole_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_UpdateUserRole_Call) RunAndReturn(run func(ctx context.Context, id string, newRole model.Role) error) *MockRepository_UpdateUserRole_Call {
 	_c.Call.Return(run)
 	return _c
 }

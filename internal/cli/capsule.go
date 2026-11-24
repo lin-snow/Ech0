@@ -42,9 +42,9 @@ func DoExportCapsule(opts ExportCapsuleOptions) error {
 
 	ctx := context.Background()
 	result, err := capsuleExport.Run(ctx, capsuleExport.Deps{
-		DB:       rt.db,
-		Selector: rt.selector(),
-		KV:       rt.kv,
+		DB:      rt.db,
+		Storage: rt.storage,
+		KV:      rt.kv,
 	}, capsuleExport.Options{
 		Output:         opts.Output,
 		IncludePrivate: opts.IncludePrivate,
@@ -119,10 +119,10 @@ func DoImportCapsule(path string, opts ImportCapsuleOptions) error {
 	}
 
 	result, err := capsuleImporter.Run(context.Background(), capsuleImporter.Deps{
-		DB:       rt.db,
-		Tx:       rt.tx,
-		Selector: rt.selector(),
-		KV:       rt.kv,
+		DB:      rt.db,
+		Tx:      rt.tx,
+		Storage: rt.storage,
+		KV:      rt.kv,
 	}, loaded, capsuleImporter.Options{
 		IncludePrivate: opts.IncludePrivate,
 		DryRun:         opts.DryRun,
@@ -152,11 +152,7 @@ Database in use: %s
 	}
 	items := []tuiUtil.CLIInfoItem{
 		{Title: "Echoes", Msg: fmt.Sprintf("created %d, skipped %d", result.EchoesCreated, result.EchoesSkipped)},
-		{
-			Title: "Files",
-			Msg: fmt.Sprintf("created %d, reused %d, renamed %d",
-				result.FilesCreated, result.FilesReused, result.FilesRenamed),
-		},
+		{Title: "Files", Msg: fmt.Sprintf("created %d, reused %d", result.FilesCreated, result.FilesReused)},
 		{Title: "Tags", Msg: fmt.Sprintf("created %d", result.TagsCreated)},
 		{
 			Title: "Comments",
@@ -168,9 +164,6 @@ Database in use: %s
 	}
 	if len(result.SiteFieldsFilled) > 0 {
 		items = append(items, tuiUtil.CLIInfoItem{Title: "Site filled", Msg: strings.Join(result.SiteFieldsFilled, ", ")})
-	}
-	if len(result.Renames) > 0 {
-		items = append(items, tuiUtil.CLIInfoItem{Title: "Renamed", Msg: strings.Join(result.Renames, "\n")})
 	}
 	tuiUtil.PrintCLIWithBox(header, items...)
 

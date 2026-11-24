@@ -33,7 +33,7 @@ func (a *Adapter) resourceProfile(ctx context.Context, _ string) (*ResourceReadR
 		"username": user.Username,
 		"email":    user.Email,
 		"avatar":   user.Avatar,
-		"is_admin": user.IsAdmin,
+		"role":     string(user.Role),
 	})
 	return &ResourceReadResult{
 		Contents: []ResourceContent{{URI: "ech0://profile/me", MimeType: "application/json", Text: string(data)}},

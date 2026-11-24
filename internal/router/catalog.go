@@ -11,6 +11,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/httperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	openapiCatalog "github.com/lin-snow/ech0/internal/openapi/catalog"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
@@ -63,9 +64,10 @@ func (state *catalogState) middleware() gin.HandlerFunc {
 			return
 		}
 		if sent := ctx.GetHeader(openapiCatalog.HeaderName); sent != "" && sent != fingerprint {
-			result := commonModel.Fail[any]("catalog stale")
-			result.ErrorCode = openapiCatalog.StaleErrorCode
-			ctx.AbortWithStatusJSON(http.StatusPreconditionFailed, result)
+			httperr.Abort(ctx, commonModel.Fail(
+				http.StatusPreconditionFailed,
+				"operation catalog is stale, refresh it from "+openapiCatalog.HeaderName,
+			))
 			return
 		}
 		ctx.Next()
@@ -76,8 +78,10 @@ func (state *catalogState) middleware() gin.HandlerFunc {
 func (state *catalogState) handle(ctx *gin.Context) {
 	body, fingerprint := state.current()
 	if len(body) == 0 {
-		result := commonModel.Fail[any]("operation catalog unavailable")
-		ctx.JSON(http.StatusServiceUnavailable, result)
+		httperr.Abort(ctx, commonModel.Fail(
+			http.StatusServiceUnavailable,
+			"operation catalog unavailable",
+		))
 		return
 	}
 	ctx.Header(openapiCatalog.HeaderName, fingerprint)

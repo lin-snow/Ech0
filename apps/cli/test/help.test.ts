@@ -99,12 +99,16 @@ const CATALOG = {
     "file.download": {
       summary: "按 ID 下载文件",
       method: "GET",
-      path: "/file/{id}/stream",
-      scopes: ["file:read"],
+      path: "/files/stream/{fileID}",
+      scopes: [],
       effect: "read",
       kind: "binary",
-      input: { type: "object", properties: { id: { type: "string", description: "文件 ID" } }, required: ["id"] },
-      bind: { id: "path" },
+      input: {
+        type: "object",
+        properties: { fileID: { type: "string", description: "文件 ID" } },
+        required: ["fileID"],
+      },
+      bind: { fileID: "path" },
       transport: { response: { kind: "binary" } },
       deprecated: false,
     },
@@ -339,7 +343,7 @@ describe("help", () => {
       "GET /api/_catalog": () => ({ body: CATALOG }),
       "POST /api/echo": () => ({
         status: 401,
-        body: { code: 0, msg: "token expired", error_code: "invalid_token" },
+        body: { title: "Unauthorized", status: 401, detail: "token expired", code: "INVALID_TOKEN" },
       }),
     });
     const result = await run(["echo", "create", "--content", "hi"], {
@@ -363,7 +367,11 @@ describe("help", () => {
         received = request.body;
         return {
           status: 400,
-          body: { code: 0, msg: "无效的请求", error_code: "INVALID_REQUEST", message_key: "common.invalid_request" },
+          body: {
+            title: "Bad Request",
+            status: 400,
+            detail: "invalid request",
+          },
         };
       },
     });
@@ -375,7 +383,7 @@ describe("help", () => {
 
     expect(received).toEqual({});
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("无效的请求");
+    expect(result.stderr).toContain("invalid request");
     expect(result.stderr).toContain("ech0 echo list --help");
   });
 

@@ -5,6 +5,11 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type * as StaticAdapterModule from '@/service/request/static-adapter'
 import type { StaticDataset } from '@/service/request/static-adapter'
+import { theToast } from '@/utils/toast'
+
+vi.mock('@/utils/toast', () => ({
+  theToast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
+}))
 
 type StaticAdapter = typeof StaticAdapterModule
 
@@ -60,8 +65,8 @@ const query = async (
     'POST',
     body,
   )
-  expect(res.code).toBe(1)
-  return res.data
+  if (!res) throw new Error('expected a cursor page')
+  return res
 }
 
 const ids = (page: App.Api.Ech0.PaginationResult): string[] => page.items.map((item) => item.id)
@@ -153,10 +158,8 @@ describe('static adapter keyset ordering', () => {
       { pageSize: 2, cursor: '', sortBy: 'reactions' },
     )
 
-    expect(res.code).toBe(0)
-    expect(res.error_code).toBe('INVALID_QUERY')
-    expect(res.message_key).toBe('echo.cursor_sort_unsupported')
-    expect(res.data).toBeNull()
+    expect(res).toBeNull()
+    expect(vi.mocked(theToast.error)).toHaveBeenCalledWith('echo.cursor_sort_unsupported')
   })
 
   it('非法 cursor 返回错误而不是空页', async () => {
@@ -167,10 +170,8 @@ describe('static adapter keyset ordering', () => {
       { pageSize: 2, cursor: 'not-a-cursor' },
     )
 
-    expect(res.code).toBe(0)
-    expect(res.error_code).toBe('INVALID_QUERY')
-    expect(res.message_key).toBe('echo.invalid_cursor')
-    expect(res.data).toBeNull()
+    expect(res).toBeNull()
+    expect(vi.mocked(theToast.error)).toHaveBeenCalledWith('echo.invalid_cursor')
   })
 
   it('created_at 为 0 的 Echo 能生成并复用 cursor', async () => {

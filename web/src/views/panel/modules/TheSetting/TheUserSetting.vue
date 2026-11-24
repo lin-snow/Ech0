@@ -139,11 +139,11 @@ import { fetchGetCurrentUser, fetchUpdateUser } from '@/service/api'
 import { theToast } from '@/utils/toast'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores'
+import { isAdminRole, isOwnerRole } from '@/utils/role'
 import { resolveAvatarUrl } from '@/service/request/shared'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import { useFileQueue } from '@/lib/file'
 import { useI18n } from 'vue-i18n'
-import { setI18nLocale, LOCALE_ENDONYMS, LOCALE_OPTIONS, type AppLocale } from '@/locales'
+import { i18n, setI18nLocale, LOCALE_ENDONYMS, LOCALE_OPTIONS, type AppLocale } from '@/locales'
 
 const userStore = useUserStore()
 const { t } = useI18n()
@@ -153,7 +153,6 @@ const userInfo = ref<App.Api.User.UserInfo>({
   username: '',
   password: '',
   email: '',
-  is_admin: false,
   avatar: '',
   avatar_file_id: '',
   locale: 'zh-CN',
@@ -164,7 +163,14 @@ const saving = ref<boolean>(false)
 const avatarSrc = computed(() => resolveAvatarUrl(user.value?.avatar))
 const roleBadge = computed<{ label: string; className: string } | null>(() => {
   if (!user.value) return null
-  if (user.value.is_admin) {
+  if (isOwnerRole(user.value.role)) {
+    return {
+      label: String(t('userSetting.roleOwner')),
+      className:
+        'bg-[var(--color-bg-muted)] text-[var(--color-text-primary)] ring-[var(--color-border-subtle)]',
+    }
+  }
+  if (isAdminRole(user.value.role)) {
     return {
       label: String(t('userSetting.roleAdmin')),
       className:
@@ -187,8 +193,8 @@ const handleUpdateUser = async () => {
   saving.value = true
   await fetchUpdateUser(userInfo.value)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
         void setI18nLocale(userInfo.value.locale)
         editMode.value = false
       }
@@ -216,8 +222,7 @@ const handleUploadImage = async (event: Event) => {
   try {
     const taskId = enqueueUpload({
       file,
-      storageType: FILE_STORAGE_TYPE.LOCAL,
-      category: FILE_CATEGORY.IMAGE,
+      profile: 'avatar',
     })
     const task = await theToast.promise(waitForTask(taskId), {
       loading: String(t('userSetting.avatarUploading')),
@@ -240,13 +245,12 @@ const handleUploadImage = async (event: Event) => {
 
 onMounted(() => {
   fetchGetCurrentUser().then((res) => {
-    if (res.code === 1) {
-      userInfo.value.username = res.data.username
-      userInfo.value.password = res.data.password || ''
-      userInfo.value.avatar = res.data.avatar || ''
-      userInfo.value.email = res.data.email || ''
-      userInfo.value.is_admin = res.data.is_admin
-      userInfo.value.locale = res.data.locale || 'zh-CN'
+    if (res) {
+      userInfo.value.username = res.username
+      userInfo.value.password = res.password || ''
+      userInfo.value.avatar = res.avatar || ''
+      userInfo.value.email = res.email || ''
+      userInfo.value.locale = res.locale || 'zh-CN'
     }
   })
 })

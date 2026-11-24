@@ -8,7 +8,7 @@
 
 路由装配分两条线（见 `internal/router/router.go` 的 `SetupRouter`）：
 
-- **Huma type-first**：13 个业务域各有一个 `registerXxx(api, h, revoker)`，由 `registerOperations`（`internal/router/huma.go`）统一聚合，约 **100 个 JSON 端点**。handler 为框架中立签名 `func(ctx context.Context, *XxxInput) (commonModel.Result[T], error)`，**不碰 `*gin.Context`**，只返回一个 typed JSON 信封；OpenAPI 从 Go 类型生成。
+- **Huma type-first**：13 个业务域各有一个 `registerXxx(api, h, revoker)`，由 `registerOperations`（`internal/router/huma.go`）统一聚合，约 **100 个 JSON 端点**。handler 为框架中立签名 `func(ctx context.Context, *XxxInput) (*XxxOutput, error)`，**不碰 `*gin.Context`**，直接返回资源本身；失败走 RFC 9457 `problem+json`，OpenAPI 从 Go 类型生成。
 - **裸 gin**：散落在各域的 `setupXxxRoutes(groups, h)` 里，handler 多为 `func() gin.HandlerFunc`，直接操作 `*gin.Context`。
 
 一个端点**只要满足下列任意一条，就上不了 Huma JSON 契约**，必须留在裸 gin：
@@ -19,7 +19,7 @@
 4. **非 JSON 响应体** —— 二进制下载、XML/纯文本资源、静态文件、SPA HTML；
 5. **非 REST 协议** —— JSON-RPC、第三方 `http.Handler` 直挂。
 
-> 注：SSE / multipart 在 Huma 上游有部分支持能力，但本项目坚持「handler 框架中立、只产出 JSON 信封」的契约，因此这两类也统一留在裸 gin，与上面第 1/3 条一致处理。
+> 注：SSE / multipart 在 Huma 上游有部分支持能力，但本项目坚持「handler 框架中立、只产出资源 JSON」的契约，因此这两类也统一留在裸 gin，与上面第 1/3 条一致处理。
 
 ## 2. 按原因分类
 
@@ -37,20 +37,19 @@
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
-| POST | `/api/files/upload` | `FileHandler.UploadFile` | Auth · `file:write` |
+| POST | `/api/files` | `FileHandler.Upload` | Auth · `file:write` |
 | POST | `/api/migration/upload` | `MigrationHandler.UploadSourceZip` | Auth · `admin:data` |
 
-请求体是 `multipart/form-data` 文件流，非 JSON body。
+请求体是 `multipart/form-data` 文件流，非 JSON body。`POST /api/files` 用 query 的 `profile` 选择用途（attachment/draft/avatar/instance）；`mode=direct` 时不收字节，只发预签名 PUT 票据，提交走 Huma 的 `POST /api/files/{id}/commit`。
 
-### C. 二进制下载 / 文件流（3）
+### C. 二进制下载 / 文件流（2）
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 |
 |---|---|---|---|
-| GET | `/api/file/stream` | `FileHandler.StreamFileByPath` | Auth · `file:read` |
-| GET | `/api/file/:id/stream` | `FileHandler.StreamFileByID` | Auth · `file:read` |
+| GET / HEAD | `/api/files/{id}/content` | `FileHandler.Content` | OptionalAuth · 按 `access` 与 `file_links` 即时判定，拒绝一律 404 |
 | GET | `/api/migration/export/download` | `MigrationHandler.DownloadExport` | Auth · `admin:data` |
 
-响应是字节流（图片 / 快照 zip / octet-stream），非 JSON 信封。
+响应是字节流（图片 / 快照 zip / octet-stream），不是 JSON 文档；失败时仍写 RFC 9457 problem。内容网关还要处理 `ETag: "<file_id>"`、`Range`/206、`304` 与 `HEAD`，因此不能进 Huma。
 
 ### D. OAuth 302 跳转（2）
 
@@ -74,11 +73,11 @@
 | POST | `/api/passkey/register/begin` | `AuthHandler.PasskeyRegisterBeginV2` | Auth · session-only | 从 gin 请求读 Origin 推导 RP-ID/Origin |
 | POST | `/api/passkey/register/finish` | `AuthHandler.PasskeyRegisterFinishV2` | Auth · session-only | 同上 |
 | POST | `/api/auth/device/code` | `AuthHandler.DeviceCode` | Public | 返回 CLI 展示用的设备码 / 用户码 |
-| POST | `/api/auth/device/token` | `AuthHandler.DeviceToken` | Public | 轮询；pending / slow_down / expired / denied 用固定 `error_code` 表达 |
+| POST | `/api/auth/device/token` | `AuthHandler.DeviceToken` | Public | 轮询；pending / slow_down / expired / denied 用固定 `code` 表达 |
 | GET | `/api/auth/device/pending` | `AuthHandler.DevicePending` | Auth · session-only | 批准页展示申请的 client / scopes |
 | POST | `/api/auth/device/approve` | `AuthHandler.DeviceApprove` | Auth · session-only（须 admin） | 批准后由服务端直接铸造 `audience=cli` 的 access token |
 
-这批都需要直接操作 `*gin.Context`（写/读 cookie，或经 `getPasskeyOriginAndRPID` 从原始请求头推导 WebAuthn 的 RP-ID 与 Origin），超出框架中立 handler 的能力边界，整组留在裸 gin。设备授权的轮询把“尚未批准”当作稳定的 `error_code` 而非错误文案，走 Huma 的统一错误映射会丢语义，因此同样保留裸 gin。
+这批都需要直接操作 `*gin.Context`（写/读 cookie，或经 `getPasskeyOriginAndRPID` 从原始请求头推导 WebAuthn 的 RP-ID 与 Origin），超出框架中立 handler 的能力边界，整组留在裸 gin。设备授权的轮询把“尚未批准”当作稳定的 `code` 而非错误文案，走 Huma 的统一错误映射会丢语义，因此同样保留裸 gin。
 
 ### F. 第三方 captcha（1）
 
@@ -97,7 +96,7 @@
 
 JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audience/scope）与普通 API 不同。同一端点双时代服务 `2026-07-28` 与 `initialize` 握手时代客户端。
 
-### H. 非 JSON 资源 / SPA / 静态文件（6）
+### H. 非 JSON 资源 / SPA / 静态文件（5）
 
 | 方法 | 路径 | Handler | 分组 / 鉴权 | 内容类型 |
 |---|---|---|---|---|
@@ -106,7 +105,8 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | GET | `/rss` | `CommonHandler.GetRss` | Resource（公开） | `application/atom+xml` / `text/html`（按 `Accept` 协商；浏览器拿到服务端渲染的订阅落地页——只含订阅 URL 与条数/最近更新，不重复 feed 正文，不依赖 XSLT） |
 | GET | `/healthz` | `CommonHandler.Healthz` | Resource（公开） | 探活（惯例裸 gin 探针） |
 | —（NoRoute） | 任意未命中 | `WebHandler.Templates` | Engine 级 | SPA `index.html` fallback |
-| GET | `/api/files/*` | `StaticFS` | 专用组 · `StaticFileSecurity`（目录穿越防护） | 本地上传文件静态服务 |
+
+文件字节不设静态目录：任何本地/S3/blob/外链内容都只经 §C 的 `GET /api/files/{id}/content` 出口。
 
 ### J. 智能体发现资源（4）
 
@@ -117,7 +117,7 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | GET | `/.well-known/ai-catalog.json` | `CommonHandler.GetAgentCatalog` | Resource（公开） | 同上（前身路径，同一文档） |
 | GET | `/mcp/server-card` | `MCPHandler.GetServerCard` | Resource（公开） | `application/mcp-server-card+json`（MCP SEP-2127） |
 
-这四份文档是给机器读的资源，不是业务 envelope：必须保原文类型、带 `ETag` 与 `Cache-Control`，并且 `/mcp/server-card` 不能挂在 `/mcp` 组的鉴权之后（卡片本身是连接前置元数据）。开关为 `SystemSetting.DisableAgentDiscovery`（偏好设置 → 系统设置，默认开启），关闭时四个路径一律 404；`/robots.txt` 不随开关变化，也不声明 catalog。
+这四份文档是给机器读的资源，不是业务响应体：必须保原文类型、带 `ETag` 与 `Cache-Control`，并且 `/mcp/server-card` 不能挂在 `/mcp` 组的鉴权之后（卡片本身是连接前置元数据）。开关为 `SystemSetting.EnableAgentDiscovery`（偏好设置 → 系统设置，默认开启；旧的 `disable_agent_discovery` 启动时迁移），关闭时四个路径一律 404；`/robots.txt` 不随开关变化，也不声明 catalog。
 
 ### I. MCP 授权服务器（7）
 
@@ -126,12 +126,12 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 | GET | `/.well-known/oauth-protected-resource` | `OAuthServerHandler.ProtectedResource` | 公开 | RFC 9728 固定路径 |
 | GET | `/.well-known/oauth-protected-resource/mcp` | `OAuthServerHandler.ProtectedResource` | 公开 | 路径插入式发现 |
 | GET | `/.well-known/oauth-authorization-server` | `OAuthServerHandler.AuthorizationServerMetadata` | 公开 | RFC 8414 固定路径 |
-| POST | `/oauth/token` | `OAuthServerHandler.Token` | 公开 · 限流 | 表单请求体，响应必须是裸 RFC 6749 JSON（不能套 Ech0 信封） |
+| POST | `/oauth/token` | `OAuthServerHandler.Token` | 公开 · 限流 | 表单请求体，响应必须是裸 RFC 6749 JSON（不套 Ech0 的任何包装） |
 | POST | `/oauth/register` | `OAuthServerHandler.Register` | 公开 · 限流 | DCR 兼容端点，裸 RFC 7591 JSON |
 | GET | `/api/consent` | `OAuthServerHandler.Consent` | Auth（须 session） | 同意页读取校验结果，需拒绝 access token |
 | POST | `/api/consent/approve` | `OAuthServerHandler.Approve` | Auth（须 session） | 批准后签发 code 并返回客户端跳转 URL |
 
-协议端点必须保持 OAuth 的线格式（`application/x-www-form-urlencoded` 请求、`error` / `error_description` 响应、`Cache-Control: no-store`），因此不进入 Huma 信封。
+协议端点必须保持 OAuth 的线格式（`application/x-www-form-urlencoded` 请求、`error` / `error_description` 响应、`Cache-Control: no-store`），因此不进入 Huma 的响应处理。
 
 ## 3. 汇总
 
@@ -139,15 +139,15 @@ JSON-RPC 2.0 协议（方法分发，非 REST 资源），且鉴权维度（audi
 |---|---|
 | A 流式（SSE/WS） | 3 |
 | B multipart 上传 | 2 |
-| C 二进制下载/流 | 3 |
+| C 二进制下载/流 | 2 |
 | D OAuth 302 跳转 | 2 |
 | E Cookie/token/WebAuthn | 12 |
 | F captcha | 1 |
 | G MCP JSON-RPC | 2 |
-| H 非 JSON 资源/SPA/静态 | 6 |
+| H 非 JSON 资源/SPA/静态 | 5 |
 | I MCP 授权服务器 | 7 |
 | J 智能体发现资源 | 4 |
-| **合计裸 gin** | **42** |
+| **合计裸 gin** | **40** |
 
 对照面：13 个业务域（init / auth / common / echo / connect / user / setting / file / dashboard / copilot / comment / migration / embedding）均已在 Huma，约 100 个 JSON 端点，经 `registerOperations` 聚合。
 

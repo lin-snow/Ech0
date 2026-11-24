@@ -14,15 +14,16 @@ import (
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 func testViewer() viewer.Context {
-	return viewer.NewUserViewerWithToken("test-user", "access", []string{"echo:read", "echo:write", "profile:read"}, []string{"mcp-remote"}, "test-jti")
+	return viewer.NewAccess("test-user", "test-jti", role.Member, []string{"echo:read", "echo:write", "profile:read"}, []string{"mcp-remote"})
 }
 
 func fullViewer() viewer.Context {
-	return viewer.NewUserViewerWithToken("test-user", "access", authz.AllScopes(), []string{"mcp-remote"}, "test-jti")
+	return viewer.NewAccess("test-user", "test-jti", role.Owner, authz.AllScopes(), []string{"mcp-remote"})
 }
 
 func testRequest(t *testing.T, method, body string) *http.Request {
@@ -279,8 +280,7 @@ func TestToolsListFiltersByScopes(t *testing.T) {
 		t.Fatalf("tools count = %d, want 4 for a full-scope token", len(result.Tools))
 	}
 
-	readOnly := viewer.NewUserViewerWithToken(
-		"test-user", "access", []string{"echo:read"}, []string{"mcp-remote"}, "test-jti")
+	readOnly := viewer.NewAccess("test-user", "test-jti", role.Member, []string{"echo:read"}, []string{"mcp-remote"})
 	_, resp = doModernAs(t, srv, readOnly, nil, "tools/list", nil)
 	result = unmarshalResult[ToolsListResult](t, resp)
 	for _, tool := range result.Tools {

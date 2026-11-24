@@ -2,7 +2,6 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import type { HubInstance } from '../types/hub'
-import type { ApiResult } from '../types/echo'
 import { timeoutSignal } from '../utils/fetchTimeout'
 import { normalizeHubInstanceUrl } from '../utils/hubUrl'
 import { HUB_FAN_OUT_LIMIT, pMapLimit } from '../utils/pMapLimit'
@@ -21,9 +20,7 @@ export async function fetchInstanceConnect(
   if (!res.ok) return null
   const json: unknown = await res.json()
   if (typeof json !== 'object' || json === null) return null
-  const r = json as ApiResult<App.Api.Connect.Connect>
-  if (r.code !== 1 || !r.data) return null
-  return r.data
+  return json as App.Api.Connect.Connect
 }
 
 export interface InstanceConnectSummary {

@@ -20,7 +20,7 @@ declare namespace App {
         custom_js: string
         privacy_policy: string
         show_privacy_footer: boolean
-        disable_agent_discovery: boolean
+        enable_agent_discovery: boolean
       }
 
       type S3Setting = {

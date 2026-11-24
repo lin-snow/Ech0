@@ -41,7 +41,7 @@
 - `/llms.txt`、`/.well-known/ard.json`、`/.well-known/ai-catalog.json`、`/mcp/server-card` 一律返回 `404`；
 - `/robots.txt` 保持不变（`Sitemap:` 保留；它本来就不声明 catalog）。
 
-存储字段是 `disable_agent_discovery`（**语义取反**）：写入该字段之前的设置 JSON 里没有这个键，反序列化得到 `false`，即「开启」——升级不会悄悄关掉这个能力。需要整站拒绝 AI 抓取时，仍应在反向代理或 CDN 层拦截，而不是只靠这个开关：它只撤销发现入口，不改 `robots.txt` 的抓取许可。
+存储字段是 `enable_agent_discovery`（默认 `true`，语义为正）：设置块只在保存时才落库，从未写过该字段的实例按默认值保持开启。旧版本写入的 `disable_agent_discovery` 会在启动时改写为等价的 `enable_agent_discovery`，因此升级不会悄悄关掉一个曾经关闭的实例。需要整站拒绝 AI 抓取时，仍应在反向代理或 CDN 层拦截，而不是只靠这个开关：它只撤销发现入口，不改 `robots.txt` 的抓取许可。
 
 ## 4. 校验
 

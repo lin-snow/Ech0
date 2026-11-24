@@ -299,13 +299,12 @@ import { MarkdownEditor } from '@/editor'
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fetchUpdateSettings } from '@/service/api'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 import { theToast } from '@/utils/toast'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { resolveAvatarUrl } from '@/service/request/shared'
 import { useFileQueue } from '@/lib/file'
-import { LOCALE_ENDONYMS, LOCALE_OPTIONS, type AppLocale } from '@/locales'
+import { i18n, LOCALE_ENDONYMS, LOCALE_OPTIONS, type AppLocale } from '@/locales'
 
 const settingStore = useSettingStore()
 const { t } = useI18n()
@@ -324,11 +323,10 @@ const privacyPolicyPreview = computed(() =>
     .replace(/\s+/g, ' ')
     .trim(),
 )
-// The stored flag is an opt-out; the panel shows the positive reading.
 const agentDiscoveryEnabled = computed({
-  get: () => !SystemSetting.value?.disable_agent_discovery,
+  get: () => SystemSetting.value?.enable_agent_discovery ?? true,
   set: (enabled: boolean) => {
-    SystemSetting.value.disable_agent_discovery = !enabled
+    SystemSetting.value.enable_agent_discovery = enabled
   },
 })
 const localeOptions = LOCALE_OPTIONS
@@ -343,8 +341,8 @@ const handleUpdateSystemSetting = async () => {
   saving.value = true
   await fetchUpdateSettings(settingStore.SystemSetting)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
       }
     })
     .finally(() => {
@@ -368,8 +366,7 @@ const handleUploadImage = async (event: Event) => {
   try {
     const taskId = enqueueUpload({
       file,
-      storageType: FILE_STORAGE_TYPE.LOCAL,
-      category: FILE_CATEGORY.IMAGE,
+      profile: 'instance',
     })
     const task = await theToast.promise(waitForTask(taskId), {
       loading: String(t('systemSetting.logoUploading')),

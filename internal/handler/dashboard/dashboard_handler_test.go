@@ -63,9 +63,8 @@ func TestGetSystemLogs_TailParsing(t *testing.T) {
 			out, err := h.GetSystemLogs(context.Background(), &tc.input)
 
 			require.NoError(t, err)
-			assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-			assert.Equal(t, commonModel.MsgKeyDashboardLogsOk, out.MessageKey)
-			assert.Equal(t, want, out.Data)
+			require.NotNil(t, out)
+			assert.Equal(t, want, out.Body.Items)
 		})
 	}
 }
@@ -87,11 +86,11 @@ func TestGetSystemLogs_InvalidTail(t *testing.T) {
 			out, err := h.GetSystemLogs(context.Background(), &dashboardHandler.GetSystemLogsInput{Tail: tc.tail})
 
 			require.Error(t, err)
-			var biz *commonModel.BizError
-			require.ErrorAs(t, err, &biz)
-			assert.Equal(t, commonModel.ErrCodeInvalidQuery, biz.Code)
-			assert.Equal(t, commonModel.MsgKeyDashboardTailBad, biz.MessageKey)
-			assert.Equal(t, dashboardHandler.LogsOutput{}, out)
+			var statusErr *commonModel.StatusError
+			require.ErrorAs(t, err, &statusErr)
+			assert.Equal(t, http.StatusBadRequest, statusErr.Status)
+			assert.NotEmpty(t, statusErr.Msg)
+			assert.Nil(t, out)
 		})
 	}
 }
@@ -105,7 +104,7 @@ func TestGetSystemLogs_ServiceError(t *testing.T) {
 	out, err := h.GetSystemLogs(context.Background(), &dashboardHandler.GetSystemLogsInput{})
 
 	require.ErrorIs(t, err, sentinel)
-	assert.Equal(t, dashboardHandler.LogsOutput{}, out)
+	assert.Nil(t, out)
 }
 
 func TestGetVisitorStats(t *testing.T) {
@@ -120,8 +119,8 @@ func TestGetVisitorStats(t *testing.T) {
 	out, err := h.GetVisitorStats(context.Background(), &dashboardHandler.GetVisitorStatsInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, want, out.Data)
+	require.NotNil(t, out)
+	assert.Equal(t, want, out.Body.Items)
 }
 
 func TestStreamSubscribe_AuthGuard(t *testing.T) {

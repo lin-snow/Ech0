@@ -5,9 +5,8 @@ package service
 
 import (
 	"context"
-	"errors"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/authz"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
@@ -18,13 +17,8 @@ func (settingService *SettingService) GetOAuth2Setting(
 	ctx context.Context,
 	setting *model.OAuth2Setting,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	v, err := coreSetting.OAuth2.Get(ctx, settingService.durableKV)
@@ -39,13 +33,8 @@ func (settingService *SettingService) UpdateOAuth2Setting(
 	ctx context.Context,
 	newSetting *model.OAuth2SettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	oauthSetting := model.OAuth2Setting{

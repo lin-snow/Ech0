@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/lin-snow/ech0/internal/cache"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
@@ -111,15 +110,14 @@ func (userRepository *UserRepository) GetUserByID(ctx context.Context, id string
 	)
 }
 
-// GetPrimaryAdmin returns the instance's primary operator: the oldest admin
-// account. Errors are propagated so callers can tell "no admin yet" from a
-// database failure. It is deliberately uncached — promotion or demotion
-// changes the answer, and the lookup is a single indexed row.
-func (userRepository *UserRepository) GetPrimaryAdmin(ctx context.Context) (model.User, error) {
+// GetOwner returns the single account the space belongs to. Errors are
+// propagated so callers can tell "not initialized yet" from a database
+// failure. It is deliberately uncached — an ownership transfer changes the
+// answer, and the lookup is a single indexed row.
+func (userRepository *UserRepository) GetOwner(ctx context.Context) (model.User, error) {
 	user := model.User{}
 	err := userRepository.getDB(ctx).
-		Where("is_admin = ?", true).
-		Order("id ASC").
+		Where("role = ?", model.RoleOwner).
 		First(&user).Error
 	if err != nil {
 		return model.User{}, err
@@ -127,33 +125,80 @@ func (userRepository *UserRepository) GetPrimaryAdmin(ctx context.Context) (mode
 	return user, nil
 }
 
+// IsInitialized answers whether the space has been claimed, which is exactly
+// "an owner exists". There is no separate install marker to keep in sync.
 func (userRepository *UserRepository) IsInitialized(ctx context.Context) (bool, error) {
-	var kv commonModel.KeyValue
-	err := userRepository.getDB(ctx).Where("key = ?", commonModel.InstallInitializedKey).First(&kv).Error
-	if err == gorm.ErrRecordNotFound {
-		return false, nil
-	}
+	var count int64
+	err := userRepository.getDB(ctx).
+		Model(&model.User{}).
+		Where("role = ?", model.RoleOwner).
+		Count(&count).Error
 	if err != nil {
 		return false, err
 	}
-	return kv.Value == "true", nil
+	return count > 0, nil
 }
 
-func (userRepository *UserRepository) MarkInitialized(ctx context.Context) error {
-	result := userRepository.getDB(ctx).
-		Model(&commonModel.KeyValue{}).
-		Where("key = ?", commonModel.InstallInitializedKey).
-		Update("value", "true")
-	if result.Error != nil {
-		return result.Error
+// UpdateUserRole moves one account between member and admin. It never touches
+// the owner row: ownership changes only through TransferOwnership.
+func (userRepository *UserRepository) UpdateUserRole(ctx context.Context, id string, newRole model.Role) error {
+	user, err := userRepository.GetUserByID(ctx, id)
+	if err != nil {
+		return err
 	}
-	if result.RowsAffected > 0 {
+	user.Role = newRole
+	return userRepository.UpdateUser(ctx, &user)
+}
+
+// TransferOwnership demotes the current owner and promotes the next one. The
+// order is load-bearing: SQLite checks the partial unique index row by row, so
+// promoting first collides with the existing owner. Both statements run in one
+// transaction, and this is the only place in the codebase that may swap roles
+// with two updates.
+func (userRepository *UserRepository) TransferOwnership(
+	ctx context.Context,
+	currentOwnerID string,
+	newOwnerID string,
+) error {
+	var previousOwner, newOwner model.User
+	err := userRepository.getDB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id = ?", currentOwnerID).First(&previousOwner).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id = ?", newOwnerID).First(&newOwner).Error; err != nil {
+			return err
+		}
+		demoted := tx.Model(&model.User{}).
+			Where("id = ? AND role = ?", previousOwner.ID, model.RoleOwner).
+			Update("role", model.RoleAdmin)
+		if demoted.Error != nil {
+			return demoted.Error
+		}
+		if demoted.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		promoted := tx.Model(&model.User{}).
+			Where("id = ? AND role = ?", newOwner.ID, model.RoleAdmin).
+			Update("role", model.RoleOwner)
+		if promoted.Error != nil {
+			return promoted.Error
+		}
+		if promoted.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
 		return nil
+	})
+	if err != nil {
+		return err
 	}
-	return userRepository.getDB(ctx).Create(&commonModel.KeyValue{
-		Key:   commonModel.InstallInitializedKey,
-		Value: "true",
-	}).Error
+
+	// Role is cached with the rest of the row under both keys; raw updates do
+	// not refresh it, so both accounts are evicted instead of left stale.
+	for _, u := range []model.User{previousOwner, newOwner} {
+		userRepository.cache.Delete(GetUserIDKey(u.ID))
+		userRepository.cache.Delete(GetUsernameKey(u.Username))
+	}
+	return nil
 }
 
 func (userRepository *UserRepository) UpdateUser(ctx context.Context, user *model.User) error {
@@ -172,12 +217,6 @@ func (userRepository *UserRepository) UpdateUser(ctx context.Context, user *mode
 		userRepository.cache.Delete(GetUsernameKey(existing.Username))
 	}
 	userRepository.cache.Set(GetUsernameKey(user.Username), *user, 1)
-	if existing.IsAdmin && !user.IsAdmin {
-		userRepository.cache.Delete(GetAdminKey(user.ID))
-	}
-	if user.IsAdmin {
-		userRepository.cache.Set(GetAdminKey(user.ID), *user, 1)
-	}
 
 	return nil
 }

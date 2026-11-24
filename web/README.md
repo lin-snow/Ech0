@@ -200,7 +200,7 @@ Locale messages are lazy-loaded; user choice is persisted in `localStorage` and 
 it exactly — `pnpm i18n:check` enforces this. New UI strings **must** go through `t()`; the
 hardcoded-string check will fail the PR otherwise. See
 [`docs/dev/i18n-contract.md`](../docs/dev/i18n-contract.md) for the backend/frontend contract
-(error envelope, `message_key` / `message_params`).
+(errors are RFC 9457 `problem+json`; the client picks its own text from the HTTP status).
 
 ### Editor & rendering
 

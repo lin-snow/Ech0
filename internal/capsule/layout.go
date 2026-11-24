@@ -5,31 +5,36 @@ package capsule
 
 import (
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
-	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/pkg/virefs"
 )
 
-var mediaSchema = storage.NewFileSchema()
-
+// MediaPath is where a capsule keeps one file's bytes: files/<key>, mirroring
+// the object key the source instance used. Because keys are year/month-nested
+// now, the media tree is nested too.
 func MediaPath(key string) string {
-	return FilesDir + "/" + mediaSchema.Resolve(key)
+	return FilesDir + "/" + key
 }
 
+// ValidateKey accepts a clean relative object key. The key names bytes inside
+// the capsule, so it may be nested; it may not escape the capsule.
 func ValidateKey(key string) error {
 	if key == "" {
 		return fmt.Errorf("empty key")
 	}
-	if strings.ContainsRune(key, '/') || strings.ContainsRune(key, '\\') {
-		return fmt.Errorf("key must be flat (no path separator): %q", key)
+	if strings.ContainsRune(key, '\\') {
+		return fmt.Errorf("key must use forward slashes: %q", key)
 	}
-	if _, err := virefs.CleanKey(key); err != nil {
+	if strings.HasPrefix(key, "/") {
+		return fmt.Errorf("key must be relative: %q", key)
+	}
+	cleaned, err := virefs.CleanKey(key)
+	if err != nil {
 		return err
 	}
-	if key != path.Clean(key) {
+	if cleaned != key {
 		return fmt.Errorf("key must be already clean: %q", key)
 	}
 	return nil

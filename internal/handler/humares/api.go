@@ -102,7 +102,6 @@ func NewAPI(engine *gin.Engine, group *gin.RouterGroup, title, version, basePath
 	}
 
 	api := humagin.NewWithGroup(engine, group, cfg)
-	api.UseMiddleware(injectLocalizer)
 	if useScalar {
 		registerScalarDocs(group, basePath)
 	}

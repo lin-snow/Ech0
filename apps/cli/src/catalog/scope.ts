@@ -17,11 +17,12 @@
  */
 export const CLI_OPERATIONS: readonly string[] = [
   "file.upload",
-  "file.external",
+  "file.commit",
   "file.list",
   "file.get",
-  "file.tree",
-  "file.stream.by_id",
+  "file.rename",
+  "file.delete",
+  "file.content",
   "echo.create",
   "echo.list",
   "echo.get",
@@ -58,11 +59,11 @@ export function inScope(id: string): boolean {
 
 /**
  * Command-path overrides for catalog ids that read poorly as a command name.
- * `file.stream.by_id` is a content download, so it becomes `ech0 file download`
+ * `file.content` is a content download, so it becomes `ech0 file download`
  * while the catalog id stays the stable key used by help, scopes and requests.
  */
 export const COMMAND_NAMES: Readonly<Record<string, string>> = {
-  "file.stream.by_id": "file.download",
+  "file.content": "file.download",
   "comment.create.integration": "comment.create",
   "comment.list.by.echo": "comment.list",
 };

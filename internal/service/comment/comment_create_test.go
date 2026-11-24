@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -106,14 +107,14 @@ func freshToken() string {
 	return signFormToken(testIP, time.Now().UnixMilli()-5000)
 }
 
-func assertBiz(t *testing.T, err error, wantCode, wantMsg string) {
+func assertFail(t *testing.T, err error, wantStatus int, wantMsg string) {
 	t.Helper()
 	require.Error(t, err)
-	var be *commonModel.BizError
-	require.ErrorAs(t, err, &be)
-	assert.Equal(t, wantCode, be.Code)
+	var se *commonModel.StatusError
+	require.ErrorAs(t, err, &se)
+	assert.Equal(t, wantStatus, se.Status)
 	if wantMsg != "" {
-		assert.Equal(t, wantMsg, be.Msg)
+		assert.Equal(t, wantMsg, se.Msg)
 	}
 }
 
@@ -127,7 +128,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				HoneypotField: "i-am-a-bot",
 				FormToken:     "whatever",
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "提交被拒绝")
+		assertFail(t, err, http.StatusBadRequest, "submission rejected")
 	})
 
 	t.Run("invalid form token is rejected", func(t *testing.T) {
@@ -138,7 +139,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				Content:   "hi",
 				FormToken: "garbage-token",
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "提交过快或表单已失效")
+		assertFail(t, err, http.StatusBadRequest, "submitted too fast or the form expired")
 	})
 
 	t.Run("comment feature disabled", func(t *testing.T) {
@@ -153,7 +154,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				Content:   "hi",
 				FormToken: freshToken(),
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论功能未启用")
+		assertFail(t, err, http.StatusBadRequest, "comments are disabled")
 	})
 
 	t.Run("captcha enabled but token invalid", func(t *testing.T) {
@@ -169,7 +170,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				FormToken:    freshToken(),
 				CaptchaToken: "",
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "验证码验证失败")
+		assertFail(t, err, http.StatusBadRequest, "captcha verification failed")
 	})
 }
 
@@ -184,31 +185,31 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 		{
 			name:    "empty content",
 			dto:     commentModel.CreateCommentDto{EchoID: "echo-1", Content: "   "},
-			wantMsg: "评论内容不能为空",
+			wantMsg: "comment content must not be empty",
 		},
 		{
 			name:    "content too long",
 			dto:     commentModel.CreateCommentDto{EchoID: "echo-1", Content: strings.Repeat("a", 201)},
-			wantMsg: "评论内容不能超过200字",
+			wantMsg: "comment content must be at most 200 characters",
 		},
 		{
 			name:    "missing nickname and email",
 			dto:     commentModel.CreateCommentDto{EchoID: "echo-1", Content: "hello"},
-			wantMsg: "昵称和邮箱不能为空",
+			wantMsg: "nickname and email are required",
 		},
 		{
 			name: "invalid email",
 			dto: commentModel.CreateCommentDto{
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "not-an-email",
 			},
-			wantMsg: "邮箱格式无效",
+			wantMsg: "invalid email address",
 		},
 		{
 			name: "invalid website",
 			dto: commentModel.CreateCommentDto{
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com", Website: "notaurl",
 			},
-			wantMsg: "网址格式无效",
+			wantMsg: "invalid website url",
 		},
 		{
 			// ParseRequestURI accepts any scheme with a host, so a
@@ -218,7 +219,7 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
 				Website: "javascript://evil.example/%0aalert(document.domain)",
 			},
-			wantMsg: "网址格式无效",
+			wantMsg: "invalid website url",
 		},
 		{
 			name: "data website scheme",
@@ -226,7 +227,7 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
 				Website: "data:text/html,<script>alert(1)</script>",
 			},
-			wantMsg: "网址格式无效",
+			wantMsg: "invalid website url",
 		},
 	}
 
@@ -237,7 +238,7 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 			dto := tc.dto
 			dto.FormToken = freshToken()
 			_, err := d.service().CreateComment(helpers.CtxAnonymous(), testIP, "ua", &dto)
-			assertBiz(t, err, commonModel.ErrCodeInvalidRequest, tc.wantMsg)
+			assertFail(t, err, http.StatusBadRequest, tc.wantMsg)
 		})
 	}
 }
@@ -303,7 +304,7 @@ func TestCreateComment_RateLimitExceeded(t *testing.T) {
 			Email:     "bob@example.com",
 			FormToken: freshToken(),
 		})
-	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论过于频繁，请稍后再试")
+	assertFail(t, err, http.StatusBadRequest, "comment rate limit exceeded")
 }
 
 func TestCreateComment_DuplicateRejected(t *testing.T) {
@@ -328,7 +329,7 @@ func TestCreateComment_DuplicateRejected(t *testing.T) {
 			Content:   "hello",
 			FormToken: freshToken(),
 		})
-	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "请勿重复提交相同评论")
+	assertFail(t, err, http.StatusBadRequest, "duplicate comment")
 }
 
 func TestCreateComment_ParentResolution(t *testing.T) {
@@ -353,7 +354,7 @@ func TestCreateComment_ParentResolution(t *testing.T) {
 				ParentID:  "missing-parent",
 				FormToken: freshToken(),
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "回复的评论不存在")
+		assertFail(t, err, http.StatusBadRequest, "the comment being replied to does not exist")
 	})
 
 	t.Run("parent belongs to a different echo", func(t *testing.T) {
@@ -379,7 +380,7 @@ func TestCreateComment_ParentResolution(t *testing.T) {
 				ParentID:  "parent-1",
 				FormToken: freshToken(),
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "回复的评论不存在")
+		assertFail(t, err, http.StatusBadRequest, "the comment being replied to does not exist")
 	})
 
 	t.Run("parent not approved", func(t *testing.T) {
@@ -405,7 +406,7 @@ func TestCreateComment_ParentResolution(t *testing.T) {
 				ParentID:  "parent-1",
 				FormToken: freshToken(),
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "该评论暂不可回复")
+		assertFail(t, err, http.StatusBadRequest, "this comment cannot be replied to")
 	})
 }
 
@@ -532,7 +533,7 @@ func TestCreateIntegrationComment_GuardRails(t *testing.T) {
 		d.expectSetting(t, s)
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论功能未启用")
+		assertFail(t, err, http.StatusBadRequest, "comments are disabled")
 	})
 
 	t.Run("empty content", func(t *testing.T) {
@@ -540,7 +541,7 @@ func TestCreateIntegrationComment_GuardRails(t *testing.T) {
 		d.expectSetting(t, enabledSetting())
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "   "})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论内容不能为空")
+		assertFail(t, err, http.StatusBadRequest, "comment content must not be empty")
 	})
 
 	t.Run("content too long", func(t *testing.T) {
@@ -548,7 +549,7 @@ func TestCreateIntegrationComment_GuardRails(t *testing.T) {
 		d.expectSetting(t, enabledSetting())
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: strings.Repeat("z", 201)})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
+		assertFail(t, err, http.StatusBadRequest, "comment content must be at most 200 characters")
 	})
 }
 
@@ -561,7 +562,7 @@ func TestCreateIntegrationComment_RateLimit(t *testing.T) {
 			Return(int64(5), nil)
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "集成评论过于频繁，请稍后再试")
+		assertFail(t, err, http.StatusBadRequest, "integration comment rate limit exceeded")
 	})
 
 	t.Run("user short window exceeded", func(t *testing.T) {
@@ -576,7 +577,7 @@ func TestCreateIntegrationComment_RateLimit(t *testing.T) {
 			Once()
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "集成评论过于频繁，请稍后再试")
+		assertFail(t, err, http.StatusBadRequest, "integration comment rate limit exceeded")
 	})
 }
 
@@ -596,7 +597,7 @@ func TestCreateIntegrationComment_DuplicateRejected(t *testing.T) {
 
 	_, err := d.service().CreateIntegrationComment(helpers.CtxAnonymous(), testIP, "ua",
 		&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "请勿重复提交相同评论")
+	assertFail(t, err, http.StatusBadRequest, "duplicate comment")
 }
 
 func TestCreateIntegrationComment_Happy(t *testing.T) {
@@ -683,7 +684,7 @@ func TestCreateComment_RejectsInvisibleEcho(t *testing.T) {
 				Email:     "bob@example.com",
 				FormToken: freshToken(),
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+		assertFail(t, err, http.StatusBadRequest, "comment target is not visible")
 	})
 
 	t.Run("missing echo", func(t *testing.T) {
@@ -705,7 +706,7 @@ func TestCreateComment_RejectsInvisibleEcho(t *testing.T) {
 				Email:     "bob@example.com",
 				FormToken: freshToken(),
 			})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+		assertFail(t, err, http.StatusBadRequest, "comment target is not visible")
 	})
 }
 
@@ -762,5 +763,5 @@ func TestCreateIntegrationComment_RejectsPrivateEcho(t *testing.T) {
 			EchoID:  "echo-private",
 			Content: "hi from bot",
 		})
-	assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+	assertFail(t, err, http.StatusBadRequest, "comment target is not visible")
 }

@@ -12,8 +12,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/lin-snow/ech0/internal/model/auth"
-	model0 "github.com/lin-snow/ech0/internal/model/user"
+	model0 "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/model/user"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -51,6 +51,72 @@ type MockService_Expecter struct {
 
 func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
+}
+
+// AccountState provides a mock function for the type MockService
+func (_mock *MockService) AccountState(ctx context.Context, userID string) (model.AccountState, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AccountState")
+	}
+
+	var r0 model.AccountState
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.AccountState, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.AccountState); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(model.AccountState)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_AccountState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AccountState'
+type MockService_AccountState_Call struct {
+	*mock.Call
+}
+
+// AccountState is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockService_Expecter) AccountState(ctx any, userID any) *MockService_AccountState_Call {
+	return &MockService_AccountState_Call{Call: _e.mock.On("AccountState", ctx, userID)}
+}
+
+func (_c *MockService_AccountState_Call) Run(run func(ctx context.Context, userID string)) *MockService_AccountState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_AccountState_Call) Return(accountState model.AccountState, err error) *MockService_AccountState_Call {
+	_c.Call.Return(accountState, err)
+	return _c
+}
+
+func (_c *MockService_AccountState_Call) RunAndReturn(run func(ctx context.Context, userID string) (model.AccountState, error)) *MockService_AccountState_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ApproveDeviceAuthorization provides a mock function for the type MockService
@@ -240,22 +306,22 @@ func (_c *MockService_DeletePasskey_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // DeviceAuthorizationInfo provides a mock function for the type MockService
-func (_mock *MockService) DeviceAuthorizationInfo(userCode string) (model.DevicePendingInfo, error) {
+func (_mock *MockService) DeviceAuthorizationInfo(userCode string) (model0.DevicePendingInfo, error) {
 	ret := _mock.Called(userCode)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeviceAuthorizationInfo")
 	}
 
-	var r0 model.DevicePendingInfo
+	var r0 model0.DevicePendingInfo
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (model.DevicePendingInfo, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (model0.DevicePendingInfo, error)); ok {
 		return returnFunc(userCode)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) model.DevicePendingInfo); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) model0.DevicePendingInfo); ok {
 		r0 = returnFunc(userCode)
 	} else {
-		r0 = ret.Get(0).(model.DevicePendingInfo)
+		r0 = ret.Get(0).(model0.DevicePendingInfo)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
 		r1 = returnFunc(userCode)
@@ -289,34 +355,34 @@ func (_c *MockService_DeviceAuthorizationInfo_Call) Run(run func(userCode string
 	return _c
 }
 
-func (_c *MockService_DeviceAuthorizationInfo_Call) Return(devicePendingInfo model.DevicePendingInfo, err error) *MockService_DeviceAuthorizationInfo_Call {
+func (_c *MockService_DeviceAuthorizationInfo_Call) Return(devicePendingInfo model0.DevicePendingInfo, err error) *MockService_DeviceAuthorizationInfo_Call {
 	_c.Call.Return(devicePendingInfo, err)
 	return _c
 }
 
-func (_c *MockService_DeviceAuthorizationInfo_Call) RunAndReturn(run func(userCode string) (model.DevicePendingInfo, error)) *MockService_DeviceAuthorizationInfo_Call {
+func (_c *MockService_DeviceAuthorizationInfo_Call) RunAndReturn(run func(userCode string) (model0.DevicePendingInfo, error)) *MockService_DeviceAuthorizationInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ExchangeOAuthCode provides a mock function for the type MockService
-func (_mock *MockService) ExchangeOAuthCode(code string) (*model.TokenPair, error) {
+func (_mock *MockService) ExchangeOAuthCode(code string) (*model0.TokenPair, error) {
 	ret := _mock.Called(code)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ExchangeOAuthCode")
 	}
 
-	var r0 *model.TokenPair
+	var r0 *model0.TokenPair
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (*model.TokenPair, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (*model0.TokenPair, error)); ok {
 		return returnFunc(code)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) *model.TokenPair); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) *model0.TokenPair); ok {
 		r0 = returnFunc(code)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.TokenPair)
+			r0 = ret.Get(0).(*model0.TokenPair)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
@@ -351,33 +417,33 @@ func (_c *MockService_ExchangeOAuthCode_Call) Run(run func(code string)) *MockSe
 	return _c
 }
 
-func (_c *MockService_ExchangeOAuthCode_Call) Return(tokenPair *model.TokenPair, err error) *MockService_ExchangeOAuthCode_Call {
+func (_c *MockService_ExchangeOAuthCode_Call) Return(tokenPair *model0.TokenPair, err error) *MockService_ExchangeOAuthCode_Call {
 	_c.Call.Return(tokenPair, err)
 	return _c
 }
 
-func (_c *MockService_ExchangeOAuthCode_Call) RunAndReturn(run func(code string) (*model.TokenPair, error)) *MockService_ExchangeOAuthCode_Call {
+func (_c *MockService_ExchangeOAuthCode_Call) RunAndReturn(run func(code string) (*model0.TokenPair, error)) *MockService_ExchangeOAuthCode_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetOAuthInfo provides a mock function for the type MockService
-func (_mock *MockService) GetOAuthInfo(ctx context.Context, provider string) (model0.OAuthInfoDto, error) {
+func (_mock *MockService) GetOAuthInfo(ctx context.Context, provider string) (model.OAuthInfoDto, error) {
 	ret := _mock.Called(ctx, provider)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOAuthInfo")
 	}
 
-	var r0 model0.OAuthInfoDto
+	var r0 model.OAuthInfoDto
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model0.OAuthInfoDto, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.OAuthInfoDto, error)); ok {
 		return returnFunc(ctx, provider)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model0.OAuthInfoDto); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.OAuthInfoDto); ok {
 		r0 = returnFunc(ctx, provider)
 	} else {
-		r0 = ret.Get(0).(model0.OAuthInfoDto)
+		r0 = ret.Get(0).(model.OAuthInfoDto)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = returnFunc(ctx, provider)
@@ -417,12 +483,12 @@ func (_c *MockService_GetOAuthInfo_Call) Run(run func(ctx context.Context, provi
 	return _c
 }
 
-func (_c *MockService_GetOAuthInfo_Call) Return(oAuthInfoDto model0.OAuthInfoDto, err error) *MockService_GetOAuthInfo_Call {
+func (_c *MockService_GetOAuthInfo_Call) Return(oAuthInfoDto model.OAuthInfoDto, err error) *MockService_GetOAuthInfo_Call {
 	_c.Call.Return(oAuthInfoDto, err)
 	return _c
 }
 
-func (_c *MockService_GetOAuthInfo_Call) RunAndReturn(run func(ctx context.Context, provider string) (model0.OAuthInfoDto, error)) *MockService_GetOAuthInfo_Call {
+func (_c *MockService_GetOAuthInfo_Call) RunAndReturn(run func(ctx context.Context, provider string) (model.OAuthInfoDto, error)) *MockService_GetOAuthInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -565,72 +631,6 @@ func (_c *MockService_HandleOAuthCallback_Call) RunAndReturn(run func(provider s
 	return _c
 }
 
-// IsAccountActive provides a mock function for the type MockService
-func (_mock *MockService) IsAccountActive(ctx context.Context, userID string) (bool, error) {
-	ret := _mock.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsAccountActive")
-	}
-
-	var r0 bool
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
-		return returnFunc(ctx, userID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) bool); ok {
-		r0 = returnFunc(ctx, userID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, userID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockService_IsAccountActive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsAccountActive'
-type MockService_IsAccountActive_Call struct {
-	*mock.Call
-}
-
-// IsAccountActive is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockService_Expecter) IsAccountActive(ctx any, userID any) *MockService_IsAccountActive_Call {
-	return &MockService_IsAccountActive_Call{Call: _e.mock.On("IsAccountActive", ctx, userID)}
-}
-
-func (_c *MockService_IsAccountActive_Call) Run(run func(ctx context.Context, userID string)) *MockService_IsAccountActive_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockService_IsAccountActive_Call) Return(b bool, err error) *MockService_IsAccountActive_Call {
-	_c.Call.Return(b, err)
-	return _c
-}
-
-func (_c *MockService_IsAccountActive_Call) RunAndReturn(run func(ctx context.Context, userID string) (bool, error)) *MockService_IsAccountActive_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // IsTokenRevoked provides a mock function for the type MockService
 func (_mock *MockService) IsTokenRevoked(jti string) bool {
 	ret := _mock.Called(jti)
@@ -683,23 +683,23 @@ func (_c *MockService_IsTokenRevoked_Call) RunAndReturn(run func(jti string) boo
 }
 
 // ListPasskeys provides a mock function for the type MockService
-func (_mock *MockService) ListPasskeys(ctx context.Context) ([]model.PasskeyDeviceDto, error) {
+func (_mock *MockService) ListPasskeys(ctx context.Context) ([]model0.PasskeyDeviceDto, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListPasskeys")
 	}
 
-	var r0 []model.PasskeyDeviceDto
+	var r0 []model0.PasskeyDeviceDto
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]model.PasskeyDeviceDto, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]model0.PasskeyDeviceDto, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []model.PasskeyDeviceDto); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []model0.PasskeyDeviceDto); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]model.PasskeyDeviceDto)
+			r0 = ret.Get(0).([]model0.PasskeyDeviceDto)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -734,37 +734,37 @@ func (_c *MockService_ListPasskeys_Call) Run(run func(ctx context.Context)) *Moc
 	return _c
 }
 
-func (_c *MockService_ListPasskeys_Call) Return(passkeyDeviceDtos []model.PasskeyDeviceDto, err error) *MockService_ListPasskeys_Call {
+func (_c *MockService_ListPasskeys_Call) Return(passkeyDeviceDtos []model0.PasskeyDeviceDto, err error) *MockService_ListPasskeys_Call {
 	_c.Call.Return(passkeyDeviceDtos, err)
 	return _c
 }
 
-func (_c *MockService_ListPasskeys_Call) RunAndReturn(run func(ctx context.Context) ([]model.PasskeyDeviceDto, error)) *MockService_ListPasskeys_Call {
+func (_c *MockService_ListPasskeys_Call) RunAndReturn(run func(ctx context.Context) ([]model0.PasskeyDeviceDto, error)) *MockService_ListPasskeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Login provides a mock function for the type MockService
-func (_mock *MockService) Login(ctx context.Context, loginDto *model.LoginDto) (*model.TokenPair, error) {
+func (_mock *MockService) Login(ctx context.Context, loginDto *model0.LoginDto) (*model0.TokenPair, error) {
 	ret := _mock.Called(ctx, loginDto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Login")
 	}
 
-	var r0 *model.TokenPair
+	var r0 *model0.TokenPair
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.LoginDto) (*model.TokenPair, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model0.LoginDto) (*model0.TokenPair, error)); ok {
 		return returnFunc(ctx, loginDto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.LoginDto) *model.TokenPair); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model0.LoginDto) *model0.TokenPair); ok {
 		r0 = returnFunc(ctx, loginDto)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.TokenPair)
+			r0 = ret.Get(0).(*model0.TokenPair)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.LoginDto) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *model0.LoginDto) error); ok {
 		r1 = returnFunc(ctx, loginDto)
 	} else {
 		r1 = ret.Error(1)
@@ -779,20 +779,20 @@ type MockService_Login_Call struct {
 
 // Login is a helper method to define mock.On call
 //   - ctx context.Context
-//   - loginDto *model.LoginDto
+//   - loginDto *model0.LoginDto
 func (_e *MockService_Expecter) Login(ctx any, loginDto any) *MockService_Login_Call {
 	return &MockService_Login_Call{Call: _e.mock.On("Login", ctx, loginDto)}
 }
 
-func (_c *MockService_Login_Call) Run(run func(ctx context.Context, loginDto *model.LoginDto)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) Run(run func(ctx context.Context, loginDto *model0.LoginDto)) *MockService_Login_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *model.LoginDto
+		var arg1 *model0.LoginDto
 		if args[1] != nil {
-			arg1 = args[1].(*model.LoginDto)
+			arg1 = args[1].(*model0.LoginDto)
 		}
 		run(
 			arg0,
@@ -802,12 +802,12 @@ func (_c *MockService_Login_Call) Run(run func(ctx context.Context, loginDto *mo
 	return _c
 }
 
-func (_c *MockService_Login_Call) Return(tokenPair *model.TokenPair, err error) *MockService_Login_Call {
+func (_c *MockService_Login_Call) Return(tokenPair *model0.TokenPair, err error) *MockService_Login_Call {
 	_c.Call.Return(tokenPair, err)
 	return _c
 }
 
-func (_c *MockService_Login_Call) RunAndReturn(run func(ctx context.Context, loginDto *model.LoginDto) (*model.TokenPair, error)) *MockService_Login_Call {
+func (_c *MockService_Login_Call) RunAndReturn(run func(ctx context.Context, loginDto *model0.LoginDto) (*model0.TokenPair, error)) *MockService_Login_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -875,22 +875,22 @@ func (_c *MockService_PasskeyBoundary_Call) RunAndReturn(run func(ctx context.Co
 }
 
 // PasskeyLoginBegin provides a mock function for the type MockService
-func (_mock *MockService) PasskeyLoginBegin(rpID string, origin string) (model.PasskeyLoginBeginResp, error) {
+func (_mock *MockService) PasskeyLoginBegin(rpID string, origin string) (model0.PasskeyLoginBeginResp, error) {
 	ret := _mock.Called(rpID, origin)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PasskeyLoginBegin")
 	}
 
-	var r0 model.PasskeyLoginBeginResp
+	var r0 model0.PasskeyLoginBeginResp
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, string) (model.PasskeyLoginBeginResp, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string) (model0.PasskeyLoginBeginResp, error)); ok {
 		return returnFunc(rpID, origin)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, string) model.PasskeyLoginBeginResp); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string) model0.PasskeyLoginBeginResp); ok {
 		r0 = returnFunc(rpID, origin)
 	} else {
-		r0 = ret.Get(0).(model.PasskeyLoginBeginResp)
+		r0 = ret.Get(0).(model0.PasskeyLoginBeginResp)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string, string) error); ok {
 		r1 = returnFunc(rpID, origin)
@@ -930,34 +930,34 @@ func (_c *MockService_PasskeyLoginBegin_Call) Run(run func(rpID string, origin s
 	return _c
 }
 
-func (_c *MockService_PasskeyLoginBegin_Call) Return(passkeyLoginBeginResp model.PasskeyLoginBeginResp, err error) *MockService_PasskeyLoginBegin_Call {
+func (_c *MockService_PasskeyLoginBegin_Call) Return(passkeyLoginBeginResp model0.PasskeyLoginBeginResp, err error) *MockService_PasskeyLoginBegin_Call {
 	_c.Call.Return(passkeyLoginBeginResp, err)
 	return _c
 }
 
-func (_c *MockService_PasskeyLoginBegin_Call) RunAndReturn(run func(rpID string, origin string) (model.PasskeyLoginBeginResp, error)) *MockService_PasskeyLoginBegin_Call {
+func (_c *MockService_PasskeyLoginBegin_Call) RunAndReturn(run func(rpID string, origin string) (model0.PasskeyLoginBeginResp, error)) *MockService_PasskeyLoginBegin_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // PasskeyLoginFinish provides a mock function for the type MockService
-func (_mock *MockService) PasskeyLoginFinish(rpID string, origin string, nonce string, credential json.RawMessage) (*model.TokenPair, error) {
+func (_mock *MockService) PasskeyLoginFinish(rpID string, origin string, nonce string, credential json.RawMessage) (*model0.TokenPair, error) {
 	ret := _mock.Called(rpID, origin, nonce, credential)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PasskeyLoginFinish")
 	}
 
-	var r0 *model.TokenPair
+	var r0 *model0.TokenPair
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, string, string, json.RawMessage) (*model.TokenPair, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string, string, json.RawMessage) (*model0.TokenPair, error)); ok {
 		return returnFunc(rpID, origin, nonce, credential)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, string, string, json.RawMessage) *model.TokenPair); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string, string, json.RawMessage) *model0.TokenPair); ok {
 		r0 = returnFunc(rpID, origin, nonce, credential)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.TokenPair)
+			r0 = ret.Get(0).(*model0.TokenPair)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string, string, string, json.RawMessage) error); ok {
@@ -1010,33 +1010,33 @@ func (_c *MockService_PasskeyLoginFinish_Call) Run(run func(rpID string, origin 
 	return _c
 }
 
-func (_c *MockService_PasskeyLoginFinish_Call) Return(tokenPair *model.TokenPair, err error) *MockService_PasskeyLoginFinish_Call {
+func (_c *MockService_PasskeyLoginFinish_Call) Return(tokenPair *model0.TokenPair, err error) *MockService_PasskeyLoginFinish_Call {
 	_c.Call.Return(tokenPair, err)
 	return _c
 }
 
-func (_c *MockService_PasskeyLoginFinish_Call) RunAndReturn(run func(rpID string, origin string, nonce string, credential json.RawMessage) (*model.TokenPair, error)) *MockService_PasskeyLoginFinish_Call {
+func (_c *MockService_PasskeyLoginFinish_Call) RunAndReturn(run func(rpID string, origin string, nonce string, credential json.RawMessage) (*model0.TokenPair, error)) *MockService_PasskeyLoginFinish_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // PasskeyRegisterBegin provides a mock function for the type MockService
-func (_mock *MockService) PasskeyRegisterBegin(ctx context.Context, rpID string, origin string, deviceName string) (model.PasskeyRegisterBeginResp, error) {
+func (_mock *MockService) PasskeyRegisterBegin(ctx context.Context, rpID string, origin string, deviceName string) (model0.PasskeyRegisterBeginResp, error) {
 	ret := _mock.Called(ctx, rpID, origin, deviceName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PasskeyRegisterBegin")
 	}
 
-	var r0 model.PasskeyRegisterBeginResp
+	var r0 model0.PasskeyRegisterBeginResp
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (model.PasskeyRegisterBeginResp, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (model0.PasskeyRegisterBeginResp, error)); ok {
 		return returnFunc(ctx, rpID, origin, deviceName)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) model.PasskeyRegisterBeginResp); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) model0.PasskeyRegisterBeginResp); ok {
 		r0 = returnFunc(ctx, rpID, origin, deviceName)
 	} else {
-		r0 = ret.Get(0).(model.PasskeyRegisterBeginResp)
+		r0 = ret.Get(0).(model0.PasskeyRegisterBeginResp)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
 		r1 = returnFunc(ctx, rpID, origin, deviceName)
@@ -1088,12 +1088,12 @@ func (_c *MockService_PasskeyRegisterBegin_Call) Run(run func(ctx context.Contex
 	return _c
 }
 
-func (_c *MockService_PasskeyRegisterBegin_Call) Return(passkeyRegisterBeginResp model.PasskeyRegisterBeginResp, err error) *MockService_PasskeyRegisterBegin_Call {
+func (_c *MockService_PasskeyRegisterBegin_Call) Return(passkeyRegisterBeginResp model0.PasskeyRegisterBeginResp, err error) *MockService_PasskeyRegisterBegin_Call {
 	_c.Call.Return(passkeyRegisterBeginResp, err)
 	return _c
 }
 
-func (_c *MockService_PasskeyRegisterBegin_Call) RunAndReturn(run func(ctx context.Context, rpID string, origin string, deviceName string) (model.PasskeyRegisterBeginResp, error)) *MockService_PasskeyRegisterBegin_Call {
+func (_c *MockService_PasskeyRegisterBegin_Call) RunAndReturn(run func(ctx context.Context, rpID string, origin string, deviceName string) (model0.PasskeyRegisterBeginResp, error)) *MockService_PasskeyRegisterBegin_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1174,22 +1174,22 @@ func (_c *MockService_PasskeyRegisterFinish_Call) RunAndReturn(run func(ctx cont
 }
 
 // PollDeviceAuthorization provides a mock function for the type MockService
-func (_mock *MockService) PollDeviceAuthorization(deviceCode string) (model.DeviceTokenResponse, error) {
+func (_mock *MockService) PollDeviceAuthorization(deviceCode string) (model0.DeviceTokenResponse, error) {
 	ret := _mock.Called(deviceCode)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PollDeviceAuthorization")
 	}
 
-	var r0 model.DeviceTokenResponse
+	var r0 model0.DeviceTokenResponse
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (model.DeviceTokenResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (model0.DeviceTokenResponse, error)); ok {
 		return returnFunc(deviceCode)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) model.DeviceTokenResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) model0.DeviceTokenResponse); ok {
 		r0 = returnFunc(deviceCode)
 	} else {
-		r0 = ret.Get(0).(model.DeviceTokenResponse)
+		r0 = ret.Get(0).(model0.DeviceTokenResponse)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
 		r1 = returnFunc(deviceCode)
@@ -1223,12 +1223,12 @@ func (_c *MockService_PollDeviceAuthorization_Call) Run(run func(deviceCode stri
 	return _c
 }
 
-func (_c *MockService_PollDeviceAuthorization_Call) Return(deviceTokenResponse model.DeviceTokenResponse, err error) *MockService_PollDeviceAuthorization_Call {
+func (_c *MockService_PollDeviceAuthorization_Call) Return(deviceTokenResponse model0.DeviceTokenResponse, err error) *MockService_PollDeviceAuthorization_Call {
 	_c.Call.Return(deviceTokenResponse, err)
 	return _c
 }
 
-func (_c *MockService_PollDeviceAuthorization_Call) RunAndReturn(run func(deviceCode string) (model.DeviceTokenResponse, error)) *MockService_PollDeviceAuthorization_Call {
+func (_c *MockService_PollDeviceAuthorization_Call) RunAndReturn(run func(deviceCode string) (model0.DeviceTokenResponse, error)) *MockService_PollDeviceAuthorization_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1280,22 +1280,22 @@ func (_c *MockService_RevokeToken_Call) RunAndReturn(run func(jti string, remain
 }
 
 // StartDeviceAuthorization provides a mock function for the type MockService
-func (_mock *MockService) StartDeviceAuthorization(clientName string, scopes []string) (model.DeviceCodeResponse, error) {
+func (_mock *MockService) StartDeviceAuthorization(clientName string, scopes []string) (model0.DeviceCodeResponse, error) {
 	ret := _mock.Called(clientName, scopes)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StartDeviceAuthorization")
 	}
 
-	var r0 model.DeviceCodeResponse
+	var r0 model0.DeviceCodeResponse
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, []string) (model.DeviceCodeResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, []string) (model0.DeviceCodeResponse, error)); ok {
 		return returnFunc(clientName, scopes)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, []string) model.DeviceCodeResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, []string) model0.DeviceCodeResponse); ok {
 		r0 = returnFunc(clientName, scopes)
 	} else {
-		r0 = ret.Get(0).(model.DeviceCodeResponse)
+		r0 = ret.Get(0).(model0.DeviceCodeResponse)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string, []string) error); ok {
 		r1 = returnFunc(clientName, scopes)
@@ -1335,12 +1335,12 @@ func (_c *MockService_StartDeviceAuthorization_Call) Run(run func(clientName str
 	return _c
 }
 
-func (_c *MockService_StartDeviceAuthorization_Call) Return(deviceCodeResponse model.DeviceCodeResponse, err error) *MockService_StartDeviceAuthorization_Call {
+func (_c *MockService_StartDeviceAuthorization_Call) Return(deviceCodeResponse model0.DeviceCodeResponse, err error) *MockService_StartDeviceAuthorization_Call {
 	_c.Call.Return(deviceCodeResponse, err)
 	return _c
 }
 
-func (_c *MockService_StartDeviceAuthorization_Call) RunAndReturn(run func(clientName string, scopes []string) (model.DeviceCodeResponse, error)) *MockService_StartDeviceAuthorization_Call {
+func (_c *MockService_StartDeviceAuthorization_Call) RunAndReturn(run func(clientName string, scopes []string) (model0.DeviceCodeResponse, error)) *MockService_StartDeviceAuthorization_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1680,7 +1680,7 @@ func (_c *MockRepository_CacheSetPasskeySession_Call) RunAndReturn(run func(key 
 }
 
 // CreatePasskey provides a mock function for the type MockRepository
-func (_mock *MockRepository) CreatePasskey(ctx context.Context, passkey *model.Passkey) error {
+func (_mock *MockRepository) CreatePasskey(ctx context.Context, passkey *model0.Passkey) error {
 	ret := _mock.Called(ctx, passkey)
 
 	if len(ret) == 0 {
@@ -1688,7 +1688,7 @@ func (_mock *MockRepository) CreatePasskey(ctx context.Context, passkey *model.P
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.Passkey) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model0.Passkey) error); ok {
 		r0 = returnFunc(ctx, passkey)
 	} else {
 		r0 = ret.Error(0)
@@ -1703,20 +1703,20 @@ type MockRepository_CreatePasskey_Call struct {
 
 // CreatePasskey is a helper method to define mock.On call
 //   - ctx context.Context
-//   - passkey *model.Passkey
+//   - passkey *model0.Passkey
 func (_e *MockRepository_Expecter) CreatePasskey(ctx any, passkey any) *MockRepository_CreatePasskey_Call {
 	return &MockRepository_CreatePasskey_Call{Call: _e.mock.On("CreatePasskey", ctx, passkey)}
 }
 
-func (_c *MockRepository_CreatePasskey_Call) Run(run func(ctx context.Context, passkey *model.Passkey)) *MockRepository_CreatePasskey_Call {
+func (_c *MockRepository_CreatePasskey_Call) Run(run func(ctx context.Context, passkey *model0.Passkey)) *MockRepository_CreatePasskey_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *model.Passkey
+		var arg1 *model0.Passkey
 		if args[1] != nil {
-			arg1 = args[1].(*model.Passkey)
+			arg1 = args[1].(*model0.Passkey)
 		}
 		run(
 			arg0,
@@ -1731,7 +1731,7 @@ func (_c *MockRepository_CreatePasskey_Call) Return(err error) *MockRepository_C
 	return _c
 }
 
-func (_c *MockRepository_CreatePasskey_Call) RunAndReturn(run func(ctx context.Context, passkey *model.Passkey) error) *MockRepository_CreatePasskey_Call {
+func (_c *MockRepository_CreatePasskey_Call) RunAndReturn(run func(ctx context.Context, passkey *model0.Passkey) error) *MockRepository_CreatePasskey_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1800,22 +1800,22 @@ func (_c *MockRepository_DeletePasskeyByID_Call) RunAndReturn(run func(ctx conte
 }
 
 // GetLocalAuthByUserID provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetLocalAuthByUserID(ctx context.Context, userID string) (model0.UserLocalAuth, error) {
+func (_mock *MockRepository) GetLocalAuthByUserID(ctx context.Context, userID string) (model.UserLocalAuth, error) {
 	ret := _mock.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLocalAuthByUserID")
 	}
 
-	var r0 model0.UserLocalAuth
+	var r0 model.UserLocalAuth
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model0.UserLocalAuth, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.UserLocalAuth, error)); ok {
 		return returnFunc(ctx, userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model0.UserLocalAuth); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.UserLocalAuth); ok {
 		r0 = returnFunc(ctx, userID)
 	} else {
-		r0 = ret.Get(0).(model0.UserLocalAuth)
+		r0 = ret.Get(0).(model.UserLocalAuth)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = returnFunc(ctx, userID)
@@ -1855,33 +1855,33 @@ func (_c *MockRepository_GetLocalAuthByUserID_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockRepository_GetLocalAuthByUserID_Call) Return(userLocalAuth model0.UserLocalAuth, err error) *MockRepository_GetLocalAuthByUserID_Call {
+func (_c *MockRepository_GetLocalAuthByUserID_Call) Return(userLocalAuth model.UserLocalAuth, err error) *MockRepository_GetLocalAuthByUserID_Call {
 	_c.Call.Return(userLocalAuth, err)
 	return _c
 }
 
-func (_c *MockRepository_GetLocalAuthByUserID_Call) RunAndReturn(run func(ctx context.Context, userID string) (model0.UserLocalAuth, error)) *MockRepository_GetLocalAuthByUserID_Call {
+func (_c *MockRepository_GetLocalAuthByUserID_Call) RunAndReturn(run func(ctx context.Context, userID string) (model.UserLocalAuth, error)) *MockRepository_GetLocalAuthByUserID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetOAuthInfo provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetOAuthInfo(userId string, provider string) (model0.UserExternalIdentity, error) {
+func (_mock *MockRepository) GetOAuthInfo(userId string, provider string) (model.UserExternalIdentity, error) {
 	ret := _mock.Called(userId, provider)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOAuthInfo")
 	}
 
-	var r0 model0.UserExternalIdentity
+	var r0 model.UserExternalIdentity
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, string) (model0.UserExternalIdentity, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string) (model.UserExternalIdentity, error)); ok {
 		return returnFunc(userId, provider)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, string) model0.UserExternalIdentity); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string) model.UserExternalIdentity); ok {
 		r0 = returnFunc(userId, provider)
 	} else {
-		r0 = ret.Get(0).(model0.UserExternalIdentity)
+		r0 = ret.Get(0).(model.UserExternalIdentity)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string, string) error); ok {
 		r1 = returnFunc(userId, provider)
@@ -1921,33 +1921,33 @@ func (_c *MockRepository_GetOAuthInfo_Call) Run(run func(userId string, provider
 	return _c
 }
 
-func (_c *MockRepository_GetOAuthInfo_Call) Return(userExternalIdentity model0.UserExternalIdentity, err error) *MockRepository_GetOAuthInfo_Call {
+func (_c *MockRepository_GetOAuthInfo_Call) Return(userExternalIdentity model.UserExternalIdentity, err error) *MockRepository_GetOAuthInfo_Call {
 	_c.Call.Return(userExternalIdentity, err)
 	return _c
 }
 
-func (_c *MockRepository_GetOAuthInfo_Call) RunAndReturn(run func(userId string, provider string) (model0.UserExternalIdentity, error)) *MockRepository_GetOAuthInfo_Call {
+func (_c *MockRepository_GetOAuthInfo_Call) RunAndReturn(run func(userId string, provider string) (model.UserExternalIdentity, error)) *MockRepository_GetOAuthInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetOAuthOIDCInfo provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetOAuthOIDCInfo(userId string, provider string, issuer string) (model0.UserExternalIdentity, error) {
+func (_mock *MockRepository) GetOAuthOIDCInfo(userId string, provider string, issuer string) (model.UserExternalIdentity, error) {
 	ret := _mock.Called(userId, provider, issuer)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOAuthOIDCInfo")
 	}
 
-	var r0 model0.UserExternalIdentity
+	var r0 model.UserExternalIdentity
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, string, string) (model0.UserExternalIdentity, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string, string) (model.UserExternalIdentity, error)); ok {
 		return returnFunc(userId, provider, issuer)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, string, string) model0.UserExternalIdentity); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string, string) model.UserExternalIdentity); ok {
 		r0 = returnFunc(userId, provider, issuer)
 	} else {
-		r0 = ret.Get(0).(model0.UserExternalIdentity)
+		r0 = ret.Get(0).(model.UserExternalIdentity)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string, string, string) error); ok {
 		r1 = returnFunc(userId, provider, issuer)
@@ -1993,33 +1993,33 @@ func (_c *MockRepository_GetOAuthOIDCInfo_Call) Run(run func(userId string, prov
 	return _c
 }
 
-func (_c *MockRepository_GetOAuthOIDCInfo_Call) Return(userExternalIdentity model0.UserExternalIdentity, err error) *MockRepository_GetOAuthOIDCInfo_Call {
+func (_c *MockRepository_GetOAuthOIDCInfo_Call) Return(userExternalIdentity model.UserExternalIdentity, err error) *MockRepository_GetOAuthOIDCInfo_Call {
 	_c.Call.Return(userExternalIdentity, err)
 	return _c
 }
 
-func (_c *MockRepository_GetOAuthOIDCInfo_Call) RunAndReturn(run func(userId string, provider string, issuer string) (model0.UserExternalIdentity, error)) *MockRepository_GetOAuthOIDCInfo_Call {
+func (_c *MockRepository_GetOAuthOIDCInfo_Call) RunAndReturn(run func(userId string, provider string, issuer string) (model.UserExternalIdentity, error)) *MockRepository_GetOAuthOIDCInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetPasskeyByCredentialID provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetPasskeyByCredentialID(credentialID string) (model.Passkey, error) {
+func (_mock *MockRepository) GetPasskeyByCredentialID(credentialID string) (model0.Passkey, error) {
 	ret := _mock.Called(credentialID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetPasskeyByCredentialID")
 	}
 
-	var r0 model.Passkey
+	var r0 model0.Passkey
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (model.Passkey, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (model0.Passkey, error)); ok {
 		return returnFunc(credentialID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) model.Passkey); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) model0.Passkey); ok {
 		r0 = returnFunc(credentialID)
 	} else {
-		r0 = ret.Get(0).(model.Passkey)
+		r0 = ret.Get(0).(model0.Passkey)
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
 		r1 = returnFunc(credentialID)
@@ -2053,33 +2053,33 @@ func (_c *MockRepository_GetPasskeyByCredentialID_Call) Run(run func(credentialI
 	return _c
 }
 
-func (_c *MockRepository_GetPasskeyByCredentialID_Call) Return(passkey model.Passkey, err error) *MockRepository_GetPasskeyByCredentialID_Call {
+func (_c *MockRepository_GetPasskeyByCredentialID_Call) Return(passkey model0.Passkey, err error) *MockRepository_GetPasskeyByCredentialID_Call {
 	_c.Call.Return(passkey, err)
 	return _c
 }
 
-func (_c *MockRepository_GetPasskeyByCredentialID_Call) RunAndReturn(run func(credentialID string) (model.Passkey, error)) *MockRepository_GetPasskeyByCredentialID_Call {
+func (_c *MockRepository_GetPasskeyByCredentialID_Call) RunAndReturn(run func(credentialID string) (model0.Passkey, error)) *MockRepository_GetPasskeyByCredentialID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetUserByID provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetUserByID(ctx context.Context, id string) (model0.User, error) {
+func (_mock *MockRepository) GetUserByID(ctx context.Context, id string) (model.User, error) {
 	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserByID")
 	}
 
-	var r0 model0.User
+	var r0 model.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model0.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.User, error)); ok {
 		return returnFunc(ctx, id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model0.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.User); ok {
 		r0 = returnFunc(ctx, id)
 	} else {
-		r0 = ret.Get(0).(model0.User)
+		r0 = ret.Get(0).(model.User)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = returnFunc(ctx, id)
@@ -2119,33 +2119,33 @@ func (_c *MockRepository_GetUserByID_Call) Run(run func(ctx context.Context, id 
 	return _c
 }
 
-func (_c *MockRepository_GetUserByID_Call) Return(user model0.User, err error) *MockRepository_GetUserByID_Call {
+func (_c *MockRepository_GetUserByID_Call) Return(user model.User, err error) *MockRepository_GetUserByID_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockRepository_GetUserByID_Call) RunAndReturn(run func(ctx context.Context, id string) (model0.User, error)) *MockRepository_GetUserByID_Call {
+func (_c *MockRepository_GetUserByID_Call) RunAndReturn(run func(ctx context.Context, id string) (model.User, error)) *MockRepository_GetUserByID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetUserByOAuthID provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetUserByOAuthID(ctx context.Context, provider string, oauthID string) (model0.User, error) {
+func (_mock *MockRepository) GetUserByOAuthID(ctx context.Context, provider string, oauthID string) (model.User, error) {
 	ret := _mock.Called(ctx, provider, oauthID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserByOAuthID")
 	}
 
-	var r0 model0.User
+	var r0 model.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (model0.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (model.User, error)); ok {
 		return returnFunc(ctx, provider, oauthID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) model0.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) model.User); ok {
 		r0 = returnFunc(ctx, provider, oauthID)
 	} else {
-		r0 = ret.Get(0).(model0.User)
+		r0 = ret.Get(0).(model.User)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = returnFunc(ctx, provider, oauthID)
@@ -2191,33 +2191,33 @@ func (_c *MockRepository_GetUserByOAuthID_Call) Run(run func(ctx context.Context
 	return _c
 }
 
-func (_c *MockRepository_GetUserByOAuthID_Call) Return(user model0.User, err error) *MockRepository_GetUserByOAuthID_Call {
+func (_c *MockRepository_GetUserByOAuthID_Call) Return(user model.User, err error) *MockRepository_GetUserByOAuthID_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockRepository_GetUserByOAuthID_Call) RunAndReturn(run func(ctx context.Context, provider string, oauthID string) (model0.User, error)) *MockRepository_GetUserByOAuthID_Call {
+func (_c *MockRepository_GetUserByOAuthID_Call) RunAndReturn(run func(ctx context.Context, provider string, oauthID string) (model.User, error)) *MockRepository_GetUserByOAuthID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetUserByOIDC provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetUserByOIDC(ctx context.Context, provider string, oauthID string, issuer string) (model0.User, error) {
+func (_mock *MockRepository) GetUserByOIDC(ctx context.Context, provider string, oauthID string, issuer string) (model.User, error) {
 	ret := _mock.Called(ctx, provider, oauthID, issuer)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserByOIDC")
 	}
 
-	var r0 model0.User
+	var r0 model.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (model0.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (model.User, error)); ok {
 		return returnFunc(ctx, provider, oauthID, issuer)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) model0.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) model.User); ok {
 		r0 = returnFunc(ctx, provider, oauthID, issuer)
 	} else {
-		r0 = ret.Get(0).(model0.User)
+		r0 = ret.Get(0).(model.User)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
 		r1 = returnFunc(ctx, provider, oauthID, issuer)
@@ -2269,33 +2269,33 @@ func (_c *MockRepository_GetUserByOIDC_Call) Run(run func(ctx context.Context, p
 	return _c
 }
 
-func (_c *MockRepository_GetUserByOIDC_Call) Return(user model0.User, err error) *MockRepository_GetUserByOIDC_Call {
+func (_c *MockRepository_GetUserByOIDC_Call) Return(user model.User, err error) *MockRepository_GetUserByOIDC_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockRepository_GetUserByOIDC_Call) RunAndReturn(run func(ctx context.Context, provider string, oauthID string, issuer string) (model0.User, error)) *MockRepository_GetUserByOIDC_Call {
+func (_c *MockRepository_GetUserByOIDC_Call) RunAndReturn(run func(ctx context.Context, provider string, oauthID string, issuer string) (model.User, error)) *MockRepository_GetUserByOIDC_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetUserByUsername provides a mock function for the type MockRepository
-func (_mock *MockRepository) GetUserByUsername(ctx context.Context, username string) (model0.User, error) {
+func (_mock *MockRepository) GetUserByUsername(ctx context.Context, username string) (model.User, error) {
 	ret := _mock.Called(ctx, username)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserByUsername")
 	}
 
-	var r0 model0.User
+	var r0 model.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model0.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.User, error)); ok {
 		return returnFunc(ctx, username)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model0.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.User); ok {
 		r0 = returnFunc(ctx, username)
 	} else {
-		r0 = ret.Get(0).(model0.User)
+		r0 = ret.Get(0).(model.User)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
 		r1 = returnFunc(ctx, username)
@@ -2335,34 +2335,34 @@ func (_c *MockRepository_GetUserByUsername_Call) Run(run func(ctx context.Contex
 	return _c
 }
 
-func (_c *MockRepository_GetUserByUsername_Call) Return(user model0.User, err error) *MockRepository_GetUserByUsername_Call {
+func (_c *MockRepository_GetUserByUsername_Call) Return(user model.User, err error) *MockRepository_GetUserByUsername_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockRepository_GetUserByUsername_Call) RunAndReturn(run func(ctx context.Context, username string) (model0.User, error)) *MockRepository_GetUserByUsername_Call {
+func (_c *MockRepository_GetUserByUsername_Call) RunAndReturn(run func(ctx context.Context, username string) (model.User, error)) *MockRepository_GetUserByUsername_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListPasskeysByUserID provides a mock function for the type MockRepository
-func (_mock *MockRepository) ListPasskeysByUserID(userID string) ([]model.Passkey, error) {
+func (_mock *MockRepository) ListPasskeysByUserID(userID string) ([]model0.Passkey, error) {
 	ret := _mock.Called(userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListPasskeysByUserID")
 	}
 
-	var r0 []model.Passkey
+	var r0 []model0.Passkey
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) ([]model.Passkey, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) ([]model0.Passkey, error)); ok {
 		return returnFunc(userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) []model.Passkey); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) []model0.Passkey); ok {
 		r0 = returnFunc(userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]model.Passkey)
+			r0 = ret.Get(0).([]model0.Passkey)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
@@ -2397,12 +2397,12 @@ func (_c *MockRepository_ListPasskeysByUserID_Call) Run(run func(userID string))
 	return _c
 }
 
-func (_c *MockRepository_ListPasskeysByUserID_Call) Return(passkeys []model.Passkey, err error) *MockRepository_ListPasskeysByUserID_Call {
+func (_c *MockRepository_ListPasskeysByUserID_Call) Return(passkeys []model0.Passkey, err error) *MockRepository_ListPasskeysByUserID_Call {
 	_c.Call.Return(passkeys, err)
 	return _c
 }
 
-func (_c *MockRepository_ListPasskeysByUserID_Call) RunAndReturn(run func(userID string) ([]model.Passkey, error)) *MockRepository_ListPasskeysByUserID_Call {
+func (_c *MockRepository_ListPasskeysByUserID_Call) RunAndReturn(run func(userID string) ([]model0.Passkey, error)) *MockRepository_ListPasskeysByUserID_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2650,24 +2650,90 @@ func (_m *MockAuthRepo) EXPECT() *MockAuthRepo_Expecter {
 	return &MockAuthRepo_Expecter{mock: &_m.Mock}
 }
 
+// AccountState provides a mock function for the type MockAuthRepo
+func (_mock *MockAuthRepo) AccountState(ctx context.Context, userID string) (model.AccountState, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AccountState")
+	}
+
+	var r0 model.AccountState
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (model.AccountState, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) model.AccountState); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(model.AccountState)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthRepo_AccountState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AccountState'
+type MockAuthRepo_AccountState_Call struct {
+	*mock.Call
+}
+
+// AccountState is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockAuthRepo_Expecter) AccountState(ctx any, userID any) *MockAuthRepo_AccountState_Call {
+	return &MockAuthRepo_AccountState_Call{Call: _e.mock.On("AccountState", ctx, userID)}
+}
+
+func (_c *MockAuthRepo_AccountState_Call) Run(run func(ctx context.Context, userID string)) *MockAuthRepo_AccountState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthRepo_AccountState_Call) Return(accountState model.AccountState, err error) *MockAuthRepo_AccountState_Call {
+	_c.Call.Return(accountState, err)
+	return _c
+}
+
+func (_c *MockAuthRepo_AccountState_Call) RunAndReturn(run func(ctx context.Context, userID string) (model.AccountState, error)) *MockAuthRepo_AccountState_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAndDeleteOAuthCode provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) GetAndDeleteOAuthCode(code string) (*model.TokenPair, error) {
+func (_mock *MockAuthRepo) GetAndDeleteOAuthCode(code string) (*model0.TokenPair, error) {
 	ret := _mock.Called(code)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAndDeleteOAuthCode")
 	}
 
-	var r0 *model.TokenPair
+	var r0 *model0.TokenPair
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (*model.TokenPair, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (*model0.TokenPair, error)); ok {
 		return returnFunc(code)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) *model.TokenPair); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) *model0.TokenPair); ok {
 		r0 = returnFunc(code)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.TokenPair)
+			r0 = ret.Get(0).(*model0.TokenPair)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
@@ -2702,78 +2768,12 @@ func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) Run(run func(code string)) *M
 	return _c
 }
 
-func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) Return(tokenPair *model.TokenPair, err error) *MockAuthRepo_GetAndDeleteOAuthCode_Call {
+func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) Return(tokenPair *model0.TokenPair, err error) *MockAuthRepo_GetAndDeleteOAuthCode_Call {
 	_c.Call.Return(tokenPair, err)
 	return _c
 }
 
-func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) RunAndReturn(run func(code string) (*model.TokenPair, error)) *MockAuthRepo_GetAndDeleteOAuthCode_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// IsAccountActive provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) IsAccountActive(ctx context.Context, userID string) (bool, error) {
-	ret := _mock.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsAccountActive")
-	}
-
-	var r0 bool
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
-		return returnFunc(ctx, userID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) bool); ok {
-		r0 = returnFunc(ctx, userID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, userID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockAuthRepo_IsAccountActive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsAccountActive'
-type MockAuthRepo_IsAccountActive_Call struct {
-	*mock.Call
-}
-
-// IsAccountActive is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockAuthRepo_Expecter) IsAccountActive(ctx any, userID any) *MockAuthRepo_IsAccountActive_Call {
-	return &MockAuthRepo_IsAccountActive_Call{Call: _e.mock.On("IsAccountActive", ctx, userID)}
-}
-
-func (_c *MockAuthRepo_IsAccountActive_Call) Run(run func(ctx context.Context, userID string)) *MockAuthRepo_IsAccountActive_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockAuthRepo_IsAccountActive_Call) Return(b bool, err error) *MockAuthRepo_IsAccountActive_Call {
-	_c.Call.Return(b, err)
-	return _c
-}
-
-func (_c *MockAuthRepo_IsAccountActive_Call) RunAndReturn(run func(ctx context.Context, userID string) (bool, error)) *MockAuthRepo_IsAccountActive_Call {
+func (_c *MockAuthRepo_GetAndDeleteOAuthCode_Call) RunAndReturn(run func(code string) (*model0.TokenPair, error)) *MockAuthRepo_GetAndDeleteOAuthCode_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2876,7 +2876,7 @@ func (_c *MockAuthRepo_RevokeToken_Call) RunAndReturn(run func(jti string, remai
 }
 
 // StoreOAuthCode provides a mock function for the type MockAuthRepo
-func (_mock *MockAuthRepo) StoreOAuthCode(code string, pair *model.TokenPair, ttl time.Duration) {
+func (_mock *MockAuthRepo) StoreOAuthCode(code string, pair *model0.TokenPair, ttl time.Duration) {
 	_mock.Called(code, pair, ttl)
 	return
 }
@@ -2888,21 +2888,21 @@ type MockAuthRepo_StoreOAuthCode_Call struct {
 
 // StoreOAuthCode is a helper method to define mock.On call
 //   - code string
-//   - pair *model.TokenPair
+//   - pair *model0.TokenPair
 //   - ttl time.Duration
 func (_e *MockAuthRepo_Expecter) StoreOAuthCode(code any, pair any, ttl any) *MockAuthRepo_StoreOAuthCode_Call {
 	return &MockAuthRepo_StoreOAuthCode_Call{Call: _e.mock.On("StoreOAuthCode", code, pair, ttl)}
 }
 
-func (_c *MockAuthRepo_StoreOAuthCode_Call) Run(run func(code string, pair *model.TokenPair, ttl time.Duration)) *MockAuthRepo_StoreOAuthCode_Call {
+func (_c *MockAuthRepo_StoreOAuthCode_Call) Run(run func(code string, pair *model0.TokenPair, ttl time.Duration)) *MockAuthRepo_StoreOAuthCode_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
 			arg0 = args[0].(string)
 		}
-		var arg1 *model.TokenPair
+		var arg1 *model0.TokenPair
 		if args[1] != nil {
-			arg1 = args[1].(*model.TokenPair)
+			arg1 = args[1].(*model0.TokenPair)
 		}
 		var arg2 time.Duration
 		if args[2] != nil {
@@ -2922,7 +2922,7 @@ func (_c *MockAuthRepo_StoreOAuthCode_Call) Return() *MockAuthRepo_StoreOAuthCod
 	return _c
 }
 
-func (_c *MockAuthRepo_StoreOAuthCode_Call) RunAndReturn(run func(code string, pair *model.TokenPair, ttl time.Duration)) *MockAuthRepo_StoreOAuthCode_Call {
+func (_c *MockAuthRepo_StoreOAuthCode_Call) RunAndReturn(run func(code string, pair *model0.TokenPair, ttl time.Duration)) *MockAuthRepo_StoreOAuthCode_Call {
 	_c.Run(run)
 	return _c
 }

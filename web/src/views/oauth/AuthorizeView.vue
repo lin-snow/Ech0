@@ -14,6 +14,7 @@ import {
 import ScopeAccordion from '@/components/common/ScopeAccordion.vue'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import { useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -43,7 +44,7 @@ const submitting = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 
-const canApprove = computed(() => user.value?.is_admin === true)
+const canApprove = computed(() => isAdminRole(user.value?.role))
 const requestIncomplete = computed(
   () => !params.value.client_id || !params.value.redirect_uri || !params.value.code_challenge,
 )
@@ -56,10 +57,10 @@ async function load() {
   }
   try {
     const res = await fetchOAuthConsent(params.value)
-    if (res.code === 1 && res.data) {
-      consent.value = res.data
+    if (res) {
+      consent.value = res
     } else {
-      loadError.value = res.msg || t('oauthConsent.loadFailed')
+      loadError.value = t('oauthConsent.loadFailed')
     }
   } catch (error) {
     loadError.value =
@@ -75,11 +76,11 @@ async function decide(decision: 'approve' | 'deny') {
   actionError.value = ''
   try {
     const res = await submitOAuthConsent({ ...params.value, decision })
-    if (res.code === 1 && res.data?.redirect_url) {
-      window.location.assign(res.data.redirect_url)
+    if (res?.redirect_url) {
+      window.location.assign(res.redirect_url)
       return
     }
-    actionError.value = res.msg || t('oauthConsent.failed')
+    actionError.value = t('oauthConsent.failed')
   } catch (error) {
     actionError.value =
       error instanceof Error && error.message ? error.message : t('oauthConsent.failed')

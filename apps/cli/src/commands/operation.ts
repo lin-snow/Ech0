@@ -7,7 +7,7 @@ import { once } from "node:events";
 
 import {
   toEch0Error,
-  parseEnvelope,
+  parseProblem,
   type FormPart,
   type QueryValue,
   type RequestSpec,
@@ -129,8 +129,8 @@ export async function buildFormRequest(
   return spec;
 }
 
-function render(data: unknown, message: string): string {
-  if (data === null || data === undefined) return message || "ok";
+function render(data: unknown): string {
+  if (data === null || data === undefined) return "ok";
   return JSON.stringify(data, null, 2) ?? String(data);
 }
 
@@ -190,18 +190,18 @@ function hasFormFields(op: CatalogOp): boolean {
 async function callWithRetry(
   options: InvokeOptions,
   spec: RequestSpec,
-): Promise<{ data: unknown; text: string; message: string }> {
+): Promise<{ body: unknown; text: string }> {
   let catalog = options.catalog;
   let catalogRetried = false;
   let authRetried = false;
 
   for (;;) {
     try {
-      const result = await options.session.client.call<unknown>({
+      const result = await options.session.client.callWithMeta<unknown>({
         ...spec,
         headers: { [CATALOG_HEADER]: catalog.fingerprint },
       });
-      return { data: result.data, text: result.text, message: result.message };
+      return { body: result.body, text: result.text };
     } catch (error) {
       if (!(error instanceof Ech0Error)) throw error;
 
@@ -287,7 +287,7 @@ async function callOperation(options: InvokeOptions): Promise<CommandOutput> {
   );
 
   const result = await callWithRetry(options, spec);
-  return { human: render(result.data, result.message), json: result.text };
+  return { human: render(result.body), json: result.text };
 }
 
 /** Runs `task` with Ctrl-C turned into an abort, so streams stop cleanly. */
@@ -347,7 +347,7 @@ async function streamOperation(options: InvokeOptions): Promise<CommandOutput> {
     const { response } = await openStream(options, spec, "text/event-stream");
     if (!response.ok) {
       const text = await response.text();
-      throw toEch0Error(response.status, parseEnvelope(text), text);
+      throw toEch0Error(response.status, parseProblem(text), text);
     }
     if (response.body === null) {
       throw new Ech0Error("服务端没有返回流式响应");
@@ -454,7 +454,7 @@ async function downloadOperation(options: InvokeOptions): Promise<CommandOutput>
     const { response } = await openStream(options, spec, "*/*");
     if (!response.ok) {
       const text = await response.text();
-      throw toEch0Error(response.status, parseEnvelope(text), text);
+      throw toEch0Error(response.status, parseProblem(text), text);
     }
     if (response.body === null) {
       throw new Ech0Error("服务端没有返回响应体");
@@ -497,8 +497,7 @@ function websocketOperation(options: InvokeOptions): Promise<CommandOutput> {
         print(raw);
         return;
       }
-      const payload = parseEnvelope(raw);
-      print(JSON.stringify(payload?.data ?? raw));
+      print(raw);
     };
     socket.onerror = () => reject(new Ech0Error(`WebSocket 连接失败：${url}`));
     socket.onclose = () => resolve({ human: "", json: "" });

@@ -25,8 +25,6 @@ const (
 	HeaderName = "X-Ech0-Catalog"
 	// RoutePath is mounted under the API base (`/api/_catalog`).
 	RoutePath = "/_catalog"
-	// StaleErrorCode is returned with 412 when a request carries an outdated fingerprint.
-	StaleErrorCode = "catalog_stale"
 
 	bearerScheme    = "bearerAuth"
 	schemaRefPrefix = "#/components/schemas/"
@@ -89,8 +87,9 @@ type Op struct {
 	Deprecated  bool `json:"deprecated"`
 }
 
-// Transport describes everything that is not a JSON body in and a JSON envelope
-// out. It is omitted for plain operations, so older clients keep the short form.
+// Transport describes everything that is not a JSON body in and a resource
+// body out. It is omitted for plain operations, so older clients keep the short
+// form.
 type Transport struct {
 	Request  *RequestTransport  `json:"request,omitempty"`
 	Response *ResponseTransport `json:"response,omitempty"`

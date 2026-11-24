@@ -4,6 +4,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchGetConnectList, fetchGetAllConnectInfo } from '@/service/api'
+import { listItems } from '@/utils/list'
 
 const CONNECT_CACHE_TTL_MS = 30 * 60 * 1000
 
@@ -21,8 +22,8 @@ export const useConnectStore = defineStore('connectStore', () => {
 
     const task = fetchGetConnectList()
       .then((res) => {
-        if (res.code === 1) {
-          connects.value = res.data
+        if (res) {
+          connects.value = listItems<App.Api.Connect.Connected>(res)
           connectsFetchedAt.value = Date.now()
         }
       })
@@ -43,8 +44,8 @@ export const useConnectStore = defineStore('connectStore', () => {
     loading.value = connectsInfoFetchedAt.value === 0
     const task = fetchGetAllConnectInfo()
       .then((res) => {
-        if (res.code === 1) {
-          connectsInfo.value = res.data
+        if (res) {
+          connectsInfo.value = listItems<App.Api.Connect.Connect>(res)
           connectsInfoFetchedAt.value = Date.now()
         }
       })

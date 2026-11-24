@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -82,17 +83,12 @@ func (authService *AuthService) IsTokenRevoked(jti string) bool {
 	return authService.authRepo.IsTokenRevoked(jti)
 }
 
-func (authService *AuthService) IsAccountActive(ctx context.Context, userID string) (bool, error) {
-	return authService.authRepo.IsAccountActive(ctx, userID)
+func (authService *AuthService) AccountState(ctx context.Context, userID string) (model.AccountState, error) {
+	return authService.authRepo.AccountState(ctx, userID)
 }
 
 func accountDisabledError() error {
-	return commonModel.NewBizErrorWithMessageKey(
-		commonModel.ErrCodeAccountDisabled,
-		commonModel.ACCOUNT_DISABLED,
-		commonModel.MsgKeyAuthAccountDisabled,
-		nil,
-	)
+	return commonModel.FailWithType(http.StatusForbidden, commonModel.TypeAccountDisabled, commonModel.ACCOUNT_DISABLED)
 }
 
 func (authService *AuthService) PasskeyBoundary(ctx context.Context) (rpID string, origins []string) {
@@ -142,11 +138,11 @@ func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.L
 	}
 	attempt.succeeded()
 
-	active, err := authService.IsAccountActive(ctx, user.ID)
+	state, err := authService.AccountState(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
-	if !active {
+	if !state.Active() {
 		return nil, accountDisabledError()
 	}
 
@@ -192,12 +188,7 @@ func (authService *AuthService) BindOAuth(
 	redirectURI string,
 ) (string, error) {
 	userID := viewer.MustFromContext(ctx).UserID()
-	user, err := authService.repository.GetUserByID(ctx, userID)
-	if err != nil {
-		return "", err
-	}
-
-	if !user.IsAdmin {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.OAuthManage, authz.Instance()); err != nil {
 		return "", bindingPermissionError(provider)
 	}
 
@@ -452,11 +443,11 @@ func (authService *AuthService) resolveOAuthCallback(
 			return "", err
 		}
 
-		active, err := authService.IsAccountActive(context.Background(), user.ID)
+		state, err := authService.AccountState(context.Background(), user.ID)
 		if err != nil {
 			return "", err
 		}
-		if !active {
+		if !state.Active() {
 			return "", accountDisabledError()
 		}
 
@@ -949,11 +940,11 @@ func (authService *AuthService) PasskeyLoginFinish(
 	if err != nil {
 		return nil, err
 	}
-	active, err := authService.IsAccountActive(context.Background(), u.ID)
+	state, err := authService.AccountState(context.Background(), u.ID)
 	if err != nil {
 		return nil, err
 	}
-	if !active {
+	if !state.Active() {
 		return nil, accountDisabledError()
 	}
 
@@ -1016,14 +1007,13 @@ func (authService *AuthService) GetOAuthInfo(
 ) (model.OAuthInfoDto, error) {
 	var oauthInfo model.OAuthInfoDto
 	userId := viewer.MustFromContext(ctx).UserID()
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.OAuthManage, authz.Instance()); err != nil {
+		return oauthInfo, bindingPermissionError(provider)
+	}
 
 	user, err := authService.repository.GetUserByID(ctx, userId)
 	if err != nil {
 		return oauthInfo, err
-	}
-
-	if !user.IsAdmin {
-		return oauthInfo, bindingPermissionError(provider)
 	}
 
 	oauth2Setting, err := coreSetting.OAuth2.Get(ctx, authService.durableKV)
@@ -1096,7 +1086,7 @@ func fetchGitHubUserInfo(
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		return nil, errors.New("GitHub 用户信息请求失败: " + string(body))
+		return nil, errors.New("GitHub user info request failed: " + string(body))
 	}
 
 	var user authModel.GitHubUser
@@ -1142,7 +1132,7 @@ func fetchGoogleUserInfo(
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("Google 用户信息请求失败: " + string(body))
+		return nil, errors.New("Google user info request failed: " + string(body))
 	}
 
 	var user authModel.GoogleUser
@@ -1177,7 +1167,7 @@ func exchangeQQCodeForToken(
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("QQ token 响应错误: " + string(body))
+		return nil, errors.New("QQ token response error: " + string(body))
 	}
 
 	raw := strings.TrimSpace(string(body))
@@ -1203,7 +1193,7 @@ func exchangeQQCodeForToken(
 		return &tokenResp, nil
 	}
 
-	return nil, errors.New("无法解析 QQ token 响应: " + string(body))
+	return nil, errors.New("cannot decode the QQ token response: " + string(body))
 }
 
 func fetchQQUserInfo(accessToken string) (*authModel.QQOpenIDResponse, error) {
@@ -1221,7 +1211,7 @@ func fetchQQUserInfo(accessToken string) (*authModel.QQOpenIDResponse, error) {
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("QQ openid 请求失败: " + string(body))
+		return nil, errors.New("QQ openid request failed: " + string(body))
 	}
 
 	var openIDResp authModel.QQOpenIDResponse
@@ -1243,13 +1233,13 @@ func exchangeCustomCodeForToken(
 
 	accessToken = token.AccessToken
 	if accessToken == "" {
-		return "", "", errors.New("custom token 响应缺少 access_token")
+		return "", "", errors.New("custom token response is missing access_token")
 	}
 
 	if setting.IsOIDC {
 		idToken = fmt.Sprint(token.Extra("id_token"))
 		if idToken == "" {
-			return "", "", errors.New("OIDC 响应缺少 id_token")
+			return "", "", errors.New("OIDC response is missing id_token")
 		}
 	}
 
@@ -1313,7 +1303,7 @@ func fetchCustomUserInfo(
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("Custom 用户信息请求失败: " + string(body))
+		return "", errors.New("custom user info request failed: " + string(body))
 	}
 
 	var userData map[string]any
@@ -1329,5 +1319,5 @@ func fetchCustomUserInfo(
 		}
 	}
 
-	return "", errors.New("custom 用户信息缺少唯一标识字段 (id/sub/user_id/uid)")
+	return "", errors.New("custom user info is missing a unique id (id/sub/user_id/uid)")
 }

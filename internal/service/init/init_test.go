@@ -5,6 +5,7 @@ package service_test
 
 import (
 	"errors"
+	"net/http"
 	"testing"
 
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -34,16 +35,16 @@ func (f *fakeInitRepo) IsInitialized() (bool, error) {
 	return f.initialized, f.initializedErr
 }
 
-func (f *fakeInitRepo) GetPrimaryAdmin() (userModel.User, error) {
+func (f *fakeInitRepo) GetOwner() (userModel.User, error) {
 	f.getOwnerCalls++
 	return f.owner, f.getOwnerErr
 }
 
-func asBizError(t *testing.T, err error) *commonModel.BizError {
+func asStatusError(t *testing.T, err error) *commonModel.StatusError {
 	t.Helper()
-	var biz *commonModel.BizError
-	require.True(t, errors.As(err, &biz), "expected *commonModel.BizError, got %T (%v)", err, err)
-	return biz
+	var fail *commonModel.StatusError
+	require.True(t, errors.As(err, &fail), "expected *commonModel.StatusError, got %T (%v)", err, err)
+	return fail
 }
 
 func TestInitService_GetStatus(t *testing.T) {
@@ -136,7 +137,7 @@ func TestInitService_InitOwner(t *testing.T) {
 		assert.Equal(t, 1, repo.isInitCalls)
 	})
 
-	t.Run("already initialized returns INIT_ALREADY_DONE biz error", func(t *testing.T) {
+	t.Run("already initialized returns a bad request", func(t *testing.T) {
 		t.Parallel()
 
 		repo := &fakeInitRepo{initialized: true}
@@ -146,9 +147,9 @@ func TestInitService_InitOwner(t *testing.T) {
 
 		err := svc.InitOwner(dto)
 
-		biz := asBizError(t, err)
-		assert.Equal(t, commonModel.ErrCodeInitAlreadyDone, biz.Code)
-		assert.Equal(t, commonModel.SYSTEM_ALREADY_INITED, biz.Msg)
+		fail := asStatusError(t, err)
+		assert.Equal(t, http.StatusBadRequest, fail.Status)
+		assert.Equal(t, commonModel.SYSTEM_ALREADY_INITED, fail.Msg)
 	})
 
 	t.Run("user service InitOwner error is propagated, locale not bootstrapped", func(t *testing.T) {

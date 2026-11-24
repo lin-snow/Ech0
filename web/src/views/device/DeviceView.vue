@@ -5,13 +5,13 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { isAdminRole } from '@/utils/role'
 import BaseOtpInput from '@/components/common/BaseOtpInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import ScopeAccordion from '@/components/common/ScopeAccordion.vue'
 import { fetchDeviceApprove, fetchDevicePending } from '@/service/api/device'
 import { resolveAvatarUrl } from '@/service/request/shared'
 import { useSettingStore, useUserStore } from '@/stores'
-import { theToast } from '@/utils/toast'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -43,7 +43,7 @@ const accountAvatar = computed(() =>
 )
 const username = computed(() => user.value?.username || '')
 /** Approving mints an access token, which the backend restricts to admins. */
-const canApprove = computed(() => user.value?.is_admin === true)
+const canApprove = computed(() => isAdminRole(user.value?.role))
 
 const codeReady = computed(() => userCode.value.length === 8)
 const formattedCode = computed(() =>
@@ -92,13 +92,13 @@ async function lookup(code: string) {
   const res = await fetchDevicePending(code)
   // A newer keystroke may have superseded this request; only apply matching results.
   if (code !== formattedCode.value) return
-  if (res.code === 1 && res.data) {
-    if (res.data.expires_in <= 0) {
+  if (res) {
+    if (res.expires_in <= 0) {
       expired.value = true
       return
     }
-    startTicker(res.data.expires_in)
-    pending.value = res.data
+    startTicker(res.expires_in)
+    pending.value = res
     return
   }
   lookupFailed.value = true
@@ -120,17 +120,14 @@ async function approve() {
   approving.value = true
   try {
     const res = await fetchDeviceApprove(formattedCode.value)
-    if (res.code === 1) {
-      pending.value = null
-      stopTicker()
-      approveSucceeded.value = true
-      // Let the code rings finish drawing before the panel swaps to the receipt.
-      successTimer = setTimeout(() => {
-        approved.value = true
-      }, 760)
-      return
-    }
-    theToast.error(t('devicePage.approveFailed'))
+    if (!res) return
+    pending.value = null
+    stopTicker()
+    approveSucceeded.value = true
+    // Let the code rings finish drawing before the panel swaps to the receipt.
+    successTimer = setTimeout(() => {
+      approved.value = true
+    }, 760)
   } finally {
     approving.value = false
   }

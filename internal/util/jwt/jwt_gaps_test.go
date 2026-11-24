@@ -63,7 +63,6 @@ func TestParseRefreshToken_TypeEnforcement(t *testing.T) {
 
 		_, err = ParseRefreshToken(tokenStr)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "expected refresh")
 	})
 
 	t.Run("rejects-session-typ", func(t *testing.T) {
@@ -73,7 +72,7 @@ func TestParseRefreshToken_TypeEnforcement(t *testing.T) {
 
 		_, err = ParseRefreshToken(tokenStr)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "expected refresh")
+		assert.Contains(t, err.Error(), "unexpected token type")
 	})
 
 	t.Run("accepts-refresh-typ", func(t *testing.T) {
@@ -84,7 +83,7 @@ func TestParseRefreshToken_TypeEnforcement(t *testing.T) {
 		claims, err := ParseRefreshToken(tokenStr)
 		require.NoError(t, err)
 		assert.Equal(t, authModel.TokenTypeRefresh, claims.Type)
-		assert.Equal(t, user.ID, claims.Userid)
+		assert.Equal(t, user.ID, claims.Subject)
 	})
 }
 
@@ -189,7 +188,7 @@ func TestRenewRefreshClaims_KeepsSessionIdentity(t *testing.T) {
 
 	assert.Equal(t, original.ID, renewed.ID, "renewal must keep JTI so revocation targets the same session")
 	assert.Equal(t, authModel.TokenTypeRefresh, renewed.Type)
-	assert.Equal(t, user.ID, renewed.Userid)
+	assert.Equal(t, user.ID, renewed.Subject)
 	require.NotNil(t, renewed.ExpiresAt)
 	assert.False(t, renewed.ExpiresAt.Before(original.ExpiresAt.Time), "renewal must not shorten expiry")
 

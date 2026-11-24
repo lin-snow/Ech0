@@ -8,11 +8,10 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/handler"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func registerCommon(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	api.route(public(), huma.Operation{
+func registerCommon(api *apiRegistry, h *handler.Bundle) {
+	api.route(public("public activity graph of the timeline"), huma.Operation{
 		OperationID: "common-heatmap",
 		Method:      http.MethodGet,
 		Path:        "/heatmap",
@@ -20,7 +19,7 @@ func registerCommon(api *apiRegistry, h *handler.Bundle, revoker authService.Tok
 		Tags:        []string{"Common"},
 	}, h.CommonHandler.GetHeatMap)
 
-	api.route(public(), huma.Operation{
+	api.route(public("liveness and version probe"), huma.Operation{
 		OperationID: "common-hello",
 		Method:      http.MethodGet,
 		Path:        "/hello",
@@ -28,7 +27,7 @@ func registerCommon(api *apiRegistry, h *handler.Bundle, revoker authService.Tok
 		Tags:        []string{"Common"},
 	}, h.CommonHandler.HelloEch0)
 
-	api.route(secured(revoker), huma.Operation{
+	api.route(session(), huma.Operation{
 		OperationID: "common-website-title",
 		Method:      http.MethodGet,
 		Path:        "/website/title",

@@ -137,11 +137,6 @@ type ListCommentQuery struct {
 	Hot      *bool
 }
 
-type PageResult[T any] struct {
-	Items []T   `json:"items"`
-	Total int64 `json:"total"`
-}
-
 type FormMeta struct {
 	FormToken          string `json:"form_token"`
 	MinSubmitMs        int64  `json:"min_submit_ms"`

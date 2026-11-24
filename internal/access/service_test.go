@@ -15,7 +15,7 @@ import (
 )
 
 func TestCreateAccessToken_RejectsUnknownScope(t *testing.T) {
-	user := userModel.User{IsAdmin: true}
+	user := userModel.User{Role: userModel.RoleAdmin}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-scope",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -28,7 +28,7 @@ func TestCreateAccessToken_RejectsUnknownScope(t *testing.T) {
 }
 
 func TestCreateAccessToken_RejectsUnknownAudience(t *testing.T) {
-	user := userModel.User{IsAdmin: true}
+	user := userModel.User{Role: userModel.RoleAdmin}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-audience",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -41,7 +41,7 @@ func TestCreateAccessToken_RejectsUnknownAudience(t *testing.T) {
 }
 
 func TestCreateAccessToken_AcceptsProfileWriteScope(t *testing.T) {
-	user := userModel.User{IsAdmin: true}
+	user := userModel.User{Role: userModel.RoleAdmin}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "profile-write-token",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -54,7 +54,7 @@ func TestCreateAccessToken_AcceptsProfileWriteScope(t *testing.T) {
 }
 
 func TestCreateAccessToken_RejectsAdminScopeForNonAdminUser(t *testing.T) {
-	user := userModel.User{IsAdmin: false}
+	user := userModel.User{Role: userModel.RoleMember}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-admin-scope",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -133,8 +133,8 @@ func TestNormalizeScopes(t *testing.T) {
 }
 
 func TestValidateRequest_EdgeCases(t *testing.T) {
-	admin := userModel.User{IsAdmin: true}
-	normal := userModel.User{IsAdmin: false}
+	admin := userModel.User{ID: "u-admin", Role: userModel.RoleAdmin}
+	normal := userModel.User{ID: "u-member", Role: userModel.RoleMember}
 
 	cases := []struct {
 		name    string

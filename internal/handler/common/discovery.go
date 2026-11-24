@@ -75,7 +75,7 @@ func (commonHandler *CommonHandler) requireAgentDiscovery(ctx *gin.Context) (set
 		ctx.Status(http.StatusInternalServerError)
 		return system, false
 	}
-	if system.DisableAgentDiscovery {
+	if !system.EnableAgentDiscovery {
 		ctx.Status(http.StatusNotFound)
 		return system, false
 	}

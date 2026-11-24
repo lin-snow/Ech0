@@ -6,6 +6,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/authz"
@@ -176,9 +177,9 @@ func TestQueryEchos_MineFilter(t *testing.T) {
 			Page: 1, PageSize: 10, Mine: true,
 		})
 		require.Error(t, err)
-		var bizErr *commonModel.BizError
-		require.ErrorAs(t, err, &bizErr)
-		assert.Equal(t, commonModel.ErrCodePermissionDenied, bizErr.Code)
+		var fail *commonModel.StatusError
+		require.ErrorAs(t, err, &fail)
+		assert.Equal(t, http.StatusForbidden, fail.Status)
 	})
 }
 
@@ -194,7 +195,8 @@ func TestQueryEchos_ViewerResolution(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		got, err := svc.QueryEchos(helpers.CtxAsUser(adminID), commonModel.EchoQueryDto{Page: 1, PageSize: 10})
 		require.NoError(t, err)
-		assert.Equal(t, int64(1), got.Total)
+		require.NotNil(t, got.Total)
+		assert.Equal(t, int64(1), *got.Total)
 	})
 
 	t.Run("echo:read token queries public-only", func(t *testing.T) {
@@ -265,7 +267,8 @@ func TestGetEchosByPage_DelegatesToQuery(t *testing.T) {
 		Page: 2, PageSize: 5, Search: "hi",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), got.Total)
+	require.NotNil(t, got.Total)
+	assert.Equal(t, int64(1), *got.Total)
 	assert.Len(t, got.Items, 1)
 	assert.Equal(t, 2, captured.Page)
 	assert.Equal(t, 5, captured.PageSize)
@@ -341,10 +344,10 @@ func TestQueryEchos_CursorMode(t *testing.T) {
 	assert.Equal(t, 3, captured.PageSize, "cursor mode probes one extra row")
 	require.NotNil(t, captured.Cursor)
 	assert.Equal(t, echoModel.EncodeCursor(echoModel.Cursor{CreatedAt: 300, ID: "e3"}), *captured.Cursor)
-	assert.Equal(t, int64(4), got.Total)
+	assert.Nil(t, got.Total, "cursor mode reports no offset total")
 	require.Len(t, got.Items, 2, "the probe row is not returned")
-	require.NotNil(t, got.NextCursor)
-	next, err := echoModel.DecodeCursor(*got.NextCursor)
+	require.NotEmpty(t, got.NextCursor)
+	next, err := echoModel.DecodeCursor(got.NextCursor)
 	require.NoError(t, err)
 	assert.Equal(t, echoModel.Cursor{CreatedAt: 100, ID: "e1"}, next)
 }
@@ -369,7 +372,7 @@ func TestQueryEchos_CursorExactFullLastPageHasNoNextCursor(t *testing.T) {
 		PageSize: 2, Cursor: &empty,
 	})
 	require.NoError(t, err)
-	assert.Nil(t, got.NextCursor)
+	assert.Empty(t, got.NextCursor)
 }
 
 func TestQueryEchos_PageModeHasNoNextCursor(t *testing.T) {
@@ -393,7 +396,7 @@ func TestQueryEchos_PageModeHasNoNextCursor(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, captured.PageSize, "page mode keeps the exact page size")
 	assert.Len(t, got.Items, 2)
-	assert.Nil(t, got.NextCursor)
+	assert.Empty(t, got.NextCursor)
 }
 
 func TestQueryEchos_RejectsInvalidCursor(t *testing.T) {
@@ -406,10 +409,10 @@ func TestQueryEchos_RejectsInvalidCursor(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var biz *commonModel.BizError
-	require.ErrorAs(t, err, &biz)
-	assert.Equal(t, commonModel.ErrCodeInvalidQuery, biz.Code)
-	assert.Equal(t, commonModel.MsgKeyEchoInvalidCursor, biz.MessageKey)
+	var fail *commonModel.StatusError
+	require.ErrorAs(t, err, &fail)
+	assert.Equal(t, http.StatusBadRequest, fail.Status)
+	assert.Equal(t, commonModel.INVALID_ECHO_CURSOR, fail.Msg)
 }
 
 func TestQueryEchos_RejectsCursorWithReactionSort(t *testing.T) {
@@ -422,7 +425,7 @@ func TestQueryEchos_RejectsCursorWithReactionSort(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var biz *commonModel.BizError
-	require.ErrorAs(t, err, &biz)
-	assert.Equal(t, commonModel.MsgKeyEchoCursorSortUnsupported, biz.MessageKey)
+	var fail *commonModel.StatusError
+	require.ErrorAs(t, err, &fail)
+	assert.Equal(t, commonModel.ECHO_CURSOR_SORT_UNSUPPORTED, fail.Msg)
 }

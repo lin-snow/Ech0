@@ -11,11 +11,10 @@ import (
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	api.route(public(), huma.Operation{
+func registerEcho(api *apiRegistry, h *handler.Bundle) {
+	api.route(public("presentation data: the emoji set offered to readers"), huma.Operation{
 		OperationID: "reaction-catalog",
 		Method:      http.MethodGet,
 		Path:        "/reactions",
@@ -23,7 +22,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Reaction"},
 	}, h.EchoHandler.GetReactionCatalog)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "reaction-add",
 		Method:      http.MethodPut,
 		Path:        "/echo/{id}/reactions/{emoji}",
@@ -32,7 +31,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimit(10, 20))},
 	}, h.EchoHandler.AddReaction)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "reaction-remove",
 		Method:      http.MethodDelete,
 		Path:        "/echo/{id}/reactions/{emoji}",
@@ -41,7 +40,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Middlewares: huma.Middlewares{humares.Bridge(middleware.RateLimit(10, 20))},
 	}, h.EchoHandler.RemoveReaction)
 
-	api.route(public(), huma.Operation{
+	api.route(public("public navigation: readers browse by tag"), huma.Operation{
 		OperationID: "tag-list",
 		Method:      http.MethodGet,
 		Path:        "/tags",
@@ -49,7 +48,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Tag"},
 	}, h.EchoHandler.GetAllTags)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-list",
 		Method:      http.MethodPost,
 		Path:        "/echo/query",
@@ -57,7 +56,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.QueryEchos)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-page-get",
 		Method:      http.MethodGet,
 		Path:        "/echo/page",
@@ -65,7 +64,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetEchosByPageGet)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-page-post",
 		Method:      http.MethodPost,
 		Path:        "/echo/page",
@@ -73,7 +72,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetEchosByPagePost)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-by-tag",
 		Method:      http.MethodGet,
 		Path:        "/echo/tag/{tagid}",
@@ -81,7 +80,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetEchosByTagId)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-today",
 		Method:      http.MethodGet,
 		Path:        "/echo/today",
@@ -89,7 +88,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetTodayEchos)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-hot",
 		Method:      http.MethodGet,
 		Path:        "/echo/hot",
@@ -97,7 +96,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetHotEchos)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-random",
 		Method:      http.MethodGet,
 		Path:        "/echo/random",
@@ -105,7 +104,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetRandomEcho)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-onthisday",
 		Method:      http.MethodGet,
 		Path:        "/echo/onthisday",
@@ -113,7 +112,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetOnThisDayEchos)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "echo-get",
 		Method:      http.MethodGet,
 		Path:        "/echo/{id}",
@@ -121,15 +120,16 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.GetEchoById)
 
-	api.route(secured(revoker, authz.ScopeEchoWrite), huma.Operation{
-		OperationID: "echo-create",
-		Method:      http.MethodPost,
-		Path:        "/echo",
-		Summary:     "创建新的 Echo",
-		Tags:        []string{"Echo"},
+	api.route(scoped(authz.ScopeEchoWrite), huma.Operation{
+		OperationID:   "echo-create",
+		Method:        http.MethodPost,
+		Path:          "/echo",
+		Summary:       "创建新的 Echo",
+		DefaultStatus: http.StatusCreated,
+		Tags:          []string{"Echo"},
 	}, h.EchoHandler.PostEcho)
 
-	api.route(secured(revoker, authz.ScopeEchoWrite), huma.Operation{
+	api.route(scoped(authz.ScopeEchoWrite), huma.Operation{
 		OperationID: "echo-update",
 		Method:      http.MethodPut,
 		Path:        "/echo",
@@ -137,7 +137,7 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.UpdateEcho)
 
-	api.route(secured(revoker, authz.ScopeEchoDelete), huma.Operation{
+	api.route(scoped(authz.ScopeEchoDelete), huma.Operation{
 		OperationID: "echo-delete",
 		Method:      http.MethodDelete,
 		Path:        "/echo/{id}",
@@ -145,15 +145,16 @@ func registerEcho(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Echo"},
 	}, h.EchoHandler.DeleteEcho)
 
-	api.route(secured(revoker, authz.ScopeEchoWrite), huma.Operation{
-		OperationID: "tag-create",
-		Method:      http.MethodPost,
-		Path:        "/tag",
-		Summary:     "创建标签",
-		Tags:        []string{"Echo"},
+	api.route(scoped(authz.ScopeEchoWrite), huma.Operation{
+		OperationID:   "tag-create",
+		Method:        http.MethodPost,
+		Path:          "/tag",
+		Summary:       "创建标签",
+		DefaultStatus: http.StatusCreated,
+		Tags:          []string{"Echo"},
 	}, h.EchoHandler.CreateTag)
 
-	api.route(secured(revoker, authz.ScopeEchoDelete), huma.Operation{
+	api.route(scoped(authz.ScopeEchoDelete), huma.Operation{
 		OperationID: "tag-delete",
 		Method:      http.MethodDelete,
 		Path:        "/tag/{id}",

@@ -4,24 +4,37 @@
 package model
 
 import (
+	"time"
+
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	"gorm.io/gorm"
 )
 
-type EchoFile = fileModel.EchoFile
+// EchoFile is the attachment projection of one echo: the link (id + order)
+// plus the file row it points at. It is assembled from file_links + files and
+// is never stored on the echo itself — the echo holds no attachment rows.
+type EchoFile struct {
+	FileID    string         `json:"file_id"`
+	SortOrder int            `json:"sort_order"`
+	File      fileModel.File `json:"file"`
+}
 
 type Echo struct {
 	ID        string         `gorm:"type:char(36);primaryKey;index:idx_echos_created_id,priority:2;index:idx_echos_private_created_id,priority:3" json:"id"`
 	Content   string         `gorm:"type:text;not null"                            json:"content"`
 	Username  string         `gorm:"type:varchar(100)"                             json:"username,omitempty"`
-	EchoFiles []EchoFile     `gorm:"foreignKey:EchoID;constraint:OnDelete:CASCADE" json:"echo_files,omitempty"`
+	EchoFiles []EchoFile     `gorm:"-"                                             json:"echo_files,omitempty"`
 	Layout    string         `gorm:"type:varchar(50);default:'waterfall'"          json:"layout,omitempty"`
 	Private   bool           `gorm:"default:false;index:idx_echos_private_created_id,priority:1" json:"private"`
 	UserID    string         `gorm:"type:char(36);not null;index"                  json:"user_id"`
 	Extension *EchoExtension `gorm:"foreignKey:EchoID;constraint:OnDelete:CASCADE" json:"extension,omitempty"`
 	Tags      []Tag          `gorm:"many2many:echo_tags;"                          json:"tags,omitempty"`
 	CreatedAt int64          `gorm:"autoCreateTime;index:idx_echos_private_created_id,priority:2;index:idx_echos_created_id,priority:1" json:"created_at"`
+	// DeletedAt is a plain nullable timestamp (NOT gorm.DeletedAt): deletes stay
+	// hard deletes, but file visibility checks can still honour tombstones left
+	// by imports or future soft-delete paths.
+	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"`
 
 	// Reactions is a request-scoped projection hydrated by the service from
 	// echo_reactions; it is never persisted with the echo row and therefore

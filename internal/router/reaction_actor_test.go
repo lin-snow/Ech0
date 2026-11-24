@@ -38,7 +38,7 @@ func TestSetupRouter_ReactionWritesUseAuthenticatedActor(t *testing.T) {
 	bundle.EchoHandler = echoHandler.NewEchoHandler(svc)
 
 	engine := gin.New()
-	SetupRouter(engine, bundle, buildTestMWDeps())
+	require.NoError(t, SetupRouter(engine, bundle, buildTestMWDeps()))
 
 	const echoID = "0f0f0f0f-1111-4222-8333-444444444444"
 	require.NoError(t, db.Create(&echoModel.Echo{ID: echoID, Content: "actor test", UserID: "u-owner"}).Error)

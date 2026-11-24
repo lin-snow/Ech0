@@ -185,40 +185,6 @@ export type CreateCommentDto = {
     [key: string]: unknown;
 };
 
-export type CreateCommentResult = {
-    id?: string;
-    status?: string;
-    [key: string]: unknown;
-};
-
-export type CreateExternalFileDto = {
-    /**
-     * File category: image, video, audio, pdf, markdown, or file
-     */
-    category?: string;
-    /**
-     * MIME type; inferred from the URL when omitted
-     */
-    content_type?: string;
-    /**
-     * Pixel height, for images
-     */
-    height?: number;
-    /**
-     * Display name; defaults to the URL's last segment
-     */
-    name?: string;
-    /**
-     * Public HTTP(S) URL to register; no bytes are uploaded
-     */
-    url?: string;
-    /**
-     * Pixel width, for images
-     */
-    width?: number;
-    [key: string]: unknown;
-};
-
 export type CreateIntegrationCommentDto = {
     /**
      * Comment body, at most 200 characters
@@ -257,6 +223,7 @@ export type DayStat = {
 export type Echo = {
     content?: string;
     created_at?: number;
+    deleted_at?: string;
     echo_files?: Array<EchoFile> | null;
     extension?: EchoExtension;
     id?: string;
@@ -296,25 +263,8 @@ export type EchoExtensionDto = {
 };
 
 export type EchoFile = {
-    /**
-     * 所属 Echo ID，提交时忽略
-     */
-    echo_id?: string;
-    /**
-     * 文件元数据，提交时忽略（服务端按 file_id 填充）
-     */
     file?: File;
-    /**
-     * 已上传文件的 ID（上传接口返回）
-     */
     file_id?: string;
-    /**
-     * 关联记录 ID，提交时忽略
-     */
-    id?: string;
-    /**
-     * 同一 Echo 内的排序，从 0 开始
-     */
     sort_order?: number;
     [key: string]: unknown;
 };
@@ -377,9 +327,9 @@ export type EchoUpsertDto = {
      */
     created_at?: number;
     /**
-     * Attachments as {file_id, sort_order}; upload files first to get file_id
+     * Attachments as {file_id, sort_order}; upload files first to get file_id. Omit on update to keep existing attachments; send [] to clear
      */
-    echo_files?: Array<EchoFile> | null;
+    echo_files?: Array<EchoFile>;
     /**
      * Card payload: {type, payload}
      */
@@ -434,33 +384,47 @@ export type EmbeddingSettingDto = {
     [key: string]: unknown;
 };
 
-export type ErrorBody = {
+export type ErrorDetail = {
     /**
-     * 业务状态码，失败为 0
+     * Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
      */
-    code?: number;
+    location?: string;
     /**
-     * 失败时为 null
+     * Error message text
      */
-    data?: unknown;
+    message?: string;
     /**
-     * 稳定的业务错误码
+     * The value at the given location
      */
-    error_code?: string;
+    value?: unknown;
+    [key: string]: unknown;
+};
+
+export type ErrorModel = {
     /**
-     * i18n 翻译 key
+     * A human-readable explanation specific to this occurrence of the problem.
      */
-    message_key?: string;
+    detail?: string;
     /**
-     * i18n 模板参数
+     * Optional list of individual error details
      */
-    message_params?: {
-        [key: string]: unknown;
-    };
+    errors?: Array<ErrorDetail> | null;
     /**
-     * 状态描述（回退文案）
+     * A URI reference that identifies the specific occurrence of the problem.
      */
-    msg?: string;
+    instance?: string;
+    /**
+     * HTTP status code
+     */
+    status?: number;
+    /**
+     * A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+     */
+    title?: string;
+    /**
+     * A URI reference to human-readable documentation for the error.
+     */
+    type?: string;
     [key: string]: unknown;
 };
 
@@ -479,70 +443,40 @@ export type ExportStateDto = {
 };
 
 export type File = {
-    bucket?: string;
-    category?: string;
+    access?: string;
+    blob_bytes?: number;
     content_type?: string;
     created_at?: number;
     height?: number;
     id?: string;
-    key?: string;
+    kind?: string;
     name?: string;
-    provider?: string;
+    object_key?: string;
+    ref_url?: string;
     size?: number;
-    storage_type?: string;
-    url?: string;
-    user_id?: string;
+    status?: string;
+    storage_id?: string;
+    updated_at?: number;
+    uploader_id?: string;
     width?: number;
     [key: string]: unknown;
 };
 
 export type FileDto = {
+    access?: string;
     category?: string;
     content_type?: string;
+    created_at?: number;
     height?: number;
     id?: string;
-    key?: string;
+    kind?: string;
+    links?: Array<LinkDto> | null;
     name?: string;
     size?: number;
-    storage_type?: string;
+    status?: string;
+    uploader_id?: string;
     url?: string;
-    user_id?: string;
     width?: number;
-    [key: string]: unknown;
-};
-
-export type FileListItemDto = {
-    content_type?: string;
-    created_at?: number;
-    id?: string;
-    key?: string;
-    name?: string;
-    size?: number;
-    storage_type?: string;
-    url?: string;
-    [key: string]: unknown;
-};
-
-export type FileListResultDto = {
-    items?: Array<FileListItemDto> | null;
-    total?: number;
-    [key: string]: unknown;
-};
-
-export type FileTreeNodeDto = {
-    content_type?: string;
-    file_id?: string;
-    has_children?: boolean;
-    modified_at?: number;
-    name?: string;
-    node_type?: string;
-    path?: string;
-    size?: number;
-    [key: string]: unknown;
-};
-
-export type FileTreeResultDto = {
-    items?: Array<FileTreeNodeDto> | null;
     [key: string]: unknown;
 };
 
@@ -552,13 +486,6 @@ export type FormMeta = {
     enable_comment?: boolean;
     form_token?: string;
     min_submit_ms?: number;
-    [key: string]: unknown;
-};
-
-export type GetPresignUrlDto = {
-    content_type?: string;
-    file_name?: string;
-    storage_type?: string;
     [key: string]: unknown;
 };
 
@@ -601,6 +528,270 @@ export type InitOwnerDto = {
     password?: string;
     site_title?: string;
     username?: string;
+    [key: string]: unknown;
+};
+
+export type LinkDto = {
+    owner_id?: string;
+    owner_kind?: string;
+    role?: string;
+    sort_order?: number;
+    [key: string]: unknown;
+};
+
+export type ListAccessTokenSetting = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<AccessTokenSetting> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListComment = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Comment> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListConnect = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Connect> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListConnected = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Connected> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListConnectedHealth = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<ConnectedHealth> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListDayStat = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<DayStat> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListEcho = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Echo> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListFileDto = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<FileDto> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListHeatmap = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Heatmap> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListLogEntry = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<LogEntry> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListPublicComment = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<PublicComment> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListReactionCount = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<ReactionCount> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListReactionEmoji = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<ReactionEmoji> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListTag = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Tag> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListUser = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<User> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
+    [key: string]: unknown;
+};
+
+export type ListWebhook = {
+    /**
+     * 当前页数据
+     */
+    items?: Array<Webhook> | null;
+    /**
+     * 下一页游标，仅游标分页返回；为空表示没有更多
+     */
+    nextCursor?: string;
+    /**
+     * 符合查询条件的总条数，仅偏移分页返回
+     */
+    total?: number;
     [key: string]: unknown;
 };
 
@@ -654,18 +845,6 @@ export type ManifestTool = {
     read_only?: boolean;
     scopes?: Array<string> | null;
     title?: string;
-    [key: string]: unknown;
-};
-
-export type ModelResultCommentSystemSetting = {
-    code?: number;
-    data?: ModelSystemSetting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
     [key: string]: unknown;
 };
 
@@ -744,19 +923,6 @@ export type PageQueryDto = {
     [key: string]: unknown;
 };
 
-export type PageQueryResultListEcho = {
-    items?: Array<Echo> | null;
-    nextCursor?: string;
-    total?: number;
-    [key: string]: unknown;
-};
-
-export type PageResultComment = {
-    items?: Array<Comment> | null;
-    total?: number;
-    [key: string]: unknown;
-};
-
 export type PasskeyDeviceDto = {
     aaguid?: string;
     created_at?: number;
@@ -785,16 +951,6 @@ export type PasskeyStatus = {
 
 export type PasskeyUpdateDeviceNameReq = {
     device_name?: string;
-    [key: string]: unknown;
-};
-
-export type PresignDto = {
-    content_type?: string;
-    file_name?: string;
-    file_url?: string;
-    id?: string;
-    key?: string;
-    presign_url?: string;
     [key: string]: unknown;
 };
 
@@ -863,579 +1019,11 @@ export type ReindexStatusResponse = {
     [key: string]: unknown;
 };
 
-export type ResultAgentSetting = {
-    code?: number;
-    data?: AgentSetting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultCheckUpdateResponse = {
-    code?: number;
-    data?: CheckUpdateResponse;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultComment = {
-    code?: number;
-    data?: Comment;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultConnect = {
-    code?: number;
-    data?: Connect;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultCreateCommentResult = {
-    code?: number;
-    data?: CreateCommentResult;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultEcho = {
-    code?: number;
-    data?: Echo;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultEmbeddingSetting = {
-    code?: number;
-    data?: EmbeddingSetting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultExportStateDto = {
-    code?: number;
-    data?: ExportStateDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultFileDto = {
-    code?: number;
-    data?: FileDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultFileListResultDto = {
-    code?: number;
-    data?: FileListResultDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultFileTreeResultDto = {
-    code?: number;
-    data?: FileTreeResultDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultFormMeta = {
-    code?: number;
-    data?: FormMeta;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultGlobalMigrationStateDto = {
-    code?: number;
-    data?: GlobalMigrationStateDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultHelloResponse = {
-    code?: number;
-    data?: HelloResponse;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultInterface = {
-    code?: number;
-    data?: unknown;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListAccessTokenSetting = {
-    code?: number;
-    data?: Array<AccessTokenSetting> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListChatMessage = {
-    code?: number;
-    data?: Array<ChatMessage> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListConnect = {
-    code?: number;
-    data?: Array<Connect> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListConnected = {
-    code?: number;
-    data?: Array<Connected> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListConnectedHealth = {
-    code?: number;
-    data?: Array<ConnectedHealth> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListDayStat = {
-    code?: number;
-    data?: Array<DayStat> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListEcho = {
-    code?: number;
-    data?: Array<Echo> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListHeatmap = {
-    code?: number;
-    data?: Array<Heatmap> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListLogEntry = {
-    code?: number;
-    data?: Array<LogEntry> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListPasskeyDeviceDto = {
-    code?: number;
-    data?: Array<PasskeyDeviceDto> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListPublicComment = {
-    code?: number;
-    data?: Array<PublicComment> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListReactionCount = {
-    code?: number;
-    data?: Array<ReactionCount> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListReactionEmoji = {
-    code?: number;
-    data?: Array<ReactionEmoji> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListTag = {
-    code?: number;
-    data?: Array<Tag> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListUser = {
-    code?: number;
-    data?: Array<User> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultListWebhook = {
-    code?: number;
-    data?: Array<Webhook> | null;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultManifest = {
-    code?: number;
-    data?: Manifest;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultOAuth2Setting = {
-    code?: number;
-    data?: OAuth2Setting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultOAuth2Status = {
-    code?: number;
-    data?: OAuth2Status;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultOAuthInfoDto = {
-    code?: number;
-    data?: OAuthInfoDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultPageQueryResultListEcho = {
-    code?: number;
-    data?: PageQueryResultListEcho;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultPageResultComment = {
-    code?: number;
-    data?: PageResultComment;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultPasskeySetting = {
-    code?: number;
-    data?: PasskeySetting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultPasskeyStatus = {
-    code?: number;
-    data?: PasskeyStatus;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultPresignDto = {
-    code?: number;
-    data?: PresignDto;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultReindexStatusResponse = {
-    code?: number;
-    data?: ReindexStatusResponse;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultS3Setting = {
-    code?: number;
-    data?: S3Setting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultSnapshotSchedule = {
-    code?: number;
-    data?: SnapshotSchedule;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultStatus = {
-    code?: number;
-    data?: Status;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultString = {
-    code?: number;
-    data?: string;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultSystemSetting = {
-    code?: number;
-    data?: SystemSetting;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultTag = {
-    code?: number;
-    data?: Tag;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
-    [key: string]: unknown;
-};
-
-export type ResultUser = {
-    code?: number;
-    data?: User;
-    error_code?: string;
-    message_key?: string;
-    message_params?: {
-        [key: string]: unknown;
-    };
-    msg?: string;
+export type RenameFileInputBody = {
+    /**
+     * 展示名称（可为空）
+     */
+    name?: string;
     [key: string]: unknown;
 };
 
@@ -1520,12 +1108,13 @@ export type SystemSetting = {
     custom_css?: string;
     custom_js?: string;
     default_locale?: string;
-    disable_agent_discovery?: boolean;
+    enable_agent_discovery?: boolean;
     footer_content?: string;
     footer_link?: string;
     meting_api?: string;
     privacy_policy?: string;
     server_logo?: string;
+    server_logo_file_id?: string;
     server_name?: string;
     server_url?: string;
     show_privacy_footer?: boolean;
@@ -1539,7 +1128,7 @@ export type SystemSettingDto = {
     custom_css?: string;
     custom_js?: string;
     default_locale?: string;
-    disable_agent_discovery?: boolean;
+    enable_agent_discovery?: boolean;
     footer_content?: string;
     footer_link?: string;
     meting_api?: string;
@@ -1588,11 +1177,11 @@ export type UpdateCommentStatusDto = {
     [key: string]: unknown;
 };
 
-export type UpdateFileMetaDto = {
-    content_type?: string;
-    height?: number;
-    size?: number;
-    width?: number;
+export type UpdateUserRoleInputBody = {
+    /**
+     * 目标角色：admin 或 member
+     */
+    role?: string;
     [key: string]: unknown;
 };
 
@@ -1606,10 +1195,11 @@ export type UpdateUserStatusInputBody = {
 
 export type User = {
     avatar?: string;
+    avatar_file_id?: string;
     email?: string;
     id?: string;
-    is_admin?: boolean;
     locale?: string;
+    role?: string;
     status?: string;
     username?: string;
     [key: string]: unknown;
@@ -1619,7 +1209,6 @@ export type UserInfoDto = {
     avatar?: string;
     avatar_file_id?: string;
     email?: string;
-    is_admin?: boolean;
     locale?: string;
     password?: string;
     username?: string;
@@ -1669,7 +1258,7 @@ export type AccessTokenListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AccessTokenListError = AccessTokenListErrors[keyof AccessTokenListErrors];
@@ -1678,7 +1267,7 @@ export type AccessTokenListResponses = {
     /**
      * OK
      */
-    200: ResultListAccessTokenSetting;
+    200: ListAccessTokenSetting;
 };
 
 export type AccessTokenListResponse = AccessTokenListResponses[keyof AccessTokenListResponses];
@@ -1694,16 +1283,16 @@ export type AccessTokenCreateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AccessTokenCreateError = AccessTokenCreateErrors[keyof AccessTokenCreateErrors];
 
 export type AccessTokenCreateResponses = {
     /**
-     * OK
+     * Created
      */
-    200: ResultString;
+    201: string;
 };
 
 export type AccessTokenCreateResponse = AccessTokenCreateResponses[keyof AccessTokenCreateResponses];
@@ -1724,16 +1313,16 @@ export type AccessTokenDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AccessTokenDeleteError = AccessTokenDeleteErrors[keyof AccessTokenDeleteErrors];
 
 export type AccessTokenDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type AccessTokenDeleteResponse = AccessTokenDeleteResponses[keyof AccessTokenDeleteResponses];
@@ -1749,7 +1338,7 @@ export type AgentInfoErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AgentInfoError = AgentInfoErrors[keyof AgentInfoErrors];
@@ -1758,7 +1347,7 @@ export type AgentInfoResponses = {
     /**
      * OK
      */
-    200: ResultAgentSetting;
+    200: AgentSetting;
 };
 
 export type AgentInfoResponse = AgentInfoResponses[keyof AgentInfoResponses];
@@ -1774,7 +1363,7 @@ export type CopilotRecentErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CopilotRecentError = CopilotRecentErrors[keyof CopilotRecentErrors];
@@ -1783,7 +1372,7 @@ export type CopilotRecentResponses = {
     /**
      * OK
      */
-    200: ResultString;
+    200: string;
 };
 
 export type CopilotRecentResponse = CopilotRecentResponses[keyof CopilotRecentResponses];
@@ -1799,7 +1388,7 @@ export type AgentSettingsGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AgentSettingsGetError = AgentSettingsGetErrors[keyof AgentSettingsGetErrors];
@@ -1808,7 +1397,7 @@ export type AgentSettingsGetResponses = {
     /**
      * OK
      */
-    200: ResultAgentSetting;
+    200: AgentSetting;
 };
 
 export type AgentSettingsGetResponse = AgentSettingsGetResponses[keyof AgentSettingsGetResponses];
@@ -1824,16 +1413,16 @@ export type AgentSettingsUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AgentSettingsUpdateError = AgentSettingsUpdateErrors[keyof AgentSettingsUpdateErrors];
 
 export type AgentSettingsUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type AgentSettingsUpdateResponse = AgentSettingsUpdateResponses[keyof AgentSettingsUpdateResponses];
@@ -1849,16 +1438,16 @@ export type AgentSettingsTestErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type AgentSettingsTestError = AgentSettingsTestErrors[keyof AgentSettingsTestErrors];
 
 export type AgentSettingsTestResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type AgentSettingsTestResponse = AgentSettingsTestResponses[keyof AgentSettingsTestResponses];
@@ -1874,16 +1463,16 @@ export type CopilotChatAnswerErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CopilotChatAnswerError = CopilotChatAnswerErrors[keyof CopilotChatAnswerErrors];
 
 export type CopilotChatAnswerResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CopilotChatAnswerResponse = CopilotChatAnswerResponses[keyof CopilotChatAnswerResponses];
@@ -1899,16 +1488,16 @@ export type CopilotSessionClearErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CopilotSessionClearError = CopilotSessionClearErrors[keyof CopilotSessionClearErrors];
 
 export type CopilotSessionClearResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CopilotSessionClearResponse = CopilotSessionClearResponses[keyof CopilotSessionClearResponses];
@@ -1924,7 +1513,7 @@ export type CopilotSessionGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CopilotSessionGetError = CopilotSessionGetErrors[keyof CopilotSessionGetErrors];
@@ -1933,7 +1522,7 @@ export type CopilotSessionGetResponses = {
     /**
      * OK
      */
-    200: ResultListChatMessage;
+    200: Array<ChatMessage> | null;
 };
 
 export type CopilotSessionGetResponse = CopilotSessionGetResponses[keyof CopilotSessionGetResponses];
@@ -1954,7 +1543,7 @@ export type CommentListByEchoErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentListByEchoError = CommentListByEchoErrors[keyof CommentListByEchoErrors];
@@ -1963,7 +1552,7 @@ export type CommentListByEchoResponses = {
     /**
      * OK
      */
-    200: ResultListPublicComment;
+    200: ListPublicComment;
 };
 
 export type CommentListByEchoResponse = CommentListByEchoResponses[keyof CommentListByEchoResponses];
@@ -1979,16 +1568,16 @@ export type CommentCreateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentCreateError = CommentCreateErrors[keyof CommentCreateErrors];
 
 export type CommentCreateResponses = {
     /**
-     * OK
+     * Created
      */
-    200: ResultCreateCommentResult;
+    201: Comment;
 };
 
 export type CommentCreateResponse = CommentCreateResponses[keyof CommentCreateResponses];
@@ -2004,7 +1593,7 @@ export type CommentFormMetaErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentFormMetaError = CommentFormMetaErrors[keyof CommentFormMetaErrors];
@@ -2013,7 +1602,7 @@ export type CommentFormMetaResponses = {
     /**
      * OK
      */
-    200: ResultFormMeta;
+    200: FormMeta;
 };
 
 export type CommentFormMetaResponse = CommentFormMetaResponses[keyof CommentFormMetaResponses];
@@ -2029,16 +1618,16 @@ export type CommentCreateIntegrationErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentCreateIntegrationError = CommentCreateIntegrationErrors[keyof CommentCreateIntegrationErrors];
 
 export type CommentCreateIntegrationResponses = {
     /**
-     * OK
+     * Created
      */
-    200: ResultCreateCommentResult;
+    201: Comment;
 };
 
 export type CommentCreateIntegrationResponse = CommentCreateIntegrationResponses[keyof CommentCreateIntegrationResponses];
@@ -2059,7 +1648,7 @@ export type CommentListPublicErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentListPublicError = CommentListPublicErrors[keyof CommentListPublicErrors];
@@ -2068,7 +1657,7 @@ export type CommentListPublicResponses = {
     /**
      * OK
      */
-    200: ResultListPublicComment;
+    200: ListPublicComment;
 };
 
 export type CommentListPublicResponse = CommentListPublicResponses[keyof CommentListPublicResponses];
@@ -2084,7 +1673,7 @@ export type ConnectSelfErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ConnectSelfError = ConnectSelfErrors[keyof ConnectSelfErrors];
@@ -2093,7 +1682,7 @@ export type ConnectSelfResponses = {
     /**
      * OK
      */
-    200: ResultConnect;
+    200: Connect;
 };
 
 export type ConnectSelfResponse = ConnectSelfResponses[keyof ConnectSelfResponses];
@@ -2109,7 +1698,7 @@ export type ConnectListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ConnectListError = ConnectListErrors[keyof ConnectListErrors];
@@ -2118,7 +1707,7 @@ export type ConnectListResponses = {
     /**
      * OK
      */
-    200: ResultListConnected;
+    200: ListConnected;
 };
 
 export type ConnectListResponse = ConnectListResponses[keyof ConnectListResponses];
@@ -2134,16 +1723,16 @@ export type ConnectAddErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ConnectAddError = ConnectAddErrors[keyof ConnectAddErrors];
 
 export type ConnectAddResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type ConnectAddResponse = ConnectAddResponses[keyof ConnectAddResponses];
@@ -2159,7 +1748,7 @@ export type ConnectHealthErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ConnectHealthError = ConnectHealthErrors[keyof ConnectHealthErrors];
@@ -2168,7 +1757,7 @@ export type ConnectHealthResponses = {
     /**
      * OK
      */
-    200: ResultListConnectedHealth;
+    200: ListConnectedHealth;
 };
 
 export type ConnectHealthResponse = ConnectHealthResponses[keyof ConnectHealthResponses];
@@ -2184,7 +1773,7 @@ export type ConnectInfoErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ConnectInfoError = ConnectInfoErrors[keyof ConnectInfoErrors];
@@ -2193,7 +1782,7 @@ export type ConnectInfoResponses = {
     /**
      * OK
      */
-    200: ResultListConnect;
+    200: ListConnect;
 };
 
 export type ConnectInfoResponse = ConnectInfoResponses[keyof ConnectInfoResponses];
@@ -2214,16 +1803,16 @@ export type ConnectDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ConnectDeleteError = ConnectDeleteErrors[keyof ConnectDeleteErrors];
 
 export type ConnectDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type ConnectDeleteResponse = ConnectDeleteResponses[keyof ConnectDeleteResponses];
@@ -2239,16 +1828,16 @@ export type EchoCreateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoCreateError = EchoCreateErrors[keyof EchoCreateErrors];
 
 export type EchoCreateResponses = {
     /**
-     * OK
+     * Created
      */
-    200: ResultEcho;
+    201: Echo;
 };
 
 export type EchoCreateResponse = EchoCreateResponses[keyof EchoCreateResponses];
@@ -2264,7 +1853,7 @@ export type EchoUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoUpdateError = EchoUpdateErrors[keyof EchoUpdateErrors];
@@ -2273,7 +1862,7 @@ export type EchoUpdateResponses = {
     /**
      * OK
      */
-    200: ResultEcho;
+    200: Echo;
 };
 
 export type EchoUpdateResponse = EchoUpdateResponses[keyof EchoUpdateResponses];
@@ -2294,7 +1883,7 @@ export type EchoHotErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoHotError = EchoHotErrors[keyof EchoHotErrors];
@@ -2303,7 +1892,7 @@ export type EchoHotResponses = {
     /**
      * OK
      */
-    200: ResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoHotResponse = EchoHotResponses[keyof EchoHotResponses];
@@ -2325,7 +1914,7 @@ export type EchoOnthisdayErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoOnthisdayError = EchoOnthisdayErrors[keyof EchoOnthisdayErrors];
@@ -2334,7 +1923,7 @@ export type EchoOnthisdayResponses = {
     /**
      * OK
      */
-    200: ResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoOnthisdayResponse = EchoOnthisdayResponses[keyof EchoOnthisdayResponses];
@@ -2354,7 +1943,7 @@ export type EchoPageGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoPageGetError = EchoPageGetErrors[keyof EchoPageGetErrors];
@@ -2363,7 +1952,7 @@ export type EchoPageGetResponses = {
     /**
      * OK
      */
-    200: ResultPageQueryResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoPageGetResponse = EchoPageGetResponses[keyof EchoPageGetResponses];
@@ -2379,7 +1968,7 @@ export type EchoPagePostErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoPagePostError = EchoPagePostErrors[keyof EchoPagePostErrors];
@@ -2388,7 +1977,7 @@ export type EchoPagePostResponses = {
     /**
      * OK
      */
-    200: ResultPageQueryResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoPagePostResponse = EchoPagePostResponses[keyof EchoPagePostResponses];
@@ -2404,7 +1993,7 @@ export type EchoListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoListError = EchoListErrors[keyof EchoListErrors];
@@ -2413,7 +2002,7 @@ export type EchoListResponses = {
     /**
      * OK
      */
-    200: ResultPageQueryResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoListResponse = EchoListResponses[keyof EchoListResponses];
@@ -2429,7 +2018,7 @@ export type EchoRandomErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoRandomError = EchoRandomErrors[keyof EchoRandomErrors];
@@ -2438,7 +2027,7 @@ export type EchoRandomResponses = {
     /**
      * OK
      */
-    200: ResultEcho;
+    200: Echo;
 };
 
 export type EchoRandomResponse = EchoRandomResponses[keyof EchoRandomResponses];
@@ -2463,7 +2052,7 @@ export type EchoByTagErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoByTagError = EchoByTagErrors[keyof EchoByTagErrors];
@@ -2472,7 +2061,7 @@ export type EchoByTagResponses = {
     /**
      * OK
      */
-    200: ResultPageQueryResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoByTagResponse = EchoByTagResponses[keyof EchoByTagResponses];
@@ -2494,7 +2083,7 @@ export type EchoTodayErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoTodayError = EchoTodayErrors[keyof EchoTodayErrors];
@@ -2503,7 +2092,7 @@ export type EchoTodayResponses = {
     /**
      * OK
      */
-    200: ResultListEcho;
+    200: ListEcho;
 };
 
 export type EchoTodayResponse = EchoTodayResponses[keyof EchoTodayResponses];
@@ -2524,16 +2113,16 @@ export type EchoDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoDeleteError = EchoDeleteErrors[keyof EchoDeleteErrors];
 
 export type EchoDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type EchoDeleteResponse = EchoDeleteResponses[keyof EchoDeleteResponses];
@@ -2554,7 +2143,7 @@ export type EchoGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EchoGetError = EchoGetErrors[keyof EchoGetErrors];
@@ -2563,7 +2152,7 @@ export type EchoGetResponses = {
     /**
      * OK
      */
-    200: ResultEcho;
+    200: Echo;
 };
 
 export type EchoGetResponse = EchoGetResponses[keyof EchoGetResponses];
@@ -2588,7 +2177,7 @@ export type ReactionRemoveErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ReactionRemoveError = ReactionRemoveErrors[keyof ReactionRemoveErrors];
@@ -2597,7 +2186,7 @@ export type ReactionRemoveResponses = {
     /**
      * OK
      */
-    200: ResultListReactionCount;
+    200: ListReactionCount;
 };
 
 export type ReactionRemoveResponse = ReactionRemoveResponses[keyof ReactionRemoveResponses];
@@ -2622,7 +2211,7 @@ export type ReactionAddErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ReactionAddError = ReactionAddErrors[keyof ReactionAddErrors];
@@ -2631,7 +2220,7 @@ export type ReactionAddResponses = {
     /**
      * OK
      */
-    200: ResultListReactionCount;
+    200: ListReactionCount;
 };
 
 export type ReactionAddResponse = ReactionAddResponses[keyof ReactionAddResponses];
@@ -2647,7 +2236,7 @@ export type EmbeddingReindexErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EmbeddingReindexError = EmbeddingReindexErrors[keyof EmbeddingReindexErrors];
@@ -2656,7 +2245,7 @@ export type EmbeddingReindexResponses = {
     /**
      * OK
      */
-    200: ResultReindexStatusResponse;
+    200: ReindexStatusResponse;
 };
 
 export type EmbeddingReindexResponse = EmbeddingReindexResponses[keyof EmbeddingReindexResponses];
@@ -2672,7 +2261,7 @@ export type EmbeddingReindexCancelErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EmbeddingReindexCancelError = EmbeddingReindexCancelErrors[keyof EmbeddingReindexCancelErrors];
@@ -2681,7 +2270,7 @@ export type EmbeddingReindexCancelResponses = {
     /**
      * OK
      */
-    200: ResultReindexStatusResponse;
+    200: ReindexStatusResponse;
 };
 
 export type EmbeddingReindexCancelResponse = EmbeddingReindexCancelResponses[keyof EmbeddingReindexCancelResponses];
@@ -2697,7 +2286,7 @@ export type EmbeddingReindexStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EmbeddingReindexStatusError = EmbeddingReindexStatusErrors[keyof EmbeddingReindexStatusErrors];
@@ -2706,7 +2295,7 @@ export type EmbeddingReindexStatusResponses = {
     /**
      * OK
      */
-    200: ResultReindexStatusResponse;
+    200: ReindexStatusResponse;
 };
 
 export type EmbeddingReindexStatusResponse = EmbeddingReindexStatusResponses[keyof EmbeddingReindexStatusResponses];
@@ -2722,7 +2311,7 @@ export type EmbeddingSettingsGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EmbeddingSettingsGetError = EmbeddingSettingsGetErrors[keyof EmbeddingSettingsGetErrors];
@@ -2731,7 +2320,7 @@ export type EmbeddingSettingsGetResponses = {
     /**
      * OK
      */
-    200: ResultEmbeddingSetting;
+    200: EmbeddingSetting;
 };
 
 export type EmbeddingSettingsGetResponse = EmbeddingSettingsGetResponses[keyof EmbeddingSettingsGetResponses];
@@ -2747,164 +2336,60 @@ export type EmbeddingSettingsUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type EmbeddingSettingsUpdateError = EmbeddingSettingsUpdateErrors[keyof EmbeddingSettingsUpdateErrors];
 
 export type EmbeddingSettingsUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type EmbeddingSettingsUpdateResponse = EmbeddingSettingsUpdateResponses[keyof EmbeddingSettingsUpdateResponses];
-
-export type FileTreeData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Storage type: local or object (s3 maps to object)
-         */
-        storage_type: string;
-        /**
-         * Path prefix to list under
-         */
-        prefix?: string;
-    };
-    url: '/file/tree';
-};
-
-export type FileTreeErrors = {
-    /**
-     * Error
-     */
-    default: ErrorBody;
-};
-
-export type FileTreeError = FileTreeErrors[keyof FileTreeErrors];
-
-export type FileTreeResponses = {
-    /**
-     * OK
-     */
-    200: ResultFileTreeResultDto;
-};
-
-export type FileTreeResponse = FileTreeResponses[keyof FileTreeResponses];
-
-export type FileDeleteData = {
-    body?: never;
-    path: {
-        /**
-         * File ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/file/{id}';
-};
-
-export type FileDeleteErrors = {
-    /**
-     * Error
-     */
-    default: ErrorBody;
-};
-
-export type FileDeleteError = FileDeleteErrors[keyof FileDeleteErrors];
-
-export type FileDeleteResponses = {
-    /**
-     * OK
-     */
-    200: ResultInterface;
-};
-
-export type FileDeleteResponse = FileDeleteResponses[keyof FileDeleteResponses];
-
-export type FileGetData = {
-    body?: never;
-    path: {
-        /**
-         * File ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/file/{id}';
-};
-
-export type FileGetErrors = {
-    /**
-     * Error
-     */
-    default: ErrorBody;
-};
-
-export type FileGetError = FileGetErrors[keyof FileGetErrors];
-
-export type FileGetResponses = {
-    /**
-     * OK
-     */
-    200: ResultFileDto;
-};
-
-export type FileGetResponse = FileGetResponses[keyof FileGetResponses];
-
-export type FileUpdateMetaData = {
-    body: UpdateFileMetaDto;
-    path: {
-        /**
-         * File ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/file/{id}/meta';
-};
-
-export type FileUpdateMetaErrors = {
-    /**
-     * Error
-     */
-    default: ErrorBody;
-};
-
-export type FileUpdateMetaError = FileUpdateMetaErrors[keyof FileUpdateMetaErrors];
-
-export type FileUpdateMetaResponses = {
-    /**
-     * OK
-     */
-    200: ResultFileDto;
-};
-
-export type FileUpdateMetaResponse = FileUpdateMetaResponses[keyof FileUpdateMetaResponses];
 
 export type FileListData = {
     body?: never;
     path?: never;
     query?: {
         /**
-         * Page number, 1-based (default 1)
+         * 页码，从 1 开始
          */
         page?: number;
         /**
-         * Items per page, 1-100 (default 20)
+         * 每页数量，1-100
          */
         pageSize?: number;
         /**
-         * Substring match on file name
+         * 文件名称模糊匹配
          */
         search?: string;
         /**
-         * Storage type: local or object (s3 maps to object)
+         * owned / blob / ref
          */
-        storage_type?: string;
+        kind?: string;
+        /**
+         * pending / ready
+         */
+        status?: string;
+        /**
+         * public / owner / private
+         */
+        access?: string;
+        /**
+         * 引用方类型，如 echo
+         */
+        ownerKind?: string;
+        /**
+         * 引用方 ID
+         */
+        ownerId?: string;
+        /**
+         * 引用角色，如 attachment
+         */
+        role?: string;
     };
     url: '/files';
 };
@@ -2913,7 +2398,7 @@ export type FileListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type FileListError = FileListErrors[keyof FileListErrors];
@@ -2922,60 +2407,135 @@ export type FileListResponses = {
     /**
      * OK
      */
-    200: ResultFileListResultDto;
+    200: ListFileDto;
 };
 
 export type FileListResponse = FileListResponses[keyof FileListResponses];
 
-export type FileExternalData = {
-    body: CreateExternalFileDto;
-    path?: never;
-    query?: never;
-    url: '/files/external';
+export type FileDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * 文件 ID
+         */
+        id: string;
+    };
+    query?: {
+        /**
+         * 管理员强制删除仍有引用的文件
+         */
+        force?: boolean;
+    };
+    url: '/files/{id}';
 };
 
-export type FileExternalErrors = {
+export type FileDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
-export type FileExternalError = FileExternalErrors[keyof FileExternalErrors];
+export type FileDeleteError = FileDeleteErrors[keyof FileDeleteErrors];
 
-export type FileExternalResponses = {
+export type FileDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultFileDto;
+    204: void;
 };
 
-export type FileExternalResponse = FileExternalResponses[keyof FileExternalResponses];
+export type FileDeleteResponse = FileDeleteResponses[keyof FileDeleteResponses];
 
-export type FilePresignData = {
-    body: GetPresignUrlDto;
-    path?: never;
+export type FileGetData = {
+    body?: never;
+    path: {
+        /**
+         * 文件 ID
+         */
+        id: string;
+    };
     query?: never;
-    url: '/files/presign';
+    url: '/files/{id}';
 };
 
-export type FilePresignErrors = {
+export type FileGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
-export type FilePresignError = FilePresignErrors[keyof FilePresignErrors];
+export type FileGetError = FileGetErrors[keyof FileGetErrors];
 
-export type FilePresignResponses = {
+export type FileGetResponses = {
     /**
      * OK
      */
-    200: ResultPresignDto;
+    200: FileDto;
 };
 
-export type FilePresignResponse = FilePresignResponses[keyof FilePresignResponses];
+export type FileGetResponse = FileGetResponses[keyof FileGetResponses];
+
+export type FileRenameData = {
+    body: RenameFileInputBody;
+    path: {
+        /**
+         * 文件 ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/files/{id}';
+};
+
+export type FileRenameErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type FileRenameError = FileRenameErrors[keyof FileRenameErrors];
+
+export type FileRenameResponses = {
+    /**
+     * OK
+     */
+    200: FileDto;
+};
+
+export type FileRenameResponse = FileRenameResponses[keyof FileRenameResponses];
+
+export type FileCommitData = {
+    body?: never;
+    path: {
+        /**
+         * 文件 ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/files/{id}/commit';
+};
+
+export type FileCommitErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type FileCommitError = FileCommitErrors[keyof FileCommitErrors];
+
+export type FileCommitResponses = {
+    /**
+     * OK
+     */
+    200: FileDto;
+};
+
+export type FileCommitResponse = FileCommitResponses[keyof FileCommitResponses];
 
 export type CommonHeatmapData = {
     body?: never;
@@ -2994,7 +2554,7 @@ export type CommonHeatmapErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommonHeatmapError = CommonHeatmapErrors[keyof CommonHeatmapErrors];
@@ -3003,7 +2563,7 @@ export type CommonHeatmapResponses = {
     /**
      * OK
      */
-    200: ResultListHeatmap;
+    200: ListHeatmap;
 };
 
 export type CommonHeatmapResponse = CommonHeatmapResponses[keyof CommonHeatmapResponses];
@@ -3019,7 +2579,7 @@ export type CommonHelloErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommonHelloError = CommonHelloErrors[keyof CommonHelloErrors];
@@ -3028,7 +2588,7 @@ export type CommonHelloResponses = {
     /**
      * OK
      */
-    200: ResultHelloResponse;
+    200: HelloResponse;
 };
 
 export type CommonHelloResponse = CommonHelloResponses[keyof CommonHelloResponses];
@@ -3044,16 +2604,16 @@ export type InitOwnerErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type InitOwnerError = InitOwnerErrors[keyof InitOwnerErrors];
 
 export type InitOwnerResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type InitOwnerResponse = InitOwnerResponses[keyof InitOwnerResponses];
@@ -3069,7 +2629,7 @@ export type InitStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type InitStatusError = InitStatusErrors[keyof InitStatusErrors];
@@ -3078,7 +2638,7 @@ export type InitStatusResponses = {
     /**
      * OK
      */
-    200: ResultStatus;
+    200: Status;
 };
 
 export type InitStatusResponse = InitStatusResponses[keyof InitStatusResponses];
@@ -3094,7 +2654,7 @@ export type McpManifestErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type McpManifestError = McpManifestErrors[keyof McpManifestErrors];
@@ -3103,7 +2663,7 @@ export type McpManifestResponses = {
     /**
      * OK
      */
-    200: ResultManifest;
+    200: Manifest;
 };
 
 export type McpManifestResponse = McpManifestResponses[keyof McpManifestResponses];
@@ -3119,7 +2679,7 @@ export type MigrationCancelErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationCancelError = MigrationCancelErrors[keyof MigrationCancelErrors];
@@ -3128,7 +2688,7 @@ export type MigrationCancelResponses = {
     /**
      * OK
      */
-    200: ResultGlobalMigrationStateDto;
+    200: GlobalMigrationStateDto;
 };
 
 export type MigrationCancelResponse = MigrationCancelResponses[keyof MigrationCancelResponses];
@@ -3144,16 +2704,16 @@ export type MigrationCleanupErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationCleanupError = MigrationCleanupErrors[keyof MigrationCleanupErrors];
 
 export type MigrationCleanupResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type MigrationCleanupResponse = MigrationCleanupResponses[keyof MigrationCleanupResponses];
@@ -3169,7 +2729,7 @@ export type MigrationExportErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationExportError = MigrationExportErrors[keyof MigrationExportErrors];
@@ -3178,7 +2738,7 @@ export type MigrationExportResponses = {
     /**
      * OK
      */
-    200: ResultExportStateDto;
+    200: ExportStateDto;
 };
 
 export type MigrationExportResponse = MigrationExportResponses[keyof MigrationExportResponses];
@@ -3194,7 +2754,7 @@ export type MigrationExportCancelErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationExportCancelError = MigrationExportCancelErrors[keyof MigrationExportCancelErrors];
@@ -3203,7 +2763,7 @@ export type MigrationExportCancelResponses = {
     /**
      * OK
      */
-    200: ResultExportStateDto;
+    200: ExportStateDto;
 };
 
 export type MigrationExportCancelResponse = MigrationExportCancelResponses[keyof MigrationExportCancelResponses];
@@ -3219,7 +2779,7 @@ export type MigrationExportStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationExportStatusError = MigrationExportStatusErrors[keyof MigrationExportStatusErrors];
@@ -3228,7 +2788,7 @@ export type MigrationExportStatusResponses = {
     /**
      * OK
      */
-    200: ResultExportStateDto;
+    200: ExportStateDto;
 };
 
 export type MigrationExportStatusResponse = MigrationExportStatusResponses[keyof MigrationExportStatusResponses];
@@ -3244,7 +2804,7 @@ export type MigrationStartErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationStartError = MigrationStartErrors[keyof MigrationStartErrors];
@@ -3253,7 +2813,7 @@ export type MigrationStartResponses = {
     /**
      * OK
      */
-    200: ResultGlobalMigrationStateDto;
+    200: GlobalMigrationStateDto;
 };
 
 export type MigrationStartResponse = MigrationStartResponses[keyof MigrationStartResponses];
@@ -3269,7 +2829,7 @@ export type MigrationStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type MigrationStatusError = MigrationStatusErrors[keyof MigrationStatusErrors];
@@ -3278,7 +2838,7 @@ export type MigrationStatusResponses = {
     /**
      * OK
      */
-    200: ResultGlobalMigrationStateDto;
+    200: GlobalMigrationStateDto;
 };
 
 export type MigrationStatusResponse = MigrationStatusResponses[keyof MigrationStatusResponses];
@@ -3299,7 +2859,7 @@ export type OauthInfoErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type OauthInfoError = OauthInfoErrors[keyof OauthInfoErrors];
@@ -3308,7 +2868,7 @@ export type OauthInfoResponses = {
     /**
      * OK
      */
-    200: ResultOAuthInfoDto;
+    200: OAuthInfoDto;
 };
 
 export type OauthInfoResponse = OauthInfoResponses[keyof OauthInfoResponses];
@@ -3329,7 +2889,7 @@ export type OauthBindErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type OauthBindError = OauthBindErrors[keyof OauthBindErrors];
@@ -3338,7 +2898,7 @@ export type OauthBindResponses = {
     /**
      * OK
      */
-    200: ResultString;
+    200: string;
 };
 
 export type OauthBindResponse = OauthBindResponses[keyof OauthBindResponses];
@@ -3354,7 +2914,7 @@ export type Oauth2GetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type Oauth2GetError = Oauth2GetErrors[keyof Oauth2GetErrors];
@@ -3363,7 +2923,7 @@ export type Oauth2GetResponses = {
     /**
      * OK
      */
-    200: ResultOAuth2Setting;
+    200: OAuth2Setting;
 };
 
 export type Oauth2GetResponse = Oauth2GetResponses[keyof Oauth2GetResponses];
@@ -3379,16 +2939,16 @@ export type Oauth2UpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type Oauth2UpdateError = Oauth2UpdateErrors[keyof Oauth2UpdateErrors];
 
 export type Oauth2UpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type Oauth2UpdateResponse = Oauth2UpdateResponses[keyof Oauth2UpdateResponses];
@@ -3404,7 +2964,7 @@ export type Oauth2StatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type Oauth2StatusError = Oauth2StatusErrors[keyof Oauth2StatusErrors];
@@ -3413,7 +2973,7 @@ export type Oauth2StatusResponses = {
     /**
      * OK
      */
-    200: ResultOAuth2Status;
+    200: OAuth2Status;
 };
 
 export type Oauth2StatusResponse = Oauth2StatusResponses[keyof Oauth2StatusResponses];
@@ -3439,7 +2999,7 @@ export type CommentPanelListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelListError = CommentPanelListErrors[keyof CommentPanelListErrors];
@@ -3448,7 +3008,7 @@ export type CommentPanelListResponses = {
     /**
      * OK
      */
-    200: ResultPageResultComment;
+    200: ListComment;
 };
 
 export type CommentPanelListResponse = CommentPanelListResponses[keyof CommentPanelListResponses];
@@ -3464,16 +3024,16 @@ export type CommentPanelBatchErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelBatchError = CommentPanelBatchErrors[keyof CommentPanelBatchErrors];
 
 export type CommentPanelBatchResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CommentPanelBatchResponse = CommentPanelBatchResponses[keyof CommentPanelBatchResponses];
@@ -3489,7 +3049,7 @@ export type CommentPanelSettingsGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelSettingsGetError = CommentPanelSettingsGetErrors[keyof CommentPanelSettingsGetErrors];
@@ -3498,7 +3058,7 @@ export type CommentPanelSettingsGetResponses = {
     /**
      * OK
      */
-    200: ModelResultCommentSystemSetting;
+    200: ModelSystemSetting;
 };
 
 export type CommentPanelSettingsGetResponse = CommentPanelSettingsGetResponses[keyof CommentPanelSettingsGetResponses];
@@ -3514,16 +3074,16 @@ export type CommentPanelSettingsUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelSettingsUpdateError = CommentPanelSettingsUpdateErrors[keyof CommentPanelSettingsUpdateErrors];
 
 export type CommentPanelSettingsUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CommentPanelSettingsUpdateResponse = CommentPanelSettingsUpdateResponses[keyof CommentPanelSettingsUpdateResponses];
@@ -3539,16 +3099,16 @@ export type CommentPanelTestEmailErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelTestEmailError = CommentPanelTestEmailErrors[keyof CommentPanelTestEmailErrors];
 
 export type CommentPanelTestEmailResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CommentPanelTestEmailResponse = CommentPanelTestEmailResponses[keyof CommentPanelTestEmailResponses];
@@ -3569,16 +3129,16 @@ export type CommentPanelDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelDeleteError = CommentPanelDeleteErrors[keyof CommentPanelDeleteErrors];
 
 export type CommentPanelDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CommentPanelDeleteResponse = CommentPanelDeleteResponses[keyof CommentPanelDeleteResponses];
@@ -3599,7 +3159,7 @@ export type CommentPanelGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelGetError = CommentPanelGetErrors[keyof CommentPanelGetErrors];
@@ -3608,7 +3168,7 @@ export type CommentPanelGetResponses = {
     /**
      * OK
      */
-    200: ResultComment;
+    200: Comment;
 };
 
 export type CommentPanelGetResponse = CommentPanelGetResponses[keyof CommentPanelGetResponses];
@@ -3629,16 +3189,16 @@ export type CommentPanelHotErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelHotError = CommentPanelHotErrors[keyof CommentPanelHotErrors];
 
 export type CommentPanelHotResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CommentPanelHotResponse = CommentPanelHotResponses[keyof CommentPanelHotResponses];
@@ -3659,16 +3219,16 @@ export type CommentPanelStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommentPanelStatusError = CommentPanelStatusErrors[keyof CommentPanelStatusErrors];
 
 export type CommentPanelStatusResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type CommentPanelStatusResponse = CommentPanelStatusResponses[keyof CommentPanelStatusResponses];
@@ -3684,7 +3244,7 @@ export type PasskeyGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type PasskeyGetError = PasskeyGetErrors[keyof PasskeyGetErrors];
@@ -3693,7 +3253,7 @@ export type PasskeyGetResponses = {
     /**
      * OK
      */
-    200: ResultPasskeySetting;
+    200: PasskeySetting;
 };
 
 export type PasskeyGetResponse = PasskeyGetResponses[keyof PasskeyGetResponses];
@@ -3709,16 +3269,16 @@ export type PasskeyUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type PasskeyUpdateError = PasskeyUpdateErrors[keyof PasskeyUpdateErrors];
 
 export type PasskeyUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type PasskeyUpdateResponse = PasskeyUpdateResponses[keyof PasskeyUpdateResponses];
@@ -3734,7 +3294,7 @@ export type PasskeyStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type PasskeyStatusError = PasskeyStatusErrors[keyof PasskeyStatusErrors];
@@ -3743,7 +3303,7 @@ export type PasskeyStatusResponses = {
     /**
      * OK
      */
-    200: ResultPasskeyStatus;
+    200: PasskeyStatus;
 };
 
 export type PasskeyStatusResponse = PasskeyStatusResponses[keyof PasskeyStatusResponses];
@@ -3759,7 +3319,7 @@ export type PasskeyListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type PasskeyListError = PasskeyListErrors[keyof PasskeyListErrors];
@@ -3768,7 +3328,7 @@ export type PasskeyListResponses = {
     /**
      * OK
      */
-    200: ResultListPasskeyDeviceDto;
+    200: Array<PasskeyDeviceDto> | null;
 };
 
 export type PasskeyListResponse = PasskeyListResponses[keyof PasskeyListResponses];
@@ -3789,16 +3349,16 @@ export type PasskeyDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type PasskeyDeleteError = PasskeyDeleteErrors[keyof PasskeyDeleteErrors];
 
 export type PasskeyDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type PasskeyDeleteResponse = PasskeyDeleteResponses[keyof PasskeyDeleteResponses];
@@ -3819,16 +3379,16 @@ export type PasskeyUpdateNameErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type PasskeyUpdateNameError = PasskeyUpdateNameErrors[keyof PasskeyUpdateNameErrors];
 
 export type PasskeyUpdateNameResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type PasskeyUpdateNameResponse = PasskeyUpdateNameResponses[keyof PasskeyUpdateNameResponses];
@@ -3844,7 +3404,7 @@ export type ReactionCatalogErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type ReactionCatalogError = ReactionCatalogErrors[keyof ReactionCatalogErrors];
@@ -3853,7 +3413,7 @@ export type ReactionCatalogResponses = {
     /**
      * OK
      */
-    200: ResultListReactionEmoji;
+    200: ListReactionEmoji;
 };
 
 export type ReactionCatalogResponse = ReactionCatalogResponses[keyof ReactionCatalogResponses];
@@ -3869,16 +3429,16 @@ export type UserRegisterErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type UserRegisterError = UserRegisterErrors[keyof UserRegisterErrors];
 
 export type UserRegisterResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type UserRegisterResponse = UserRegisterResponses[keyof UserRegisterResponses];
@@ -3894,7 +3454,7 @@ export type S3GetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type S3GetError = S3GetErrors[keyof S3GetErrors];
@@ -3903,7 +3463,7 @@ export type S3GetResponses = {
     /**
      * OK
      */
-    200: ResultS3Setting;
+    200: S3Setting;
 };
 
 export type S3GetResponse = S3GetResponses[keyof S3GetResponses];
@@ -3919,16 +3479,16 @@ export type S3UpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type S3UpdateError = S3UpdateErrors[keyof S3UpdateErrors];
 
 export type S3UpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type S3UpdateResponse = S3UpdateResponses[keyof S3UpdateResponses];
@@ -3944,16 +3504,16 @@ export type S3TestErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type S3TestError = S3TestErrors[keyof S3TestErrors];
 
 export type S3TestResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type S3TestResponse = S3TestResponses[keyof S3TestResponses];
@@ -3969,7 +3529,7 @@ export type SettingsGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type SettingsGetError = SettingsGetErrors[keyof SettingsGetErrors];
@@ -3978,7 +3538,7 @@ export type SettingsGetResponses = {
     /**
      * OK
      */
-    200: ResultSystemSetting;
+    200: SystemSetting;
 };
 
 export type SettingsGetResponse = SettingsGetResponses[keyof SettingsGetResponses];
@@ -3994,16 +3554,16 @@ export type SettingsUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type SettingsUpdateError = SettingsUpdateErrors[keyof SettingsUpdateErrors];
 
 export type SettingsUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type SettingsUpdateResponse = SettingsUpdateResponses[keyof SettingsUpdateResponses];
@@ -4019,7 +3579,7 @@ export type SnapshotScheduleGetErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type SnapshotScheduleGetError = SnapshotScheduleGetErrors[keyof SnapshotScheduleGetErrors];
@@ -4028,7 +3588,7 @@ export type SnapshotScheduleGetResponses = {
     /**
      * OK
      */
-    200: ResultSnapshotSchedule;
+    200: SnapshotSchedule;
 };
 
 export type SnapshotScheduleGetResponse = SnapshotScheduleGetResponses[keyof SnapshotScheduleGetResponses];
@@ -4044,16 +3604,16 @@ export type SnapshotScheduleUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type SnapshotScheduleUpdateError = SnapshotScheduleUpdateErrors[keyof SnapshotScheduleUpdateErrors];
 
 export type SnapshotScheduleUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type SnapshotScheduleUpdateResponse = SnapshotScheduleUpdateResponses[keyof SnapshotScheduleUpdateResponses];
@@ -4069,7 +3629,7 @@ export type DashboardCheckUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type DashboardCheckUpdateError = DashboardCheckUpdateErrors[keyof DashboardCheckUpdateErrors];
@@ -4078,7 +3638,7 @@ export type DashboardCheckUpdateResponses = {
     /**
      * OK
      */
-    200: ResultCheckUpdateResponse;
+    200: CheckUpdateResponse;
 };
 
 export type DashboardCheckUpdateResponse = DashboardCheckUpdateResponses[keyof DashboardCheckUpdateResponses];
@@ -4107,7 +3667,7 @@ export type DashboardSystemLogsErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type DashboardSystemLogsError = DashboardSystemLogsErrors[keyof DashboardSystemLogsErrors];
@@ -4116,7 +3676,7 @@ export type DashboardSystemLogsResponses = {
     /**
      * OK
      */
-    200: ResultListLogEntry;
+    200: ListLogEntry;
 };
 
 export type DashboardSystemLogsResponse = DashboardSystemLogsResponses[keyof DashboardSystemLogsResponses];
@@ -4132,7 +3692,7 @@ export type DashboardVisitorStatsErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type DashboardVisitorStatsError = DashboardVisitorStatsErrors[keyof DashboardVisitorStatsErrors];
@@ -4141,7 +3701,7 @@ export type DashboardVisitorStatsResponses = {
     /**
      * OK
      */
-    200: ResultListDayStat;
+    200: ListDayStat;
 };
 
 export type DashboardVisitorStatsResponse = DashboardVisitorStatsResponses[keyof DashboardVisitorStatsResponses];
@@ -4157,7 +3717,7 @@ export type TagCreateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type TagCreateError = TagCreateErrors[keyof TagCreateErrors];
@@ -4166,7 +3726,7 @@ export type TagCreateResponses = {
     /**
      * OK
      */
-    200: ResultTag;
+    200: Tag;
 };
 
 export type TagCreateResponse = TagCreateResponses[keyof TagCreateResponses];
@@ -4187,16 +3747,16 @@ export type TagDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type TagDeleteError = TagDeleteErrors[keyof TagDeleteErrors];
 
 export type TagDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type TagDeleteResponse = TagDeleteResponses[keyof TagDeleteResponses];
@@ -4212,7 +3772,7 @@ export type TagListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type TagListError = TagListErrors[keyof TagListErrors];
@@ -4221,7 +3781,7 @@ export type TagListResponses = {
     /**
      * OK
      */
-    200: ResultListTag;
+    200: ListTag;
 };
 
 export type TagListResponse = TagListResponses[keyof TagListResponses];
@@ -4237,7 +3797,7 @@ export type UserInfoErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type UserInfoError = UserInfoErrors[keyof UserInfoErrors];
@@ -4246,7 +3806,7 @@ export type UserInfoResponses = {
     /**
      * OK
      */
-    200: ResultUser;
+    200: User;
 };
 
 export type UserInfoResponse = UserInfoResponses[keyof UserInfoResponses];
@@ -4262,22 +3822,52 @@ export type UserUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type UserUpdateError = UserUpdateErrors[keyof UserUpdateErrors];
 
 export type UserUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type UserUpdateResponse = UserUpdateResponses[keyof UserUpdateResponses];
 
-export type UserSetAdminData = {
+export type UserTransferOwnerData = {
     body?: never;
+    path: {
+        /**
+         * 接任所有者的用户 ID（UUID）
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/user/owner/{id}';
+};
+
+export type UserTransferOwnerErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type UserTransferOwnerError = UserTransferOwnerErrors[keyof UserTransferOwnerErrors];
+
+export type UserTransferOwnerResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UserTransferOwnerResponse = UserTransferOwnerResponses[keyof UserTransferOwnerResponses];
+
+export type UserSetRoleData = {
+    body: UpdateUserRoleInputBody;
     path: {
         /**
          * 用户 ID（UUID）
@@ -4285,26 +3875,26 @@ export type UserSetAdminData = {
         id: string;
     };
     query?: never;
-    url: '/user/admin/{id}';
+    url: '/user/role/{id}';
 };
 
-export type UserSetAdminErrors = {
+export type UserSetRoleErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
-export type UserSetAdminError = UserSetAdminErrors[keyof UserSetAdminErrors];
+export type UserSetRoleError = UserSetRoleErrors[keyof UserSetRoleErrors];
 
-export type UserSetAdminResponses = {
+export type UserSetRoleResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
-export type UserSetAdminResponse = UserSetAdminResponses[keyof UserSetAdminResponses];
+export type UserSetRoleResponse = UserSetRoleResponses[keyof UserSetRoleResponses];
 
 export type UserSetStatusData = {
     body: UpdateUserStatusInputBody;
@@ -4322,16 +3912,16 @@ export type UserSetStatusErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type UserSetStatusError = UserSetStatusErrors[keyof UserSetStatusErrors];
 
 export type UserSetStatusResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type UserSetStatusResponse = UserSetStatusResponses[keyof UserSetStatusResponses];
@@ -4352,16 +3942,16 @@ export type UserDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type UserDeleteError = UserDeleteErrors[keyof UserDeleteErrors];
 
 export type UserDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type UserDeleteResponse = UserDeleteResponses[keyof UserDeleteResponses];
@@ -4377,7 +3967,7 @@ export type UserListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type UserListError = UserListErrors[keyof UserListErrors];
@@ -4386,7 +3976,7 @@ export type UserListResponses = {
     /**
      * OK
      */
-    200: ResultListUser;
+    200: ListUser;
 };
 
 export type UserListResponse = UserListResponses[keyof UserListResponses];
@@ -4402,7 +3992,7 @@ export type WebhookListErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type WebhookListError = WebhookListErrors[keyof WebhookListErrors];
@@ -4411,7 +4001,7 @@ export type WebhookListResponses = {
     /**
      * OK
      */
-    200: ResultListWebhook;
+    200: ListWebhook;
 };
 
 export type WebhookListResponse = WebhookListResponses[keyof WebhookListResponses];
@@ -4427,16 +4017,16 @@ export type WebhookCreateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type WebhookCreateError = WebhookCreateErrors[keyof WebhookCreateErrors];
 
 export type WebhookCreateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type WebhookCreateResponse = WebhookCreateResponses[keyof WebhookCreateResponses];
@@ -4457,16 +4047,16 @@ export type WebhookDeleteErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type WebhookDeleteError = WebhookDeleteErrors[keyof WebhookDeleteErrors];
 
 export type WebhookDeleteResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type WebhookDeleteResponse = WebhookDeleteResponses[keyof WebhookDeleteResponses];
@@ -4487,16 +4077,16 @@ export type WebhookUpdateErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type WebhookUpdateError = WebhookUpdateErrors[keyof WebhookUpdateErrors];
 
 export type WebhookUpdateResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type WebhookUpdateResponse = WebhookUpdateResponses[keyof WebhookUpdateResponses];
@@ -4517,16 +4107,16 @@ export type WebhookTestErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type WebhookTestError = WebhookTestErrors[keyof WebhookTestErrors];
 
 export type WebhookTestResponses = {
     /**
-     * OK
+     * No Content
      */
-    200: ResultInterface;
+    204: void;
 };
 
 export type WebhookTestResponse = WebhookTestResponses[keyof WebhookTestResponses];
@@ -4547,7 +4137,7 @@ export type CommonWebsiteTitleErrors = {
     /**
      * Error
      */
-    default: ErrorBody;
+    default: ErrorModel;
 };
 
 export type CommonWebsiteTitleError = CommonWebsiteTitleErrors[keyof CommonWebsiteTitleErrors];
@@ -4556,7 +4146,7 @@ export type CommonWebsiteTitleResponses = {
     /**
      * OK
      */
-    200: ResultString;
+    200: string;
 };
 
 export type CommonWebsiteTitleResponse = CommonWebsiteTitleResponses[keyof CommonWebsiteTitleResponses];

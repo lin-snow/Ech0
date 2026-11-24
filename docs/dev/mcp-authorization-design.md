@@ -114,7 +114,7 @@ GET /.well-known/oauth-authorization-server       (RFC 8414)
 - **无 refresh token**：v1 只签发 30 天 access token，不实现 refresh/rotation，元数据只声明 `authorization_code`。令牌到期后重新走一次同意；撤销走后台。
 - **无客户端密钥**：只支持 public client + PKCE，避免在自托管场景引入密钥分发。
 - **不信任客户端自述**：同意页展示的 `client_name` 来自 CIMD 文档或注册表，不取 query。
-- **日志**：沿用 `mcp_request` 审计字段；授权服务器错误直接以 RFC 6749 `{error, error_description}` 返回，不套 Ech0 信封（consent 两个接口除外，便于前端复用统一请求层）。
+- **日志**：沿用 `mcp_request` 审计字段；授权服务器错误直接以 RFC 6749 `{error, error_description}` 返回，其余接口的错误统一是 RFC 9457 problem+json，不套成功信封。
 
 ## 8. 与 MCP 2026-07-28 最佳实践的关系
 

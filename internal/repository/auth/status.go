@@ -11,20 +11,24 @@ import (
 	"gorm.io/gorm"
 )
 
-// IsAccountActive answers whether the token owner may still act. It is read on
-// every authenticated request so disabling an account invalidates tokens that
-// were already issued; a missing row counts as inactive.
-func (authRepository *AuthRepository) IsAccountActive(ctx context.Context, userID string) (bool, error) {
+// AccountState returns the live role and status of a token owner. It is read on
+// every authenticated request so that a disable, a demotion or an ownership
+// transfer invalidates tokens that were already issued; a missing row counts as
+// absent, not as active.
+func (authRepository *AuthRepository) AccountState(ctx context.Context, userID string) (model.AccountState, error) {
 	if userID == "" {
-		return false, nil
+		return model.AccountState{}, nil
 	}
 	var user model.User
-	err := authRepository.getDB(ctx).Select("id", "status").Where("id = ?", userID).First(&user).Error
+	err := authRepository.getDB(ctx).
+		Select("role", "status").
+		Where("id = ?", userID).
+		First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
+			return model.AccountState{}, nil
 		}
-		return false, err
+		return model.AccountState{}, err
 	}
-	return user.IsActive(), nil
+	return model.AccountState{Found: true, Role: user.Role, Status: user.Status}, nil
 }

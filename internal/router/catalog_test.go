@@ -9,18 +9,19 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	openapiCatalog "github.com/lin-snow/ech0/internal/openapi/catalog"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCatalog_RouteFingerprintAndStaleGuard(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	initTestDatabase(t)
 	engine := gin.New()
-	SetupRouter(engine, buildTestHandlers(), buildTestMWDeps())
+	require.NoError(t, SetupRouter(engine, buildTestHandlers(), buildTestMWDeps()))
 
 	// 1. The catalog is served as canonical bytes with a matching sha256 header.
 	recorder := httptest.NewRecorder()
@@ -69,12 +70,21 @@ func TestCatalog_RouteFingerprintAndStaleGuard(t *testing.T) {
 	if staleRecorder.Code != http.StatusPreconditionFailed {
 		t.Fatalf("stale status = %d", staleRecorder.Code)
 	}
-	var failure commonModel.Result[any]
+	var failure struct {
+		Status int    `json:"status"`
+		Detail string `json:"detail"`
+	}
 	if err := json.Unmarshal(staleRecorder.Body.Bytes(), &failure); err != nil {
 		t.Fatalf("stale body is not JSON: %v", err)
 	}
-	if failure.ErrorCode != openapiCatalog.StaleErrorCode {
-		t.Fatalf("error_code = %q", failure.ErrorCode)
+	if failure.Status != http.StatusPreconditionFailed {
+		t.Fatalf("problem status = %d", failure.Status)
+	}
+	if !strings.Contains(failure.Detail, "stale") {
+		t.Fatalf("detail = %q, want it to say the catalog is stale", failure.Detail)
+	}
+	if got := staleRecorder.Header().Get("Content-Type"); got != "application/problem+json; charset=utf-8" {
+		t.Fatalf("content type = %q", got)
 	}
 	if got := staleRecorder.Header().Get(openapiCatalog.HeaderName); got != fingerprint {
 		t.Fatalf("stale response fingerprint = %q", got)

@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/ratelimit"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -33,17 +34,17 @@ func assertRateLimited(t *testing.T, rec *httptest.ResponseRecorder) {
 	}
 
 	var body struct {
-		ErrorCode  string `json:"error_code"`
-		MessageKey string `json:"message_key"`
+		Status int    `json:"status"`
+		Detail string `json:"detail"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body.ErrorCode != commonModel.ErrCodeRateLimited {
-		t.Fatalf("error_code = %q, want %q", body.ErrorCode, commonModel.ErrCodeRateLimited)
+	if body.Status != http.StatusTooManyRequests {
+		t.Fatalf("problem status = %d, want %d", body.Status, http.StatusTooManyRequests)
 	}
-	if body.MessageKey != commonModel.MsgKeyAuthRateLimited {
-		t.Fatalf("message_key = %q, want %q", body.MessageKey, commonModel.MsgKeyAuthRateLimited)
+	if body.Detail != commonModel.RATE_LIMIT_EXCEEDED {
+		t.Fatalf("detail = %q, want %q", body.Detail, commonModel.RATE_LIMIT_EXCEEDED)
 	}
 }
 
@@ -91,7 +92,7 @@ func TestBudgetTracksAuthenticatedUsersSeparately(t *testing.T) {
 	r.Use(func(c *gin.Context) {
 		user := c.GetHeader("X-Test-User")
 		if user != "" {
-			ctx := viewer.WithContext(c.Request.Context(), viewer.NewUserViewer(user))
+			ctx := viewer.WithContext(c.Request.Context(), viewer.NewSession(user, role.Member, nil))
 			c.Request = c.Request.WithContext(ctx)
 		}
 		c.Next()

@@ -23,9 +23,11 @@ func ProvideGinEngine() *gin.Engine {
 	return gin.New()
 }
 
-func ProvideHTTPServer(engine *gin.Engine, handlers *handler.Bundle, mwDeps *middleware.Deps) *Server {
-	router.SetupRouter(engine, handlers, mwDeps)
-	return New(engine)
+func ProvideHTTPServer(engine *gin.Engine, handlers *handler.Bundle, mwDeps *middleware.Deps) (*Server, error) {
+	if err := router.SetupRouter(engine, handlers, mwDeps); err != nil {
+		return nil, err
+	}
+	return New(engine), nil
 }
 
 var ProviderSet = wire.NewSet(ProvideGinEngine, ProvideHTTPServer)

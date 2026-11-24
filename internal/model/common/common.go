@@ -63,7 +63,6 @@ const (
 	S3SettingKey                   = "s3_setting"
 	OAuth2SettingKey               = "oauth2_setting"
 	PasskeySettingKey              = "passkey_setting"
-	ServerURLKey                   = "server_url"
 	SnapshotScheduleKey            = "snapshot_schedule"
 	AgentSettingKey                = "agent_setting"
 	EmbeddingSettingKey            = "embedding_setting"
@@ -86,14 +85,6 @@ const (
 	EchosFavCountColumnDroppedKey  = "echos_fav_count_column_dropped_v1"
 	EchosPrivateCreatedDroppedKey  = "echos_private_created_index_dropped_v1"
 	OwnerRoleCollapsedKey          = "owner_role_collapsed_v1"
+	UsersRoleMigratedKey           = "users_role_migrated_v1"
 	ChatSessionKeyPrefix           = "chat_session:"
 )
-
-type PageQueryResult[T any] struct {
-	Total int64 `json:"total"`
-	Items T     `json:"items"`
-	// NextCursor is only populated for cursor-paginated queries. Its absence
-	// means there is no further page (and keeps legacy page-mode responses
-	// byte-identical).
-	NextCursor *string `json:"nextCursor,omitempty"`
-}

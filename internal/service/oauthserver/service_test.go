@@ -79,7 +79,7 @@ func (f *fakeIssuer) IssueForUser(
 
 func testService() (*OAuthServerService, *fakeClients, *fakeIssuer, userModel.User) {
 	clients := newFakeClients()
-	user := userModel.User{ID: "user-1", Username: "admin", IsAdmin: true}
+	user := userModel.User{ID: "user-1", Username: "admin", Role: userModel.RoleAdmin}
 	issuer := &fakeIssuer{token: "access-token"}
 	service := NewOAuthServerService(clients, fakeUsers{user: user}, issuer)
 	return service, clients, issuer, user
@@ -305,7 +305,7 @@ func freshCode(t *testing.T, service *OAuthServerService, clientID, challenge, u
 
 func TestConsentRequiresAdministrator(t *testing.T) {
 	clients := newFakeClients()
-	user := userModel.User{ID: "user-2", Username: "member", IsAdmin: false}
+	user := userModel.User{ID: "user-2", Username: "member", Role: userModel.RoleMember}
 	service := NewOAuthServerService(clients, fakeUsers{user: user}, &fakeIssuer{})
 	client := registerTestClient(t, service)
 	_, challenge := pkcePair()
@@ -338,7 +338,7 @@ func TestDenyRedirectsWithAccessDenied(t *testing.T) {
 
 func TestApproveNonAdminRedirectsWithError(t *testing.T) {
 	clients := newFakeClients()
-	user := userModel.User{ID: "user-2", Username: "member", IsAdmin: false}
+	user := userModel.User{ID: "user-2", Username: "member", Role: userModel.RoleMember}
 	issuer := &fakeIssuer{}
 	service := NewOAuthServerService(clients, fakeUsers{user: user}, issuer)
 	client := registerTestClient(t, service)

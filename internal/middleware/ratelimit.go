@@ -12,7 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/clientip"
-	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
+	"github.com/lin-snow/ech0/internal/httperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -121,17 +121,10 @@ func writeRateLimited(c *gin.Context, decision ratelimit.Decision) {
 	}
 	c.Header("Retry-After", strconv.Itoa(seconds))
 
-	key := commonModel.MsgKeyAuthRateLimited
-	msg := i18nUtil.Localize(
-		i18nUtil.LocalizerFromGin(c),
-		key,
-		commonModel.RATE_LIMIT_EXCEEDED,
-		nil,
-	)
-	c.AbortWithStatusJSON(
+	httperr.Abort(c, commonModel.Fail(
 		http.StatusTooManyRequests,
-		commonModel.FailWithLocalized[any](msg, commonModel.ErrCodeRateLimited, key, nil),
-	)
+		commonModel.RATE_LIMIT_EXCEEDED,
+	))
 }
 
 func RateLimitWithIdempotency(

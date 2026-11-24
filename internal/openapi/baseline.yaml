@@ -1,0 +1,4703 @@
+components:
+  schemas:
+    AccessTokenSetting:
+      additionalProperties: true
+      properties:
+        audience:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        expiry:
+          format: int64
+          type:
+            - integer
+            - "null"
+        id:
+          type: string
+        jti:
+          type: string
+        last_used_at:
+          format: int64
+          type: integer
+        name:
+          type: string
+        scopes:
+          type: string
+        token:
+          type: string
+        token_type:
+          type: string
+        user_id:
+          type: string
+      type: object
+    AccessTokenSettingDto:
+      additionalProperties: true
+      properties:
+        audience:
+          type: string
+        expiry:
+          type: string
+        name:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      type: object
+    AddConnectDto:
+      additionalProperties: true
+      properties:
+        connect_url:
+          description: Peer instance root URL; the server calls <url>/api/connect
+          type: string
+      required:
+        - connect_url
+      type: object
+    AgentSetting:
+      additionalProperties: true
+      properties:
+        api_key:
+          type: string
+        base_url:
+          type: string
+        context_window:
+          format: int64
+          type: integer
+        enable:
+          type: boolean
+        model:
+          type: string
+        multimodal:
+          type: boolean
+        prompt:
+          type: string
+        protocol:
+          type: string
+        temperature:
+          format: double
+          type: number
+      type: object
+    AgentSettingDto:
+      additionalProperties: true
+      properties:
+        api_key:
+          type: string
+        base_url:
+          type: string
+        context_window:
+          format: int64
+          type: integer
+        enable:
+          type: boolean
+        model:
+          type: string
+        multimodal:
+          type: boolean
+        prompt:
+          type: string
+        protocol:
+          type: string
+        temperature:
+          description: 采样温度；留空则不发送，使用模型默认值。是否支持以模型官方文档为准
+          format: double
+          maximum: 2
+          minimum: 0
+          type:
+            - number
+            - "null"
+      type: object
+    AnswerAskInputBody:
+      additionalProperties: true
+      properties:
+        answers:
+          description: 每个问题的回答，按问题 ID 对应
+          items:
+            $ref: "#/components/schemas/AskAnswer"
+          minItems: 1
+          type:
+            - array
+            - "null"
+        ask_id:
+          description: 要回答的提问轮次 ID，来自 SSE 的 ask 事件
+          minLength: 1
+          type: string
+      type: object
+    AskAnswer:
+      additionalProperties: true
+      properties:
+        custom:
+          type: string
+        question_id:
+          type: string
+        selected:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      type: object
+    AskExchange:
+      additionalProperties: true
+      properties:
+        answers:
+          items:
+            $ref: "#/components/schemas/AskAnswer"
+          type:
+            - array
+            - "null"
+        questions:
+          items:
+            $ref: "#/components/schemas/AskQuestion"
+          type:
+            - array
+            - "null"
+      type: object
+    AskOption:
+      additionalProperties: true
+      properties:
+        description:
+          type: string
+        label:
+          type: string
+      type: object
+    AskQuestion:
+      additionalProperties: true
+      properties:
+        detail:
+          type: string
+        header:
+          type: string
+        id:
+          type: string
+        multi:
+          type: boolean
+        options:
+          items:
+            $ref: "#/components/schemas/AskOption"
+          type:
+            - array
+            - "null"
+        recommended:
+          format: int64
+          type: integer
+        text:
+          type: string
+      type: object
+    BatchCommentActionDto:
+      additionalProperties: true
+      properties:
+        action:
+          type: string
+        ids:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      type: object
+    ChatMessage:
+      additionalProperties: true
+      properties:
+        asks:
+          items:
+            $ref: "#/components/schemas/AskExchange"
+          type:
+            - array
+            - "null"
+        content:
+          type: string
+        reasoning:
+          type: string
+        reasoning_ms:
+          format: int64
+          type: integer
+        role:
+          type: string
+        sources:
+          items:
+            $ref: "#/components/schemas/SearchResult"
+          type:
+            - array
+            - "null"
+      type: object
+    CheckUpdateResponse:
+      additionalProperties: true
+      properties:
+        current_version:
+          type: string
+        has_update:
+          type: boolean
+        latest_version:
+          type: string
+      type: object
+    Comment:
+      additionalProperties: true
+      properties:
+        content:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        echo_id:
+          type: string
+        email:
+          type: string
+        hot:
+          type: boolean
+        id:
+          type: string
+        nickname:
+          type: string
+        parent_id:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        user_id:
+          type: string
+        website:
+          type: string
+      type: object
+    Connect:
+      additionalProperties: true
+      properties:
+        logo:
+          type: string
+        server_name:
+          type: string
+        server_url:
+          type: string
+        sys_username:
+          type: string
+        today_echos:
+          format: int64
+          type: integer
+        total_echos:
+          format: int64
+          type: integer
+        version:
+          type: string
+      type: object
+    Connected:
+      additionalProperties: true
+      properties:
+        connect_url:
+          type: string
+        id:
+          type: string
+      type: object
+    ConnectedHealth:
+      additionalProperties: true
+      properties:
+        connect_url:
+          type: string
+        id:
+          type: string
+        status:
+          type: string
+        version:
+          type: string
+      type: object
+    CreateCommentDto:
+      additionalProperties: true
+      properties:
+        captcha_token:
+          type: string
+        content:
+          type: string
+        echo_id:
+          type: string
+        email:
+          type: string
+        form_token:
+          type: string
+        hp_field:
+          type: string
+        nickname:
+          type: string
+        parent_id:
+          type: string
+        website:
+          type: string
+      type: object
+    CreateIntegrationCommentDto:
+      additionalProperties: true
+      properties:
+        content:
+          description: Comment body, at most 200 characters
+          type: string
+        echo_id:
+          description: Echo ID the comment belongs to
+          type: string
+        metadata:
+          description: Caller-defined audit string; recorded in server logs only
+          type: string
+        nickname:
+          description: Display name; defaults to Integration
+          type: string
+      required:
+        - echo_id
+        - content
+      type: object
+    CreateTagDto:
+      additionalProperties: true
+      properties:
+        name:
+          description: 标签名
+          type: string
+      type: object
+    DayStat:
+      additionalProperties: true
+      properties:
+        date:
+          type: string
+        pv:
+          format: int64
+          type: integer
+        uv:
+          format: int64
+          type: integer
+      type: object
+    Echo:
+      additionalProperties: true
+      properties:
+        content:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        deleted_at:
+          format: date-time
+          type: string
+        echo_files:
+          items:
+            $ref: "#/components/schemas/EchoFile"
+          type:
+            - array
+            - "null"
+        extension:
+          $ref: "#/components/schemas/EchoExtension"
+        id:
+          type: string
+        layout:
+          type: string
+        private:
+          type: boolean
+        reactions:
+          items:
+            $ref: "#/components/schemas/ReactionCount"
+          type:
+            - array
+            - "null"
+        tags:
+          items:
+            $ref: "#/components/schemas/Tag"
+          type:
+            - array
+            - "null"
+        user_id:
+          type: string
+        username:
+          type: string
+      type: object
+    EchoExtension:
+      additionalProperties: true
+      properties:
+        created_at:
+          format: int64
+          type: integer
+        echo_id:
+          type: string
+        id:
+          type: string
+        payload:
+          additionalProperties: {}
+          type: object
+        type:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+      type: object
+    EchoExtensionDto:
+      additionalProperties: true
+      properties:
+        payload:
+          additionalProperties: {}
+          description: Arbitrary fields the card needs to render
+          type: object
+        type:
+          description: Card type, e.g. weather or music
+          type: string
+      type: object
+    EchoFile:
+      additionalProperties: true
+      properties:
+        file:
+          $ref: "#/components/schemas/File"
+        file_id:
+          type: string
+        sort_order:
+          format: int64
+          type: integer
+      type: object
+    EchoQueryDto:
+      additionalProperties: true
+      properties:
+        cursor:
+          description: Keyset pagination cursor; omit for page-based pagination, send an empty string for the first cursor page. Cursor mode ignores page and requires sortBy=created_at
+          type: string
+        dateFrom:
+          description: Only Echoes created at or after this Unix time (seconds)
+          format: int64
+          type: integer
+        dateTo:
+          description: Only Echoes created at or before this Unix time (seconds)
+          format: int64
+          type: integer
+        mine:
+          description: Only Echoes authored by the authenticated caller; requires sign-in
+          type: boolean
+        page:
+          description: Page number, 1-based (default 1); ignored when cursor is set
+          format: int64
+          type: integer
+        pageSize:
+          description: Items per page, 1-100 (default 10); also the cursor page size
+          format: int64
+          type: integer
+        private:
+          description: "Visibility filter: true for private only, false for public only; omit for both"
+          type: boolean
+        search:
+          description: Substring match on Echo content
+          type: string
+        sortBy:
+          description: Sort field (default created_at); cursor pagination requires created_at
+          enum:
+            - created_at
+            - reactions
+          type: string
+        sortOrder:
+          description: Sort direction (default desc)
+          enum:
+            - asc
+            - desc
+          type: string
+        tagIds:
+          description: Tag IDs to match; an Echo qualifies if it carries any listed tag
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+      type: object
+    EchoUpsertDto:
+      additionalProperties: true
+      properties:
+        content:
+          description: Markdown body; supply at least one of content, files, or extension
+          type: string
+        created_at:
+          description: Publish time in Unix seconds; defaults to now
+          format: int64
+          type: integer
+        echo_files:
+          description: Attachments as {file_id, sort_order}; upload files first to get file_id. Omit on update to keep existing attachments; send [] to clear
+          items:
+            $ref: "#/components/schemas/EchoFile"
+          type: array
+        extension:
+          $ref: "#/components/schemas/EchoExtensionDto"
+          description: "Card payload: {type, payload}"
+        id:
+          description: Echo ID to update; ignored on create
+          type: string
+        layout:
+          description: "Layout: waterfall / grid / horizontal / carousel / stack / none"
+          type: string
+        private:
+          description: Hidden from anonymous visitors; visible to all signed-in users
+          type: boolean
+        tags:
+          description: Tags as {name}; an existing tag with the same name is reused
+          items:
+            $ref: "#/components/schemas/Tag"
+          type:
+            - array
+            - "null"
+      type: object
+    EmailNotifySetting:
+      additionalProperties: true
+      properties:
+        enabled:
+          type: boolean
+        smtp_host:
+          type: string
+        smtp_password:
+          type: string
+        smtp_password_set:
+          type: boolean
+        smtp_port:
+          format: int64
+          type: integer
+        smtp_sender:
+          type: string
+        smtp_username:
+          type: string
+      type: object
+    EmbeddingSetting:
+      additionalProperties: true
+      properties:
+        api_key:
+          type: string
+        base_url:
+          type: string
+        batch_size:
+          format: int64
+          type: integer
+        dim:
+          format: int64
+          type: integer
+        enable:
+          type: boolean
+        model:
+          type: string
+      type: object
+    EmbeddingSettingDto:
+      additionalProperties: true
+      properties:
+        api_key:
+          type: string
+        base_url:
+          type: string
+        batch_size:
+          format: int64
+          type: integer
+        dim:
+          format: int64
+          type: integer
+        enable:
+          type: boolean
+        model:
+          type: string
+      type: object
+    ErrorDetail:
+      additionalProperties: true
+      properties:
+        location:
+          description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          type: string
+        message:
+          description: Error message text
+          type: string
+        value:
+          description: The value at the given location
+      type: object
+    ErrorModel:
+      additionalProperties: true
+      properties:
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          examples:
+            - Property foo is required but is missing.
+          type: string
+        errors:
+          description: Optional list of individual error details
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+          type:
+            - array
+            - "null"
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          examples:
+            - https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          examples:
+            - 400
+          format: int64
+          type: integer
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          examples:
+            - Bad Request
+          type: string
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          examples:
+            - https://example.com/errors/example
+          format: uri
+          type: string
+      type: object
+    ExportStateDTO:
+      additionalProperties: true
+      properties:
+        error_message:
+          type: string
+        file_name:
+          type: string
+        finished_at:
+          format: int64
+          type: integer
+        format:
+          type: string
+        phase:
+          type: string
+        size:
+          format: int64
+          type: integer
+        started_at:
+          format: int64
+          type: integer
+        status:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        version:
+          format: int64
+          type: integer
+      type: object
+    File:
+      additionalProperties: true
+      properties:
+        access:
+          type: string
+        blob_bytes:
+          format: int64
+          type: integer
+        content_type:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        height:
+          format: int64
+          type: integer
+        id:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        object_key:
+          type: string
+        ref_url:
+          type: string
+        size:
+          format: int64
+          type: integer
+        status:
+          type: string
+        storage_id:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        uploader_id:
+          type: string
+        width:
+          format: int64
+          type: integer
+      type: object
+    FileDTO:
+      additionalProperties: true
+      properties:
+        access:
+          type: string
+        category:
+          type: string
+        content_type:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        height:
+          format: int64
+          type: integer
+        id:
+          type: string
+        kind:
+          type: string
+        links:
+          items:
+            $ref: "#/components/schemas/LinkDTO"
+          type:
+            - array
+            - "null"
+        name:
+          type: string
+        size:
+          format: int64
+          type: integer
+        status:
+          type: string
+        uploader_id:
+          type: string
+        url:
+          type: string
+        width:
+          format: int64
+          type: integer
+      type: object
+    FormMeta:
+      additionalProperties: true
+      properties:
+        captcha_api_endpoint:
+          type: string
+        captcha_enabled:
+          type: boolean
+        enable_comment:
+          type: boolean
+        form_token:
+          type: string
+        min_submit_ms:
+          format: int64
+          type: integer
+      type: object
+    GlobalMigrationStateDTO:
+      additionalProperties: true
+      properties:
+        error_message:
+          type: string
+        finished_at:
+          format: int64
+          type: integer
+        phase:
+          type: string
+        source_payload:
+          additionalProperties: {}
+          type: object
+        source_type:
+          type: string
+        started_at:
+          format: int64
+          type: integer
+        status:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        version:
+          format: int64
+          type: integer
+      type: object
+    Heatmap:
+      additionalProperties: true
+      properties:
+        count:
+          format: int64
+          type: integer
+        date:
+          type: string
+      type: object
+    HelloResponse:
+      additionalProperties: true
+      properties:
+        author:
+          type: string
+        build_time:
+          type: string
+        commit:
+          type: string
+        copyright:
+          type: string
+        hello:
+          type: string
+        license:
+          type: string
+        repo_url:
+          type: string
+        version:
+          type: string
+      type: object
+    InitOwnerDto:
+      additionalProperties: true
+      properties:
+        email:
+          type: string
+        locale:
+          type: string
+        password:
+          type: string
+        site_title:
+          type: string
+        username:
+          type: string
+      type: object
+    LinkDTO:
+      additionalProperties: true
+      properties:
+        owner_id:
+          type: string
+        owner_kind:
+          type: string
+        role:
+          type: string
+        sort_order:
+          format: int64
+          type: integer
+      type: object
+    ListAccessTokenSetting:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/AccessTokenSetting"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListComment:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Comment"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListConnect:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Connect"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListConnected:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Connected"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListConnectedHealth:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/ConnectedHealth"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListDayStat:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/DayStat"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListEcho:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Echo"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListFileDTO:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/FileDTO"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListHeatmap:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Heatmap"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListLogEntry:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/LogEntry"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListPublicComment:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/PublicComment"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListReactionCount:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/ReactionCount"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListReactionEmoji:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/ReactionEmoji"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListTag:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Tag"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListUser:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/User"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListWebhook:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Webhook"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    LogEntry:
+      additionalProperties: true
+      properties:
+        caller:
+          type: string
+        error:
+          type: string
+        fields:
+          additionalProperties: {}
+          type: object
+        level:
+          type: string
+        module:
+          type: string
+        msg:
+          type: string
+        raw:
+          type: string
+        time:
+          type: string
+      type: object
+    Manifest:
+      additionalProperties: true
+      properties:
+        audience:
+          type: string
+        path:
+          type: string
+        protocol_versions:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        resource_templates:
+          items:
+            $ref: "#/components/schemas/ManifestResourceTemplate"
+          type:
+            - array
+            - "null"
+        resources:
+          items:
+            $ref: "#/components/schemas/ManifestResource"
+          type:
+            - array
+            - "null"
+        tools:
+          items:
+            $ref: "#/components/schemas/ManifestTool"
+          type:
+            - array
+            - "null"
+        transport:
+          type: string
+      type: object
+    ManifestResource:
+      additionalProperties: true
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        title:
+          type: string
+        uri:
+          type: string
+      type: object
+    ManifestResourceTemplate:
+      additionalProperties: true
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        title:
+          type: string
+        uri_template:
+          type: string
+      type: object
+    ManifestTool:
+      additionalProperties: true
+      properties:
+        description:
+          type: string
+        destructive:
+          type: boolean
+        name:
+          type: string
+        read_only:
+          type: boolean
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        title:
+          type: string
+      type: object
+    ModelSystemSetting:
+      additionalProperties: true
+      properties:
+        captcha_enabled:
+          type: boolean
+        email_notify:
+          $ref: "#/components/schemas/EmailNotifySetting"
+        enable_comment:
+          type: boolean
+        require_approval:
+          type: boolean
+      type: object
+    OAuth2Setting:
+      additionalProperties: true
+      properties:
+        auth_redirect_allowed_return_urls:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        auth_url:
+          type: string
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        cors_allowed_origins:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        enable:
+          type: boolean
+        is_oidc:
+          type: boolean
+        issuer:
+          type: string
+        jwks_url:
+          type: string
+        provider:
+          type: string
+        redirect_uri:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        token_url:
+          type: string
+        user_info_url:
+          type: string
+      type: object
+    OAuth2SettingDto:
+      additionalProperties: true
+      properties:
+        auth_redirect_allowed_return_urls:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        auth_url:
+          type: string
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        cors_allowed_origins:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        enable:
+          type: boolean
+        is_oidc:
+          type: boolean
+        issuer:
+          type: string
+        jwks_url:
+          type: string
+        provider:
+          type: string
+        redirect_uri:
+          type: string
+        scopes:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        token_url:
+          type: string
+        user_info_url:
+          type: string
+      type: object
+    OAuth2Status:
+      additionalProperties: true
+      properties:
+        enabled:
+          type: boolean
+        oauth_ready:
+          type: boolean
+        provider:
+          type: string
+      type: object
+    OAuthBindBody:
+      additionalProperties: true
+      properties:
+        redirect_uri:
+          description: OAuth 回调地址
+          type: string
+      type: object
+    OAuthInfoDto:
+      additionalProperties: true
+      properties:
+        auth_type:
+          type: string
+        issuer:
+          type: string
+        oauth_id:
+          type: string
+        provider:
+          type: string
+        user_id:
+          type: string
+      type: object
+    PageQueryDto:
+      additionalProperties: true
+      properties:
+        page:
+          format: int64
+          type: integer
+        pageSize:
+          format: int64
+          type: integer
+        search:
+          type: string
+      type: object
+    PasskeyDeviceDto:
+      additionalProperties: true
+      properties:
+        aaguid:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        device_name:
+          type: string
+        id:
+          type: string
+        last_used_at:
+          format: int64
+          type: integer
+      type: object
+    PasskeySetting:
+      additionalProperties: true
+      properties:
+        webauthn_allowed_origins:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        webauthn_rp_id:
+          type: string
+      type: object
+    PasskeySettingDto:
+      additionalProperties: true
+      properties:
+        webauthn_allowed_origins:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        webauthn_rp_id:
+          type: string
+      type: object
+    PasskeyStatus:
+      additionalProperties: true
+      properties:
+        passkey_ready:
+          type: boolean
+      type: object
+    PasskeyUpdateDeviceNameReq:
+      additionalProperties: true
+      properties:
+        device_name:
+          type: string
+      type: object
+    PublicComment:
+      additionalProperties: true
+      properties:
+        content:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        echo_id:
+          type: string
+        hot:
+          type: boolean
+        id:
+          type: string
+        nickname:
+          type: string
+        parent_id:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        website:
+          type: string
+      type: object
+    ReactionCount:
+      additionalProperties: true
+      properties:
+        count:
+          format: int64
+          type: integer
+        emoji:
+          type: string
+        key:
+          type: string
+        reacted:
+          type: boolean
+      type: object
+    ReactionEmoji:
+      additionalProperties: true
+      properties:
+        emoji:
+          type: string
+        key:
+          type: string
+      type: object
+    RegisterDto:
+      additionalProperties: true
+      properties:
+        email:
+          type: string
+        locale:
+          type: string
+        password:
+          type: string
+        username:
+          type: string
+      type: object
+    ReindexStatusResponse:
+      additionalProperties: true
+      properties:
+        error:
+          description: 失败原因（status=failed 时）
+          type: string
+        finished_at:
+          description: 结束时间（Unix 秒）
+          format: int64
+          type: integer
+        payload:
+          description: "回填结果 BackfillResult: total/indexed/skipped/failed"
+        phase:
+          description: 当前阶段
+          type: string
+        started_at:
+          description: 开始时间（Unix 秒）
+          format: int64
+          type: integer
+        status:
+          description: 作业状态：idle/pending/running/succeeded/failed/cancelled
+          examples:
+            - running
+          type: string
+      type: object
+    RenameFileInputBody:
+      additionalProperties: true
+      properties:
+        name:
+          description: 展示名称（可为空）
+          type: string
+      type: object
+    S3Setting:
+      additionalProperties: true
+      properties:
+        access_key:
+          type: string
+        bucket_name:
+          type: string
+        cdn_url:
+          type: string
+        enable:
+          type: boolean
+        endpoint:
+          type: string
+        path_prefix:
+          type: string
+        provider:
+          type: string
+        public_read:
+          type: boolean
+        region:
+          type: string
+        secret_key:
+          type: string
+        use_path_style:
+          type: boolean
+        use_ssl:
+          type: boolean
+      type: object
+    S3SettingDto:
+      additionalProperties: true
+      properties:
+        access_key:
+          type: string
+        bucket_name:
+          type: string
+        cdn_url:
+          type: string
+        enable:
+          type: boolean
+        endpoint:
+          type: string
+        path_prefix:
+          type: string
+        provider:
+          type: string
+        public_read:
+          type: boolean
+        region:
+          type: string
+        secret_key:
+          type: string
+        use_path_style:
+          type: boolean
+        use_ssl:
+          type: boolean
+      type: object
+    SearchResult:
+      additionalProperties: true
+      properties:
+        content:
+          type: string
+        distance:
+          format: double
+          type: number
+        echo_created:
+          format: int64
+          type: integer
+        echo_id:
+          type: string
+        extension:
+          $ref: "#/components/schemas/EchoExtension"
+        files:
+          items:
+            $ref: "#/components/schemas/File"
+          type:
+            - array
+            - "null"
+        username:
+          type: string
+      type: object
+    SnapshotSchedule:
+      additionalProperties: true
+      properties:
+        cron_expression:
+          type: string
+        enable:
+          type: boolean
+      type: object
+    SnapshotScheduleDto:
+      additionalProperties: true
+      properties:
+        cron_expression:
+          type: string
+        enable:
+          type: boolean
+      type: object
+    StartExportRequest:
+      additionalProperties: true
+      properties:
+        format:
+          type: string
+        include_private:
+          type: boolean
+      type: object
+    StartGlobalMigrationRequest:
+      additionalProperties: true
+      properties:
+        source_payload:
+          additionalProperties: {}
+          type: object
+        source_type:
+          type: string
+      type: object
+    Status:
+      additionalProperties: true
+      properties:
+        initialized:
+          type: boolean
+        owner_exists:
+          type: boolean
+      type: object
+    SystemSetting:
+      additionalProperties: true
+      properties:
+        ICP_number:
+          type: string
+        allow_register:
+          type: boolean
+        custom_css:
+          type: string
+        custom_js:
+          type: string
+        default_locale:
+          type: string
+        enable_agent_discovery:
+          type: boolean
+        footer_content:
+          type: string
+        footer_link:
+          type: string
+        meting_api:
+          type: string
+        privacy_policy:
+          type: string
+        server_logo:
+          type: string
+        server_logo_file_id:
+          type: string
+        server_name:
+          type: string
+        server_url:
+          type: string
+        show_privacy_footer:
+          type: boolean
+        site_title:
+          type: string
+      type: object
+    SystemSettingDto:
+      additionalProperties: true
+      properties:
+        ICP_number:
+          type: string
+        allow_register:
+          type: boolean
+        custom_css:
+          type: string
+        custom_js:
+          type: string
+        default_locale:
+          type: string
+        enable_agent_discovery:
+          type: boolean
+        footer_content:
+          type: string
+        footer_link:
+          type: string
+        meting_api:
+          type: string
+        privacy_policy:
+          type: string
+        server_logo:
+          type: string
+        server_logo_file_id:
+          type: string
+        server_name:
+          type: string
+        server_url:
+          type: string
+        show_privacy_footer:
+          type: boolean
+        site_title:
+          type: string
+      type: object
+    Tag:
+      additionalProperties: true
+      properties:
+        created_at:
+          description: 创建时间，提交时忽略
+          format: int64
+          type: integer
+        id:
+          description: 标签 ID，提交时忽略
+          type: string
+        name:
+          description: 标签名；同名标签复用
+          type: string
+        usage_count:
+          description: 引用次数，提交时忽略
+          format: int64
+          type: integer
+      type: object
+    TestEmailRequest:
+      additionalProperties: true
+      properties:
+        setting:
+          $ref: "#/components/schemas/ModelSystemSetting"
+      type: object
+    UpdateCommentHotDto:
+      additionalProperties: true
+      properties:
+        hot:
+          type: boolean
+      type: object
+    UpdateCommentStatusDto:
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+      type: object
+    UpdateUserRoleInputBody:
+      additionalProperties: true
+      properties:
+        role:
+          description: 目标角色：admin 或 member
+          type: string
+      type: object
+    UpdateUserStatusInputBody:
+      additionalProperties: true
+      properties:
+        status:
+          description: 账户状态：ACTIVE 或 DISABLED
+          type: string
+      type: object
+    User:
+      additionalProperties: true
+      properties:
+        avatar:
+          type: string
+        avatar_file_id:
+          type: string
+        email:
+          type: string
+        id:
+          type: string
+        locale:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        username:
+          type: string
+      type: object
+    UserInfoDto:
+      additionalProperties: true
+      properties:
+        avatar:
+          type: string
+        avatar_file_id:
+          type: string
+        email:
+          type: string
+        locale:
+          type: string
+        password:
+          type: string
+        username:
+          type: string
+      type: object
+    Webhook:
+      additionalProperties: true
+      properties:
+        created_at:
+          format: int64
+          type: integer
+        id:
+          type: string
+        is_active:
+          type: boolean
+        last_status:
+          type: string
+        last_trigger:
+          format: int64
+          type: integer
+        name:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        url:
+          type: string
+      type: object
+    WebhookDto:
+      additionalProperties: true
+      properties:
+        is_active:
+          description: Enabled; defaults to true on create, while omitting it on update disables the webhook
+          type: boolean
+        name:
+          description: Display name
+          type: string
+        secret:
+          description: Optional signing secret; the server signs payloads with X-Ech0-Signature
+          type: string
+        url:
+          description: HTTP(S) endpoint that receives events
+          type: string
+      required:
+        - name
+        - url
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+info:
+  title: Ech0 API 文档
+  version: "1.0"
+openapi: 3.1.0
+paths:
+  /access-tokens:
+    get:
+      operationId: access-token-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAccessTokenSetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 列出访问令牌
+      tags:
+        - Setting
+    post:
+      operationId: access-token-create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccessTokenSettingDto"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 创建访问令牌
+      tags:
+        - Setting
+  /access-tokens/{id}:
+    delete:
+      operationId: access-token-delete
+      parameters:
+        - description: 资源 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 资源 ID（UUID）
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 删除访问令牌
+      tags:
+        - Setting
+  /agent/info:
+    get:
+      description: publishes the assistant identity and enabled capabilities
+      operationId: agent-info
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取 Agent 公开信息
+      tags:
+        - Setting
+  /agent/recent:
+    get:
+      description: public digest of the author's recent posts
+      operationId: copilot-recent
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取作者近况的 AI 总结
+      tags:
+        - Copilot
+  /agent/settings:
+    get:
+      operationId: agent-settings-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 获取 Agent 设置
+      tags:
+        - Setting
+    put:
+      operationId: agent-settings-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 更新 Agent 设置
+      tags:
+        - Setting
+  /agent/settings/test:
+    post:
+      operationId: agent-settings-test
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 测试 Copilot 连接
+      tags:
+        - Setting
+  /chat/answer:
+    post:
+      operationId: copilot-chat-answer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnswerAskInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 回答 Copilot 正在等待的提问/确认
+      tags:
+        - Copilot
+  /chat/session:
+    delete:
+      operationId: copilot-session-clear
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 清除持久化 Chat 会话
+      tags:
+        - Copilot
+    get:
+      operationId: copilot-session-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 获取持久化 Chat 会话
+      tags:
+        - Copilot
+  /comments:
+    get:
+      operationId: comment-list-by-echo
+      parameters:
+        - description: Echo ID
+          explode: false
+          in: query
+          name: echo_id
+          required: true
+          schema:
+            description: Echo ID
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPublicComment"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 按 echo 列出评论
+      tags:
+        - Comment
+    post:
+      description: anonymous commenting is an instance policy; the service enforces captcha and moderation
+      operationId: comment-create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentDto"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 创建公开评论
+      tags:
+        - Comment
+  /comments/form:
+    get:
+      description: anonymous readers need captcha and field metadata before commenting
+      operationId: comment-form-meta
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormMeta"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取评论表单元信息
+      tags:
+        - Comment
+  /comments/integration:
+    post:
+      operationId: comment-create-integration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIntegrationCommentDto"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:write
+      summary: 经访问令牌创建评论（集成）
+      tags:
+        - Comment
+  /comments/public:
+    get:
+      operationId: comment-list-public
+      parameters:
+        - description: 返回数量上限
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 30
+            description: 返回数量上限
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPublicComment"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 列出最新评论
+      tags:
+        - Comment
+  /connect:
+    get:
+      description: peer directory metadata this instance shares with other instances
+      operationId: connect-self
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connect"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取当前实例的连接信息
+      tags:
+        - Connect
+  /connect/list:
+    get:
+      description: peer directory listing is public by design
+      operationId: connect-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListConnected"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取当前实例添加的所有连接
+      tags:
+        - Connect
+  /connects:
+    post:
+      operationId: connect-add
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddConnectDto"
+        required: true
+      responses:
+        "201":
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - connect:write
+      summary: 添加连接
+      tags:
+        - Connect
+  /connects/health:
+    get:
+      operationId: connect-health
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListConnectedHealth"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - connect:read
+      summary: 获取互联健康状态
+      tags:
+        - Connect
+  /connects/info:
+    get:
+      description: peer directory details are public by design
+      operationId: connect-info
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListConnect"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取所有已添加连接的详细信息
+      tags:
+        - Connect
+  /connects/{id}:
+    delete:
+      operationId: connect-delete
+      parameters:
+        - description: Connection ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Connection ID (UUID)
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - connect:delete
+      summary: 删除连接
+      tags:
+        - Connect
+  /echo:
+    post:
+      operationId: echo-create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EchoUpsertDto"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Echo"
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - echo:write
+      summary: 创建新的 Echo
+      tags:
+        - Echo
+    put:
+      operationId: echo-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EchoUpsertDto"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Echo"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - echo:write
+      summary: 更新 Echo
+      tags:
+        - Echo
+  /echo/hot:
+    get:
+      operationId: echo-hot
+      parameters:
+        - description: Number of Echoes to return; default 5, maximum 20
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 5
+            description: Number of Echoes to return; default 5, maximum 20
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 获取热门 Echo
+      tags:
+        - Echo
+  /echo/onthisday:
+    get:
+      operationId: echo-onthisday
+      parameters:
+        - description: 客户端时区（IANA 名）
+          in: header
+          name: X-Timezone
+          schema:
+            description: 客户端时区（IANA 名）
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 那年今日
+      tags:
+        - Echo
+  /echo/page:
+    get:
+      operationId: echo-page-get
+      parameters:
+        - explode: false
+          in: query
+          name: page
+          schema:
+            format: int64
+            type: integer
+        - explode: false
+          in: query
+          name: pageSize
+          schema:
+            format: int64
+            type: integer
+        - explode: false
+          in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 分页获取 Echo（Deprecated）
+      tags:
+        - Echo
+    post:
+      operationId: echo-page-post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PageQueryDto"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 分页获取 Echo（Deprecated）
+      tags:
+        - Echo
+  /echo/query:
+    post:
+      operationId: echo-list
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EchoQueryDto"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 分页/筛选 Echo 列表
+      tags:
+        - Echo
+  /echo/random:
+    get:
+      operationId: echo-random
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Echo"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 随机返回一篇 Echo
+      tags:
+        - Echo
+  /echo/tag/{tagid}:
+    get:
+      operationId: echo-by-tag
+      parameters:
+        - description: Tag ID
+          in: path
+          name: tagid
+          required: true
+          schema:
+            description: Tag ID
+            format: uuid
+            type: string
+        - explode: false
+          in: query
+          name: page
+          schema:
+            format: int64
+            type: integer
+        - explode: false
+          in: query
+          name: pageSize
+          schema:
+            format: int64
+            type: integer
+        - explode: false
+          in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 按标签获取 Echo（Deprecated）
+      tags:
+        - Echo
+  /echo/today:
+    get:
+      operationId: echo-today
+      parameters:
+        - description: 客户端时区（IANA 名）
+          in: header
+          name: X-Timezone
+          schema:
+            description: 客户端时区（IANA 名）
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEcho"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 获取今天的 Echo
+      tags:
+        - Echo
+  /echo/{id}:
+    delete:
+      operationId: echo-delete
+      parameters:
+        - description: Echo ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Echo ID
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - echo:delete
+      summary: 删除 Echo
+      tags:
+        - Echo
+    get:
+      operationId: echo-get
+      parameters:
+        - description: Echo ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Echo ID
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Echo"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 获取指定 ID 的 Echo
+      tags:
+        - Echo
+  /echo/{id}/reactions/{emoji}:
+    delete:
+      operationId: reaction-remove
+      parameters:
+        - description: Echo ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Echo ID
+            format: uuid
+            type: string
+        - description: Reaction key
+          in: path
+          name: emoji
+          required: true
+          schema:
+            description: Reaction key
+            enum:
+              - like
+              - heart
+              - haha
+              - wow
+              - sad
+              - cry
+              - party
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListReactionCount"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 取消 Echo 的表情反应（幂等）
+      tags:
+        - Reaction
+    put:
+      operationId: reaction-add
+      parameters:
+        - description: Echo ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Echo ID
+            format: uuid
+            type: string
+        - description: Reaction key
+          in: path
+          name: emoji
+          required: true
+          schema:
+            description: Reaction key
+            enum:
+              - like
+              - heart
+              - haha
+              - wow
+              - sad
+              - cry
+              - party
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListReactionCount"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 为 Echo 添加表情反应（幂等）
+      tags:
+        - Reaction
+  /embedding/reindex:
+    post:
+      description: 提交一次全量向量索引回填作业，起即返回（异步）。
+      operationId: embedding-reindex
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReindexStatusResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 触发全量向量索引重建
+      tags:
+        - Embedding
+  /embedding/reindex/cancel:
+    post:
+      description: 取消后返回最新状态（轮询收敛到 cancelled）。
+      operationId: embedding-reindex-cancel
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReindexStatusResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 取消进行中的重建索引作业
+      tags:
+        - Embedding
+  /embedding/reindex/status:
+    get:
+      description: 前端按类型轮询；查无作业行时返回 status=idle。
+      operationId: embedding-reindex-status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReindexStatusResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 查询重建索引作业状态
+      tags:
+        - Embedding
+  /embedding/settings:
+    get:
+      operationId: embedding-settings-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingSetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 获取 Embedding 设置
+      tags:
+        - Setting
+    put:
+      operationId: embedding-settings-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingSettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:agent
+      summary: 更新 Embedding 设置
+      tags:
+        - Setting
+  /files:
+    get:
+      operationId: file-list
+      parameters:
+        - description: 页码，从 1 开始
+          explode: false
+          in: query
+          name: page
+          schema:
+            description: 页码，从 1 开始
+            format: int64
+            type: integer
+        - description: 每页数量，1-100
+          explode: false
+          in: query
+          name: pageSize
+          schema:
+            description: 每页数量，1-100
+            format: int64
+            type: integer
+        - description: 文件名称模糊匹配
+          explode: false
+          in: query
+          name: search
+          schema:
+            description: 文件名称模糊匹配
+            type: string
+        - description: owned / blob / ref
+          explode: false
+          in: query
+          name: kind
+          schema:
+            description: owned / blob / ref
+            type: string
+        - description: pending / ready
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: pending / ready
+            type: string
+        - description: public / owner / private
+          explode: false
+          in: query
+          name: access
+          schema:
+            description: public / owner / private
+            type: string
+        - description: 引用方类型，如 echo
+          explode: false
+          in: query
+          name: ownerKind
+          schema:
+            description: 引用方类型，如 echo
+            type: string
+        - description: 引用方 ID
+          explode: false
+          in: query
+          name: ownerId
+          schema:
+            description: 引用方 ID
+            type: string
+        - description: 引用角色，如 attachment
+          explode: false
+          in: query
+          name: role
+          schema:
+            description: 引用角色，如 attachment
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListFileDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - file:read
+      summary: 分页获取文件列表
+      tags:
+        - File
+  /files/{id}:
+    delete:
+      operationId: file-delete
+      parameters:
+        - description: 文件 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 文件 ID
+            type: string
+        - description: 管理员强制删除仍有引用的文件
+          explode: false
+          in: query
+          name: force
+          schema:
+            description: 管理员强制删除仍有引用的文件
+            type: boolean
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - file:delete
+      summary: 删除文件
+      tags:
+        - File
+    get:
+      operationId: file-get
+      parameters:
+        - description: 文件 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 文件 ID
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 获取文件元信息
+      tags:
+        - File
+    patch:
+      operationId: file-rename
+      parameters:
+        - description: 文件 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 文件 ID
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameFileInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - file:write
+      summary: 修改文件展示名称
+      tags:
+        - File
+  /files/{id}/commit:
+    post:
+      operationId: file-commit
+      parameters:
+        - description: 文件 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 文件 ID
+            type: string
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileDTO"
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - file:write
+      summary: 确认直传完成
+      tags:
+        - File
+  /heatmap:
+    get:
+      description: public activity graph of the timeline
+      operationId: common-heatmap
+      parameters:
+        - description: 客户端时区（IANA 名），用于按本地日界对齐热力图
+          in: header
+          name: X-Timezone
+          schema:
+            description: 客户端时区（IANA 名），用于按本地日界对齐热力图
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListHeatmap"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取发布热力图
+      tags:
+        - Common
+  /hello:
+    get:
+      description: liveness and version probe
+      operationId: common-hello
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelloResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Hello / 版本信息
+      tags:
+        - Common
+  /init/owner:
+    post:
+      description: 创建首个管理员账号（仅在未初始化时可用）。
+      operationId: init-owner
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitOwnerDto"
+        required: true
+      responses:
+        "201":
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 初始化站点管理员
+      tags:
+        - Init
+  /init/status:
+    get:
+      description: 返回站点是否已初始化、是否已存在管理员。
+      operationId: init-status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取系统初始化状态
+      tags:
+        - Init
+  /mcp/manifest:
+    get:
+      operationId: mcp-manifest
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Manifest"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - mcp:read
+      summary: 获取 MCP 端点信息与能力清单
+      tags:
+        - MCP
+  /migration/cancel:
+    post:
+      operationId: migration-cancel
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalMigrationStateDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 取消进行中的全局迁移
+      tags:
+        - Migration
+  /migration/cleanup:
+    post:
+      operationId: migration-cleanup
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 清理迁移中间产物
+      tags:
+        - Migration
+  /migration/export:
+    post:
+      operationId: migration-export
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartExportRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportStateDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 提交导出作业
+      tags:
+        - Migration
+  /migration/export/cancel:
+    post:
+      operationId: migration-export-cancel
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportStateDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 取消导出作业
+      tags:
+        - Migration
+  /migration/export/status:
+    get:
+      operationId: migration-export-status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportStateDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 查询导出作业状态
+      tags:
+        - Migration
+  /migration/start:
+    post:
+      operationId: migration-start
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartGlobalMigrationRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalMigrationStateDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 启动全局数据迁移
+      tags:
+        - Migration
+  /migration/status:
+    get:
+      operationId: migration-status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalMigrationStateDTO"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 查询全局迁移状态
+      tags:
+        - Migration
+  /oauth/info:
+    get:
+      operationId: oauth-info
+      parameters:
+        - description: OAuth2 提供商，默认 github
+          explode: false
+          in: query
+          name: provider
+          schema:
+            description: OAuth2 提供商，默认 github
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthInfoDto"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - profile:read
+      summary: 获取当前用户的 OAuth2 绑定信息
+      tags:
+        - Auth
+  /oauth/{provider}/bind:
+    post:
+      operationId: oauth-bind
+      parameters:
+        - description: OAuth2 提供商 (github/google/qq/custom)
+          in: path
+          name: provider
+          required: true
+          schema:
+            description: OAuth2 提供商 (github/google/qq/custom)
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthBindBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 绑定 OAuth2 账号到当前用户
+      tags:
+        - Auth
+  /oauth2/settings:
+    get:
+      operationId: oauth2-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuth2Setting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:auth
+      summary: 获取 OAuth2 设置
+      tags:
+        - Setting
+    put:
+      operationId: oauth2-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuth2SettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:auth
+      summary: 更新 OAuth2 设置
+      tags:
+        - Setting
+  /oauth2/status:
+    get:
+      description: clients must know whether social login is enabled before authenticating
+      operationId: oauth2-status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuth2Status"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取 OAuth2 状态
+      tags:
+        - Setting
+  /panel/comments:
+    get:
+      operationId: comment-panel-list
+      parameters:
+        - explode: false
+          in: query
+          name: page
+          schema:
+            default: 1
+            format: int64
+            type: integer
+        - explode: false
+          in: query
+          name: page_size
+          schema:
+            default: 20
+            format: int64
+            type: integer
+        - explode: false
+          in: query
+          name: keyword
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: echo_id
+          schema:
+            type: string
+        - description: true/false 过滤置顶；缺省不过滤
+          explode: false
+          in: query
+          name: hot
+          schema:
+            description: true/false 过滤置顶；缺省不过滤
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListComment"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:review
+      summary: 管理面板列出评论
+      tags:
+        - Comment
+  /panel/comments/batch:
+    post:
+      operationId: comment-panel-batch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchCommentActionDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:review
+      summary: 批量操作评论
+      tags:
+        - Comment
+  /panel/comments/settings:
+    get:
+      operationId: comment-panel-settings-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelSystemSetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:settings
+      summary: 获取评论系统设置
+      tags:
+        - Comment
+    put:
+      operationId: comment-panel-settings-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelSystemSetting"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:settings
+      summary: 更新评论系统设置
+      tags:
+        - Comment
+  /panel/comments/settings/test-email:
+    post:
+      operationId: comment-panel-test-email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestEmailRequest"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:settings
+      summary: 发送评论通知测试邮件
+      tags:
+        - Comment
+  /panel/comments/{id}:
+    delete:
+      operationId: comment-panel-delete
+      parameters:
+        - description: 评论 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 评论 ID
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:delete
+      summary: 删除评论
+      tags:
+        - Comment
+    get:
+      operationId: comment-panel-get
+      parameters:
+        - description: 评论 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 评论 ID
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:review
+      summary: 获取单条评论
+      tags:
+        - Comment
+  /panel/comments/{id}/hot:
+    patch:
+      operationId: comment-panel-hot
+      parameters:
+        - description: 评论 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 评论 ID
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentHotDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:review
+      summary: 置顶/取消置顶评论
+      tags:
+        - Comment
+  /panel/comments/{id}/status:
+    patch:
+      operationId: comment-panel-status
+      parameters:
+        - description: 评论 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 评论 ID
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentStatusDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - comment:review
+      summary: 更新评论审核状态
+      tags:
+        - Comment
+  /passkey/settings:
+    get:
+      operationId: passkey-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeySetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:auth
+      summary: 获取 Passkey 设置
+      tags:
+        - Setting
+    put:
+      operationId: passkey-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeySettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:auth
+      summary: 更新 Passkey 设置
+      tags:
+        - Setting
+  /passkey/status:
+    get:
+      description: clients must know whether passkey login is available
+      operationId: passkey-status
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyStatus"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取 Passkey 状态
+      tags:
+        - Setting
+  /passkeys:
+    get:
+      operationId: passkey-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/PasskeyDeviceDto"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - profile:read
+      summary: 列出当前用户的 Passkey 设备
+      tags:
+        - Auth
+  /passkeys/{id}:
+    delete:
+      operationId: passkey-delete
+      parameters:
+        - description: Passkey 设备 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Passkey 设备 ID（UUID）
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 删除 Passkey 设备
+      tags:
+        - Auth
+    put:
+      operationId: passkey-update-name
+      parameters:
+        - description: Passkey 设备 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Passkey 设备 ID（UUID）
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyUpdateDeviceNameReq"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 更新 Passkey 设备名称
+      tags:
+        - Auth
+  /reactions:
+    get:
+      description: "presentation data: the emoji set offered to readers"
+      operationId: reaction-catalog
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListReactionEmoji"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取可用的表情反应
+      tags:
+        - Reaction
+  /register:
+    post:
+      description: registration is open until the instance reaches its member limit
+      operationId: user-register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDto"
+        required: true
+      responses:
+        "201":
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 用户注册
+      tags:
+        - User
+  /s3/settings:
+    get:
+      operationId: s3-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/S3Setting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:storage
+      summary: 获取 S3 存储设置
+      tags:
+        - Setting
+    put:
+      operationId: s3-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/S3SettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:storage
+      summary: 更新 S3 存储设置
+      tags:
+        - Setting
+  /s3/settings/test:
+    post:
+      operationId: s3-test
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/S3SettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:storage
+      summary: 测试 S3 存储连接
+      tags:
+        - Setting
+  /settings:
+    get:
+      description: public settings expose only non-secret presentation fields
+      operationId: settings-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemSetting"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取系统全局设置
+      tags:
+        - Setting
+    put:
+      operationId: settings-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemSettingDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:site
+      summary: 更新系统全局设置
+      tags:
+        - Setting
+  /snapshot/schedule:
+    get:
+      operationId: snapshot-schedule-get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotSchedule"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 获取定时快照计划
+      tags:
+        - Setting
+    post:
+      operationId: snapshot-schedule-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SnapshotScheduleDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:data
+      summary: 设置定时快照计划
+      tags:
+        - Setting
+  /system/check-update:
+    get:
+      operationId: dashboard-check-update
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckUpdateResponse"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:ops
+      summary: 检查 Ech0 版本更新
+      tags:
+        - Dashboard
+  /system/logs:
+    get:
+      operationId: dashboard-system-logs
+      parameters:
+        - description: 返回最近多少条（默认 200）
+          explode: false
+          in: query
+          name: tail
+          schema:
+            description: 返回最近多少条（默认 200）
+            type: string
+        - description: 日志级别过滤
+          explode: false
+          in: query
+          name: level
+          schema:
+            description: 日志级别过滤
+            type: string
+        - description: 关键词过滤
+          explode: false
+          in: query
+          name: keyword
+          schema:
+            description: 关键词过滤
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLogEntry"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:ops
+      summary: 获取系统历史日志
+      tags:
+        - Dashboard
+  /system/visitor-stats:
+    get:
+      operationId: dashboard-visitor-stats
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListDayStat"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:ops
+      summary: 获取近七天访客统计
+      tags:
+        - Dashboard
+  /tag:
+    post:
+      operationId: tag-create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTagDto"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - echo:write
+      summary: 创建标签
+      tags:
+        - Echo
+  /tag/{id}:
+    delete:
+      operationId: tag-delete
+      parameters:
+        - description: Tag ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Tag ID
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - echo:delete
+      summary: 删除标签
+      tags:
+        - Echo
+  /tags:
+    get:
+      description: "public navigation: readers browse by tag"
+      operationId: tag-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTag"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: 获取所有标签
+      tags:
+        - Tag
+  /user:
+    get:
+      operationId: user-info
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - profile:read
+      summary: 获取当前用户信息
+      tags:
+        - User
+    put:
+      operationId: user-update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInfoDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - profile:write
+      summary: 更新当前用户信息
+      tags:
+        - User
+  /user/owner/{id}:
+    put:
+      operationId: user-transfer-owner
+      parameters:
+        - description: 接任所有者的用户 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 接任所有者的用户 ID（UUID）
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 转让空间所有权
+      tags:
+        - User
+  /user/role/{id}:
+    put:
+      operationId: user-set-role
+      parameters:
+        - description: 用户 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 用户 ID（UUID）
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRoleInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 设置用户角色（admin 或 member）
+      tags:
+        - User
+  /user/status/{id}:
+    put:
+      operationId: user-set-status
+      parameters:
+        - description: 用户 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 用户 ID（UUID）
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserStatusInputBody"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 启用或禁用用户
+      tags:
+        - User
+  /user/{id}:
+    delete:
+      operationId: user-delete
+      parameters:
+        - description: 用户 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 用户 ID（UUID）
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 删除用户
+      tags:
+        - User
+  /users:
+    get:
+      operationId: user-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListUser"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 获取所有用户
+      tags:
+        - User
+  /webhook:
+    get:
+      operationId: webhook-list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListWebhook"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:webhook
+      summary: 获取所有 Webhook
+      tags:
+        - Setting
+    post:
+      operationId: webhook-create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookDto"
+        required: true
+      responses:
+        "201":
+          description: Created
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:webhook
+      summary: 创建 Webhook
+      tags:
+        - Setting
+  /webhook/{id}:
+    delete:
+      operationId: webhook-delete
+      parameters:
+        - description: Webhook ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Webhook ID (UUID)
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:webhook
+      summary: 删除 Webhook
+      tags:
+        - Setting
+    put:
+      operationId: webhook-update
+      parameters:
+        - description: Webhook ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Webhook ID (UUID)
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookDto"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:webhook
+      summary: 更新 Webhook
+      tags:
+        - Setting
+  /webhook/{id}/test:
+    post:
+      operationId: webhook-test
+      parameters:
+        - description: Webhook ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            description: Webhook ID (UUID)
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:webhook
+      summary: 测试 Webhook
+      tags:
+        - Setting
+  /website/title:
+    get:
+      operationId: common-website-title
+      parameters:
+        - description: 目标网站 URL
+          explode: false
+          in: query
+          name: website_url
+          required: true
+          schema:
+            description: 目标网站 URL
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: 获取目标网站标题
+      tags:
+        - Common
+servers:
+  - url: /api

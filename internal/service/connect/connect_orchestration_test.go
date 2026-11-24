@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/authz"
 	model "github.com/lin-snow/ech0/internal/model/connect"
-	userModel "github.com/lin-snow/ech0/internal/model/user"
 	connectService "github.com/lin-snow/ech0/internal/service/connect"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	"github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	"github.com/lin-snow/ech0/internal/test/mocks/connectmock"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -54,7 +54,7 @@ func TestAddConnect_CreateConnectErrorPropagates(t *testing.T) {
 	const userID = "u-1"
 	wantErr := errors.New("insert failed")
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 	repo.EXPECT().GetAllConnects(mock.Anything).Return([]model.Connected{}, nil).Once()
 	repo.EXPECT().
@@ -63,7 +63,7 @@ func TestAddConnect_CreateConnectErrorPropagates(t *testing.T) {
 		Once()
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: "https://example.com"})
+	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: "https://example.com"})
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, wantErr)
@@ -73,47 +73,24 @@ func TestDeleteConnect_NonAdminDenied(t *testing.T) {
 	const userID = "u-1"
 	tx := passthroughTx(t)
 	cs := commonmock.NewMockService(t)
-	cs.EXPECT().
-		CommonGetUserByUserId(mock.Anything, userID).
-		Return(userModel.User{IsAdmin: false}, nil).
-		Once()
 	repo := connectmock.NewMockRepository(t)
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
 	err := svc.DeleteConnect(helpers.CtxAsUser(userID), "id-1")
 
-	require.Error(t, err)
-	assert.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
-}
-
-func TestDeleteConnect_UserLookupErrorPropagates(t *testing.T) {
-	const userID = "u-1"
-	wantErr := errors.New("user lookup failed")
-	tx := passthroughTx(t)
-	cs := commonmock.NewMockService(t)
-	cs.EXPECT().
-		CommonGetUserByUserId(mock.Anything, userID).
-		Return(userModel.User{}, wantErr).
-		Once()
-	repo := connectmock.NewMockRepository(t)
-
-	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.DeleteConnect(helpers.CtxAsUser(userID), "id-1")
-
-	require.Error(t, err)
-	assert.ErrorIs(t, err, wantErr)
+	require.ErrorIs(t, err, authz.ErrDenied)
 }
 
 func TestDeleteConnect_RepoErrorPropagates(t *testing.T) {
 	const userID = "u-1"
 	wantErr := errors.New("delete failed")
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 	repo.EXPECT().DeleteConnect(mock.Anything, "id-1").Return(wantErr).Once()
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.DeleteConnect(helpers.CtxAsUser(userID), "id-1")
+	err := svc.DeleteConnect(helpers.CtxAsUser(userID, role.Admin), "id-1")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, wantErr)
@@ -122,12 +99,12 @@ func TestDeleteConnect_RepoErrorPropagates(t *testing.T) {
 func TestDeleteConnect_Success(t *testing.T) {
 	const userID = "u-1"
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 	repo.EXPECT().DeleteConnect(mock.Anything, "id-1").Return(nil).Once()
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.DeleteConnect(helpers.CtxAsUser(userID), "id-1")
+	err := svc.DeleteConnect(helpers.CtxAsUser(userID, role.Admin), "id-1")
 
 	require.NoError(t, err)
 }
@@ -307,7 +284,7 @@ func TestGetConnectsInfo_CacheHitAndInvalidation(t *testing.T) {
 	repo.EXPECT().GetAllConnects(mock.Anything).Return(connects, nil)
 	repo.EXPECT().DeleteConnect(mock.Anything, "id-1").Return(nil).Once()
 
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	tx := passthroughTx(t)
 
 	var fetchCount atomic.Int32
@@ -327,7 +304,7 @@ func TestGetConnectsInfo_CacheHitAndInvalidation(t *testing.T) {
 	assert.Equal(t, first, second)
 	assert.Equal(t, int32(1), fetchCount.Load(), "second call must hit cache")
 
-	require.NoError(t, svc.DeleteConnect(helpers.CtxAsUser(userID), "id-1"))
+	require.NoError(t, svc.DeleteConnect(helpers.CtxAsUser(userID, role.Admin), "id-1"))
 
 	third, err := svc.GetConnectsInfo()
 	require.NoError(t, err)

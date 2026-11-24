@@ -13,25 +13,18 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 func (s *CopilotService) agentSetting(ctx context.Context) (settingModel.AgentSetting, error) {
-	var setting settingModel.AgentSetting
-	raw, err := s.durableKV.Get(ctx, commonModel.AgentSettingKey)
-	if err != nil {
-		return setting, errors.New(commonModel.AGENT_SETTING_NOT_FOUND)
-	}
-	if err := json.Unmarshal([]byte(raw), &setting); err != nil {
-		return setting, err
-	}
-	return setting, nil
+	return coreSetting.Agent.Get(ctx, s.durableKV)
 }
 
 // requireAdmin admits the site owner and nobody else.
@@ -46,8 +39,8 @@ func (s *CopilotService) requireAdmin(ctx context.Context) (userModel.User, erro
 	if err != nil {
 		return userModel.User{}, err
 	}
-	if !user.IsAdmin {
-		return userModel.User{}, errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := authz.Decide(viewer.NewSession(user.ID, user.Role, authz.ScopesForRole(user.Role)), authz.CopilotUse, authz.Instance()); err != nil {
+		return userModel.User{}, err
 	}
 	return user, nil
 }

@@ -441,11 +441,11 @@ const allChecked = computed({
 
 const loadSetting = async () => {
   const res = await fetchGetCommentSystemSetting()
-  if (res.code === 1) {
-    Object.assign(setting, res.data)
+  if (res) {
+    Object.assign(setting, res)
     setting.email_notify = {
       ...setting.email_notify,
-      ...(res.data.email_notify || {}),
+      ...(res.email_notify || {}),
       smtp_password: '',
     }
     settingLoaded.value = true
@@ -456,7 +456,7 @@ const saveSetting = async () => {
   settingSaving.value = true
   try {
     const res = await fetchUpdateCommentSystemSetting(buildSettingPayload())
-    if (res.code === 1) {
+    if (res) {
       theToast.success(String(t('commentManager.settingUpdated')))
     }
   } finally {
@@ -472,7 +472,7 @@ const testEmail = async () => {
   testingEmail.value = true
   try {
     const res = await fetchTestCommentEmail(buildSettingPayload())
-    if (res.code === 1) {
+    if (res) {
       theToast.success(String(t('commentManager.testEmailSuccess')))
     }
   } finally {
@@ -505,9 +505,9 @@ const loadList = async () => {
     ...query,
     hot,
   })
-  if (res.code === 1) {
-    list.items = res.data.items || []
-    list.total = res.data.total || 0
+  if (res) {
+    list.items = res.items || []
+    list.total = res.total || 0
     selectedIds.value = []
   }
 }
@@ -523,7 +523,7 @@ const runBatch = async (action: App.Api.Comment.BatchAction) => {
     return
   }
   const res = await fetchBatchPanelComments(action, selectedIds.value)
-  if (res.code === 1) {
+  if (res) {
     theToast.success(String(t('commentManager.batchSuccess')))
     await loadList()
   }
@@ -531,21 +531,21 @@ const runBatch = async (action: App.Api.Comment.BatchAction) => {
 
 const updateStatus = async (id: string, status: App.Api.Comment.CommentStatus) => {
   const res = await fetchUpdatePanelCommentStatus(id, status)
-  if (res.code === 1) {
+  if (res) {
     await loadList()
   }
 }
 
 const updateHot = async (id: string, hot: boolean) => {
   const res = await fetchUpdatePanelCommentHot(id, hot)
-  if (res.code === 1) {
+  if (res) {
     await loadList()
   }
 }
 
 const remove = async (id: string) => {
   const res = await fetchDeletePanelComment(id)
-  if (res.code === 1) {
+  if (res) {
     await loadList()
   }
 }
@@ -565,8 +565,8 @@ const openEcho = (echoId: string) => {
 
 const openDetail = async (id: string) => {
   const res = await fetchGetPanelCommentById(id)
-  if (res.code === 1) {
-    current.value = res.data
+  if (res) {
+    current.value = res
     detailOpen.value = true
   }
 }

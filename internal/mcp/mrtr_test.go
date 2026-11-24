@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -36,8 +37,7 @@ func countingServer(calls *int) *Server {
 }
 
 func destructiveViewer() viewer.Context {
-	return viewer.NewUserViewerWithToken(
-		"test-user", "access", []string{authz.ScopeEchoWrite}, []string{authz.AudienceMCPRemote}, "test-jti")
+	return viewer.NewAccess("test-user", "test-jti", role.Member, []string{authz.ScopeEchoWrite}, []string{authz.AudienceMCPRemote})
 }
 
 func TestDestructiveToolAsksForConfirmation(t *testing.T) {

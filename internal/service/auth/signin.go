@@ -5,7 +5,7 @@ package auth
 
 import (
 	"context"
-	"time"
+	"net/http"
 
 	"github.com/lin-snow/ech0/internal/clientip"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -66,15 +66,9 @@ func (attempt *signInAttempt) refundAddress() {
 	}
 }
 
-func signInRateLimited(decision ratelimit.Decision) error {
-	seconds := int((decision.RetryAfter + time.Second - 1) / time.Second)
-	if seconds < 1 {
-		seconds = 1
-	}
-	return commonModel.NewBizErrorWithMessageKey(
-		commonModel.ErrCodeRateLimited,
-		commonModel.RATE_LIMIT_EXCEEDED,
-		commonModel.MsgKeyAuthRateLimited,
-		map[string]any{"retry_after": seconds},
-	)
+// signInRateLimited reports a 429. Huma renders the problem document itself,
+// and huma.StatusError has no header channel, so the cool-down is conveyed by
+// the status alone; the middleware-set Retry-After covers the transport layer.
+func signInRateLimited(_ ratelimit.Decision) error {
+	return commonModel.Fail(http.StatusTooManyRequests, commonModel.RATE_LIMIT_EXCEEDED)
 }

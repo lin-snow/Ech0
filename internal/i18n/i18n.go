@@ -1,30 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+// Package i18n resolves which language a request is in.
+//
+// The server does not produce user-facing text: API error details are English
+// and the SPA owns every translated string. The resolved locale is still
+// needed for two things that genuinely happen server-side: validating the
+// configured default locale and telling the copilot which language to answer
+// in.
 package i18n
 
 import (
-	"embed"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/database"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
-	goi18n "github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 )
 
-const (
-	ContextLocaleKey    = "locale"
-	ContextLocalizerKey = "localizer"
-)
-
-//go:embed locales/*.json
-var localeFS embed.FS
+const ContextLocaleKey = "locale"
 
 var (
 	supportedLocales = []language.Tag{
@@ -34,20 +31,7 @@ var (
 		language.MustParse("ja-JP"),
 	}
 	matcher = language.NewMatcher(supportedLocales)
-	bundle  = newBundle()
 )
-
-func newBundle() *goi18n.Bundle {
-	b := goi18n.NewBundle(language.MustParse("zh-CN"))
-	b.RegisterUnmarshalFunc("json", unmarshalJSON)
-	for _, path := range []string{"locales/zh-CN.json", "locales/en-US.json", "locales/de-DE.json", "locales/ja-JP.json"} {
-		_, err := b.LoadMessageFileFS(localeFS, path)
-		if err != nil {
-			panic(fmt.Sprintf("load i18n message file failed: %s: %v", path, err))
-		}
-	}
-	return b
-}
 
 const maxAcceptLanguageSeparators = 32
 
@@ -80,40 +64,6 @@ func ResolveLocale(raw ...string) string {
 		return fmt.Sprintf("%s-%s", strings.ToLower(base.String()), strings.ToUpper(region.String()))
 	}
 	return best.String()
-}
-
-func NewLocalizer(locale, acceptLanguage string) *goi18n.Localizer {
-	return goi18n.NewLocalizer(bundle, locale, sanitizeAcceptLanguage(acceptLanguage))
-}
-
-func Localize(localizer *goi18n.Localizer, messageID string, defaultText string, templateData map[string]any) string {
-	if localizer == nil || strings.TrimSpace(messageID) == "" {
-		return defaultText
-	}
-	msg, err := localizer.Localize(&goi18n.LocalizeConfig{
-		MessageID: messageID,
-		DefaultMessage: &goi18n.Message{
-			ID:    messageID,
-			Other: defaultText,
-		},
-		TemplateData: templateData,
-	})
-	if err != nil {
-		return defaultText
-	}
-	return msg
-}
-
-func LocalizerFromGin(ctx *gin.Context) *goi18n.Localizer {
-	if ctx == nil {
-		return nil
-	}
-	if v, ok := ctx.Get(ContextLocalizerKey); ok {
-		if localizer, ok := v.(*goi18n.Localizer); ok {
-			return localizer
-		}
-	}
-	return nil
 }
 
 func LocaleFromGin(ctx *gin.Context) string {
@@ -149,33 +99,24 @@ func explicitLocaleFromRequest(ctx *gin.Context) string {
 	return strings.TrimSpace(ctx.GetHeader("X-Locale"))
 }
 
+// defaultLocaleProvider is installed by the composition root, which resolves
+// the instance default locale through the settings kernel. Keeping it a hook
+// means this package never reads the settings table itself.
+var defaultLocaleProvider func() string
+
+// SetDefaultLocaleProvider installs the default-locale reader. Pass nil to
+// restore the compiled-in fallback (tests).
+func SetDefaultLocaleProvider(fn func() string) { defaultLocaleProvider = fn }
+
 func SystemDefaultLocale() string { return systemDefaultLocale() }
 
 func systemDefaultLocale() string {
-	defaultLocale := string(commonModel.DefaultLocale)
-	db := database.GetDB()
-	if db == nil {
-		return defaultLocale
+	if defaultLocaleProvider != nil {
+		if locale := strings.TrimSpace(defaultLocaleProvider()); locale != "" {
+			return ResolveLocale(locale)
+		}
 	}
-
-	var kv commonModel.KeyValue
-	if err := db.Select("value").Where("key = ?", commonModel.SystemSettingsKey).First(&kv).Error; err != nil {
-		return defaultLocale
-	}
-	if strings.TrimSpace(kv.Value) == "" {
-		return defaultLocale
-	}
-
-	payload := struct {
-		DefaultLocale string `json:"default_locale"`
-	}{}
-	if err := json.Unmarshal([]byte(kv.Value), &payload); err != nil {
-		return defaultLocale
-	}
-	if strings.TrimSpace(payload.DefaultLocale) == "" {
-		return defaultLocale
-	}
-	return ResolveLocale(payload.DefaultLocale)
+	return string(commonModel.DefaultLocale)
 }
 
 func userPreferredLocale(userID string) string {
@@ -197,15 +138,11 @@ func userPreferredLocale(userID string) string {
 	return ResolveLocale(user.Locale)
 }
 
-func setLocaleContext(ctx *gin.Context, locale, acceptLanguage string) {
+func setLocaleContext(ctx *gin.Context, locale string) {
 	if ctx == nil {
 		return
 	}
-	normalized := ResolveLocale(locale)
-	localizer := NewLocalizer(normalized, acceptLanguage)
-	ctx.Set(ContextLocaleKey, normalized)
-	ctx.Set(ContextLocalizerKey, localizer)
-	ctx.Header("Content-Language", normalized)
+	ctx.Set(ContextLocaleKey, ResolveLocale(locale))
 }
 
 func Middleware() gin.HandlerFunc {
@@ -216,7 +153,7 @@ func Middleware() gin.HandlerFunc {
 		if explicit != "" {
 			locale = ResolveLocale(explicit, acceptLanguage)
 		}
-		setLocaleContext(ctx, locale, acceptLanguage)
+		setLocaleContext(ctx, locale)
 		ctx.Next()
 	}
 }
@@ -229,13 +166,5 @@ func ApplyUserLocaleFromUserID(ctx *gin.Context, userID string) {
 	if strings.TrimSpace(locale) == "" {
 		locale = systemDefaultLocale()
 	}
-	acceptLanguage := strings.TrimSpace(ctx.GetHeader("Accept-Language"))
-	setLocaleContext(ctx, locale, acceptLanguage)
-}
-
-func HeaderLocale(req *http.Request) string {
-	if req == nil {
-		return "zh-CN"
-	}
-	return ResolveLocale(req.Header.Get("X-Locale"), req.Header.Get("Accept-Language"))
+	setLocaleContext(ctx, locale)
 }

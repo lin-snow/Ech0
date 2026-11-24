@@ -83,9 +83,7 @@ export function createStreamRenderer(options: { json: boolean; events: string[] 
       print(`[${frame.event}] ${frame.data}`);
       return;
     }
-    const envelope = asObject(payload);
-    const data = "code" in envelope ? envelope.data : payload;
-    print(JSON.stringify(data));
+    print(JSON.stringify(payload));
   };
 
   const renderNamed = (frame: SseFrame): void => {
@@ -143,8 +141,8 @@ export function createStreamRenderer(options: { json: boolean; events: string[] 
         break;
       case "error": {
         breakLine();
-        const message = typeof data.message === "string" ? data.message : frame.data;
-        printErr(`${palette.red("错误")} ${message}`);
+        const detail = typeof data.detail === "string" && data.detail !== "" ? data.detail : undefined;
+        printErr(`${palette.red("错误")} ${detail ?? frame.data}`);
         failed = true;
         break;
       }

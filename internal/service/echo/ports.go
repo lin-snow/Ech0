@@ -14,7 +14,7 @@ import (
 
 type Service interface {
 	PostEcho(ctx context.Context, newEcho *model.Echo) (*model.Echo, error)
-	GetEchosByPage(ctx context.Context, pageQueryDto commonModel.PageQueryDto) (commonModel.PageQueryResult[[]model.Echo], error)
+	GetEchosByPage(ctx context.Context, pageQueryDto commonModel.PageQueryDto) (commonModel.List[model.Echo], error)
 	DeleteEchoById(ctx context.Context, id string) error
 	GetTodayEchos(ctx context.Context, timezone string) ([]model.Echo, error)
 	UpdateEcho(ctx context.Context, echo *model.Echo) (*model.Echo, error)
@@ -25,8 +25,8 @@ type Service interface {
 	GetAllTags() ([]model.Tag, error)
 	CreateTag(ctx context.Context, name string) (*model.Tag, error)
 	DeleteTag(ctx context.Context, id string) error
-	GetEchosByTagId(ctx context.Context, tagId string, pageQueryDto commonModel.PageQueryDto) (commonModel.PageQueryResult[[]model.Echo], error)
-	QueryEchos(ctx context.Context, queryDto commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]model.Echo], error)
+	GetEchosByTagId(ctx context.Context, tagId string, pageQueryDto commonModel.PageQueryDto) (commonModel.List[model.Echo], error)
+	QueryEchos(ctx context.Context, queryDto commonModel.EchoQueryDto) (commonModel.List[model.Echo], error)
 	GetHotEchos(ctx context.Context, limit int) ([]model.Echo, error)
 	GetRandomEcho(ctx context.Context) (*model.Echo, error)
 	GetOnThisDayEchos(ctx context.Context, timezone string) ([]model.Echo, error)

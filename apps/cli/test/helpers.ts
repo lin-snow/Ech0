@@ -48,7 +48,7 @@ export function startFakeApi(routes: Record<string, (request: RecordedRequest) =
       const handler = routes[key];
       const reply = handler
         ? handler(recorded)
-        : { status: 404, body: { code: 0, msg: `no route: ${key}` } };
+        : { status: 404, body: { title: "Not Found", status: 404, detail: `no route: ${key}`, code: "NOT_FOUND" } };
       return new Response(JSON.stringify(reply.body), {
         status: reply.status ?? 200,
         headers: { "Content-Type": "application/json", ...reply.headers },

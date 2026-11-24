@@ -48,11 +48,11 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 	}
 
 	// Only files uploaded by the user are deleted; files other people uploaded
-	// and attached to this user's echoes belong to them (D3), so they survive
-	// even though the link rows under the deleted echoes are removed.
+	// and attached to this user's echoes belong to them, so they survive even
+	// though the link rows under the deleted echoes are removed.
 	var fileIDs []string
 	if err := db.Model(&fileModel.File{}).
-		Where("user_id = ?", userID).
+		Where("uploader_id = ?", userID).
 		Pluck("id", &fileIDs).Error; err != nil {
 		return result, err
 	}
@@ -63,10 +63,13 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 	}
 
 	if len(echoIDs) > 0 {
-		// EchoFile / EchoExtension cascade in the schema, but SQLite foreign
-		// keys are not guaranteed to be enforced, so delete explicitly.
+		// Links and extensions cascade in the schema, but the caller may run
+		// with foreign keys off, so delete explicitly.
+		if err := db.Where("owner_kind = ? AND owner_id IN ?", fileModel.OwnerKindEcho, echoIDs).
+			Delete(&fileModel.Link{}).Error; err != nil {
+			return result, err
+		}
 		for _, table := range []any{
-			&fileModel.EchoFile{},
 			&echoModel.EchoExtension{},
 			&echoModel.Reaction{},
 			&commentModel.Comment{},
@@ -94,18 +97,10 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 	// Detach files from surviving echoes before the caller removes the rows,
 	// otherwise the cascade would silently drop other users' echoes' media.
 	if len(fileIDs) > 0 {
-		if err := db.Where("file_id IN ?", fileIDs).Delete(&fileModel.EchoFile{}).Error; err != nil {
+		if err := db.Where("file_id IN ?", fileIDs).Delete(&fileModel.Link{}).Error; err != nil {
 			return result, err
 		}
 	}
-	if len(fileIDs) > 0 {
-		if err := db.Where("uploader_id = ? OR file_id IN ?", userID, fileIDs).Delete(&fileModel.TempFile{}).Error; err != nil {
-			return result, err
-		}
-	} else if err := db.Where("uploader_id = ?", userID).Delete(&fileModel.TempFile{}).Error; err != nil {
-		return result, err
-	}
-
 	for _, table := range []any{
 		&settingModel.AccessTokenSetting{},
 		&model.WebAuthnCredential{},
@@ -127,7 +122,6 @@ func (userRepository *UserRepository) PurgeUserContent(ctx context.Context, user
 
 	userRepository.cache.Delete(GetUserIDKey(user.ID))
 	userRepository.cache.Delete(GetUsernameKey(user.Username))
-	userRepository.cache.Delete(GetAdminKey(user.ID))
 
 	result.EchoIDs = echoIDs
 	return result, nil

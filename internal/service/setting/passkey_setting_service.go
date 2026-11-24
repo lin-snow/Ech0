@@ -5,10 +5,9 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/authz"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -18,13 +17,8 @@ func (settingService *SettingService) GetPasskeySetting(
 	ctx context.Context,
 	setting *model.PasskeySetting,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	v, err := coreSetting.Passkey.Get(ctx, settingService.durableKV)
@@ -39,13 +33,8 @@ func (settingService *SettingService) UpdatePasskeySetting(
 	ctx context.Context,
 	newSetting *model.PasskeySettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	passkeySetting := model.PasskeySetting{

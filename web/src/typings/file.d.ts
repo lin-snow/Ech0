@@ -5,79 +5,75 @@ declare namespace App {
   namespace Api {
     namespace File {
       type Category = import('@/constants/file').FileCategory
-      type StorageType = import('@/constants/file').FileStorageType
+      type Kind = import('@/constants/file').FileKind
+      type Access = import('@/constants/file').FileAccess
+      type Profile = 'attachment' | 'draft' | 'avatar' | 'instance'
+      type Status = 'pending' | 'ready'
+
+      type Link = {
+        owner_kind: string
+        owner_id: string
+        role: string
+        sort_order: number
+      }
 
       type FileDto = {
         id: string
-        name?: string
-        key: string
-        url: string
-        content_type?: string
-        category?: Category
-        storage_type?: StorageType
-        size?: number
+        kind: Kind
+        access: Access
+        status: Status
+        name: string
+        content_type: string
+        category: Category
+        size: number
         width?: number
         height?: number
+        url: string
+        uploader_id: string
+        created_at: number
+        links?: Link[]
       }
       type FileListQuery = {
         page: number
         pageSize: number
         search?: string
-        storage_type?: StorageType
-      }
-      type FileListItem = {
-        id: string
-        name: string
-        key: string
-        storage_type: StorageType
-        url: string
-        content_type?: string
-        size?: number
-        created_at: number
+        kind?: Kind
+        access?: Access
       }
       type FileListResult = {
-        items: FileListItem[]
+        items: FileDto[]
         total: number
       }
-      type FileTreeQuery = {
-        storage_type: StorageType
-        prefix?: string
+      type UploadTicket = {
+        url: string
+        method: string
+        headers?: Record<string, string>
+        expires_at?: number
       }
-      type FilePathStreamQuery = {
-        storage_type: StorageType
-        path: string
+      type UploadResult = {
+        file: FileDto
+        upload?: UploadTicket
+      }
+      type UploadFileDto = {
+        file: File
+        profile?: Profile
+        name?: string
+        width?: number
+        height?: number
+      }
+      type RegisterExternalFileDto = {
+        url: string
         name?: string
         content_type?: string
+        width?: number
+        height?: number
       }
-      type FileTreeNode = {
+      type RenameFileDto = {
         name: string
-        path: string
-        node_type: 'file' | 'folder'
-        has_children: boolean
-        file_id?: string
-        size?: number
-        content_type?: string
-        modified_at?: number
-      }
-      type FileTreeResult = {
-        items: FileTreeNode[]
       }
       type FileDeleteDto = {
         id: string
-      }
-      type CreateExternalFileDto = {
-        url: string
-        content_type?: string
-        category?: Category
-        width?: number
-        height?: number
-        name?: string
-      }
-      type UpdateFileMetaDto = {
-        size: number
-        width?: number
-        height?: number
-        content_type?: string
+        force?: boolean
       }
     }
   }

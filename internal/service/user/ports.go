@@ -15,9 +15,10 @@ type Service interface {
 	InitOwner(registerDto *authModel.RegisterDto) error
 	Register(registerDto *authModel.RegisterDto) error
 	UpdateUser(ctx context.Context, userdto model.UserInfoDto) error
-	UpdateUserAdmin(ctx context.Context, id string) error
+	UpdateUserRole(ctx context.Context, id string, newRole model.Role) error
+	TransferOwnership(ctx context.Context, newOwnerID string) error
 	GetAllUsers(ctx context.Context) ([]model.User, error)
-	GetPrimaryAdmin() (model.User, error)
+	GetOwner() (model.User, error)
 	DeleteUser(ctx context.Context, id string) error
 	UpdateUserStatus(ctx context.Context, id string, status model.Status) error
 	GetUserByID(userId string) (model.User, error)
@@ -30,10 +31,12 @@ type UserRepo interface {
 	GetUserByUsername(ctx context.Context, username string) (model.User, error)
 	GetAllUsers(ctx context.Context) ([]model.User, error)
 	CreateUser(ctx context.Context, newUser *model.User) error
-	GetPrimaryAdmin(ctx context.Context) (model.User, error)
+	GetOwner(ctx context.Context) (model.User, error)
 	UpdateUser(ctx context.Context, user *model.User) error
 	UpsertLocalAuth(ctx context.Context, localAuth *model.UserLocalAuth) error
 	UpdateUserStatus(ctx context.Context, id string, status model.Status) error
+	UpdateUserRole(ctx context.Context, id string, newRole model.Role) error
+	TransferOwnership(ctx context.Context, currentOwnerID string, newOwnerID string) error
 	PurgeUserContent(ctx context.Context, id string) (model.PurgeResult, error)
 }
 
@@ -49,7 +52,6 @@ type EmbeddingPurger interface {
 
 type InstallStateRepo interface {
 	IsInitialized(ctx context.Context) (bool, error)
-	MarkInitialized(ctx context.Context) error
 }
 
 type Repository interface {

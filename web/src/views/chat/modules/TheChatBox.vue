@@ -428,9 +428,9 @@ const submitAskAnswer = async (answer: App.Api.Chat.ChatAskAnswer): Promise<bool
   askError.value = ''
   let delivered = false
   try {
-    // `request` resolves with the envelope and has already surfaced the server's
-    // own message, so the code is what says whether the run got the answer.
-    delivered = (await answerChatAsk(draft.askId, answers)).code === 1
+    // The transport already toasted any failure; a null result means the run
+    // never got the answer.
+    delivered = Boolean(await answerChatAsk(draft.askId, answers))
   } catch {
     delivered = false
   }
@@ -684,7 +684,7 @@ onMounted(async () => {
 
   try {
     const res = await getChatSession()
-    const history = res.data
+    const history = res
     if (Array.isArray(history) && history.length > 0) {
       messages.value = history
       pinned.value = true

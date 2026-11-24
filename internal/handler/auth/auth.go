@@ -10,14 +10,23 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lin-snow/ech0/internal/config"
-	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
+	res "github.com/lin-snow/ech0/internal/handler/response"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
-	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
+)
+
+// Repeated failures of the auth surface. A StatusError is immutable, so one
+// value per case is safe to share instead of rebuilding it per request.
+var (
+	errInvalidBody         = commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_REQUEST_BODY)
+	errInvalidParams       = commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_PARAMS)
+	errRefreshTokenInvalid = commonModel.Fail(http.StatusUnauthorized, commonModel.REFRESH_TOKEN_INVALID)
+	errAccountDisabled     = commonModel.FailWithType(http.StatusForbidden, commonModel.TypeAccountDisabled, commonModel.ACCOUNT_DISABLED)
+	errTokenGenerateFailed = commonModel.Fail(http.StatusInternalServerError, commonModel.TOKEN_GENERATE_FAILED)
 )
 
 type AuthHandler struct {
@@ -33,126 +42,60 @@ func NewAuthHandler(authService authService.Service, userService userService.Ser
 }
 
 func (h *AuthHandler) Refresh() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		localizer := i18nUtil.LocalizerFromGin(ctx)
-
+	return res.Execute(func(ctx *gin.Context) res.Response {
 		refreshTokenStr, err := cookieUtil.GetRefreshTokenFromCookie(ctx)
 		if err != nil || refreshTokenStr == "" {
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
-				}), nil),
-				commonModel.ErrCodeRefreshTokenInvalid,
-				commonModel.MsgKeyAuthRefreshTokenInvalid,
-				nil,
-			))
-			return
+			return res.Failed(errRefreshTokenInvalid)
 		}
 
 		claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr)
 		if err != nil {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
-				}), nil),
-				commonModel.ErrCodeRefreshTokenInvalid,
-				commonModel.MsgKeyAuthRefreshTokenInvalid,
-				nil,
-			))
-			return
+			return res.Failed(errRefreshTokenInvalid)
 		}
 
 		if h.authService.IsTokenRevoked(claims.ID) {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenRevoked, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.TOKEN_REVOKED, Err: nil,
-				}), nil),
-				commonModel.ErrCodeTokenRevoked,
-				commonModel.MsgKeyAuthTokenRevoked,
-				nil,
-			))
-			return
+			return res.Failed(commonModel.Fail(http.StatusUnauthorized, commonModel.TOKEN_REVOKED))
 		}
 
-		user, err := h.userService.GetUserByID(claims.Userid)
+		user, err := h.userService.GetUserByID(claims.Subject)
 		if err != nil {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
-			ctx.JSON(http.StatusUnauthorized, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthRefreshTokenInvalid, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.REFRESH_TOKEN_INVALID, Err: err,
-				}), nil),
-				commonModel.ErrCodeRefreshTokenInvalid,
-				commonModel.MsgKeyAuthRefreshTokenInvalid,
-				nil,
-			))
-			return
+			return res.Failed(errRefreshTokenInvalid)
 		}
 
-		active, err := h.authService.IsAccountActive(ctx.Request.Context(), user.ID)
+		state, err := h.authService.AccountState(ctx.Request.Context(), user.ID)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.INTERNAL_SERVER_ERROR, Err: err,
-				}), nil),
-				commonModel.ErrCodeInternal,
-				commonModel.MsgKeyCommonRequestFailed,
-				nil,
-			))
-			return
+			return res.Failed(commonModel.Fail(http.StatusInternalServerError, commonModel.INTERNAL_SERVER_ERROR))
 		}
-		if !active {
+		if !state.Active() {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
-			ctx.JSON(http.StatusForbidden, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthAccountDisabled, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.ACCOUNT_DISABLED, Err: nil,
-				}), nil),
-				commonModel.ErrCodeAccountDisabled,
-				commonModel.MsgKeyAuthAccountDisabled,
-				nil,
-			))
-			return
+			return res.Failed(errAccountDisabled)
 		}
 
 		accessClaims := jwtUtil.CreateClaims(user)
 		accessToken, err := jwtUtil.GenerateToken(accessClaims)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenGenerateFailed, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.TOKEN_GENERATE_FAILED, Err: err,
-				}), nil),
-				commonModel.ErrCodeTokenGenerateFailed,
-				commonModel.MsgKeyAuthTokenGenerateFailed,
-				nil,
-			))
-			return
+			return res.Failed(errTokenGenerateFailed)
 		}
 
 		renewedRefreshToken, err := jwtUtil.GenerateToken(jwtUtil.RenewRefreshClaims(user, claims.ID))
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthTokenGenerateFailed, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.TOKEN_GENERATE_FAILED, Err: err,
-				}), nil),
-				commonModel.ErrCodeTokenGenerateFailed,
-				commonModel.MsgKeyAuthTokenGenerateFailed,
-				nil,
-			))
-			return
+			return res.Failed(errTokenGenerateFailed)
 		}
 
 		cookieUtil.SetRefreshTokenCookie(ctx, renewedRefreshToken, config.Config().Auth.Jwt.RefreshExpires)
 
-		ctx.JSON(http.StatusOK, commonModel.OK(authModel.TokenPair{
+		return res.Payload(authModel.TokenPair{
 			AccessToken: accessToken,
 			ExpiresIn:   config.Config().Auth.Jwt.Expires,
-		}))
-	}
+		})
+	})
 }
 
 func (h *AuthHandler) Logout() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return res.Execute(func(ctx *gin.Context) res.Response {
 		refreshTokenStr, _ := cookieUtil.GetRefreshTokenFromCookie(ctx)
 		if refreshTokenStr != "" {
 			if claims, err := jwtUtil.ParseRefreshToken(refreshTokenStr); err == nil && claims.ID != "" {
@@ -162,14 +105,14 @@ func (h *AuthHandler) Logout() gin.HandlerFunc {
 
 		authHeader := ctx.GetHeader("Authorization")
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			if claims, err := jwtUtil.ParseToken(authHeader[7:]); err == nil && claims.ID != "" {
+			if claims, err := jwtUtil.ParseSessionToken(authHeader[7:]); err == nil && claims.ID != "" {
 				h.authService.RevokeToken(claims.ID, remainingTTLFromClaims(claims.ExpiresAt))
 			}
 		}
 
 		cookieUtil.ClearRefreshTokenCookie(ctx)
-		ctx.JSON(http.StatusOK, commonModel.OK[any](nil))
-	}
+		return res.NoContent(http.StatusOK)
+	})
 }
 
 func remainingTTLFromClaims(expiresAt *jwt.NumericDate) time.Duration {
@@ -181,40 +124,22 @@ func remainingTTLFromClaims(expiresAt *jwt.NumericDate) time.Duration {
 }
 
 func (h *AuthHandler) Exchange() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		localizer := i18nUtil.LocalizerFromGin(ctx)
-
+	return res.Execute(func(ctx *gin.Context) res.Response {
 		var req authModel.ExchangeCodeReq
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			ctx.JSON(http.StatusBadRequest, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyCommonRequestFailed, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.INVALID_REQUEST_BODY, Err: err,
-				}), nil),
-				commonModel.ErrCodeInvalidRequest,
-				commonModel.MsgKeyCommonRequestFailed,
-				nil,
-			))
-			return
+			return res.Failed(errInvalidBody)
 		}
 
 		tokenPair, err := h.authService.ExchangeOAuthCode(req.Code)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, commonModel.FailWithLocalized[any](
-				i18nUtil.Localize(localizer, commonModel.MsgKeyAuthExchangeCodeInvalid, errUtil.HandleError(&commonModel.ServerError{
-					Msg: commonModel.EXCHANGE_CODE_INVALID, Err: err,
-				}), nil),
-				commonModel.ErrCodeExchangeCodeInvalid,
-				commonModel.MsgKeyAuthExchangeCodeInvalid,
-				nil,
-			))
-			return
+			return res.Failed(commonModel.Fail(http.StatusUnauthorized, commonModel.EXCHANGE_CODE_INVALID))
 		}
 
 		cookieUtil.SetRefreshTokenCookie(ctx, tokenPair.RefreshToken, config.Config().Auth.Jwt.RefreshExpires)
 
-		ctx.JSON(http.StatusOK, commonModel.OK(authModel.TokenPair{
+		return res.Payload(authModel.TokenPair{
 			AccessToken: tokenPair.AccessToken,
 			ExpiresIn:   tokenPair.ExpiresIn,
-		}))
-	}
+		})
+	})
 }

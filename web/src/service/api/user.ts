@@ -25,9 +25,17 @@ export function fetchGetAllUsers() {
   })
 }
 
-export function fetchUpdateUserPermission(id: string) {
+export function fetchUpdateUserRole(id: string, role: 'admin' | 'member') {
   return request({
-    url: `/user/admin/${id}`,
+    url: `/user/role/${id}`,
+    method: 'PUT',
+    data: { role },
+  })
+}
+
+export function fetchTransferOwnership(id: string) {
+  return request({
+    url: `/user/owner/${id}`,
     method: 'PUT',
   })
 }

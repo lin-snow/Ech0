@@ -71,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import { isAdminRole } from '@/utils/role'
 import HomeHeader from './HomeHeader.vue'
 import HomeBanner from './HomeBanner.vue'
 import HomeSidebarNav from './HomeSidebarNav.vue'
@@ -128,7 +129,7 @@ const mainColumn = ref<HTMLElement | null>(null)
 const paletteOpen = ref<boolean>(false)
 const chatLauncherOpen = ref<boolean>(false)
 const chatAvailable = computed(
-  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+  () => isLogin.value && isAdminRole(userStore.user?.role) && AgentSetting.value.enable,
 )
 
 const handleGlobalKeydown = (event: KeyboardEvent) => {

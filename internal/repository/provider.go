@@ -68,11 +68,10 @@ var (
 	CommonSet = wire.NewSet(
 		commonRepository.NewCommonRepository,
 		wire.Bind(new(commonService.CommonRepository), new(*commonRepository.CommonRepository)),
-		wire.Bind(new(fileService.CommonRepository), new(*commonRepository.CommonRepository)),
 	)
 	FileSet = wire.NewSet(
 		fileRepository.NewFileRepository,
-		wire.Bind(new(fileService.FileRepository), new(*fileRepository.FileRepository)),
+		wire.Bind(new(fileService.Repository), new(*fileRepository.FileRepository)),
 	)
 	CommentSet = wire.NewSet(
 		commentRepository.NewCommentRepository,

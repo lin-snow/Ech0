@@ -5,13 +5,16 @@ package service
 
 import (
 	"context"
-	"errors"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
+	fileService "github.com/lin-snow/ech0/internal/service/file"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
+	storage "github.com/lin-snow/ech0/internal/storage"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -30,11 +33,7 @@ func (settingService *SettingService) GetS3Setting(ctx context.Context, setting 
 		maskS3Secrets(setting)
 		return nil
 	}
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
-		return err
-	}
-	if !user.IsAdmin {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		maskS3Secrets(setting)
 	}
 	return nil
@@ -51,19 +50,14 @@ func (settingService *SettingService) UpdateS3Setting(
 	ctx context.Context,
 	newSetting *model.S3SettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
 	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 
-	oldRaw, _ := settingService.durableKV.Get(ctx, commonModel.S3SettingKey)
+	oldSetting, oldErr := coreSetting.S3.Get(ctx, settingService.durableKV)
 	var appliedSetting *model.S3Setting
 
-	err = settingService.transactor.Run(ctx, func(ctx context.Context) error {
+	if err := settingService.transactor.Run(ctx, func(ctx context.Context) error {
 		s3Setting := normalizeS3SettingDto(newSetting)
 		if err := coreSetting.S3.Set(ctx, settingService.durableKV, s3Setting); err != nil {
 			return err
@@ -71,20 +65,21 @@ func (settingService *SettingService) UpdateS3Setting(
 
 		appliedSetting = &s3Setting
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
-	if settingService.storageManager != nil && appliedSetting != nil {
-		if err := settingService.storageManager.ApplyS3Setting(*appliedSetting); err != nil {
+	if appliedSetting != nil {
+		if err := settingService.fileService.ApplyS3(
+			context.Background(), s3StorageConfig(*appliedSetting), appliedSetting.Enable,
+		); err != nil {
 			_ = settingService.transactor.Run(context.Background(), func(ctx context.Context) error {
-				if strings.TrimSpace(oldRaw) == "" {
-					return settingService.durableKV.Delete(ctx, commonModel.S3SettingKey)
+				if oldErr != nil {
+					return coreSetting.S3.Unset(ctx, settingService.durableKV)
 				}
-				return settingService.durableKV.Set(ctx, commonModel.S3SettingKey, oldRaw)
+				return coreSetting.S3.Set(ctx, settingService.durableKV, oldSetting)
 			})
-			_ = settingService.storageManager.ReloadFromConfigAndDB(context.Background())
+			_ = settingService.fileService.ReloadStorages(context.Background())
 			return err
 		}
 	}
@@ -96,21 +91,15 @@ func (settingService *SettingService) TestS3Connection(
 	ctx context.Context,
 	newSetting *model.S3SettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
 	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-	if settingService.storageManager == nil {
-		return errors.New("存储管理器不可用")
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, s3TestTimeout)
 	defer cancel()
-	return settingService.storageManager.TestS3Connection(ctx, normalizeS3SettingDto(newSetting))
+	return settingService.fileService.TestStorage(
+		ctx,
+		storage.Config{ID: fileService.S3StorageID, Driver: storage.DriverS3, Config: s3StorageConfig(normalizeS3SettingDto(newSetting))},
+	)
 }
 
 func normalizeS3SettingDto(newSetting *model.S3SettingDto) model.S3Setting {
@@ -171,4 +160,26 @@ func normalizeS3SettingDto(newSetting *model.S3SettingDto) model.S3Setting {
 	}
 
 	return s3Setting
+}
+
+// s3StorageConfig maps the panel's settings onto a store configuration. It is
+// the single translation point between the settings shape and the byte layer.
+func s3StorageConfig(setting model.S3Setting) map[string]string {
+	cfg := map[string]string{
+		"endpoint":       setting.Endpoint,
+		"access_key":     setting.AccessKey,
+		"secret_key":     setting.SecretKey,
+		"bucket":         setting.BucketName,
+		"region":         setting.Region,
+		"use_ssl":        strconv.FormatBool(setting.UseSSL),
+		"use_path_style": strconv.FormatBool(setting.UsePathStyle),
+		"path_prefix":    setting.PathPrefix,
+	}
+	if setting.Provider != "" {
+		cfg["provider"] = strings.ToLower(setting.Provider)
+	}
+	if setting.CDNURL != "" {
+		cfg["cdn_url"] = setting.CDNURL
+	}
+	return cfg
 }

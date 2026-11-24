@@ -92,8 +92,6 @@ type echoFile struct {
 
 type file struct {
 	ID          string `json:"id"`
-	Key         string `json:"key"`
-	StorageType string `json:"storage_type"`
 	URL         string `json:"url"`
 	Name        string `json:"name"`
 	ContentType string `json:"content_type"`
@@ -101,7 +99,6 @@ type file struct {
 	Category    string `json:"category"`
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
-	UserID      string `json:"user_id"`
 	CreatedAt   int64  `json:"created_at"`
 }
 
@@ -163,10 +160,4 @@ type connectInfo struct {
 	TodayEchos  int    `json:"today_echos"`
 	SysUsername string `json:"sys_username"`
 	Version     string `json:"version"`
-}
-
-type resultEnvelope struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data connectInfo `json:"data"`
 }

@@ -9,10 +9,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/mail"
 	"net/url"
 	"strconv"
@@ -26,7 +26,6 @@ import (
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/kvstore"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	model "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -93,14 +92,15 @@ func (s *CommentService) GetFormMeta(ctx context.Context, clientIP, apiBaseURL s
 }
 
 // viewerSeesPrivate mirrors the echo listing rule: private is an audience
-// marker, so any signed-in member may read those rows, while anonymous
-// visitors and access tokens without echo:private may not.
+// marker, so any signed-in principal whose role carries echo:private may read
+// those rows — anonymous visitors and narrower tokens may not. Sessions derive
+// the scope from their role, so this is the same predicate for every credential.
 func (s *CommentService) viewerSeesPrivate(ctx context.Context) bool {
 	v := viewer.MustFromContext(ctx)
-	if v.UserID() == "" {
+	if viewer.IsAnonymous(v) {
 		return false
 	}
-	return v.TokenType() == authModel.TokenTypeSession || authz.Has(v.Scopes(), authz.ScopeEchoPrivate)
+	return authz.Has(v.Scopes(), authz.ScopeEchoPrivate)
 }
 
 // assertEchoCommentable rejects comments whose target echo is missing or
@@ -109,7 +109,7 @@ func (s *CommentService) viewerSeesPrivate(ctx context.Context) bool {
 func (s *CommentService) assertEchoCommentable(ctx context.Context, echoID string) error {
 	private, err := s.repo.IsEchoPrivate(ctx, echoID)
 	if err != nil || (private && !s.viewerSeesPrivate(ctx)) {
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论目标不可见")
+		return commonModel.Fail(http.StatusBadRequest, "comment target is not visible")
 	}
 	return nil
 }
@@ -119,35 +119,35 @@ func (s *CommentService) CreateComment(
 	clientIP string,
 	userAgent string,
 	dto *model.CreateCommentDto,
-) (model.CreateCommentResult, error) {
+) (*model.Comment, error) {
 	if strings.TrimSpace(dto.HoneypotField) != "" {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "提交被拒绝")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "submission rejected")
 	}
 	if err := s.verifyFormToken(clientIP, dto.FormToken); err != nil {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "提交过快或表单已失效")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "submitted too fast or the form expired")
 	}
 
 	setting, err := s.GetSystemSetting(ctx)
 	if err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 	if !setting.EnableComment {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论功能未启用")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "comments are disabled")
 	}
 
 	if setting.CaptchaEnabled {
 		if err := captchaCfg.SiteVerify(dto.CaptchaToken); err != nil {
-			return model.CreateCommentResult{},
-				commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "验证码验证失败")
+			return nil,
+				commonModel.Fail(http.StatusBadRequest, "captcha verification failed")
 		}
 	}
 
 	user, validUser, err := s.resolveRequestUser(ctx)
 	if err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 
 	comment := model.Comment{
@@ -159,16 +159,16 @@ func (s *CommentService) CreateComment(
 		Source:    model.SourceGuest,
 	}
 	if comment.EchoID == "" || comment.Content == "" {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能为空")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "comment content must not be empty")
 	}
 	if utf8.RuneCountInString(comment.Content) > maxCommentRunes {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "comment content must be at most 200 characters")
 	}
 	parentID, err := s.resolveParentID(ctx, comment.EchoID, dto.ParentID)
 	if err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 	comment.ParentID = parentID
 
@@ -183,12 +183,12 @@ func (s *CommentService) CreateComment(
 		email := strings.TrimSpace(dto.Email)
 		website := strings.TrimSpace(dto.Website)
 		if nickname == "" || email == "" {
-			return model.CreateCommentResult{},
-				commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "昵称和邮箱不能为空")
+			return nil,
+				commonModel.Fail(http.StatusBadRequest, "nickname and email are required")
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
-			return model.CreateCommentResult{},
-				commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "邮箱格式无效")
+			return nil,
+				commonModel.Fail(http.StatusBadRequest, "invalid email address")
 		}
 		if website != "" {
 			// The website is rendered as an <a href> on the public page, so only
@@ -197,8 +197,8 @@ func (s *CommentService) CreateComment(
 			parsed, err := url.ParseRequestURI(website)
 			if err != nil || parsed.Host == "" ||
 				(parsed.Scheme != "http" && parsed.Scheme != "https") {
-				return model.CreateCommentResult{},
-					commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "网址格式无效")
+				return nil,
+					commonModel.Fail(http.StatusBadRequest, "invalid website url")
 			}
 		}
 		comment.Nickname = nickname
@@ -210,12 +210,12 @@ func (s *CommentService) CreateComment(
 		}
 
 		if err := s.checkRateLimit(ctx, comment.IPHash, email, ""); err != nil {
-			return model.CreateCommentResult{}, err
+			return nil, err
 		}
 	}
 
 	if err := s.assertEchoCommentable(ctx, comment.EchoID); err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 
 	duplicated, err := s.repo.ExistsRecentDuplicate(
@@ -228,25 +228,22 @@ func (s *CommentService) CreateComment(
 		recentDuplicateSec,
 	)
 	if err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 	if duplicated {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "请勿重复提交相同评论")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "duplicate comment")
 	}
 
 	if err := s.repo.CreateComment(ctx, &comment); err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 	s.emitCommentCreated(ctx, comment)
 	if shouldNotifyAdminOnCreate(comment.Source) {
 		s.notifyAdminAsync(ctx, "created", comment)
 	}
 	s.notifyReplyTargetAsync(ctx, comment)
-	return model.CreateCommentResult{
-		ID:     comment.ID,
-		Status: comment.Status,
-	}, nil
+	return &comment, nil
 }
 
 func (s *CommentService) resolveParentID(ctx context.Context, echoID, rawParentID string) (*string, error) {
@@ -256,10 +253,10 @@ func (s *CommentService) resolveParentID(ctx context.Context, echoID, rawParentI
 	}
 	parent, err := s.repo.GetCommentByID(ctx, parentID)
 	if err != nil || parent.ID == "" || parent.EchoID != echoID {
-		return nil, commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "回复的评论不存在")
+		return nil, commonModel.Fail(http.StatusBadRequest, "the comment being replied to does not exist")
 	}
 	if parent.Status != model.StatusApproved {
-		return nil, commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "该评论暂不可回复")
+		return nil, commonModel.Fail(http.StatusBadRequest, "this comment cannot be replied to")
 	}
 	return &parent.ID, nil
 }
@@ -269,14 +266,14 @@ func (s *CommentService) CreateIntegrationComment(
 	clientIP string,
 	userAgent string,
 	dto *model.CreateIntegrationCommentDto,
-) (model.CreateCommentResult, error) {
+) (*model.Comment, error) {
 	setting, err := s.GetSystemSetting(ctx)
 	if err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 	if !setting.EnableComment {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论功能未启用")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "comments are disabled")
 	}
 
 	v := viewer.MustFromContext(ctx)
@@ -292,12 +289,12 @@ func (s *CommentService) CreateIntegrationComment(
 		Source:    model.SourceIntegration,
 	}
 	if comment.EchoID == "" || comment.Content == "" {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能为空")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "comment content must not be empty")
 	}
 	if utf8.RuneCountInString(comment.Content) > maxCommentRunes {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论内容不能超过200字")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "comment content must be at most 200 characters")
 	}
 	nickname := strings.TrimSpace(dto.Nickname)
 	if nickname == "" {
@@ -314,11 +311,11 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 
 	if err := s.checkIntegrationRateLimit(ctx, comment.IPHash, userID, tokenID); err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 
 	if err := s.assertEchoCommentable(ctx, comment.EchoID); err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 
 	duplicated, err := s.repo.ExistsRecentDuplicate(
@@ -331,15 +328,15 @@ func (s *CommentService) CreateIntegrationComment(
 		recentDuplicateSec,
 	)
 	if err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 	if duplicated {
-		return model.CreateCommentResult{},
-			commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "请勿重复提交相同评论")
+		return nil,
+			commonModel.Fail(http.StatusBadRequest, "duplicate comment")
 	}
 
 	if err := s.repo.CreateComment(ctx, &comment); err != nil {
-		return model.CreateCommentResult{}, err
+		return nil, err
 	}
 
 	logUtil.GetLogger().Info("integration comment created",
@@ -355,10 +352,7 @@ func (s *CommentService) CreateIntegrationComment(
 	if shouldNotifyAdminOnCreate(comment.Source) {
 		s.notifyAdminAsync(ctx, "created", comment)
 	}
-	return model.CreateCommentResult{
-		ID:     comment.ID,
-		Status: comment.Status,
-	}, nil
+	return &comment, nil
 }
 
 func (s *CommentService) checkIntegrationRateLimit(ctx context.Context, ipHash, userID, _ string) error {
@@ -371,7 +365,7 @@ func (s *CommentService) checkIntegrationRateLimit(ctx context.Context, ipHash, 
 		return err
 	}
 	if ipShort >= integrationShortLimit || ipLong >= integrationLongLimit {
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "集成评论过于频繁，请稍后再试")
+		return commonModel.Fail(http.StatusBadRequest, "integration comment rate limit exceeded")
 	}
 
 	if userID != "" {
@@ -380,7 +374,7 @@ func (s *CommentService) checkIntegrationRateLimit(ctx context.Context, ipHash, 
 			return err
 		}
 		if userShort >= integrationShortLimit {
-			return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "集成评论过于频繁，请稍后再试")
+			return commonModel.Fail(http.StatusBadRequest, "integration comment rate limit exceeded")
 		}
 	}
 
@@ -426,9 +420,9 @@ func (s *CommentService) ListPublicComments(ctx context.Context, limit int) ([]m
 func (s *CommentService) ListPanelComments(
 	ctx context.Context,
 	query model.ListCommentQuery,
-) (model.PageResult[model.Comment], error) {
+) (commonModel.List[model.Comment], error) {
 	if err := s.requireAdmin(ctx); err != nil {
-		return model.PageResult[model.Comment]{}, err
+		return commonModel.List[model.Comment]{}, err
 	}
 	if query.Page <= 0 {
 		query.Page = 1
@@ -451,7 +445,7 @@ func (s *CommentService) UpdateCommentStatus(ctx context.Context, id string, sta
 		return err
 	}
 	if status != model.StatusPending && status != model.StatusApproved && status != model.StatusRejected {
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "无效的评论状态")
+		return commonModel.Fail(http.StatusBadRequest, "invalid comment status")
 	}
 	if err := s.repo.UpdateCommentStatus(ctx, id, status); err != nil {
 		return err
@@ -540,7 +534,7 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		}
 		return nil
 	default:
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "无效的批量动作")
+		return commonModel.Fail(http.StatusBadRequest, "invalid bulk action")
 	}
 }
 
@@ -570,6 +564,16 @@ func (s *CommentService) GetSystemSetting(ctx context.Context) (model.SystemSett
 	return sanitizeSettingForOutput(setting), nil
 }
 
+// GetSystemSettingForAdmin is the panel read. The raw getter behind it stays
+// unguarded because anonymous commenting must read the same configuration;
+// exposing that configuration to members, however, is an admin capability.
+func (s *CommentService) GetSystemSettingForAdmin(ctx context.Context) (model.SystemSetting, error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return model.SystemSetting{}, err
+	}
+	return s.GetSystemSetting(ctx)
+}
+
 func (s *CommentService) getSystemSettingRaw(ctx context.Context) (model.SystemSetting, error) {
 	return coreSetting.Comment.Get(ctx, s.durableKV)
 }
@@ -583,11 +587,7 @@ func (s *CommentService) UpdateSystemSetting(ctx context.Context, setting model.
 	if err == nil && strings.TrimSpace(setting.EmailNotify.SMTPPassword) == "" {
 		setting.EmailNotify.SMTPPassword = current.EmailNotify.SMTPPassword
 	}
-	buf, err := json.Marshal(setting)
-	if err != nil {
-		return err
-	}
-	return s.durableKV.Set(ctx, model.CommentSystemSettingKey, string(buf))
+	return coreSetting.Comment.Set(ctx, s.durableKV, setting)
 }
 
 func (s *CommentService) SendTestEmail(ctx context.Context, setting model.SystemSetting) error {
@@ -605,7 +605,7 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 	}
 	serverURL := s.resolveServerURL(ctx)
 	if err := validateEmailNotifySetting(setting.EmailNotify, adminEmail); err != nil {
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, err.Error())
+		return commonModel.Fail(http.StatusBadRequest, err.Error())
 	}
 	content := buildNotifyContent("test", model.Comment{
 		EchoID:    "demo",
@@ -761,29 +761,29 @@ func shouldNotify(setting model.SystemSetting, kind string, status model.Status)
 
 func validateEmailNotifySetting(cfg model.EmailNotifySetting, adminEmail string) error {
 	if strings.TrimSpace(adminEmail) == "" {
-		return errors.New("管理员邮箱不能为空")
+		return errors.New("admin email is required")
 	}
 	if _, err := mail.ParseAddress(strings.TrimSpace(adminEmail)); err != nil {
-		return errors.New("管理员邮箱格式无效")
+		return errors.New("invalid admin email")
 	}
 	if strings.TrimSpace(cfg.SMTPHost) == "" {
-		return errors.New("SMTP Host 不能为空")
+		return errors.New("SMTP host is required")
 	}
 	if cfg.SMTPPort <= 0 {
-		return errors.New("SMTP Port 无效")
+		return errors.New("invalid SMTP port")
 	}
 	if strings.TrimSpace(cfg.SMTPUsername) == "" {
-		return errors.New("SMTP Username 不能为空")
+		return errors.New("SMTP username is required")
 	}
 	sender := strings.TrimSpace(cfg.SMTPSender)
 	if sender == "" {
 		sender = strings.TrimSpace(cfg.SMTPUsername)
 	}
 	if _, err := mail.ParseAddress(sender); err != nil {
-		return errors.New("发件人邮箱格式无效（请检查 SMTP 发件人地址）")
+		return errors.New("invalid sender address: check the SMTP from address")
 	}
 	if strings.TrimSpace(cfg.SMTPPassword) == "" {
-		return errors.New("SMTP Password 不能为空")
+		return errors.New("SMTP password is required")
 	}
 	return nil
 }
@@ -805,22 +805,22 @@ func sanitizeSettingForOutput(in model.SystemSetting) model.SystemSetting {
 }
 
 func (s *CommentService) resolveAdminEmail() (string, error) {
-	admin, err := s.commonService.GetPrimaryAdmin()
+	admin, err := s.commonService.GetOwner()
 	if err != nil {
 		return "", err
 	}
 	email := strings.TrimSpace(admin.Email)
 	if email == "" {
-		return "", errors.New("管理员邮箱未设置")
+		return "", errors.New("admin email is not configured")
 	}
 	return email, nil
 }
 
 func (s *CommentService) resolveServerURL(ctx context.Context) string {
 	if s.durableKV != nil {
-		serverURL, err := s.durableKV.Get(ctx, commonModel.ServerURLKey)
+		system, err := coreSetting.System.Get(ctx, s.durableKV)
 		if err == nil {
-			value := strings.TrimSuffix(strings.TrimSpace(serverURL), "/")
+			value := strings.TrimSuffix(strings.TrimSpace(system.ServerURL), "/")
 			if value != "" {
 				return value
 			}
@@ -842,7 +842,7 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 		return err
 	}
 	if ipShort >= shortLimit || ipLong >= longLimit {
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论过于频繁，请稍后再试")
+		return commonModel.Fail(http.StatusBadRequest, "comment rate limit exceeded")
 	}
 
 	emailShort, err := s.repo.CountByEmailWithin(ctx, email, shortWindow)
@@ -850,7 +850,7 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 		return err
 	}
 	if emailShort >= shortLimit {
-		return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论过于频繁，请稍后再试")
+		return commonModel.Fail(http.StatusBadRequest, "comment rate limit exceeded")
 	}
 
 	if userID != "" {
@@ -859,7 +859,7 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 			return err
 		}
 		if userShort >= shortLimit {
-			return commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, "评论过于频繁，请稍后再试")
+			return commonModel.Fail(http.StatusBadRequest, "comment rate limit exceeded")
 		}
 	}
 
@@ -901,18 +901,7 @@ func (s *CommentService) computeHMAC(payload string) string {
 }
 
 func (s *CommentService) requireAdmin(ctx context.Context) error {
-	v := viewer.MustFromContext(ctx)
-	if strings.TrimSpace(v.UserID()) == "" {
-		return commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
-	}
-	user, err := s.commonService.CommonGetUserByUserId(ctx, v.UserID())
-	if err != nil {
-		return err
-	}
-	if !user.IsAdmin {
-		return commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
-	}
-	return nil
+	return authz.Decide(viewer.MustFromContext(ctx), authz.CommentManage, authz.Instance())
 }
 
 // requireCommentDeleteScope keeps the batch endpoint's comment:review gate
@@ -921,11 +910,8 @@ func (s *CommentService) requireAdmin(ctx context.Context) error {
 // unaffected, mirroring middleware.RequireScopes.
 func requireCommentDeleteScope(ctx context.Context) error {
 	v := viewer.MustFromContext(ctx)
-	if v.TokenType() == authModel.TokenTypeSession {
-		return nil
-	}
 	if !authz.Allows(v.Scopes(), []string{authz.ScopeCommentDelete}) {
-		return commonModel.NewBizError(commonModel.ErrCodeScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+		return commonModel.Fail(http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
 	}
 	return nil
 }

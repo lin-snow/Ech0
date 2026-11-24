@@ -118,12 +118,12 @@ async function refreshAccessToken(
 
   const client = new Client({ server, lang: ctx.flags.lang ?? ctx.env.ECH0_LANG });
   try {
-    const result = await client.call<{ access_token?: string }>({
+    const result = await client.callWithMeta<{ access_token?: string }>({
       method: "POST",
       path: "/auth/refresh",
       headers: { Cookie: `${REFRESH_COOKIE_NAME}=${stored.value}` },
     });
-    const token = typeof result.data?.access_token === "string" ? result.data.access_token : "";
+    const token = typeof result.body?.access_token === "string" ? result.body.access_token : "";
     if (token === "") return undefined;
 
     const rotated = setCookieValue(result.headers, REFRESH_COOKIE_NAME);

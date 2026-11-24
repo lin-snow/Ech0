@@ -177,11 +177,10 @@ import { theToast } from '@/utils/toast'
 import { deleteFileById } from '@/lib/file'
 import AudioIcon from '@/components/icons/audio.vue'
 import VideoIcon from '@/components/icons/videomedia.vue'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
+import { FILE_CATEGORY } from '@/constants/file'
 
 const props = withDefaults(
   defineProps<{
-    fileStorageType: App.Api.File.StorageType
     EnableCompressor: boolean
     fileCategory?: App.Api.File.Category
     allowedFileTypes?: string[]
@@ -230,7 +229,6 @@ const dropHintText = computed(() =>
 
 const { items, isUploading, totalActive, addFiles, hydrate, retry, remove, moveItem, cancelAll } =
   useUpload({
-    storageType: toRef(props, 'fileStorageType'),
     enableCompressor: toRef(props, 'EnableCompressor'),
     category: props.fileCategory,
     allowedTypes: allowedTypes.value,
@@ -252,16 +250,13 @@ watch(
 
 async function deleteQueueItem(item: QueueItem) {
   const fileId = item.result?.id
-  const storageType = item.result?.storage_type
   remove(item.id)
   if (!fileId) return
 
-  if (storageType === FILE_STORAGE_TYPE.LOCAL || storageType === FILE_STORAGE_TYPE.OBJECT) {
-    try {
-      await deleteFileById(fileId)
-    } catch {
-      theToast.error(String(t('editor.removeImageRemoteFailed')))
-    }
+  try {
+    await deleteFileById(fileId)
+  } catch {
+    theToast.error(String(t('editor.removeImageRemoteFailed')))
   }
 
   const idx = editorStore.filesToAdd.findIndex((f) => f.id === fileId)

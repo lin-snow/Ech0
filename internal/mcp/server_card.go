@@ -78,7 +78,7 @@ func (h *Handler) GetServerCard(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
-	if system.DisableAgentDiscovery {
+	if !system.EnableAgentDiscovery {
 		ctx.Status(http.StatusNotFound)
 		return
 	}

@@ -1,68 +1,68 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { FILE_STORAGE_TYPE } from '@/constants/file'
 import {
-  fetchCreateExternalFile,
   fetchDeleteFile,
   fetchGetFileById,
-  fetchGetPresignedUrl,
-  fetchUpdateFileMeta,
+  fetchRegisterExternalFile,
+  fetchRenameFile,
   fetchUploadFile,
 } from '@/service/api'
 import { getApiUrl } from '@/service/request/shared'
 import { useAuthStore } from '@/stores/auth'
-import type {
-  ExternalFileInput,
-  FileEntity,
-  FileUploadInput,
-  PresignInput,
-  PresignResult,
-  UpdateFileMetaInput,
-} from '../types'
+import type { ExternalFileInput, FileEntity, FileUploadInput } from '../types'
 
 function normalizeFileEntity(dto: App.Api.File.FileDto): FileEntity {
   return {
     id: String(dto.id || ''),
-    key: dto.key || '',
+    name: dto.name,
     url: dto.url || '',
     contentType: dto.content_type,
     category: dto.category,
-    storageType: dto.storage_type,
+    kind: dto.kind,
+    access: dto.access,
     size: dto.size,
     width: dto.width,
     height: dto.height,
+    createdAt: dto.created_at,
   }
 }
 
-function ensureSuccess<T>(res: App.Api.Response<T>, fallbackMsg: string): T {
-  if (res.code !== 1) {
-    throw new Error(res.msg || fallbackMsg)
+// The transport answers `null` on failure (it has already toasted the problem),
+// so a missing body is the only failure signal a caller can see.
+function ensureSuccess<T>(res: T | null, fallbackMsg: string): T {
+  if (!res) {
+    throw new Error(fallbackMsg)
   }
-  return res.data
+  return res
+}
+
+// A void endpoint answers 204, which the transport surfaces as `undefined`.
+function ensureDone(res: unknown, fallbackMsg: string): void {
+  if (res === null) {
+    throw new Error(fallbackMsg)
+  }
 }
 
 export async function uploadFile(input: FileUploadInput): Promise<FileEntity> {
-  const res = await fetchUploadFile(
-    input.file,
-    input.storageType || FILE_STORAGE_TYPE.LOCAL,
-    input.category,
-  )
+  const res = await fetchUploadFile({
+    file: input.file,
+    profile: input.profile,
+  })
   const data = ensureSuccess(res, '文件上传失败')
-  return normalizeFileEntity(data)
+  return normalizeFileEntity(data.file)
 }
 
 export async function createExternalFile(input: ExternalFileInput): Promise<FileEntity> {
-  const res = await fetchCreateExternalFile({
+  const res = await fetchRegisterExternalFile({
     url: input.url,
-    category: input.category,
+    name: input.name,
     content_type: input.contentType,
     width: input.width,
     height: input.height,
-    name: input.name,
   })
   const data = ensureSuccess(res, '外链文件注册失败')
-  return normalizeFileEntity(data)
+  return normalizeFileEntity(data.file)
 }
 
 export async function getFileById(id: string): Promise<FileEntity> {
@@ -71,35 +71,21 @@ export async function getFileById(id: string): Promise<FileEntity> {
   return normalizeFileEntity(data)
 }
 
-export async function deleteFileById(id: string): Promise<void> {
-  const res = await fetchDeleteFile({ id })
-  ensureSuccess(res, '文件删除失败')
+export async function deleteFileById(id: string, force = false): Promise<void> {
+  const res = await fetchDeleteFile({ id, force })
+  ensureDone(res, '文件删除失败')
 }
 
-export async function getPresign(input: PresignInput): Promise<PresignResult> {
-  const res = await fetchGetPresignedUrl(
-    input.fileName,
-    input.contentType,
-    input.storageType || FILE_STORAGE_TYPE.OBJECT,
-  )
-  return ensureSuccess(res, '预签名 URL 获取失败')
-}
-
-export async function updateFileMeta(input: UpdateFileMetaInput): Promise<FileEntity> {
-  const res = await fetchUpdateFileMeta(input.id, {
-    size: input.size,
-    width: input.width,
-    height: input.height,
-    content_type: input.contentType,
-  })
-  const data = ensureSuccess(res, '文件元数据回填失败')
+export async function renameFile(id: string, name: string): Promise<FileEntity> {
+  const res = await fetchRenameFile(id, { name })
+  const data = ensureSuccess(res, '文件重命名失败')
   return normalizeFileEntity(data)
 }
 
 export function buildStreamUrl(fileId: string, t = Date.now(), token?: string): string {
   const resolved = token ?? useAuthStore().accessToken
   const tokenQuery = resolved ? `&token=${encodeURIComponent(resolved)}` : ''
-  return `${getApiUrl()}/file/${fileId}/stream?t=${t}${tokenQuery}`
+  return `${getApiUrl()}/files/${fileId}/content?t=${t}${tokenQuery}`
 }
 
 export const fileApiAdapter = {
@@ -107,8 +93,7 @@ export const fileApiAdapter = {
   createExternalFile,
   getFileById,
   deleteFileById,
-  getPresign,
-  updateFileMeta,
+  renameFile,
   buildStreamUrl,
 }
 

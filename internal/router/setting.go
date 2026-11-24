@@ -9,19 +9,18 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func registerSetting(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	site := secured(revoker, authz.ScopeAdminSite)
-	storage := secured(revoker, authz.ScopeAdminStorage)
-	auth := secured(revoker, authz.ScopeAdminAuth)
-	webhook := secured(revoker, authz.ScopeAdminWebhook)
-	agent := secured(revoker, authz.ScopeAdminAgent)
-	data := secured(revoker, authz.ScopeAdminData)
-	tokens := sessionOnly(revoker)
+func registerSetting(api *apiRegistry, h *handler.Bundle) {
+	site := scoped(authz.ScopeAdminSite)
+	storage := scoped(authz.ScopeAdminStorage)
+	auth := scoped(authz.ScopeAdminAuth)
+	webhook := scoped(authz.ScopeAdminWebhook)
+	agent := scoped(authz.ScopeAdminAgent)
+	data := scoped(authz.ScopeAdminData)
+	tokens := session()
 
-	api.route(public(), huma.Operation{
+	api.route(public("public settings expose only non-secret presentation fields"), huma.Operation{
 		OperationID: "settings-get",
 		Method:      http.MethodGet,
 		Path:        "/settings",
@@ -29,7 +28,7 @@ func registerSetting(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetSettings)
 
-	api.route(public(), huma.Operation{
+	api.route(public("clients must know whether social login is enabled before authenticating"), huma.Operation{
 		OperationID: "oauth2-status",
 		Method:      http.MethodGet,
 		Path:        "/oauth2/status",
@@ -37,7 +36,7 @@ func registerSetting(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetOAuth2Status)
 
-	api.route(public(), huma.Operation{
+	api.route(public("clients must know whether passkey login is available"), huma.Operation{
 		OperationID: "passkey-status",
 		Method:      http.MethodGet,
 		Path:        "/passkey/status",
@@ -45,7 +44,7 @@ func registerSetting(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Setting"},
 	}, h.SettingHandler.GetPasskeyStatus)
 
-	api.route(public(), huma.Operation{
+	api.route(public("publishes the assistant identity and enabled capabilities"), huma.Operation{
 		OperationID: "agent-info",
 		Method:      http.MethodGet,
 		Path:        "/agent/info",
@@ -126,11 +125,12 @@ func registerSetting(api *apiRegistry, h *handler.Bundle, revoker authService.To
 	}, h.SettingHandler.GetWebhook)
 
 	api.route(webhook, huma.Operation{
-		OperationID: "webhook-create",
-		Method:      http.MethodPost,
-		Path:        "/webhook",
-		Summary:     "创建 Webhook",
-		Tags:        []string{"Setting"},
+		OperationID:   "webhook-create",
+		Method:        http.MethodPost,
+		Path:          "/webhook",
+		Summary:       "创建 Webhook",
+		DefaultStatus: http.StatusCreated,
+		Tags:          []string{"Setting"},
 	}, h.SettingHandler.CreateWebhook)
 
 	api.route(webhook, huma.Operation{
@@ -222,11 +222,12 @@ func registerSetting(api *apiRegistry, h *handler.Bundle, revoker authService.To
 	}, h.SettingHandler.ListAccessTokens)
 
 	api.route(tokens, huma.Operation{
-		OperationID: "access-token-create",
-		Method:      http.MethodPost,
-		Path:        "/access-tokens",
-		Summary:     "创建访问令牌",
-		Tags:        []string{"Setting"},
+		OperationID:   "access-token-create",
+		Method:        http.MethodPost,
+		Path:          "/access-tokens",
+		Summary:       "创建访问令牌",
+		DefaultStatus: http.StatusCreated,
+		Tags:          []string{"Setting"},
 	}, h.SettingHandler.CreateAccessToken)
 
 	api.route(tokens, huma.Operation{

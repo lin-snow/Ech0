@@ -6,7 +6,6 @@ package handler
 import (
 	"context"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	service "github.com/lin-snow/ech0/internal/service/init"
 )
@@ -27,21 +26,21 @@ type (
 )
 
 type (
-	StatusOutput = commonModel.Result[initModel.Status]
-	EmptyOutput  = commonModel.Result[any]
+	StatusOutput struct{ Body initModel.Status }
+	EmptyOutput  = struct{}
 )
 
-func (h *InitHandler) GetInitStatus(ctx context.Context, _ *GetInitStatusInput) (StatusOutput, error) {
+func (h *InitHandler) GetInitStatus(_ context.Context, _ *GetInitStatusInput) (*StatusOutput, error) {
 	status, err := h.initService.GetStatus()
 	if err != nil {
-		return StatusOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(status), nil
+	return &StatusOutput{Body: status}, nil
 }
 
-func (h *InitHandler) InitOwner(ctx context.Context, in *InitOwnerInput) (EmptyOutput, error) {
+func (h *InitHandler) InitOwner(_ context.Context, in *InitOwnerInput) (*EmptyOutput, error) {
 	if err := h.initService.InitOwner(&in.Body); err != nil {
-		return EmptyOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK[any](nil, commonModel.INIT_ADMIN_SUCCESS), nil
+	return &EmptyOutput{}, nil
 }

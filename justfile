@@ -83,6 +83,14 @@ openapi:
 openapi-check: openapi
     git diff --exit-code -- internal/openapi/openapi.yaml
 
+api-breaking:
+    bash scripts/api-breaking.sh
+
+# Deliberately accept the current spec as the new wire-contract baseline.
+# Only after a reviewed break (see docs/dev/api-contract-design.md §5).
+api-baseline:
+    bash scripts/api-breaking.sh --write
+
 
 spdx:
     node scripts/add-spdx-headers.mjs

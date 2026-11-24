@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import type { ApiResult, EchoPost, EchoQueryPage } from '../types/echo'
+import type { EchoPost, EchoQueryPage } from '../types/echo'
 import { timeoutSignal } from '../utils/fetchTimeout'
 import { timeValueToUnixSeconds } from '../utils/timeValue'
 
@@ -79,10 +79,10 @@ export async function queryInstancePage(
   if (typeof json !== 'object' || json === null) {
     throw new Error('invalid JSON')
   }
-  const r = json as ApiResult<EchoQueryPage>
-  if (r.code !== 1 || !r.data || !Array.isArray(r.data.items)) {
-    throw new Error(r.msg || 'query failed')
+  const page = json as EchoQueryPage
+  if (!Array.isArray(page.items)) {
+    throw new Error('query failed: missing items')
   }
 
-  return r.data.items.map(normalizeEchoPostTimes)
+  return page.items.map(normalizeEchoPostTimes)
 }

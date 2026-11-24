@@ -13,11 +13,14 @@ import (
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
-func TestAgentSetting_MissReturnsNotFound(t *testing.T) {
+func TestAgentSetting_MissingKeyYieldsDisabledDefault(t *testing.T) {
 	s := &CopilotService{durableKV: kvstore.NewMemory()}
-	_, err := s.agentSetting(context.Background())
-	if err == nil || err.Error() != commonModel.AGENT_SETTING_NOT_FOUND {
-		t.Fatalf("expected AGENT_SETTING_NOT_FOUND, got %v", err)
+	got, err := s.agentSetting(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Enable || got.Protocol != string(commonModel.OpenAI) {
+		t.Fatalf("want disabled default, got %+v", got)
 	}
 }
 

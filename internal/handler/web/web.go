@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/httperr"
+	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/visitor"
 	"github.com/lin-snow/ech0/template"
 )
@@ -56,6 +58,10 @@ func (webHandler *WebHandler) Templates() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		requestPath := ctx.Request.URL.Path
 		if shouldBypassSPAFallback(requestPath) {
+			if strings.HasPrefix(requestPath, "/api/") {
+				httperr.Abort(ctx, commonModel.Fail(http.StatusNotFound, "no such endpoint"))
+				return
+			}
 			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}

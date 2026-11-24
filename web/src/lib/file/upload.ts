@@ -1,25 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-export const UPLOAD_KIND = {
-  LOCAL: 'local',
-  S3: 's3',
-} as const
+import { problemMessage } from '@/service/request/problem'
 
-export type UploadKind = (typeof UPLOAD_KIND)[keyof typeof UPLOAD_KIND]
-
-export type UploadTarget =
-  | {
-      kind: typeof UPLOAD_KIND.LOCAL
-      endpoint: string
-      authHeader: string
-      fields: Record<string, string>
-    }
-  | {
-      kind: typeof UPLOAD_KIND.S3
-      presignUrl: string
-      contentType: string
-    }
+export interface UploadTarget {
+  endpoint: string
+  authHeader: string
+  fields: Record<string, string>
+}
 
 export interface UploadHooks {
   onProgress?: (loaded: number, total: number) => void
@@ -41,23 +29,6 @@ export class UploadError extends Error {
   }
 }
 
-function parseResponseBody(text: string): unknown {
-  if (!text) return null
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
-  }
-}
-
-function extractErrorMessage(body: unknown): string | null {
-  if (body && typeof body === 'object' && 'msg' in body) {
-    const msg = (body as { msg?: unknown }).msg
-    if (typeof msg === 'string' && msg.trim()) return msg
-  }
-  return null
-}
-
 export function httpUpload(
   file: File,
   target: UploadTarget,
@@ -70,15 +41,9 @@ export function httpUpload(
     }
 
     const xhr = new XMLHttpRequest()
-
-    if (target.kind === UPLOAD_KIND.LOCAL) {
-      xhr.open('POST', target.endpoint, true)
-      if (target.authHeader) {
-        xhr.setRequestHeader('Authorization', target.authHeader)
-      }
-    } else {
-      xhr.open('PUT', target.presignUrl, true)
-      xhr.setRequestHeader('Content-Type', target.contentType)
+    xhr.open('POST', target.endpoint, true)
+    if (target.authHeader) {
+      xhr.setRequestHeader('Authorization', target.authHeader)
     }
 
     if (hooks.onProgress) {
@@ -95,13 +60,23 @@ export function httpUpload(
 
     xhr.onload = () => {
       cleanup()
-      const body = parseResponseBody(xhr.responseText)
+      let body: unknown = null
+      if (xhr.responseText) {
+        try {
+          body = JSON.parse(xhr.responseText)
+        } catch {
+          body = xhr.responseText
+        }
+      }
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve({ responseBody: body })
-      } else {
-        const msg = extractErrorMessage(body) || `Upload failed (${xhr.status})`
-        reject(new UploadError(xhr.status, body, msg))
+        return
       }
+      const problem: App.Api.Problem =
+        body && typeof body === 'object' && 'status' in body
+          ? (body as App.Api.Problem)
+          : { status: xhr.status }
+      reject(new UploadError(xhr.status, body, problemMessage(problem)))
     }
     xhr.onerror = () => {
       cleanup()
@@ -116,15 +91,11 @@ export function httpUpload(
       reject(new DOMException('Aborted', 'AbortError'))
     }
 
-    if (target.kind === UPLOAD_KIND.LOCAL) {
-      const fd = new FormData()
-      fd.append('file', file)
-      for (const [k, v] of Object.entries(target.fields)) {
-        fd.append(k, v)
-      }
-      xhr.send(fd)
-    } else {
-      xhr.send(file)
+    const fd = new FormData()
+    fd.append('file', file)
+    for (const [k, v] of Object.entries(target.fields)) {
+      fd.append(k, v)
     }
+    xhr.send(fd)
   })
 }

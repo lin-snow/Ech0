@@ -13,7 +13,6 @@ import (
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupCommentRoutes(appRouterGroup *AppRouterGroup, _ *handler.Bundle) {
@@ -24,15 +23,15 @@ func setupCommentRoutes(appRouterGroup *AppRouterGroup, _ *handler.Bundle) {
 	appRouterGroup.PublicRouterGroup.Any("/cap/*any", gin.WrapH(captchaHandler))
 }
 
-func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+func registerComment(api *apiRegistry, h *handler.Bundle) {
 	nc := humares.Bridge(middleware.NoCache())
 	stash := humares.Bridge(h.CommentHandler.StashMeta())
-	optViewer := humares.Bridge(middleware.OptionalAuth(revoker))
-	review := secured(revoker, authz.ScopeCommentReview)
-	deleteComments := secured(revoker, authz.ScopeCommentDelete)
-	settings := secured(revoker, authz.ScopeCommentSettings)
+	optViewer := humares.Bridge(middleware.OptionalAuth(api.revoker))
+	review := scoped(authz.ScopeCommentReview)
+	deleteComments := scoped(authz.ScopeCommentDelete)
+	settings := scoped(authz.ScopeCommentSettings)
 
-	api.route(public(), huma.Operation{
+	api.route(public("anonymous readers need captcha and field metadata before commenting"), huma.Operation{
 		OperationID: "comment-form-meta",
 		Method:      http.MethodGet,
 		Path:        "/comments/form",
@@ -41,7 +40,7 @@ func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Middlewares: huma.Middlewares{nc, stash, optViewer},
 	}, h.CommentHandler.GetFormMeta)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "comment-list-by-echo",
 		Method:      http.MethodGet,
 		Path:        "/comments",
@@ -49,7 +48,7 @@ func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Comment"},
 	}, h.CommentHandler.ListCommentsByEchoID)
 
-	api.route(optional(revoker), huma.Operation{
+	api.route(optional(), huma.Operation{
 		OperationID: "comment-list-public",
 		Method:      http.MethodGet,
 		Path:        "/comments/public",
@@ -57,22 +56,24 @@ func registerComment(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Comment"},
 	}, h.CommentHandler.ListPublicComments)
 
-	api.route(public(), huma.Operation{
-		OperationID: "comment-create",
-		Method:      http.MethodPost,
-		Path:        "/comments",
-		Summary:     "创建公开评论",
-		Tags:        []string{"Comment"},
-		Middlewares: huma.Middlewares{stash, optViewer},
+	api.route(public("anonymous commenting is an instance policy; the service enforces captcha and moderation"), huma.Operation{
+		OperationID:   "comment-create",
+		Method:        http.MethodPost,
+		Path:          "/comments",
+		Summary:       "创建公开评论",
+		Tags:          []string{"Comment"},
+		DefaultStatus: http.StatusCreated,
+		Middlewares:   huma.Middlewares{stash, optViewer},
 	}, h.CommentHandler.CreateComment)
 
-	api.route(secured(revoker, authz.ScopeCommentWrite).audience(authz.AudienceIntegration, authz.AudienceMCPRemote, authz.AudienceCLI), huma.Operation{
-		OperationID: "comment-create-integration",
-		Method:      http.MethodPost,
-		Path:        "/comments/integration",
-		Summary:     "经访问令牌创建评论（集成）",
-		Tags:        []string{"Comment"},
-		Middlewares: huma.Middlewares{stash},
+	api.route(scoped(authz.ScopeCommentWrite).audience(authz.AudienceIntegration, authz.AudienceMCPRemote, authz.AudienceCLI), huma.Operation{
+		OperationID:   "comment-create-integration",
+		Method:        http.MethodPost,
+		Path:          "/comments/integration",
+		Summary:       "经访问令牌创建评论（集成）",
+		Tags:          []string{"Comment"},
+		DefaultStatus: http.StatusCreated,
+		Middlewares:   huma.Middlewares{stash},
 	}, h.CommentHandler.CreateIntegrationComment)
 
 	api.route(review, huma.Operation{

@@ -102,7 +102,7 @@ func (s *CopilotService) getRecentFromCache(ctx context.Context, cacheKey, finge
 }
 
 func (s *CopilotService) buildRecentSummary(ctx context.Context, setting settingModel.AgentSetting) (string, error) {
-	systemCtx := viewer.WithContext(ctx, viewer.NewSystemViewer())
+	systemCtx := viewer.WithContext(ctx, viewer.System)
 	echos, err := s.echoService.GetEchosByPage(
 		systemCtx,
 		commonModel.PageQueryDto{

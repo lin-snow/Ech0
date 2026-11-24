@@ -12,12 +12,13 @@ import (
 	memosImporter "github.com/lin-snow/ech0/internal/migrator/importer/memos"
 	"github.com/lin-snow/ech0/internal/migrator/spec"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
+	"github.com/lin-snow/ech0/internal/storage"
 )
 
-func BuildImporter(source string) (spec.Importer, error) {
+func BuildImporter(source string, registry *storage.Registry) (spec.Importer, error) {
 	switch source {
 	case migratorModel.MigrationSourceEch0:
-		return ech0Importer.New(), nil
+		return ech0Importer.New(registry), nil
 	case migratorModel.MigrationSourceMemos:
 		return memosImporter.New(), nil
 	default:
@@ -25,12 +26,12 @@ func BuildImporter(source string) (spec.Importer, error) {
 	}
 }
 
-func BuildExporter(dest string, storageManager StorageManager) (spec.Exporter, error) {
+func BuildExporter(dest string, registry *storage.Registry) (spec.Exporter, error) {
 	switch dest {
 	case migratorModel.ExportDestFS:
 		return fsExporter.New(), nil
 	case migratorModel.ExportDestS3:
-		return s3Exporter.New(storageManager), nil
+		return s3Exporter.New(registry), nil
 	default:
 		return nil, fmt.Errorf("unsupported export destination: %s", dest)
 	}

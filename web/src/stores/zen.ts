@@ -28,9 +28,9 @@ export const useZenStore = defineStore('zenStore', () => {
     isLoading.value = true
     pendingFetch = fetchQueryEchos({ page: currentPage.value, pageSize: pageSize.value })
       .then((res) => {
-        if (res.code !== 1) return
-        total.value = res.data.total
-        const incoming = (res.data.items ?? []).map((item) => ({
+        if (!res) return
+        total.value = res.total
+        const incoming = (res.items ?? []).map((item) => ({
           ...item,
           id: normalizeId(item),
         }))

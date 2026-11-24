@@ -201,12 +201,12 @@ func TestCollectEchoFileIDs(t *testing.T) {
 	})
 
 	t.Run("no files", func(t *testing.T) {
-		assert.Nil(t, collectEchoFileIDs(&model.Echo{}))
+		assert.Empty(t, collectEchoFileIDs(&model.Echo{}))
 	})
 
 	t.Run("prefers FileID, falls back to File.ID, skips empty", func(t *testing.T) {
 		echo := &model.Echo{
-			EchoFiles: []fileModel.EchoFile{
+			EchoFiles: []model.EchoFile{
 				{FileID: "direct-id"},
 				{FileID: "  ", File: fileModel.File{ID: "nested-id"}},
 				{FileID: "   ", File: fileModel.File{ID: "  "}},

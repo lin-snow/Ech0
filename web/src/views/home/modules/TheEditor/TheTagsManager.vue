@@ -81,11 +81,11 @@
                   <Filter class="w-5 h-5" />
                 </button>
                 <div
-                  v-if="userStore.user?.is_admin === true"
+                  v-if="isAdminRole(userStore.user?.role)"
                   class="w-px bg-[var(--color-bg-muted)]"
                 ></div>
                 <button
-                  v-if="userStore.user?.is_admin === true"
+                  v-if="isAdminRole(userStore.user?.role)"
                   @click="
                     () => {
                       handleDeleteTag(tag.id)
@@ -109,6 +109,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useEchoStore, useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 import { fetchDeleteTagById } from '@/service/api'
 import { storeToRefs } from 'pinia'
 import { useBaseDialog } from '@/composables/useBaseDialog'
@@ -198,7 +199,7 @@ const handleDeleteTag = (tagId: string) => {
     description: String(t('editor.deleteTagConfirmDesc')),
     onConfirm: () => {
       fetchDeleteTagById(tagId).then((res) => {
-        if (res.code === 1) {
+        if (res) {
           echoStore.getTags()
         }
       })

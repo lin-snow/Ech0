@@ -136,7 +136,7 @@ describe("multipart upload", () => {
     await expect(buildFormRequest(op, { file: "/nonexistent/file.bin" })).rejects.toThrow("文件不存在");
   });
 
-  test("posts the file and returns the JSON envelope", async () => {
+  test("posts the file and renders the returned resource", async () => {
     let received: { name: string; size: number; category: string | null } | undefined;
     const server = Bun.serve({
       port: 0,
@@ -144,7 +144,7 @@ describe("multipart upload", () => {
         const form = await request.formData();
         const file = form.get("file") as File;
         received = { name: file.name, size: file.size, category: form.get("category") as string | null };
-        return Response.json({ code: 1, msg: "上传成功", data: { id: "f1" } });
+        return Response.json({ id: "f1" }, { status: 201 });
       },
     });
     try {
@@ -253,7 +253,10 @@ describe("streaming", () => {
       fetch() {
         calls += 1;
         if (calls === 1) {
-          return Response.json({ code: 0, msg: "catalog stale", error_code: "catalog_stale" }, { status: 412 });
+          return Response.json(
+            { title: "Precondition Failed", status: 412, detail: "catalog stale", code: "CATALOG_STALE" },
+            { status: 412 },
+          );
         }
         return new Response('event: done\ndata: {"done":true}\n\n', {
           headers: { "Content-Type": "text/event-stream" },
@@ -369,7 +372,7 @@ describe("binary download", () => {
     const previousTty = process.stdout.isTTY;
     const op = baseOp({
       method: "GET",
-      path: "/file/{id}/stream",
+      path: "/files/stream/{fileID}",
       kind: "binary",
       transport: { response: { kind: "binary" } },
     });
@@ -379,7 +382,7 @@ describe("binary download", () => {
       const result = await invokeOperation({
         session: sessionFor(`http://127.0.0.1:${server.port}`),
         op,
-        values: { id: "f1" },
+        values: { fileID: "f1" },
         catalog: catalogStub(),
         refresh: async () => catalogStub(),
         json: false,
@@ -404,7 +407,7 @@ describe("binary download", () => {
     const previousTty = process.stdout.isTTY;
     const op = baseOp({
       method: "GET",
-      path: "/file/{id}/stream",
+      path: "/files/stream/{fileID}",
       kind: "binary",
       transport: { response: { kind: "binary" } },
     });
@@ -414,7 +417,7 @@ describe("binary download", () => {
       await invokeOperation({
         session: sessionFor(`http://127.0.0.1:${server.port}`),
         op,
-        values: { id: "f1" },
+        values: { fileID: "f1" },
         catalog: catalogStub(),
         refresh: async () => catalogStub(),
         json: false,
@@ -435,7 +438,7 @@ describe("binary download", () => {
     const previousTty = process.stdout.isTTY;
     const op = baseOp({
       method: "GET",
-      path: "/file/{id}/stream",
+      path: "/files/stream/{fileID}",
       kind: "binary",
       transport: { response: { kind: "binary" } },
     });
@@ -445,7 +448,7 @@ describe("binary download", () => {
       await invokeOperation({
         session: sessionFor(`http://127.0.0.1:${server.port}`),
         op,
-        values: { id: "f1" },
+        values: { fileID: "f1" },
         catalog: catalogStub(),
         refresh: async () => catalogStub(),
         json: false,
@@ -463,18 +466,18 @@ describe("binary download", () => {
     const server = Bun.serve({ port: 0, fetch: () => new Response("x") });
     const op = baseOp({
       method: "GET",
-      path: "/file/stream",
+      path: "/files/stream/{fileID}",
       kind: "binary",
       transport: { response: { kind: "binary" } },
-    });
-    const previous = process.stdout.isTTY;
+    })
+    const previous = process.stdout.isTTY
     try {
-      Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
+      Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true })
       await expect(
         invokeOperation({
           session: sessionFor(`http://127.0.0.1:${server.port}`),
           op,
-          values: {},
+          values: { fileID: "f1" },
           catalog: catalogStub(),
           refresh: async () => catalogStub(),
           json: true,
@@ -499,7 +502,7 @@ describe("websocket", () => {
       },
       websocket: {
         open(socket) {
-          socket.send(JSON.stringify({ code: 1, msg: "log", data: { level: "info" } }));
+          socket.send(JSON.stringify({ level: "info" }));
           socket.close();
         },
         message() {},
@@ -528,7 +531,7 @@ describe("websocket", () => {
       );
 
       expect(seenToken as string | null).toBe("secret");
-      expect(output.trim()).toBe(JSON.stringify({ code: 1, msg: "log", data: { level: "info" } }));
+      expect(output.trim()).toBe(JSON.stringify({ level: "info" }));
     } finally {
       server.stop(true);
     }

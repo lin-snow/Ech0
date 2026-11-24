@@ -65,7 +65,7 @@ describe('settingStore.init', () => {
     userStore.user = {
       id: 'admin-1',
       username: 'admin',
-      is_admin: true,
+      role: 'owner',
       locale: 'zh-CN',
     }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	model "github.com/lin-snow/ech0/internal/model/comment"
+	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	"github.com/lin-snow/ech0/internal/transaction"
@@ -75,7 +76,7 @@ func (r *CommentRepository) IsEchoPrivate(ctx context.Context, echoID string) (b
 func (r *CommentRepository) ListComments(
 	ctx context.Context,
 	query model.ListCommentQuery,
-) (model.PageResult[model.Comment], error) {
+) (commonModel.List[model.Comment], error) {
 	db := r.getDB(ctx).Model(&model.Comment{})
 	if query.EchoID != "" {
 		db = db.Where("echo_id = ?", query.EchoID)
@@ -98,7 +99,7 @@ func (r *CommentRepository) ListComments(
 
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
-		return model.PageResult[model.Comment]{}, err
+		return commonModel.List[model.Comment]{}, err
 	}
 
 	var items []model.Comment
@@ -108,12 +109,12 @@ func (r *CommentRepository) ListComments(
 		Limit(query.PageSize).
 		Find(&items).Error
 	if err != nil {
-		return model.PageResult[model.Comment]{}, err
+		return commonModel.List[model.Comment]{}, err
 	}
 
-	return model.PageResult[model.Comment]{
+	return commonModel.List[model.Comment]{
 		Items: items,
-		Total: total,
+		Total: &total,
 	}, nil
 }
 

@@ -1,6 +1,6 @@
 # 配置与设置的依赖架构（config / setting / kvstore / transaction）
 
-> 本文讲清 Ech0 里「配置」相关的四层——`config`（env + 默认值）、`internal/setting`（设置原语 + seeder）、`kvstore`（KV 存储）、`transaction`（事务）——**谁依赖谁、事务怎么流、读写各走哪条路**。这是一道严肃的架构题：分层划错、读写不分，会直接拖垮可维护性。
+> 本文讲清 Ech0 里「配置」相关的四层——`config`（env + 默认值）、`internal/setting`（设置原语 + 启动迁移）、`kvstore`（KV 存储）、`transaction`（事务）——**谁依赖谁、事务怎么流、读写各走哪条路**。这是一道严肃的架构题：分层划错、读写不分，会直接拖垮可维护性。
 >
 > 配套：分层后端总览见 [architecture-overview.md](architecture-overview.md)；事务/DI 约定见 `AGENTS.md`。
 
@@ -39,8 +39,8 @@ Ech0 的配置分两层，刻意不合并，因为它们的**生命周期**和**
                      ▼                                 ▼
             ┌────────────────────────┐      ┌──────────────────────────┐
   基础设施   │ internal/setting        │      │ transaction.Transactor    │
-            │  Spec[T] + Get/Set/Seed │      │  Run(ctx,fn): 开事务，把   │
-            │  事务透明：只转发 ctx    │      │  *gorm.DB 塞进 ctx(TxKey) │
+            │  Spec[T] + Get/Set/     │      │  Run(ctx,fn): 开事务，把   │
+            │  Restore/Unset/Migrate  │      │  *gorm.DB 塞进 ctx(TxKey) │
             └────────────────────────┘      └──────────────────────────┘
                      │ 调 kv.Get/Set(ctx)              │ tx 随 ctx 向下流
                      ▼                                 ▼
@@ -57,7 +57,7 @@ Ech0 的配置分两层，刻意不合并，因为它们的**生命周期**和**
 
 - **`config`**：唯一的「默认值之源」。`internal/setting` 每个设置项的 `Spec.Default()` 直接读 `config.Config()`（`registry.go:28/72/95…`）。方向**恒为 `config → value`，绝不反向写回 config**——KV 没值时回退到 config 默认，有值则以 KV 为准。
 - **`transaction.Transactor`**：唯一**开启**事务的地方。`GormTransactor.Run` 用 GORM 自动事务，把事务态的 `*gorm.DB` 放进 `ctx`（`TxKey`）。事务靠 **`context.Context` 传播**，下游谁都不用「持有」它。
-- **`internal/setting`**：设置的**裸原语层**（详见 §3）。import 只向下——`setting.go` 只 import `kvstore`；`registry.go` 另加 `config/i18n/model/util`。**绝不 import `transaction` / service / handler**。
+- **`internal/setting`**：设置的**裸原语层**（详见 §3）。import 只向下——`setting.go` 只 import `kvstore`；`registry.go` 另加 `config/i18n/model/util`。**绝不 import `transaction` / service / handler**。注意方向：`setting → i18n`，所以 `i18n` 永远不能反向读设置表；站点默认语言由 `ProvideApp` 在 `BeforeStart` 装入 `i18n.SetDefaultLocaleProvider`，`i18n` 通过这个钩子取值（见 §3 末）。
 - **`kvstore`**：统一 KV 抽象。`kvstore.Persistent` 委托给 Backend（`KeyValueRepository`），把底层 `gorm.ErrRecordNotFound` 归一化成 `kvstore.ErrNotFound`，对上屏蔽持久化细节。
 - **repo（`KeyValueRepository`）**：真正落库的地方，也是事务的**汇合点**——`getDB(ctx)` 从 `ctx` 捞事务（`keyvalue.go:32`）。repo **只用事务，从不开事务**（呼应「事务在 service 层」约定）。
 
@@ -71,8 +71,10 @@ Ech0 的配置分两层，刻意不合并，因为它们的**生命周期**和**
 
 ```go
 // internal/setting/setting.go
-func Get[T any](ctx context.Context, kv kvstore.Store, spec Spec[T]) (T, error) { ... }
-func Set[T any](ctx context.Context, kv kvstore.Store, spec Spec[T], value T) error { ... }
+func (s Spec[T]) Get(ctx context.Context, kv kvstore.Store) (T, error) { ... }
+func (s Spec[T]) Set(ctx context.Context, kv kvstore.Store, value T) error { ... }
+func (s Spec[T]) Restore(ctx context.Context, kv kvstore.Store, value T) error { ... }
+func (s Spec[T]) Unset(ctx context.Context, kv kvstore.Store) error { ... }
 ```
 
 - 它收到啥 `ctx` 就往 `kv.Get/Set(ctx, …)` 传啥。
@@ -86,7 +88,11 @@ func Set[T any](ctx context.Context, kv kvstore.Store, spec Spec[T], value T) er
 
 配套细节：`KeyValueRepository` 的读路径带读穿透缓存，但 `Cache.ReadThroughUnlessTx` 在 `transaction.HasTx(ctx)` 为真时**直接走 DB 绕过缓存**（`cache/patterns.go:22`），避免事务内读到事务外的旧缓存。这让「事务随 ctx 流下去」这条链在缓存层也保持一致。
 
-**Seed 不归 service。** `setting.Seed(ctx, durableKV)` 由应用生命周期层在 `BeforeStart` 直接调（`internal/di/wire.go` 的 `ProvideApp`），启动期把缺失的 key 幂等落库一次（绝不覆盖用户值），**绕开 SettingService**。所以 SettingService 只用到 `internal/setting` 的 **Get / Set**，不碰 Seed。
+**启动迁移不归 service，默认值也不落库。** `setting.Migrate(ctx, durableKV)` 由应用生命周期层在 `BeforeStart` 直接调（`internal/di/wire.go` 的 `ProvideApp`），只跑 `migrations.go` 里的一次性改写（旧字段改名、旧 key 清理），**绕开 SettingService**。默认值从不写进 KV：设置块只在有人（管理员、导入器）真正写它时才出现，`Get` 每次用 `Default()` 兜底——这样后续版本改默认值才能到达那些从未覆盖过的实例。导入路径用 `Spec.Restore`（归一化但跳过校验），与 `Set` 共享同一套归一化逻辑。
+
+所以 SettingService 只用到 `internal/setting` 的 **Get / Set / Restore**，不碰 Migrate。
+
+**`i18n` 的方向反向也是同一个道理。** `registry.go` 需要 `i18n.ResolveLocale` 来归一化 `default_locale`，而站点默认语言本身是设置。让 `i18n` import `setting` 会成环，所以 `i18n` 只暴露 `SetDefaultLocaleProvider(func() string)`，由 `ProvideApp` 在 `BeforeStart` 装入（内部 `coreSetting.System.Get`）。`/api/i18n` 等请求期解析因此读到的是设置值，`BeforeStart` 之前（构造期）仍是内置默认语言——与改造前「DB 尚未就绪时回退默认」一致。
 
 ---
 
@@ -95,7 +101,7 @@ func Set[T any](ctx context.Context, kv kvstore.Store, spec Spec[T], value T) er
 这是整套设计落到日常编码的一条规矩，代码里也是这么执行的：
 
 ```
-coreSetting.Set  →  只出现在 internal/service/setting/*（全部 9 处都在 setting 域内）
+Spec.Set 的调用点  →  internal/service/setting/*，外加导入执行器（capsule/importer、migrator）
 coreSetting.Xxx.Get  →  散落各处：storage/manager、task/scheduled、auth、comment、
                     embedding、connect、event/subscriber/agent、setting 域 …
 ```
@@ -119,8 +125,8 @@ coreSetting.Xxx.Get  →  散落各处：storage/manager、task/scheduled、auth
 |---|---|---|
 | 读某个设置块（如系统设置、Comment、Embedding 配置） | 直接 `coreSetting.Xxx.Get(ctx, durableKV)` | 持有 `durableKV kvstore.Store` |
 | 改设置（带鉴权/原子性/副作用） | 注入并调用 `SettingService` 的对应方法 | 依赖 `setting` 域服务 |
-| 启动期补齐默认值 | 不用自己做，`setting.Seed` 已在 `BeforeStart` 处理 | —— |
-| 真·零鉴权零副作用的单 key 裸写（极罕见） | 技术上可 `coreSetting.Set`，但请先确认确实无任何副作用 | —— |
+| 启动期一次性改写旧数据 | 不用自己做，`setting.Migrate` 已在 `BeforeStart` 处理 | —— |
+| 真·零鉴权零副作用的单 key 裸写（极罕见） | 技术上可 `Spec.Set`，但请先确认确实无任何副作用 | —— |
 
 ### 进阶：写设置时要不要 `transactor`？
 
@@ -165,14 +171,14 @@ return s.transactor.Run(ctx, func(ctx context.Context) error {        // ← 开
         return nil                                                     // ← 站长已手动改过就不覆盖
     }
     current.DefaultLocale = resolved
-    return coreSetting.Set(ctx, s.durableKV, coreSetting.System, current)
+    return coreSetting.System.Set(ctx, s.durableKV, current)
 })
 ```
 
 考虑过三条路，前两条都被否：
 
-- **❌ 把 RMW 内联进 UserService（直接用 `coreSetting`）**：`coreSetting` 没有 `BootstrapDefaultLocale`，只有 `Get`/`Set`。你得把「开事务 + 判断不覆盖 + 写回」整段**抄进 user 域**——重复逻辑，且把 setting 域的「站点默认语言怎么落库」策略**泄漏**进用户域，违反「写走域」。
-- **❌ 做成 `UserCreated` 事件订阅者**：订阅者要调 `BootstrapDefaultLocale`，就得在**精简的事件注入器**（`BuildEventRegistrar`）里构建整个 `SettingService`——它依赖 `*storage.Manager`（顶层共享单例，得穿参进来）+ auth/webhook/file/common 一堆子图，把本该精简的注入器搞臃肿；否则只能让订阅者自己 `coreSetting.Set`，又破坏「单 writer」。
+- **❌ 把 RMW 内联进 UserService（直接用 `coreSetting`）**：`coreSetting` 没有 `BootstrapDefaultLocale`，只有 `Get`/`Set`/`Restore`/`Unset`。你得把「开事务 + 判断不覆盖 + 写回」整段**抄进 user 域**——重复逻辑，且把 setting 域的「站点默认语言怎么落库」策略**泄漏**进用户域，违反「写走域」。
+- **❌ 做成 `UserCreated` 事件订阅者**：订阅者要调 `BootstrapDefaultLocale`，就得在**精简的事件注入器**（`BuildEventRegistrar`）里构建整个 `SettingService`——它依赖 `*storage.Registry` 与文件服务（顶层共享单例，得穿参进来）+ auth/webhook/file/common 一堆子图，把本该精简的注入器搞臃肿；否则只能让订阅者自己 `coreSetting.Set`，又破坏「单 writer」。
 - **✅ 把「调用」上移到 `InitService`**：写仍留在 `SettingService.BootstrapDefaultLocale`（写走域不变），只是**谁来调它**从 `UserService.InitOwner` 上移到 `InitService.InitOwner`。`InitService` 在 `HandlerSet` 里构建，`SettingService` 现成——**零 DI 膨胀、同步、不破坏分层**。
 
 落地结果：
@@ -187,6 +193,6 @@ return s.transactor.Run(ctx, func(ctx context.Context) error {        // ← 开
 ## 速查
 
 - 找默认值 → `internal/config/config.go` + `internal/setting/registry.go` 的 `Spec.Default()`。
-- 加一个新设置项 → 在 `registry.go` 加 `Spec[T]`（key + Default + Normalize），seeder 自动落库；读处直接 `coreSetting.Xxx.Get`，写处走 `SettingService`。
+- 加一个新设置项 → 在 `registry.go` 加 `Spec[T]`（key + Default + Normalize，必要时 Validate），**不落库**；读处直接 `coreSetting.Xxx.Get`，写处走 `SettingService`；旧字段改名/旧 key 清理放进 `migrations.go`。
 - 事务为什么「凭空生效」→ `transactor.Run` 把 tx 塞进 `ctx`，repo 的 `getDB(ctx)` 捞出来用；中间各层只转发 `ctx`。
 - token 重启就失效 → 看启动日志里的 `signing key` 指纹是否变了，再确认 `ECH0_DB_PATH` 指向的库是否每次都新建（密钥跟库走；`key_values` 里 `jwt_secret` 缺失时 `config.EnsureJWTSecret` 会重新生成）。

@@ -58,7 +58,7 @@ import { getImageToAddUrl } from '@/utils/other'
 import { deleteFileById } from '@/lib/file'
 import { theToast } from '@/utils/toast'
 import { useEditorStore } from '@/stores'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
+import { FILE_CATEGORY } from '@/constants/file'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useI18n } from 'vue-i18n'
 import { usePhotoSwipeGallery } from '@/components/advanced/media/image/composables/usePhotoSwipeGallery'
@@ -107,13 +107,10 @@ const handleRemoveImage = () => {
       if (isDeleting.value) return
       const target = filesToAdd.value[index]
       const fileId = String(target?.id || '')
-      const source = String(target?.storage_type || '')
-      const needsRemoteDelete =
-        (source === FILE_STORAGE_TYPE.LOCAL || source === FILE_STORAGE_TYPE.OBJECT) && !!fileId
 
       isDeleting.value = true
       try {
-        if (needsRemoteDelete) {
+        if (fileId) {
           try {
             await deleteFileById(fileId)
           } catch {

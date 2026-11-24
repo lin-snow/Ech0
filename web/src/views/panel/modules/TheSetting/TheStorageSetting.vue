@@ -246,6 +246,7 @@ import BaseEditCapsule from '@/components/common/BaseEditCapsule.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { i18n } from '@/locales'
 import { S3Provider } from '@/enums/enums'
 import { fetchUpdateS3Settings, fetchTestS3Connection } from '@/service/api'
 import { theToast } from '@/utils/toast'
@@ -272,8 +273,8 @@ const handleUpdateS3Setting = async () => {
   saving.value = true
   await fetchUpdateS3Settings(settingStore.S3Setting)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
       }
     })
     .finally(() => {
@@ -288,10 +289,8 @@ const handleTestS3Connection = async () => {
   s3Testing.value = true
   try {
     const res = await fetchTestS3Connection(settingStore.S3Setting)
-    if (res.code === 1) {
+    if (res) {
       theToast.success(t('storageSetting.testSuccess'))
-    } else {
-      theToast.error(t('storageSetting.testFailed', { detail: res.msg }))
     }
   } finally {
     s3Testing.value = false

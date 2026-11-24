@@ -12,6 +12,7 @@ import (
 
 	accessService "github.com/lin-snow/ech0/internal/access"
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -20,10 +21,12 @@ import (
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
+	filemock "github.com/lin-snow/ech0/internal/test/mocks/filemock"
 	kvmock "github.com/lin-snow/ech0/internal/test/mocks/kvmock"
 	settingmock "github.com/lin-snow/ech0/internal/test/mocks/settingmock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
 	"github.com/lin-snow/ech0/pkg/busen"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -70,7 +73,6 @@ func (d *deps) build() *settingService.SettingService {
 		d.tx,
 		d.common,
 		nil,
-		nil,
 		d.kv,
 		d.settingRepo,
 		d.webhookRepo,
@@ -86,13 +88,6 @@ func runTxExec() func(context.Context, func(context.Context) error) error {
 }
 
 const testUserID = "user-1"
-
-func (d *deps) expectAdmin() {
-	d.common.EXPECT().
-		CommonGetUserByUserId(mock.Anything, mock.Anything).
-		Return(helpers.NewUser(helpers.AsAdmin), nil).
-		Once()
-}
 
 func TestSettingService_NonAdminDenied(t *testing.T) {
 	ctx := helpers.CtxAsUser(testUserID)
@@ -163,36 +158,25 @@ func TestSettingService_NonAdminDenied(t *testing.T) {
 	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {
 			d := newDeps(t)
+			// Access-token issuance loads the caller before deciding; other
+			// settings calls never reach the lookup.
 			d.common.EXPECT().
 				CommonGetUserByUserId(mock.Anything, mock.Anything).
 				Return(helpers.NewUser(), nil).
-				Once()
+				Maybe()
 
 			err := call(d.build())
-			require.Error(t, err)
-			assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+			require.ErrorIs(t, err, authz.ErrDenied)
 		})
 	}
 }
 
-func TestSettingService_PropagatesUserLookupError(t *testing.T) {
-	d := newDeps(t)
-	boom := errors.New("db down")
-	d.common.EXPECT().
-		CommonGetUserByUserId(mock.Anything, mock.Anything).
-		Return(helpers.NewUser(), boom).
-		Once()
-
-	_, err := d.build().GetAllWebhooks(helpers.CtxAsUser(testUserID))
-	require.ErrorIs(t, err, boom)
-}
-
 func TestCreateWebhook(t *testing.T) {
-	ctx := helpers.CtxAsUser(testUserID)
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
 	t.Run("empty url rejected before persistence", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		err := d.build().CreateWebhook(ctx, &settingModel.WebhookDto{Name: "hook", URL: ""})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY, err.Error())
@@ -200,7 +184,7 @@ func TestCreateWebhook(t *testing.T) {
 
 	t.Run("unsafe url rejected", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		err := d.build().CreateWebhook(ctx, &settingModel.WebhookDto{Name: "hook", URL: "http://127.0.0.1/x"})
 		require.Error(t, err)
 		assert.Equal(t, commonModel.INVALID_WEBHOOK_URL, err.Error())
@@ -208,7 +192,7 @@ func TestCreateWebhook(t *testing.T) {
 
 	t.Run("valid webhook persisted via transaction", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
 		d.webhookRepo.EXPECT().
 			CreateWebhook(mock.Anything, mock.MatchedBy(func(w *webhookModel.Webhook) bool {
@@ -229,7 +213,7 @@ func TestCreateWebhook(t *testing.T) {
 
 func TestUpdateWebhook_Valid(t *testing.T) {
 	d := newDeps(t)
-	d.expectAdmin()
+
 	d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
 	d.webhookRepo.EXPECT().
 		UpdateWebhookByID(mock.Anything, "wh-9", mock.MatchedBy(func(w *webhookModel.Webhook) bool {
@@ -238,18 +222,18 @@ func TestUpdateWebhook_Valid(t *testing.T) {
 		Return(nil).
 		Once()
 
-	err := d.build().UpdateWebhook(helpers.CtxAsUser(testUserID), "wh-9", &settingModel.WebhookDto{
+	err := d.build().UpdateWebhook(helpers.CtxAsUser(testUserID, role.Admin), "wh-9", &settingModel.WebhookDto{
 		Name: "n", URL: "https://hooks.example.com/u",
 	})
 	require.NoError(t, err)
 }
 
 func TestDeleteAccessToken_RevokesJTI(t *testing.T) {
-	ctx := helpers.CtxAsUser(testUserID)
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
 	t.Run("blacklists jti then deletes", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		future := time.Now().UTC().Add(3 * time.Hour).Unix()
 		d.settingRepo.EXPECT().
 			GetAccessTokenByID(mock.Anything, "tok-1").
@@ -266,7 +250,7 @@ func TestDeleteAccessToken_RevokesJTI(t *testing.T) {
 
 	t.Run("get failure does not block delete and skips revoke", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.settingRepo.EXPECT().
 			GetAccessTokenByID(mock.Anything, "tok-2").
 			Return(settingModel.AccessTokenSetting{}, errors.New("not found")).
@@ -279,7 +263,7 @@ func TestDeleteAccessToken_RevokesJTI(t *testing.T) {
 
 	t.Run("empty jti skips revoke", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.settingRepo.EXPECT().
 			GetAccessTokenByID(mock.Anything, "tok-3").
 			Return(settingModel.AccessTokenSetting{JTI: ""}, nil).
@@ -292,7 +276,7 @@ func TestDeleteAccessToken_RevokesJTI(t *testing.T) {
 }
 
 func TestListAccessTokens(t *testing.T) {
-	ctx := helpers.CtxAsUser(testUserID)
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
 	t.Run("filters and purges expired tokens", func(t *testing.T) {
 		d := newDeps(t)
@@ -363,7 +347,7 @@ func TestCreateAccessToken_Success(t *testing.T) {
 		Return(nil).
 		Once()
 
-	token, err := d.build().CreateAccessToken(helpers.CtxAsUser(testUserID), &settingModel.AccessTokenSettingDto{
+	token, err := d.build().CreateAccessToken(helpers.CtxAsUser(testUserID, role.Admin), &settingModel.AccessTokenSettingDto{
 		Name:     "cli-token",
 		Expiry:   settingModel.EIGHT_HOUR_EXPIRY,
 		Scopes:   []string{authz.ScopeEchoRead, authz.ScopeEchoRead},
@@ -374,11 +358,11 @@ func TestCreateAccessToken_Success(t *testing.T) {
 }
 
 func TestUpdateSnapshotScheduleSetting(t *testing.T) {
-	ctx := helpers.CtxAsUser(testUserID)
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
 	t.Run("invalid cron rejected", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		err := d.build().UpdateSnapshotScheduleSetting(ctx, &settingModel.SnapshotScheduleDto{
 			Enable: true, CronExpression: "definitely not cron",
 		})
@@ -388,7 +372,7 @@ func TestUpdateSnapshotScheduleSetting(t *testing.T) {
 
 	t.Run("valid cron persisted", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.kv.EXPECT().
 			Set(mock.Anything, commonModel.SnapshotScheduleKey, mock.Anything).
 			Return(nil).
@@ -403,7 +387,7 @@ func TestUpdateSnapshotScheduleSetting(t *testing.T) {
 
 func TestUpdateAgentSettings_NormalizesProtocol(t *testing.T) {
 	d := newDeps(t)
-	d.expectAdmin()
+
 	d.kv.EXPECT().
 		Set(mock.Anything, commonModel.AgentSettingKey, mock.MatchedBy(func(raw string) bool {
 			return strings.Contains(raw, `"openai"`) && !strings.Contains(raw, "gemini")
@@ -411,7 +395,7 @@ func TestUpdateAgentSettings_NormalizesProtocol(t *testing.T) {
 		Return(nil).
 		Once()
 
-	err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID), &settingModel.AgentSettingDto{
+	err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID, role.Admin), &settingModel.AgentSettingDto{
 		Protocol: "gemini", Model: "m", ApiKey: "k", BaseURL: "https://api.example.com/",
 	})
 	require.NoError(t, err)
@@ -420,7 +404,7 @@ func TestUpdateAgentSettings_NormalizesProtocol(t *testing.T) {
 func TestUpdateAgentSettings_Temperature(t *testing.T) {
 	t.Run("unset is stored as unset", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.kv.EXPECT().
 			Set(mock.Anything, commonModel.AgentSettingKey, mock.MatchedBy(func(raw string) bool {
 				return !strings.Contains(raw, "temperature")
@@ -428,7 +412,7 @@ func TestUpdateAgentSettings_Temperature(t *testing.T) {
 			Return(nil).
 			Once()
 
-		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID), &settingModel.AgentSettingDto{
+		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID, role.Admin), &settingModel.AgentSettingDto{
 			Protocol: "openai", Model: "m",
 		})
 		require.NoError(t, err)
@@ -436,7 +420,7 @@ func TestUpdateAgentSettings_Temperature(t *testing.T) {
 
 	t.Run("configured value is stored", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.kv.EXPECT().
 			Set(mock.Anything, commonModel.AgentSettingKey, mock.MatchedBy(func(raw string) bool {
 				return strings.Contains(raw, `"temperature":0.7`)
@@ -445,7 +429,7 @@ func TestUpdateAgentSettings_Temperature(t *testing.T) {
 			Once()
 
 		temp := 0.7
-		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID), &settingModel.AgentSettingDto{
+		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID, role.Admin), &settingModel.AgentSettingDto{
 			Protocol: "openai", Model: "m", Temperature: &temp,
 		})
 		require.NoError(t, err)
@@ -453,10 +437,9 @@ func TestUpdateAgentSettings_Temperature(t *testing.T) {
 
 	t.Run("out of range is refused", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
 
 		temp := 2.5
-		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID), &settingModel.AgentSettingDto{
+		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID, role.Admin), &settingModel.AgentSettingDto{
 			Protocol: "openai", Model: "m", Temperature: &temp,
 		})
 		require.EqualError(t, err, commonModel.INVALID_PARAMS)
@@ -465,30 +448,70 @@ func TestUpdateAgentSettings_Temperature(t *testing.T) {
 
 func TestUpdateEmbeddingSetting_Persists(t *testing.T) {
 	d := newDeps(t)
-	d.expectAdmin()
+
 	d.kv.EXPECT().
 		Set(mock.Anything, commonModel.EmbeddingSettingKey, mock.Anything).
 		Return(nil).
 		Once()
 
-	err := d.build().UpdateEmbeddingSetting(helpers.CtxAsUser(testUserID), settingModel.EmbeddingSettingDto{
+	err := d.build().UpdateEmbeddingSetting(helpers.CtxAsUser(testUserID, role.Admin), settingModel.EmbeddingSettingDto{
 		Enable: true, Model: " m ", ApiKey: " k ", BaseURL: " u ", Dim: 8, BatchSize: 4,
 	})
 	require.NoError(t, err)
 }
 
-func TestUpdateS3Setting_PersistsWhenStorageNil(t *testing.T) {
-	d := newDeps(t)
-	d.expectAdmin()
-	d.kv.EXPECT().Get(mock.Anything, commonModel.S3SettingKey).Return("", nil).Once()
-	d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
-	d.kv.EXPECT().
-		Set(mock.Anything, commonModel.S3SettingKey, mock.Anything).
-		Return(nil).
-		Once()
+func TestUpdateS3Setting_AppliesStorageOverride(t *testing.T) {
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
-	err := d.build().UpdateS3Setting(helpers.CtxAsUser(testUserID), &settingModel.S3SettingDto{
-		Enable: true, Provider: string(commonModel.AWS), Endpoint: "https://s3.example.com", BucketName: "b",
+	t.Run("enabling applies the config to the file service", func(t *testing.T) {
+		d := newDeps(t)
+		file := filemock.NewMockService(t)
+
+		d.kv.EXPECT().Get(mock.Anything, commonModel.S3SettingKey).Return("", nil).Once()
+		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
+		d.kv.EXPECT().
+			Set(mock.Anything, commonModel.S3SettingKey, mock.Anything).
+			Return(nil).
+			Once()
+		file.EXPECT().
+			ApplyS3(mock.Anything, mock.MatchedBy(func(conf map[string]string) bool {
+				return conf["endpoint"] == "s3.example.com" &&
+					conf["bucket"] == "b" &&
+					conf["provider"] == "aws"
+			}), true).
+			Return(nil).
+			Once()
+
+		svc := settingService.NewSettingService(
+			d.tx, d.common, file, d.kv, d.settingRepo, d.webhookRepo, nil, d.revoker, d.access,
+			func() *busen.Bus { return d.bus },
+		)
+		err := svc.UpdateS3Setting(ctx, &settingModel.S3SettingDto{
+			Enable: true, Provider: string(commonModel.AWS), Endpoint: "https://s3.example.com", BucketName: "b",
+		})
+		require.NoError(t, err)
 	})
-	require.NoError(t, err)
+
+	t.Run("apply failure restores the previous setting", func(t *testing.T) {
+		d := newDeps(t)
+		file := filemock.NewMockService(t)
+
+		d.kv.EXPECT().Get(mock.Anything, commonModel.S3SettingKey).Return("", kvstore.ErrNotFound).Once()
+		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Twice()
+		d.kv.EXPECT().
+			Set(mock.Anything, commonModel.S3SettingKey, mock.Anything).
+			Return(nil).
+			Twice()
+		file.EXPECT().ApplyS3(mock.Anything, mock.Anything, true).Return(errors.New("bad endpoint")).Once()
+		file.EXPECT().ReloadStorages(mock.Anything).Return(nil).Once()
+
+		svc := settingService.NewSettingService(
+			d.tx, d.common, file, d.kv, d.settingRepo, d.webhookRepo, nil, d.revoker, d.access,
+			func() *busen.Bus { return d.bus },
+		)
+		err := svc.UpdateS3Setting(ctx, &settingModel.S3SettingDto{
+			Enable: true, Provider: string(commonModel.AWS), Endpoint: "https://s3.example.com", BucketName: "b",
+		})
+		require.Error(t, err)
+	})
 }

@@ -9,76 +9,64 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/authz"
-	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	"github.com/lin-snow/ech0/internal/httperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	errUtil "github.com/lin-snow/ech0/internal/util/err"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 // RequireSession rejects access tokens for operations that are inherently
 // bound to an interactive browser session (account security, token
-// administration). Session tokens carry no scopes, so this guard is the only
-// authorization boundary those routes need.
+// administration, OAuth consent, device approval).
 func RequireSession() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
-		if v.TokenType() == authModel.TokenTypeSession {
+		if viewer.IsSession(v) {
 			ctx.Next()
 			return
 		}
-		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+		abortAuth(ctx, http.StatusForbidden, commonModel.SCOPE_FORBIDDEN_MSG)
 	}
 }
 
-// RequireAdminSession keeps administrator-only panel routes out of the reach
-// of ordinary browser sessions. Access tokens are unaffected: their admin
-// scopes are minted only for administrators and are checked by RequireScopes.
-func RequireAdminSession() gin.HandlerFunc {
+// RequireMinRank is the admission gate for administrative surfaces. It asks one
+// question — does the principal's live role reach min? — so a session is
+// admitted by its current role and a token is admitted by the role read from
+// the database, never by a scope it happens to carry. Resource-level decisions
+// still run in the service.
+func RequireMinRank(min role.Role) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
-		if v.TokenType() == authModel.TokenTypeSession && !v.IsAdmin() {
-			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+		if !v.Role().AtLeast(min) {
+			abortAuth(ctx, http.StatusForbidden, commonModel.SCOPE_FORBIDDEN_MSG)
 			return
 		}
 		ctx.Next()
 	}
 }
 
-// abortAuth writes the shared localized auth error and stops the chain.
-func abortAuth(ctx *gin.Context, status int, code, messageKey, message string) {
-	ctx.JSON(
-		status,
-		commonModel.FailWithLocalized[any](
-			i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), messageKey, errUtil.HandleError(&commonModel.ServerError{
-				Msg: message,
-				Err: nil,
-			}), nil),
-			code,
-			messageKey,
-			nil,
-		),
-	)
-	ctx.Abort()
+// abortAuth writes the shared auth problem document and stops the chain.
+func abortAuth(ctx *gin.Context, status int, message string) {
+	httperr.Abort(ctx, commonModel.Fail(status, message))
 }
 
+// RequireScopes checks the principal's capability set. Sessions derive their
+// scopes from the live role at authentication time, so both credential kinds go
+// through the same predicate: there is no session bypass to keep in sync with
+// token scopes.
 func RequireScopes(scopes ...string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
-		if v.TokenType() == authModel.TokenTypeSession {
-			ctx.Next()
+		if viewer.IsAnonymous(v) {
+			abortAuth(ctx, http.StatusUnauthorized, commonModel.TOKEN_NOT_VALID)
 			return
 		}
-		if v.TokenType() != authModel.TokenTypeAccess {
-			abortAuth(ctx, http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID)
-			return
-		}
-		if !containsValidAudience(v.Audience()) {
-			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
+		if v.Kind() == viewer.KindAccess && !containsValidAudience(v.Audience()) {
+			abortAuth(ctx, http.StatusForbidden, commonModel.AUDIENCE_FORBIDDEN_MSG)
 			return
 		}
 		if !authz.Allows(v.Scopes(), scopes) {
-			abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeScopeForbidden, commonModel.MsgKeyAuthScopeForbidden, commonModel.NO_PERMISSION_DENIED)
+			abortAuth(ctx, http.StatusForbidden, commonModel.SCOPE_FORBIDDEN_MSG)
 			return
 		}
 		ctx.Next()
@@ -108,7 +96,7 @@ func requireAudience(challenge func(*gin.Context) string, allowed ...string) gin
 	}
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
-		if v.TokenType() == authModel.TokenTypeSession {
+		if viewer.IsSession(v) {
 			ctx.Next()
 			return
 		}
@@ -120,10 +108,10 @@ func requireAudience(challenge func(*gin.Context) string, allowed ...string) gin
 		}
 		if challenge != nil {
 			ctx.Header("WWW-Authenticate", challenge(ctx))
-			abortAuth(ctx, http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID)
+			abortAuth(ctx, http.StatusUnauthorized, commonModel.TOKEN_NOT_VALID)
 			return
 		}
-		abortAuth(ctx, http.StatusForbidden, commonModel.ErrCodeAudienceForbidden, commonModel.MsgKeyAuthAudienceForbidden, commonModel.NO_PERMISSION_DENIED)
+		abortAuth(ctx, http.StatusForbidden, commonModel.AUDIENCE_FORBIDDEN_MSG)
 	}
 }
 

@@ -7,9 +7,6 @@ import { fetchGetInitStatus, fetchInitOwner } from '@/service/api'
 import { i18n } from '@/locales'
 import { localStg } from '@/utils/storage'
 
-const INIT_ALREADY_DONE = 'INIT_ALREADY_DONE'
-const INIT_OWNER_EXISTS = 'INIT_OWNER_EXISTS'
-
 export const useInitStore = defineStore('initStore', () => {
   const initialized = ref<boolean>(false)
   const ownerExists = ref<boolean>(false)
@@ -25,9 +22,9 @@ export const useInitStore = defineStore('initStore', () => {
 
   const getStatus = async () => {
     const res = await fetchGetInitStatus()
-    if (res.code === 1) {
-      initialized.value = res.data.initialized
-      ownerExists.value = res.data.owner_exists
+    if (res) {
+      initialized.value = res.initialized
+      ownerExists.value = res.owner_exists
       ready.value = true
       saveCache()
     } else {
@@ -43,17 +40,14 @@ export const useInitStore = defineStore('initStore', () => {
       locale: payload.locale || String(i18n.global.locale.value),
     }
     const res = await fetchInitOwner(enriched)
-    if (res.code === 1) {
-      initialized.value = true
-      ownerExists.value = true
-      ready.value = true
-      saveCache()
-    } else if (res.error_code === INIT_ALREADY_DONE || res.error_code === INIT_OWNER_EXISTS) {
+    if (res) {
       initialized.value = true
       ownerExists.value = true
       ready.value = true
       saveCache()
     } else {
+      // A refusing server may still have finished the setup (racing submit);
+      // the status poll is what decides.
       await getStatus().catch(() => undefined)
     }
     return res

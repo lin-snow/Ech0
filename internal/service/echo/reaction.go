@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
@@ -44,7 +45,7 @@ func (echoService *EchoService) setReaction(
 		return nil, err
 	}
 	if echo == nil {
-		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+		return nil, commonModel.WithStatus(http.StatusNotFound, errors.New(commonModel.ECHO_NOT_FOUND))
 	}
 	if echo.Private && !echoService.privateScope(ctx).Authenticated {
 		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)

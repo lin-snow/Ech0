@@ -144,20 +144,6 @@ export const zCreateCommentDto = z.object({
     website: z.string().optional()
 });
 
-export const zCreateCommentResult = z.object({
-    id: z.string().optional(),
-    status: z.string().optional()
-});
-
-export const zCreateExternalFileDto = z.object({
-    category: z.string().optional(),
-    content_type: z.string().optional(),
-    height: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    name: z.string().optional(),
-    url: z.string().optional(),
-    width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
 export const zCreateIntegrationCommentDto = z.object({
     content: z.string(),
     echo_id: z.string(),
@@ -231,13 +217,19 @@ export const zEmbeddingSettingDto = z.object({
     model: z.string().optional()
 });
 
-export const zErrorBody = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.unknown().optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
+export const zErrorDetail = z.object({
+    location: z.string().optional(),
+    message: z.string().optional(),
+    value: z.unknown().optional()
+});
+
+export const zErrorModel = z.object({
+    detail: z.string().optional(),
+    errors: z.array(zErrorDetail).nullish(),
+    instance: z.url().optional(),
+    status: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    title: z.string().optional(),
+    type: z.url().optional().default('about:blank')
 });
 
 export const zExportStateDto = z.object({
@@ -254,73 +246,28 @@ export const zExportStateDto = z.object({
 });
 
 export const zFile = z.object({
-    bucket: z.string().optional(),
-    category: z.string().optional(),
+    access: z.string().optional(),
+    blob_bytes: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     content_type: z.string().optional(),
     created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     height: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     id: z.string().optional(),
-    key: z.string().optional(),
+    kind: z.string().optional(),
     name: z.string().optional(),
-    provider: z.string().optional(),
+    object_key: z.string().optional(),
+    ref_url: z.string().optional(),
     size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    storage_type: z.string().optional(),
-    url: z.string().optional(),
-    user_id: z.string().optional(),
+    status: z.string().optional(),
+    storage_id: z.string().optional(),
+    updated_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    uploader_id: z.string().optional(),
     width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zEchoFile = z.object({
-    echo_id: z.string().optional(),
     file: zFile.optional(),
     file_id: z.string().optional(),
-    id: z.string().optional(),
     sort_order: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
-export const zFileDto = z.object({
-    category: z.string().optional(),
-    content_type: z.string().optional(),
-    height: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    id: z.string().optional(),
-    key: z.string().optional(),
-    name: z.string().optional(),
-    size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    storage_type: z.string().optional(),
-    url: z.string().optional(),
-    user_id: z.string().optional(),
-    width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
-export const zFileListItemDto = z.object({
-    content_type: z.string().optional(),
-    created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    id: z.string().optional(),
-    key: z.string().optional(),
-    name: z.string().optional(),
-    size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    storage_type: z.string().optional(),
-    url: z.string().optional()
-});
-
-export const zFileListResultDto = z.object({
-    items: z.array(zFileListItemDto).nullish(),
-    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
-export const zFileTreeNodeDto = z.object({
-    content_type: z.string().optional(),
-    file_id: z.string().optional(),
-    has_children: z.boolean().optional(),
-    modified_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    name: z.string().optional(),
-    node_type: z.string().optional(),
-    path: z.string().optional(),
-    size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
-export const zFileTreeResultDto = z.object({
-    items: z.array(zFileTreeNodeDto).nullish()
 });
 
 export const zFormMeta = z.object({
@@ -329,12 +276,6 @@ export const zFormMeta = z.object({
     enable_comment: z.boolean().optional(),
     form_token: z.string().optional(),
     min_submit_ms: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
-export const zGetPresignUrlDto = z.object({
-    content_type: z.string().optional(),
-    file_name: z.string().optional(),
-    storage_type: z.string().optional()
 });
 
 export const zGlobalMigrationStateDto = z.object({
@@ -373,6 +314,78 @@ export const zInitOwnerDto = z.object({
     username: z.string().optional()
 });
 
+export const zLinkDto = z.object({
+    owner_id: z.string().optional(),
+    owner_kind: z.string().optional(),
+    role: z.string().optional(),
+    sort_order: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zFileDto = z.object({
+    access: z.string().optional(),
+    category: z.string().optional(),
+    content_type: z.string().optional(),
+    created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    height: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    id: z.string().optional(),
+    kind: z.string().optional(),
+    links: z.array(zLinkDto).nullish(),
+    name: z.string().optional(),
+    size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    status: z.string().optional(),
+    uploader_id: z.string().optional(),
+    url: z.string().optional(),
+    width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListAccessTokenSetting = z.object({
+    items: z.array(zAccessTokenSetting).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListComment = z.object({
+    items: z.array(zComment).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListConnect = z.object({
+    items: z.array(zConnect).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListConnected = z.object({
+    items: z.array(zConnected).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListConnectedHealth = z.object({
+    items: z.array(zConnectedHealth).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListDayStat = z.object({
+    items: z.array(zDayStat).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListFileDto = z.object({
+    items: z.array(zFileDto).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zListHeatmap = z.object({
+    items: z.array(zHeatmap).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
 export const zLogEntry = z.object({
     caller: z.string().optional(),
     error: z.string().optional(),
@@ -382,6 +395,12 @@ export const zLogEntry = z.object({
     msg: z.string().optional(),
     raw: z.string().optional(),
     time: z.string().optional()
+});
+
+export const zListLogEntry = z.object({
+    items: z.array(zLogEntry).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zManifestResource = z.object({
@@ -424,15 +443,6 @@ export const zModelSystemSetting = z.object({
     email_notify: zEmailNotifySetting.optional(),
     enable_comment: z.boolean().optional(),
     require_approval: z.boolean().optional()
-});
-
-export const zModelResultCommentSystemSetting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zModelSystemSetting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
 });
 
 export const zOAuth2Setting = z.object({
@@ -493,11 +503,6 @@ export const zPageQueryDto = z.object({
     search: z.string().optional()
 });
 
-export const zPageResultComment = z.object({
-    items: z.array(zComment).nullish(),
-    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
-});
-
 export const zPasskeyDeviceDto = z.object({
     aaguid: z.string().optional(),
     created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
@@ -524,15 +529,6 @@ export const zPasskeyUpdateDeviceNameReq = z.object({
     device_name: z.string().optional()
 });
 
-export const zPresignDto = z.object({
-    content_type: z.string().optional(),
-    file_name: z.string().optional(),
-    file_url: z.string().optional(),
-    id: z.string().optional(),
-    key: z.string().optional(),
-    presign_url: z.string().optional()
-});
-
 export const zPublicComment = z.object({
     content: z.string().optional(),
     created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
@@ -547,6 +543,12 @@ export const zPublicComment = z.object({
     website: z.string().optional()
 });
 
+export const zListPublicComment = z.object({
+    items: z.array(zPublicComment).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
 export const zReactionCount = z.object({
     count: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
     emoji: z.string().optional(),
@@ -554,9 +556,21 @@ export const zReactionCount = z.object({
     reacted: z.boolean().optional()
 });
 
+export const zListReactionCount = z.object({
+    items: z.array(zReactionCount).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
 export const zReactionEmoji = z.object({
     emoji: z.string().optional(),
     key: z.string().optional()
+});
+
+export const zListReactionEmoji = z.object({
+    items: z.array(zReactionEmoji).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zRegisterDto = z.object({
@@ -575,319 +589,8 @@ export const zReindexStatusResponse = z.object({
     status: z.string().optional()
 });
 
-export const zResultAgentSetting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zAgentSetting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultCheckUpdateResponse = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zCheckUpdateResponse.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultComment = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zComment.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultConnect = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zConnect.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultCreateCommentResult = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zCreateCommentResult.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultEmbeddingSetting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zEmbeddingSetting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultExportStateDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zExportStateDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultFileDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zFileDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultFileListResultDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zFileListResultDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultFileTreeResultDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zFileTreeResultDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultFormMeta = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zFormMeta.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultGlobalMigrationStateDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zGlobalMigrationStateDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultHelloResponse = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zHelloResponse.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultInterface = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.unknown().optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListAccessTokenSetting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zAccessTokenSetting).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListConnect = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zConnect).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListConnected = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zConnected).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListConnectedHealth = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zConnectedHealth).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListDayStat = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zDayStat).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListHeatmap = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zHeatmap).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListLogEntry = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zLogEntry).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListPasskeyDeviceDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zPasskeyDeviceDto).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListPublicComment = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zPublicComment).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListReactionCount = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zReactionCount).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListReactionEmoji = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zReactionEmoji).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultManifest = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zManifest.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultOAuth2Setting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zOAuth2Setting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultOAuth2Status = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zOAuth2Status.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultOAuthInfoDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zOAuthInfoDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultPageResultComment = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zPageResultComment.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultPasskeySetting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zPasskeySetting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultPasskeyStatus = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zPasskeyStatus.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultPresignDto = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zPresignDto.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultReindexStatusResponse = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zReindexStatusResponse.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultString = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.string().optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
+export const zRenameFileInputBody = z.object({
+    name: z.string().optional()
 });
 
 export const zS3Setting = z.object({
@@ -903,15 +606,6 @@ export const zS3Setting = z.object({
     secret_key: z.string().optional(),
     use_path_style: z.boolean().optional(),
     use_ssl: z.boolean().optional()
-});
-
-export const zResultS3Setting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zS3Setting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
 });
 
 export const zS3SettingDto = z.object({
@@ -948,27 +642,9 @@ export const zChatMessage = z.object({
     sources: z.array(zSearchResult).nullish()
 });
 
-export const zResultListChatMessage = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zChatMessage).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
 export const zSnapshotSchedule = z.object({
     cron_expression: z.string().optional(),
     enable: z.boolean().optional()
-});
-
-export const zResultSnapshotSchedule = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zSnapshotSchedule.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
 });
 
 export const zSnapshotScheduleDto = z.object({
@@ -991,40 +667,23 @@ export const zStatus = z.object({
     owner_exists: z.boolean().optional()
 });
 
-export const zResultStatus = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zStatus.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
 export const zSystemSetting = z.object({
     ICP_number: z.string().optional(),
     allow_register: z.boolean().optional(),
     custom_css: z.string().optional(),
     custom_js: z.string().optional(),
     default_locale: z.string().optional(),
-    disable_agent_discovery: z.boolean().optional(),
+    enable_agent_discovery: z.boolean().optional(),
     footer_content: z.string().optional(),
     footer_link: z.string().optional(),
     meting_api: z.string().optional(),
     privacy_policy: z.string().optional(),
     server_logo: z.string().optional(),
+    server_logo_file_id: z.string().optional(),
     server_name: z.string().optional(),
     server_url: z.string().optional(),
     show_privacy_footer: z.boolean().optional(),
     site_title: z.string().optional()
-});
-
-export const zResultSystemSetting = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zSystemSetting.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
 });
 
 export const zSystemSettingDto = z.object({
@@ -1033,7 +692,7 @@ export const zSystemSettingDto = z.object({
     custom_css: z.string().optional(),
     custom_js: z.string().optional(),
     default_locale: z.string().optional(),
-    disable_agent_discovery: z.boolean().optional(),
+    enable_agent_discovery: z.boolean().optional(),
     footer_content: z.string().optional(),
     footer_link: z.string().optional(),
     meting_api: z.string().optional(),
@@ -1056,6 +715,7 @@ export const zTag = z.object({
 export const zEcho = z.object({
     content: z.string().optional(),
     created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    deleted_at: z.iso.datetime().optional(),
     echo_files: z.array(zEchoFile).nullish(),
     extension: zEchoExtension.optional(),
     id: z.string().optional(),
@@ -1070,7 +730,7 @@ export const zEcho = z.object({
 export const zEchoUpsertDto = z.object({
     content: z.string().optional(),
     created_at: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    echo_files: z.array(zEchoFile).nullish(),
+    echo_files: z.array(zEchoFile).optional(),
     extension: zEchoExtensionDto.optional(),
     id: z.string().optional(),
     layout: z.string().optional(),
@@ -1078,55 +738,16 @@ export const zEchoUpsertDto = z.object({
     tags: z.array(zTag).nullish()
 });
 
-export const zPageQueryResultListEcho = z.object({
+export const zListEcho = z.object({
     items: z.array(zEcho).nullish(),
     nextCursor: z.string().optional(),
     total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
-export const zResultEcho = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zEcho.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListEcho = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zEcho).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultListTag = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zTag).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultPageQueryResultListEcho = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zPageQueryResultListEcho.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultTag = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zTag.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
+export const zListTag = z.object({
+    items: z.array(zTag).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zTestEmailRequest = z.object({
@@ -1141,11 +762,8 @@ export const zUpdateCommentStatusDto = z.object({
     status: z.string().optional()
 });
 
-export const zUpdateFileMetaDto = z.object({
-    content_type: z.string().optional(),
-    height: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    size: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    width: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+export const zUpdateUserRoleInputBody = z.object({
+    role: z.string().optional()
 });
 
 export const zUpdateUserStatusInputBody = z.object({
@@ -1154,37 +772,25 @@ export const zUpdateUserStatusInputBody = z.object({
 
 export const zUser = z.object({
     avatar: z.string().optional(),
+    avatar_file_id: z.string().optional(),
     email: z.string().optional(),
     id: z.string().optional(),
-    is_admin: z.boolean().optional(),
     locale: z.string().optional(),
+    role: z.string().optional(),
     status: z.string().optional(),
     username: z.string().optional()
 });
 
-export const zResultListUser = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zUser).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
-});
-
-export const zResultUser = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: zUser.optional(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
+export const zListUser = z.object({
+    items: z.array(zUser).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zUserInfoDto = z.object({
     avatar: z.string().optional(),
     avatar_file_id: z.string().optional(),
     email: z.string().optional(),
-    is_admin: z.boolean().optional(),
     locale: z.string().optional(),
     password: z.string().optional(),
     username: z.string().optional()
@@ -1201,13 +807,10 @@ export const zWebhook = z.object({
     url: z.string().optional()
 });
 
-export const zResultListWebhook = z.object({
-    code: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    data: z.array(zWebhook).nullish(),
-    error_code: z.string().optional(),
-    message_key: z.string().optional(),
-    message_params: z.record(z.string(), z.unknown()).optional(),
-    msg: z.string().optional()
+export const zListWebhook = z.object({
+    items: z.array(zWebhook).nullish(),
+    nextCursor: z.string().optional(),
+    total: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
 export const zWebhookDto = z.object({
@@ -1220,69 +823,69 @@ export const zWebhookDto = z.object({
 /**
  * OK
  */
-export const zAccessTokenListResponse = zResultListAccessTokenSetting;
+export const zAccessTokenListResponse = zListAccessTokenSetting;
 
 export const zAccessTokenCreateBody = zAccessTokenSettingDto;
 
 /**
- * OK
+ * Created
  */
-export const zAccessTokenCreateResponse = zResultString;
+export const zAccessTokenCreateResponse = z.string();
 
 export const zAccessTokenDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zAccessTokenDeleteResponse = zResultInterface;
+export const zAccessTokenDeleteResponse = z.void();
 
 /**
  * OK
  */
-export const zAgentInfoResponse = zResultAgentSetting;
+export const zAgentInfoResponse = zAgentSetting;
 
 /**
  * OK
  */
-export const zCopilotRecentResponse = zResultString;
+export const zCopilotRecentResponse = z.string();
 
 /**
  * OK
  */
-export const zAgentSettingsGetResponse = zResultAgentSetting;
+export const zAgentSettingsGetResponse = zAgentSetting;
 
 export const zAgentSettingsUpdateBody = zAgentSettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zAgentSettingsUpdateResponse = zResultInterface;
+export const zAgentSettingsUpdateResponse = z.void();
 
 export const zAgentSettingsTestBody = zAgentSettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zAgentSettingsTestResponse = zResultInterface;
+export const zAgentSettingsTestResponse = z.void();
 
 export const zCopilotChatAnswerBody = zAnswerAskInputBody;
 
 /**
- * OK
+ * No Content
  */
-export const zCopilotChatAnswerResponse = zResultInterface;
+export const zCopilotChatAnswerResponse = z.void();
+
+/**
+ * No Content
+ */
+export const zCopilotSessionClearResponse = z.void();
 
 /**
  * OK
  */
-export const zCopilotSessionClearResponse = zResultInterface;
-
-/**
- * OK
- */
-export const zCopilotSessionGetResponse = zResultListChatMessage;
+export const zCopilotSessionGetResponse = z.array(zChatMessage).nullable();
 
 export const zCommentListByEchoQuery = z.object({
     echo_id: z.string()
@@ -1291,26 +894,26 @@ export const zCommentListByEchoQuery = z.object({
 /**
  * OK
  */
-export const zCommentListByEchoResponse = zResultListPublicComment;
+export const zCommentListByEchoResponse = zListPublicComment;
 
 export const zCommentCreateBody = zCreateCommentDto;
 
 /**
- * OK
+ * Created
  */
-export const zCommentCreateResponse = zResultCreateCommentResult;
+export const zCommentCreateResponse = zComment;
 
 /**
  * OK
  */
-export const zCommentFormMetaResponse = zResultFormMeta;
+export const zCommentFormMetaResponse = zFormMeta;
 
 export const zCommentCreateIntegrationBody = zCreateIntegrationCommentDto;
 
 /**
- * OK
+ * Created
  */
-export const zCommentCreateIntegrationResponse = zResultCreateCommentResult;
+export const zCommentCreateIntegrationResponse = zComment;
 
 export const zCommentListPublicQuery = z.object({
     limit: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional().default(BigInt(30))
@@ -1319,57 +922,57 @@ export const zCommentListPublicQuery = z.object({
 /**
  * OK
  */
-export const zCommentListPublicResponse = zResultListPublicComment;
+export const zCommentListPublicResponse = zListPublicComment;
 
 /**
  * OK
  */
-export const zConnectSelfResponse = zResultConnect;
+export const zConnectSelfResponse = zConnect;
 
 /**
  * OK
  */
-export const zConnectListResponse = zResultListConnected;
+export const zConnectListResponse = zListConnected;
 
 export const zConnectAddBody = zAddConnectDto;
 
 /**
- * OK
+ * No Content
  */
-export const zConnectAddResponse = zResultInterface;
+export const zConnectAddResponse = z.void();
 
 /**
  * OK
  */
-export const zConnectHealthResponse = zResultListConnectedHealth;
+export const zConnectHealthResponse = zListConnectedHealth;
 
 /**
  * OK
  */
-export const zConnectInfoResponse = zResultListConnect;
+export const zConnectInfoResponse = zListConnect;
 
 export const zConnectDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zConnectDeleteResponse = zResultInterface;
+export const zConnectDeleteResponse = z.void();
 
 export const zEchoCreateBody = zEchoUpsertDto;
 
 /**
- * OK
+ * Created
  */
-export const zEchoCreateResponse = zResultEcho;
+export const zEchoCreateResponse = zEcho;
 
 export const zEchoUpdateBody = zEchoUpsertDto;
 
 /**
  * OK
  */
-export const zEchoUpdateResponse = zResultEcho;
+export const zEchoUpdateResponse = zEcho;
 
 export const zEchoHotQuery = z.object({
     limit: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional().default(BigInt(5))
@@ -1378,7 +981,7 @@ export const zEchoHotQuery = z.object({
 /**
  * OK
  */
-export const zEchoHotResponse = zResultListEcho;
+export const zEchoHotResponse = zListEcho;
 
 export const zEchoOnthisdayHeaders = z.object({
     'X-Timezone': z.string().optional()
@@ -1387,7 +990,7 @@ export const zEchoOnthisdayHeaders = z.object({
 /**
  * OK
  */
-export const zEchoOnthisdayResponse = zResultListEcho;
+export const zEchoOnthisdayResponse = zListEcho;
 
 export const zEchoPageGetQuery = z.object({
     page: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
@@ -1398,26 +1001,26 @@ export const zEchoPageGetQuery = z.object({
 /**
  * OK
  */
-export const zEchoPageGetResponse = zResultPageQueryResultListEcho;
+export const zEchoPageGetResponse = zListEcho;
 
 export const zEchoPagePostBody = zPageQueryDto;
 
 /**
  * OK
  */
-export const zEchoPagePostResponse = zResultPageQueryResultListEcho;
+export const zEchoPagePostResponse = zListEcho;
 
 export const zEchoListBody = zEchoQueryDto;
 
 /**
  * OK
  */
-export const zEchoListResponse = zResultPageQueryResultListEcho;
+export const zEchoListResponse = zListEcho;
 
 /**
  * OK
  */
-export const zEchoRandomResponse = zResultEcho;
+export const zEchoRandomResponse = zEcho;
 
 export const zEchoByTagPath = z.object({
     tagid: z.uuid()
@@ -1432,7 +1035,7 @@ export const zEchoByTagQuery = z.object({
 /**
  * OK
  */
-export const zEchoByTagResponse = zResultPageQueryResultListEcho;
+export const zEchoByTagResponse = zListEcho;
 
 export const zEchoTodayHeaders = z.object({
     'X-Timezone': z.string().optional()
@@ -1441,16 +1044,16 @@ export const zEchoTodayHeaders = z.object({
 /**
  * OK
  */
-export const zEchoTodayResponse = zResultListEcho;
+export const zEchoTodayResponse = zListEcho;
 
 export const zEchoDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zEchoDeleteResponse = zResultInterface;
+export const zEchoDeleteResponse = z.void();
 
 export const zEchoGetPath = z.object({
     id: z.uuid()
@@ -1459,7 +1062,7 @@ export const zEchoGetPath = z.object({
 /**
  * OK
  */
-export const zEchoGetResponse = zResultEcho;
+export const zEchoGetResponse = zEcho;
 
 export const zReactionRemovePath = z.object({
     id: z.uuid(),
@@ -1477,7 +1080,7 @@ export const zReactionRemovePath = z.object({
 /**
  * OK
  */
-export const zReactionRemoveResponse = zResultListReactionCount;
+export const zReactionRemoveResponse = zListReactionCount;
 
 export const zReactionAddPath = z.object({
     id: z.uuid(),
@@ -1495,53 +1098,64 @@ export const zReactionAddPath = z.object({
 /**
  * OK
  */
-export const zReactionAddResponse = zResultListReactionCount;
+export const zReactionAddResponse = zListReactionCount;
 
 /**
  * OK
  */
-export const zEmbeddingReindexResponse = zResultReindexStatusResponse;
+export const zEmbeddingReindexResponse = zReindexStatusResponse;
 
 /**
  * OK
  */
-export const zEmbeddingReindexCancelResponse = zResultReindexStatusResponse;
+export const zEmbeddingReindexCancelResponse = zReindexStatusResponse;
 
 /**
  * OK
  */
-export const zEmbeddingReindexStatusResponse = zResultReindexStatusResponse;
+export const zEmbeddingReindexStatusResponse = zReindexStatusResponse;
 
 /**
  * OK
  */
-export const zEmbeddingSettingsGetResponse = zResultEmbeddingSetting;
+export const zEmbeddingSettingsGetResponse = zEmbeddingSetting;
 
 export const zEmbeddingSettingsUpdateBody = zEmbeddingSettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zEmbeddingSettingsUpdateResponse = zResultInterface;
+export const zEmbeddingSettingsUpdateResponse = z.void();
 
-export const zFileTreeQuery = z.object({
-    storage_type: z.string(),
-    prefix: z.string().optional()
+export const zFileListQuery = z.object({
+    page: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    pageSize: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    search: z.string().optional(),
+    kind: z.string().optional(),
+    status: z.string().optional(),
+    access: z.string().optional(),
+    ownerKind: z.string().optional(),
+    ownerId: z.string().optional(),
+    role: z.string().optional()
 });
 
 /**
  * OK
  */
-export const zFileTreeResponse = zResultFileTreeResultDto;
+export const zFileListResponse = zListFileDto;
 
 export const zFileDeletePath = z.object({
     id: z.string()
 });
 
+export const zFileDeleteQuery = z.object({
+    force: z.boolean().optional()
+});
+
 /**
- * OK
+ * No Content
  */
-export const zFileDeleteResponse = zResultInterface;
+export const zFileDeleteResponse = z.void();
 
 export const zFileGetPath = z.object({
     id: z.string()
@@ -1550,44 +1164,27 @@ export const zFileGetPath = z.object({
 /**
  * OK
  */
-export const zFileGetResponse = zResultFileDto;
+export const zFileGetResponse = zFileDto;
 
-export const zFileUpdateMetaBody = zUpdateFileMetaDto;
+export const zFileRenameBody = zRenameFileInputBody;
 
-export const zFileUpdateMetaPath = z.object({
+export const zFileRenamePath = z.object({
     id: z.string()
 });
 
 /**
  * OK
  */
-export const zFileUpdateMetaResponse = zResultFileDto;
+export const zFileRenameResponse = zFileDto;
 
-export const zFileListQuery = z.object({
-    page: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    pageSize: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    search: z.string().optional(),
-    storage_type: z.string().optional()
+export const zFileCommitPath = z.object({
+    id: z.string()
 });
 
 /**
  * OK
  */
-export const zFileListResponse = zResultFileListResultDto;
-
-export const zFileExternalBody = zCreateExternalFileDto;
-
-/**
- * OK
- */
-export const zFileExternalResponse = zResultFileDto;
-
-export const zFilePresignBody = zGetPresignUrlDto;
-
-/**
- * OK
- */
-export const zFilePresignResponse = zResultPresignDto;
+export const zFileCommitResponse = zFileDto;
 
 export const zCommonHeatmapHeaders = z.object({
     'X-Timezone': z.string().optional()
@@ -1596,68 +1193,68 @@ export const zCommonHeatmapHeaders = z.object({
 /**
  * OK
  */
-export const zCommonHeatmapResponse = zResultListHeatmap;
+export const zCommonHeatmapResponse = zListHeatmap;
 
 /**
  * OK
  */
-export const zCommonHelloResponse = zResultHelloResponse;
+export const zCommonHelloResponse = zHelloResponse;
 
 export const zInitOwnerBody = zInitOwnerDto;
 
 /**
- * OK
+ * No Content
  */
-export const zInitOwnerResponse = zResultInterface;
+export const zInitOwnerResponse = z.void();
 
 /**
  * OK
  */
-export const zInitStatusResponse = zResultStatus;
+export const zInitStatusResponse = zStatus;
 
 /**
  * OK
  */
-export const zMcpManifestResponse = zResultManifest;
+export const zMcpManifestResponse = zManifest;
 
 /**
  * OK
  */
-export const zMigrationCancelResponse = zResultGlobalMigrationStateDto;
+export const zMigrationCancelResponse = zGlobalMigrationStateDto;
 
 /**
- * OK
+ * No Content
  */
-export const zMigrationCleanupResponse = zResultInterface;
+export const zMigrationCleanupResponse = z.void();
 
 export const zMigrationExportBody = zStartExportRequest;
 
 /**
  * OK
  */
-export const zMigrationExportResponse = zResultExportStateDto;
+export const zMigrationExportResponse = zExportStateDto;
 
 /**
  * OK
  */
-export const zMigrationExportCancelResponse = zResultExportStateDto;
+export const zMigrationExportCancelResponse = zExportStateDto;
 
 /**
  * OK
  */
-export const zMigrationExportStatusResponse = zResultExportStateDto;
+export const zMigrationExportStatusResponse = zExportStateDto;
 
 export const zMigrationStartBody = zStartGlobalMigrationRequest;
 
 /**
  * OK
  */
-export const zMigrationStartResponse = zResultGlobalMigrationStateDto;
+export const zMigrationStartResponse = zGlobalMigrationStateDto;
 
 /**
  * OK
  */
-export const zMigrationStatusResponse = zResultGlobalMigrationStateDto;
+export const zMigrationStatusResponse = zGlobalMigrationStateDto;
 
 export const zOauthInfoQuery = z.object({
     provider: z.string().optional()
@@ -1666,7 +1263,7 @@ export const zOauthInfoQuery = z.object({
 /**
  * OK
  */
-export const zOauthInfoResponse = zResultOAuthInfoDto;
+export const zOauthInfoResponse = zOAuthInfoDto;
 
 export const zOauthBindBody = zOAuthBindBody;
 
@@ -1677,24 +1274,24 @@ export const zOauthBindPath = z.object({
 /**
  * OK
  */
-export const zOauthBindResponse = zResultString;
+export const zOauthBindResponse = z.string();
 
 /**
  * OK
  */
-export const zOauth2GetResponse = zResultOAuth2Setting;
+export const zOauth2GetResponse = zOAuth2Setting;
 
 export const zOauth2UpdateBody = zOAuth2SettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zOauth2UpdateResponse = zResultInterface;
+export const zOauth2UpdateResponse = z.void();
 
 /**
  * OK
  */
-export const zOauth2StatusResponse = zResultOAuth2Status;
+export const zOauth2StatusResponse = zOAuth2Status;
 
 export const zCommentPanelListQuery = z.object({
     page: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional().default(BigInt(1)),
@@ -1708,42 +1305,42 @@ export const zCommentPanelListQuery = z.object({
 /**
  * OK
  */
-export const zCommentPanelListResponse = zResultPageResultComment;
+export const zCommentPanelListResponse = zListComment;
 
 export const zCommentPanelBatchBody = zBatchCommentActionDto;
 
 /**
- * OK
+ * No Content
  */
-export const zCommentPanelBatchResponse = zResultInterface;
+export const zCommentPanelBatchResponse = z.void();
 
 /**
  * OK
  */
-export const zCommentPanelSettingsGetResponse = zModelResultCommentSystemSetting;
+export const zCommentPanelSettingsGetResponse = zModelSystemSetting;
 
 export const zCommentPanelSettingsUpdateBody = zModelSystemSetting;
 
 /**
- * OK
+ * No Content
  */
-export const zCommentPanelSettingsUpdateResponse = zResultInterface;
+export const zCommentPanelSettingsUpdateResponse = z.void();
 
 export const zCommentPanelTestEmailBody = zTestEmailRequest;
 
 /**
- * OK
+ * No Content
  */
-export const zCommentPanelTestEmailResponse = zResultInterface;
+export const zCommentPanelTestEmailResponse = z.void();
 
 export const zCommentPanelDeletePath = z.object({
     id: z.string()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zCommentPanelDeleteResponse = zResultInterface;
+export const zCommentPanelDeleteResponse = z.void();
 
 export const zCommentPanelGetPath = z.object({
     id: z.string()
@@ -1752,7 +1349,7 @@ export const zCommentPanelGetPath = z.object({
 /**
  * OK
  */
-export const zCommentPanelGetResponse = zResultComment;
+export const zCommentPanelGetResponse = zComment;
 
 export const zCommentPanelHotBody = zUpdateCommentHotDto;
 
@@ -1761,9 +1358,9 @@ export const zCommentPanelHotPath = z.object({
 });
 
 /**
- * OK
+ * No Content
  */
-export const zCommentPanelHotResponse = zResultInterface;
+export const zCommentPanelHotResponse = z.void();
 
 export const zCommentPanelStatusBody = zUpdateCommentStatusDto;
 
@@ -1772,40 +1369,40 @@ export const zCommentPanelStatusPath = z.object({
 });
 
 /**
- * OK
+ * No Content
  */
-export const zCommentPanelStatusResponse = zResultInterface;
+export const zCommentPanelStatusResponse = z.void();
 
 /**
  * OK
  */
-export const zPasskeyGetResponse = zResultPasskeySetting;
+export const zPasskeyGetResponse = zPasskeySetting;
 
 export const zPasskeyUpdateBody = zPasskeySettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zPasskeyUpdateResponse = zResultInterface;
+export const zPasskeyUpdateResponse = z.void();
 
 /**
  * OK
  */
-export const zPasskeyStatusResponse = zResultPasskeyStatus;
+export const zPasskeyStatusResponse = zPasskeyStatus;
 
 /**
  * OK
  */
-export const zPasskeyListResponse = zResultListPasskeyDeviceDto;
+export const zPasskeyListResponse = z.array(zPasskeyDeviceDto).nullable();
 
 export const zPasskeyDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zPasskeyDeleteResponse = zResultInterface;
+export const zPasskeyDeleteResponse = z.void();
 
 export const zPasskeyUpdateNameBody = zPasskeyUpdateDeviceNameReq;
 
@@ -1814,69 +1411,69 @@ export const zPasskeyUpdateNamePath = z.object({
 });
 
 /**
- * OK
+ * No Content
  */
-export const zPasskeyUpdateNameResponse = zResultInterface;
+export const zPasskeyUpdateNameResponse = z.void();
 
 /**
  * OK
  */
-export const zReactionCatalogResponse = zResultListReactionEmoji;
+export const zReactionCatalogResponse = zListReactionEmoji;
 
 export const zUserRegisterBody = zRegisterDto;
 
 /**
- * OK
+ * No Content
  */
-export const zUserRegisterResponse = zResultInterface;
+export const zUserRegisterResponse = z.void();
 
 /**
  * OK
  */
-export const zS3GetResponse = zResultS3Setting;
+export const zS3GetResponse = zS3Setting;
 
 export const zS3UpdateBody = zS3SettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zS3UpdateResponse = zResultInterface;
+export const zS3UpdateResponse = z.void();
 
 export const zS3TestBody = zS3SettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zS3TestResponse = zResultInterface;
+export const zS3TestResponse = z.void();
 
 /**
  * OK
  */
-export const zSettingsGetResponse = zResultSystemSetting;
+export const zSettingsGetResponse = zSystemSetting;
 
 export const zSettingsUpdateBody = zSystemSettingDto;
 
 /**
- * OK
+ * No Content
  */
-export const zSettingsUpdateResponse = zResultInterface;
+export const zSettingsUpdateResponse = z.void();
 
 /**
  * OK
  */
-export const zSnapshotScheduleGetResponse = zResultSnapshotSchedule;
+export const zSnapshotScheduleGetResponse = zSnapshotSchedule;
 
 export const zSnapshotScheduleUpdateBody = zSnapshotScheduleDto;
 
 /**
- * OK
+ * No Content
  */
-export const zSnapshotScheduleUpdateResponse = zResultInterface;
+export const zSnapshotScheduleUpdateResponse = z.void();
 
 /**
  * OK
  */
-export const zDashboardCheckUpdateResponse = zResultCheckUpdateResponse;
+export const zDashboardCheckUpdateResponse = zCheckUpdateResponse;
 
 export const zDashboardSystemLogsQuery = z.object({
     tail: z.string().optional(),
@@ -1887,54 +1484,65 @@ export const zDashboardSystemLogsQuery = z.object({
 /**
  * OK
  */
-export const zDashboardSystemLogsResponse = zResultListLogEntry;
+export const zDashboardSystemLogsResponse = zListLogEntry;
 
 /**
  * OK
  */
-export const zDashboardVisitorStatsResponse = zResultListDayStat;
+export const zDashboardVisitorStatsResponse = zListDayStat;
 
 export const zTagCreateBody = zCreateTagDto;
 
 /**
  * OK
  */
-export const zTagCreateResponse = zResultTag;
+export const zTagCreateResponse = zTag;
 
 export const zTagDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zTagDeleteResponse = zResultInterface;
+export const zTagDeleteResponse = z.void();
 
 /**
  * OK
  */
-export const zTagListResponse = zResultListTag;
+export const zTagListResponse = zListTag;
 
 /**
  * OK
  */
-export const zUserInfoResponse = zResultUser;
+export const zUserInfoResponse = zUser;
 
 export const zUserUpdateBody = zUserInfoDto;
 
 /**
- * OK
+ * No Content
  */
-export const zUserUpdateResponse = zResultInterface;
+export const zUserUpdateResponse = z.void();
 
-export const zUserSetAdminPath = z.object({
+export const zUserTransferOwnerPath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zUserSetAdminResponse = zResultInterface;
+export const zUserTransferOwnerResponse = z.void();
+
+export const zUserSetRoleBody = zUpdateUserRoleInputBody;
+
+export const zUserSetRolePath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * No Content
+ */
+export const zUserSetRoleResponse = z.void();
 
 export const zUserSetStatusBody = zUpdateUserStatusInputBody;
 
@@ -1943,44 +1551,44 @@ export const zUserSetStatusPath = z.object({
 });
 
 /**
- * OK
+ * No Content
  */
-export const zUserSetStatusResponse = zResultInterface;
+export const zUserSetStatusResponse = z.void();
 
 export const zUserDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zUserDeleteResponse = zResultInterface;
+export const zUserDeleteResponse = z.void();
 
 /**
  * OK
  */
-export const zUserListResponse = zResultListUser;
+export const zUserListResponse = zListUser;
 
 /**
  * OK
  */
-export const zWebhookListResponse = zResultListWebhook;
+export const zWebhookListResponse = zListWebhook;
 
 export const zWebhookCreateBody = zWebhookDto;
 
 /**
- * OK
+ * No Content
  */
-export const zWebhookCreateResponse = zResultInterface;
+export const zWebhookCreateResponse = z.void();
 
 export const zWebhookDeletePath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zWebhookDeleteResponse = zResultInterface;
+export const zWebhookDeleteResponse = z.void();
 
 export const zWebhookUpdateBody = zWebhookDto;
 
@@ -1989,18 +1597,18 @@ export const zWebhookUpdatePath = z.object({
 });
 
 /**
- * OK
+ * No Content
  */
-export const zWebhookUpdateResponse = zResultInterface;
+export const zWebhookUpdateResponse = z.void();
 
 export const zWebhookTestPath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * No Content
  */
-export const zWebhookTestResponse = zResultInterface;
+export const zWebhookTestResponse = z.void();
 
 export const zCommonWebsiteTitleQuery = z.object({
     website_url: z.string()
@@ -2009,4 +1617,4 @@ export const zCommonWebsiteTitleQuery = z.object({
 /**
  * OK
  */
-export const zCommonWebsiteTitleResponse = zResultString;
+export const zCommonWebsiteTitleResponse = z.string();

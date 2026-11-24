@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	"github.com/lin-snow/ech0/internal/job"
@@ -66,7 +67,7 @@ func (s *MigratorService) DownloadExport(ctx *gin.Context, reqCtx context.Contex
 
 	artifactPath, err := slot.Latest()
 	if errors.Is(err, artifact.ErrNone) {
-		return errors.New("暂无可下载的产物，请先创建导出")
+		return errors.New("no artifact to download: create an export first")
 	}
 	if err != nil {
 		return err
@@ -104,16 +105,11 @@ func (s *MigratorService) UploadSourceZip(
 		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
 	}
 
-	userID := viewer.MustFromContext(ctx).UserID()
-	user, err := s.commonService.CommonGetUserByUserId(ctx, userID)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.DataManage, authz.Instance()); err != nil {
 		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
-	if !user.IsAdmin {
-		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
 	if _, err := s.jobManager.Get(ctx, jobModel.Migration); err == nil {
-		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New("请先结束/清理当前迁移")
+		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New("finish or clean up the current migration first")
 	} else if !errors.Is(err, job.ErrNotFound) {
 		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
@@ -178,7 +174,7 @@ func (s *MigratorService) StartGlobalMigration(
 	if err != nil {
 		_ = coreMigrator.CleanupTmpDirFromPayload(req.SourcePayload)
 		if errors.Is(err, job.ErrAlreadyRunning) {
-			return migratorModel.GlobalMigrationStateDTO{}, errors.New("请先结束/清理当前迁移")
+			return migratorModel.GlobalMigrationStateDTO{}, errors.New("finish or clean up the current migration first")
 		}
 		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
@@ -233,7 +229,7 @@ func (s *MigratorService) CleanupGlobalMigration(ctx context.Context) error {
 		return err
 	}
 	if jb.Status == jobModel.StatusPending || jb.Status == jobModel.StatusRunning {
-		return errors.New("迁移进行中，无法清理")
+		return errors.New("cannot clean up while a migration is running")
 	}
 	var payload migratorModel.MigrationPayload
 	if jb.Payload != "" {
@@ -262,7 +258,7 @@ func (s *MigratorService) StartExport(
 	})
 	if err != nil {
 		if errors.Is(err, job.ErrAlreadyRunning) {
-			return migratorModel.ExportStateDTO{}, errors.New("导出进行中，请稍候")
+			return migratorModel.ExportStateDTO{}, errors.New("an export is already running")
 		}
 		return migratorModel.ExportStateDTO{}, err
 	}
@@ -370,15 +366,10 @@ func validateStartRequest(req migratorModel.StartGlobalMigrationRequest) error {
 }
 
 func (s *MigratorService) ensureAdmin(ctx context.Context) (string, error) {
-	userID := viewer.MustFromContext(ctx).UserID()
-	user, err := s.commonService.CommonGetUserByUserId(ctx, userID)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.DataManage, authz.Instance()); err != nil {
 		return "", err
 	}
-	if !user.IsAdmin {
-		return "", errors.New(commonModel.NO_PERMISSION_DENIED)
-	}
-	return userID, nil
+	return viewer.MustFromContext(ctx).UserID(), nil
 }
 
 func validateSourceType(sourceType string) error {

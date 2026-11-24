@@ -18,6 +18,16 @@ func TxFromContext(ctx context.Context) (*gorm.DB, bool) {
 	return tx, ok
 }
 
+// WithTx returns ctx carrying tx as the transaction every repository must use.
+// Code that opens its own transaction (boot-time migrations) calls it so the
+// same write goes through the repositories and their caches.
+func WithTx(ctx context.Context, tx *gorm.DB) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, TxKey, tx)
+}
+
 func HasTx(ctx context.Context) bool {
 	_, ok := TxFromContext(ctx)
 	return ok

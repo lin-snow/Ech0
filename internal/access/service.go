@@ -48,7 +48,7 @@ func (s *Service) IssueForViewer(
 	dto *model.AccessTokenSettingDto,
 ) (string, error) {
 	v := viewer.MustFromContext(ctx)
-	if v.TokenType() == authModel.TokenTypeAccess {
+	if v.Kind() == viewer.KindAccess {
 		if err := ensureDelegatedScopes(v.Scopes(), dto); err != nil {
 			return "", err
 		}
@@ -80,8 +80,8 @@ func (s *Service) IssueForUser(
 	if err != nil {
 		return "", err
 	}
-	if !user.IsAdmin {
-		return "", errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := authz.Decide(viewer.NewSession(user.ID, user.Role, authz.ScopesForRole(user.Role)), authz.TokenManage, authz.Instance()); err != nil {
+		return "", err
 	}
 	if err := validateRequest(user, dto); err != nil {
 		return "", err
@@ -155,8 +155,10 @@ func validateRequest(user userModel.User, dto *model.AccessTokenSettingDto) erro
 			return errors.New(commonModel.INVALID_PARAMS_BODY)
 		}
 	}
-	if authz.HasAdminScope(dto.Scopes) && !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	if authz.HasAdminScope(dto.Scopes) {
+		if err := authz.Decide(viewer.NewSession(user.ID, user.Role, authz.ScopesForRole(user.Role)), authz.TokenManage, authz.Instance()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -222,7 +222,7 @@ func TestExchangeQQCodeForToken(t *testing.T) {
 		setting.TokenURL = ts.URL + "/garbage"
 		_, err := exchangeQQCodeForToken(&setting, "code")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "无法解析")
+		assert.Contains(t, err.Error(), "cannot decode")
 	})
 }
 
@@ -330,7 +330,7 @@ func TestFetchCustomUserInfo_NonOIDC(t *testing.T) {
 		setting.UserInfoURL = ts.URL
 		_, err := fetchCustomUserInfo(&setting, "acc-tok", "", "")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "唯一标识")
+		assert.Contains(t, err.Error(), "unique id")
 	})
 
 	t.Run("non-200 errors", func(t *testing.T) {
@@ -344,7 +344,7 @@ func TestFetchCustomUserInfo_NonOIDC(t *testing.T) {
 		setting.UserInfoURL = ts.URL
 		_, err := fetchCustomUserInfo(&setting, "acc-tok", "", "")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Custom")
+		assert.Contains(t, err.Error(), "custom")
 	})
 
 	t.Run("invalid json body errors", func(t *testing.T) {

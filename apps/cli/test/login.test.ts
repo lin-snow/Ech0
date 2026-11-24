@@ -34,14 +34,14 @@ describe("password login", () => {
   test("admin mints a cli access token and drops the cookie", async () => {
     const fake = startFakeApi({
       "POST /api/login": () => ({
-        body: { code: 1, msg: "登陆成功", data: { access_token: "session-token", expires_in: 3600 } },
+        body: { access_token: "session-token", expires_in: 3600 },
         headers: refreshCookie("refresh-1"),
       }),
       "GET /api/user": () => ({
-        body: { code: 1, msg: "ok", data: { id: "u1", username: "owner", is_admin: true } },
+        body: { id: "u1", username: "owner", role: "owner" },
       }),
       "POST /api/access-tokens": (request) => ({
-        body: { code: 1, msg: "ok", data: "minted-token" },
+        body: "minted-token",
         headers: { "X-Seen": JSON.stringify(request.body) },
       }),
     });
@@ -59,7 +59,7 @@ describe("password login", () => {
     expect(output.human).toContain("CLI 令牌");
     expect((await readToken("memo", ctx.credentialsPath))?.value).toBe("minted-token");
     expect(await readRefreshCookie("memo", ctx.credentialsPath)).toBeUndefined();
-    expect(loadConfig(join(dir, "config.json")).profiles.memo?.isAdmin).toBe(true);
+    expect(loadConfig(join(dir, "config.json")).profiles.memo?.role).toBe("owner");
 
     const mint = fake.calls.find((call) => call.path === "/api/access-tokens");
     expect(mint?.headers.get("Authorization")).toBe("Bearer session-token");
@@ -69,11 +69,11 @@ describe("password login", () => {
   test("non-admin keeps the session token and the refresh cookie", async () => {
     const fake = startFakeApi({
       "POST /api/login": () => ({
-        body: { code: 1, msg: "登陆成功", data: { access_token: "session-token", expires_in: 3600 } },
+        body: { access_token: "session-token", expires_in: 3600 },
         headers: refreshCookie("refresh-2"),
       }),
       "GET /api/user": () => ({
-        body: { code: 1, msg: "ok", data: { id: "u2", username: "reader", is_admin: false } },
+        body: { id: "u2", username: "reader", role: "member" },
       }),
     });
     api = fake;
@@ -99,28 +99,27 @@ describe("device login", () => {
     const fake = startFakeApi({
       "POST /api/auth/device/code": (request) => ({
         body: {
-          code: 1,
-          msg: "ok",
-          data: {
-            device_code: "device-code",
-            user_code: "ABCD-EFGH",
-            verification_uri: "/device",
-            verification_uri_complete: "/device?code=ABCD-EFGH",
-            expires_in: 60,
-            interval: 1,
-          },
+          device_code: "device-code",
+          user_code: "ABCD-EFGH",
+          verification_uri: "/device",
+          verification_uri_complete: "/device?code=ABCD-EFGH",
+          expires_in: 60,
+          interval: 1,
         },
         headers: { "X-Seen": JSON.stringify(request.body) },
       }),
       "POST /api/auth/device/token": () => {
         polls += 1;
         if (polls === 1) {
-          return { status: 400, body: { code: 0, msg: "pending", error_code: "DEVICE_AUTHORIZATION_PENDING" } };
+          return {
+            status: 400,
+            body: { title: "Bad Request", status: 400, detail: "pending", type: "https://ech0.app/problems/device-authorization-pending" },
+          };
         }
-        return { body: { code: 1, msg: "ok", data: { access_token: "device-token" } } };
+        return { body: { access_token: "device-token" } };
       },
       "GET /api/user": () => ({
-        body: { code: 1, msg: "ok", data: { id: "u1", username: "owner", is_admin: true } },
+        body: { id: "u1", username: "owner", role: "owner" },
       }),
     });
     api = fake;
@@ -155,11 +154,11 @@ describe("session refresh", () => {
   test("rotates the access token and the cookie from the refresh cookie", async () => {
     const fake = startFakeApi({
       "POST /api/auth/refresh": () => ({
-        body: { code: 1, msg: "ok", data: { access_token: "fresh-token", expires_in: 3600 } },
+        body: { access_token: "fresh-token", expires_in: 3600 },
         headers: refreshCookie("refresh-3"),
       }),
       "GET /api/user": (request) => ({
-        body: { code: 1, msg: "ok", data: { username: "owner", auth: request.headers.get("Authorization") } },
+        body: { username: "owner", auth: request.headers.get("Authorization") },
       }),
     });
     api = fake;
@@ -177,7 +176,7 @@ describe("session refresh", () => {
     expect(await session.refresh()).toBe(true);
 
     const result = await session.client.call<{ auth?: string }>({ path: "/user" });
-    expect(result.data.auth).toBe("Bearer fresh-token");
+    expect(result.auth).toBe("Bearer fresh-token");
     expect((await readRefreshCookie("memo", ctx.credentialsPath))?.value).toBe("refresh-3");
   });
 });

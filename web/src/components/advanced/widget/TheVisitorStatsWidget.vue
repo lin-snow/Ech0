@@ -162,8 +162,8 @@ function hideTooltip() {
 onMounted(async () => {
   try {
     const res = await fetchGetVisitorStats()
-    if (res.code === 1 && Array.isArray(res.data)) {
-      visitorData.value = res.data
+    if (res) {
+      visitorData.value = res
     }
   } catch {}
 })

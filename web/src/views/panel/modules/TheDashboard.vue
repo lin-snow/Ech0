@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { fetchCheckUpdate, fetchGetEchosByPage, fetchGetTodayEchos } from '@/service/api'
 import { useConnectStore, useSettingStore } from '@/stores'
 import { theToast } from '@/utils/toast'
+import { listItems } from '@/utils/list'
 import { TheActivityLog, TheVisitorStatsWidget } from '@/components/advanced/widget'
 import Box from '@/components/icons/box.vue'
 import ConnectedIcon from '@/components/icons/connected-icon.vue'
@@ -107,14 +108,13 @@ const loadDashboardStats = async () => {
     fetchGetTodayEchos(),
   ])
 
-  if (echoRes.status === 'fulfilled' && echoRes.value.code === 1) {
-    echoTotal.value = echoRes.value.data?.total ?? 0
+  if (echoRes.status === 'fulfilled' && echoRes.value) {
+    echoTotal.value = echoRes.value.total ?? 0
     echoAnimTarget.value = echoTotal.value
   }
 
-  if (todayRes.status === 'fulfilled' && todayRes.value.code === 1) {
-    const data = todayRes.value.data
-    todayEchoCount.value = Array.isArray(data) ? data.length : 0
+  if (todayRes.status === 'fulfilled' && todayRes.value) {
+    todayEchoCount.value = listItems<App.Api.Ech0.Echo>(todayRes.value).length
     todayAnimTarget.value = todayEchoCount.value
   }
 
@@ -131,11 +131,11 @@ const handleCheckUpdate = async () => {
   let failed = false
   try {
     const res = await fetchCheckUpdate()
-    if (res.code === 1 && res.data) {
-      hasUpdate.value = res.data.has_update
-      latestVersion.value = res.data.latest_version
-      if (res.data.has_update) {
-        theToast.info(String(t('dashboard.updateAvailable', { version: res.data.latest_version })))
+    if (res) {
+      hasUpdate.value = res.has_update
+      latestVersion.value = res.latest_version
+      if (res.has_update) {
+        theToast.info(String(t('dashboard.updateAvailable', { version: res.latest_version })))
       } else {
         theToast.info(String(t('dashboard.alreadyLatest')))
       }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -16,19 +15,15 @@ import (
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
-	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 func CreateClaims(user userModel.User) jwt.Claims {
 	leeway := time.Second * 60
 	now := time.Now().UTC()
 	claims := authModel.MyClaims{
-		Userid:   user.ID,
-		Username: user.Username,
 		Type:     authModel.TokenTypeSession,
-		IsAdmin:  user.IsAdmin,
 		Issuer:   config.Config().Auth.Jwt.Issuer,
-		Subject:  user.Username,
+		Subject:  user.ID,
 		Audience: jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
 		ExpiresAt: jwt.NewNumericDate(
 			now.Add(time.Duration(config.Config().Auth.Jwt.Expires) * time.Second),
@@ -58,12 +53,9 @@ func buildRefreshClaims(user userModel.User, jti string) authModel.MyClaims {
 	leeway := time.Second * 60
 	now := time.Now().UTC()
 	return authModel.MyClaims{
-		Userid:   user.ID,
-		Username: user.Username,
 		Type:     authModel.TokenTypeRefresh,
-		IsAdmin:  user.IsAdmin,
 		Issuer:   config.Config().Auth.Jwt.Issuer,
-		Subject:  user.Username,
+		Subject:  user.ID,
 		Audience: jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
 		ExpiresAt: jwt.NewNumericDate(
 			now.Add(time.Duration(config.Config().Auth.Jwt.RefreshExpires) * time.Second),
@@ -96,12 +88,10 @@ func CreateAccessClaimsWithExpiry(
 	}
 
 	claims := authModel.MyClaims{
-		Userid:    user.ID,
-		Username:  user.Username,
 		Type:      authModel.TokenTypeAccess,
 		Scopes:    scopes,
 		Issuer:    config.Config().Auth.Jwt.Issuer,
-		Subject:   user.Username,
+		Subject:   user.ID,
 		Audience:  audiences,
 		ID:        jti,
 		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(expiry) * time.Second)),
@@ -117,47 +107,67 @@ func GenerateToken(claim jwt.Claims) (string, error) {
 	return token.SignedString(config.Config().Security.JWTSecret)
 }
 
-func ParseToken(tokenString string) (*authModel.MyClaims, error) {
-	claims, err := parseTokenRaw(tokenString)
+// ParseSessionToken accepts only a session token minted by this instance for
+// its configured audience.
+func ParseSessionToken(tokenString string) (*authModel.MyClaims, error) {
+	return parseToken(tokenString, authModel.TokenTypeSession, true)
+}
+
+// ParseAccessToken accepts only an access token. Its audience names the
+// resource it was minted for, so the audience check belongs to the endpoint
+// consuming the token; this parser only requires that one is present.
+func ParseAccessToken(tokenString string) (*authModel.MyClaims, error) {
+	claims, err := parseToken(tokenString, authModel.TokenTypeAccess, false)
 	if err != nil {
 		return nil, err
 	}
-	if claims.Type != authModel.TokenTypeSession && claims.Type != authModel.TokenTypeAccess {
-		return nil, errors.New("invalid token typ")
+	if len(claims.Audience) == 0 {
+		return nil, errors.New("access token carries no audience")
 	}
 	return claims, nil
 }
 
 func ParseRefreshToken(tokenString string) (*authModel.MyClaims, error) {
-	claims, err := parseTokenRaw(tokenString)
-	if err != nil {
-		return nil, err
-	}
-	if claims.Type != authModel.TokenTypeRefresh {
-		return nil, errors.New("invalid token typ: expected refresh")
-	}
-	return claims, nil
+	return parseToken(tokenString, authModel.TokenTypeRefresh, true)
 }
 
-func parseTokenRaw(tokenString string) (*authModel.MyClaims, error) {
+// parseToken is the single verification path: HS256 only (no algorithm
+// confusion), issuer pinned, expiry required, and the instance audience checked
+// for every token type except access tokens (which carry their own).
+func parseToken(tokenString, typ string, instanceAudience bool) (*authModel.MyClaims, error) {
+	cfg := config.Config().Auth.Jwt
+	options := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer(cfg.Issuer),
+		jwt.WithExpirationRequired(),
+		jwt.WithLeeway(30 * time.Second),
+	}
+	if instanceAudience {
+		options = append(options, jwt.WithAudience(cfg.Audience))
+	}
+
 	claims := &authModel.MyClaims{}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		claims,
-		func(token *jwt.Token) (any, error) {
+		func(*jwt.Token) (any, error) {
 			return config.Config().Security.JWTSecret, nil
 		},
+		options...,
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	if claims, ok := token.Claims.(*authModel.MyClaims); ok {
-		return claims, nil
+	if !token.Valid {
+		return nil, errors.New("token is not valid")
 	}
-
-	logUtil.Warn("parse token claims type mismatch", slog.String("module", "jwt"))
-	return nil, errors.New("unknown claims type, cannot proceed")
+	if claims.Type != typ {
+		return nil, fmt.Errorf("unexpected token type %q", claims.Type)
+	}
+	if claims.Subject == "" {
+		return nil, errors.New("token has no subject")
+	}
+	return claims, nil
 }
 
 func GenerateOAuthState(
@@ -202,11 +212,11 @@ func ParseOAuthState(stateStr string) (*authModel.OAuthState, error) {
 	getStringClaim := func(key string) (string, error) {
 		v, ok := claims[key]
 		if !ok {
-			return "", fmt.Errorf("oauth state 缺少 %s", key)
+			return "", fmt.Errorf("oauth state is missing %s", key)
 		}
 		s, ok := v.(string)
 		if !ok || s == "" {
-			return "", fmt.Errorf("oauth state %s 非法", key)
+			return "", fmt.Errorf("oauth state %s is invalid", key)
 		}
 		return s, nil
 	}
@@ -230,11 +240,11 @@ func ParseOAuthState(stateStr string) (*authModel.OAuthState, error) {
 
 	expRaw, ok := claims["exp"]
 	if !ok {
-		return nil, errors.New("oauth state 缺少 exp")
+		return nil, errors.New("oauth state is missing exp")
 	}
 	expFloat, ok := expRaw.(float64)
 	if !ok {
-		return nil, errors.New("oauth state exp 非法")
+		return nil, errors.New("oauth state exp is invalid")
 	}
 
 	return &authModel.OAuthState{
@@ -249,16 +259,16 @@ func ParseOAuthState(stateStr string) (*authModel.OAuthState, error) {
 
 func ParseAndVerifyIDToken(idToken, issuer, jwksURL, clientID, expectedNonce string) (jwt.MapClaims, error) {
 	if idToken == "" {
-		return nil, errors.New("id_token 为空")
+		return nil, errors.New("id_token is empty")
 	}
 	if issuer == "" {
-		return nil, errors.New("OIDC issuer 为空")
+		return nil, errors.New("OIDC issuer is empty")
 	}
 	if jwksURL == "" {
-		return nil, errors.New("JWKS URL 为空")
+		return nil, errors.New("JWKS url is empty")
 	}
 	if clientID == "" {
-		return nil, errors.New("OIDC client_id 为空")
+		return nil, errors.New("OIDC client_id is empty")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -277,29 +287,29 @@ func ParseAndVerifyIDToken(idToken, issuer, jwksURL, clientID, expectedNonce str
 
 	if expectedNonce != "" {
 		if idTokenObj.Nonce == "" {
-			return nil, errors.New("id_token 缺少 nonce 声明")
+			return nil, errors.New("id_token is missing the nonce claim")
 		}
 		if idTokenObj.Nonce != expectedNonce {
-			return nil, errors.New("id_token nonce 不匹配")
+			return nil, errors.New("id_token nonce mismatch")
 		}
 		claims["nonce"] = idTokenObj.Nonce
 	}
 
 	subVal, ok := claims["sub"]
 	if !ok {
-		return nil, errors.New("id_token 缺少 sub 声明")
+		return nil, errors.New("id_token is missing the sub claim")
 	}
 
 	switch v := subVal.(type) {
 	case string:
 		if v == "" {
-			return nil, errors.New("id_token sub 为空")
+			return nil, errors.New("id_token sub is empty")
 		}
 		claims["sub"] = v
 	default:
 		subStr := fmt.Sprint(v)
 		if subStr == "" || subStr == "<nil>" {
-			return nil, errors.New("id_token sub 无法转换为字符串")
+			return nil, errors.New("id_token sub is not a string")
 		}
 		claims["sub"] = subStr
 	}

@@ -119,9 +119,8 @@ func TestTemplates_EchoPageRendersArticleMeta(t *testing.T) {
 		CreatedAt: 1735689600,
 		EchoFiles: []echoModel.EchoFile{{
 			File: fileModel.File{
-				URL:         "/api/files/cover.png",
+				ID:          "cover.png",
 				ContentType: "image/png",
-				Category:    "image",
 				Width:       800,
 				Height:      600,
 			},
@@ -142,7 +141,7 @@ func TestTemplates_EchoPageRendersArticleMeta(t *testing.T) {
 		`<title>Hello world | My Blog</title>`,
 		`<meta property="og:type" content="article" />`,
 		`<meta property="article:published_time" content="2025-01-01T00:00:00Z" />`,
-		`<meta property="og:image" content="http://blog.example.com/api/files/cover.png" />`,
+		`<meta property="og:image" content="http://blog.example.com/api/files/cover.png/content" />`,
 		`<meta property="og:image:type" content="image/png" />`,
 		`<meta property="og:image:width" content="800" />`,
 		`<meta property="og:image:height" content="600" />`,

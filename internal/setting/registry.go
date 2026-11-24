@@ -4,14 +4,11 @@
 package setting
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/lin-snow/ech0/internal/config"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
-	"github.com/lin-snow/ech0/internal/kvstore"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -24,21 +21,21 @@ var (
 		Default: func() settingModel.SystemSetting {
 			c := config.Config().Setting
 			return settingModel.SystemSetting{
-				SiteTitle:             c.SiteTitle,
-				ServerLogo:            c.ServerLogo,
-				ServerName:            c.Servername,
-				ServerURL:             urlUtil.TrimURL(c.Serverurl),
-				AllowRegister:         c.AllowRegister,
-				DefaultLocale:         string(commonModel.DefaultLocale),
-				ICPNumber:             c.Icpnumber,
-				FooterContent:         c.FooterContent,
-				FooterLink:            urlUtil.TrimURL(c.FooterLink),
-				MetingAPI:             urlUtil.TrimURL(c.MetingAPI),
-				CustomCSS:             c.CustomCSS,
-				CustomJS:              c.CustomJS,
-				PrivacyPolicy:         "",
-				ShowPrivacyFooter:     false,
-				DisableAgentDiscovery: false,
+				SiteTitle:            c.SiteTitle,
+				ServerLogo:           c.ServerLogo,
+				ServerName:           c.Servername,
+				ServerURL:            urlUtil.TrimURL(c.Serverurl),
+				AllowRegister:        c.AllowRegister,
+				DefaultLocale:        string(commonModel.DefaultLocale),
+				ICPNumber:            c.Icpnumber,
+				FooterContent:        c.FooterContent,
+				FooterLink:           urlUtil.TrimURL(c.FooterLink),
+				MetingAPI:            urlUtil.TrimURL(c.MetingAPI),
+				CustomCSS:            c.CustomCSS,
+				CustomJS:             c.CustomJS,
+				PrivacyPolicy:        "",
+				ShowPrivacyFooter:    false,
+				EnableAgentDiscovery: true,
 			}
 		},
 		Normalize: func(s *settingModel.SystemSetting) {
@@ -61,6 +58,7 @@ var (
 			}
 		},
 		Normalize: normalizeOAuth2Boundary,
+		Validate:  validateOAuth2,
 	}
 
 	S3 = Spec[settingModel.S3Setting]{
@@ -82,6 +80,7 @@ var (
 				UsePathStyle: c.UsePathStyle,
 			}
 		},
+		Validate: validateS3,
 	}
 
 	Passkey = Spec[settingModel.PasskeySetting]{
@@ -93,7 +92,6 @@ var (
 			}
 		},
 		Normalize: normalizePasskeyBoundary,
-		Migrate:   migratePasskeyFromLegacy,
 	}
 
 	Agent = Spec[settingModel.AgentSetting]{
@@ -138,18 +136,6 @@ var (
 	}
 )
 
-var registry = []seedable{
-	System,
-	serverURLSeed{},
-	OAuth2,
-	S3,
-	Passkey,
-	Agent,
-	Snapshot,
-	Embedding,
-	Comment,
-}
-
 func normalizeOAuth2Boundary(s *settingModel.OAuth2Setting) {
 	if len(s.AuthRedirectAllowedReturnURLs) == 0 {
 		s.AuthRedirectAllowedReturnURLs = append([]string{}, config.Config().Auth.Redirect.AllowedReturnURLs...)
@@ -174,37 +160,31 @@ func normalizeComment(s *commentModel.SystemSetting) {
 	}
 }
 
-func migratePasskeyFromLegacy(ctx context.Context, kv kvstore.Store) (settingModel.PasskeySetting, bool) {
-	var result settingModel.PasskeySetting
-	raw, err := kv.Get(ctx, commonModel.OAuth2SettingKey)
-	if err != nil || strings.TrimSpace(raw) == "" {
-		return result, false
+func validateS3(s settingModel.S3Setting) error {
+	if !s.Enable {
+		return nil
 	}
-	var legacy struct {
-		WebAuthnRPID           string   `json:"webauthn_rp_id"`
-		WebAuthnAllowedOrigins []string `json:"webauthn_allowed_origins"`
+	if strings.TrimSpace(s.Endpoint) == "" || strings.TrimSpace(s.BucketName) == "" {
+		return errors.New(commonModel.S3_SETTING_INCOMPLETE)
 	}
-	if err := json.Unmarshal([]byte(raw), &legacy); err != nil {
-		return result, false
+	// Empty keys fall back to the instance credential chain, so they are valid
+	// only as a pair.
+	if (strings.TrimSpace(s.AccessKey) == "") != (strings.TrimSpace(s.SecretKey) == "") {
+		return errors.New(commonModel.S3_CREDENTIALS_INCOMPLETE)
 	}
-	result.WebAuthnRPID = strings.TrimSpace(legacy.WebAuthnRPID)
-	result.WebAuthnAllowedOrigins = sanitizeURLList(legacy.WebAuthnAllowedOrigins)
-	return result, result.WebAuthnRPID != "" || len(result.WebAuthnAllowedOrigins) > 0
+	return nil
 }
 
-type serverURLSeed struct{}
-
-func (serverURLSeed) seed(ctx context.Context, kv kvstore.Store) error {
-	if _, err := kv.Get(ctx, commonModel.ServerURLKey); err == nil {
+func validateOAuth2(s settingModel.OAuth2Setting) error {
+	if !s.Enable {
 		return nil
-	} else if !errors.Is(err, kvstore.ErrNotFound) {
-		return err
 	}
-	sys := System.Default()
-	if System.Normalize != nil {
-		System.Normalize(&sys)
+	for _, field := range []string{s.ClientID, s.ClientSecret, s.AuthURL, s.TokenURL} {
+		if strings.TrimSpace(field) == "" {
+			return errors.New(commonModel.OAUTH2_SETTING_INCOMPLETE)
+		}
 	}
-	return kv.Set(ctx, commonModel.ServerURLKey, sys.ServerURL)
+	return nil
 }
 
 func stripScheme(s string) string {

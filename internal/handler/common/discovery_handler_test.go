@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/config"
 	commonHandler "github.com/lin-snow/ech0/internal/handler/common"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -92,7 +94,7 @@ func TestGetLlmsTxt_DescriptionFallback(t *testing.T) {
 		name string
 		raw  string
 	}{
-		{name: "no-server-name", raw: `{"site_title":"Ech0 Blog"}`},
+		{name: "empty-server-name", raw: `{"site_title":"Ech0 Blog","server_name":""}`},
 		{name: "server-name-repeats-title", raw: `{"site_title":"Ech0 Blog","server_name":"ech0 blog"}`},
 	}
 	for _, tc := range cases {
@@ -110,6 +112,20 @@ func TestGetLlmsTxt_DescriptionFallback(t *testing.T) {
 			)
 		})
 	}
+}
+
+// A blob written before server_name existed must describe the instance with the
+// configured name, not fall back to the generic sentence.
+func TestGetLlmsTxt_AbsentServerNameUsesConfiguredDefault(t *testing.T) {
+	want := strings.TrimSpace(config.Config().Setting.Servername)
+	require.NotEmpty(t, want)
+
+	r := discoveryRouter(t, settingsStore(t, `{"site_title":"Ech0 Blog"}`))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/llms.txt", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "> "+want+" — a self-hosted microblogging platform powered by Ech0.")
 }
 
 func TestGetLlmsTxt_UsesForwardedOrigin(t *testing.T) {
@@ -172,7 +188,7 @@ func TestGetAgentCatalog_Document(t *testing.T) {
 }
 
 func TestAgentDiscovery_Disabled(t *testing.T) {
-	r := discoveryRouter(t, settingsStore(t, `{"site_title":"Private","disable_agent_discovery":true}`))
+	r := discoveryRouter(t, settingsStore(t, `{"site_title":"Private","enable_agent_discovery":false}`))
 
 	for _, path := range []string{"/llms.txt", "/.well-known/ard.json", "/.well-known/ai-catalog.json"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)

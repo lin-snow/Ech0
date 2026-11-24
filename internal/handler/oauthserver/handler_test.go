@@ -13,9 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/authz"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	oauthserverService "github.com/lin-snow/ech0/internal/service/oauthserver"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -126,8 +126,7 @@ func TestRegisterEndpointReturns201(t *testing.T) {
 func TestConsentRejectsAccessToken(t *testing.T) {
 	engine := testRouter(fakeService{})
 	request := httptest.NewRequest(http.MethodGet, "/consent", nil)
-	accessViewer := viewer.NewUserViewerWithToken(
-		"user-1", authModel.TokenTypeAccess, []string{authz.ScopeEchoRead}, nil, "jti")
+	accessViewer := viewer.NewAccess("user-1", "jti", role.Member, []string{authz.ScopeEchoRead}, nil)
 	request = request.WithContext(viewer.WithContext(request.Context(), accessViewer))
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
@@ -142,8 +141,7 @@ func TestApproveRejectsUnknownDecision(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/authorize",
 		strings.NewReader(`{"decision":"maybe"}`))
 	request.Header.Set("Content-Type", "application/json")
-	sessionViewer := viewer.NewUserViewerWithToken(
-		"user-1", authModel.TokenTypeSession, nil, nil, "jti")
+	sessionViewer := viewer.NewSession("user-1", role.Member, authz.ScopesForRole(role.Member))
 	request = request.WithContext(viewer.WithContext(request.Context(), sessionViewer))
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
@@ -152,22 +150,21 @@ func TestApproveRejectsUnknownDecision(t *testing.T) {
 		t.Fatalf("status = %d, want 400", recorder.Code)
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `"error_code":"invalid_request"`) {
-		t.Errorf("body is not the consent envelope: %s", body)
+	if !strings.Contains(body, `"status":400`) {
+		t.Errorf("body is not a problem document: %s", body)
 	}
 	if !strings.Contains(body, "decision must be approve or deny") {
 		t.Errorf("body = %s", body)
 	}
 }
 
-func TestConsentReturnsEnvelopeForSession(t *testing.T) {
+func TestConsentReturnsPayloadForSession(t *testing.T) {
 	engine := testRouter(fakeService{consent: oauthserverModel.ConsentContext{
 		ClientName: "Test Client", RedirectURI: "http://127.0.0.1:3000/cb",
 		Scopes: []string{"echo:read"}, Resource: "https://ech0.test/mcp",
 	}})
 	request := httptest.NewRequest(http.MethodGet, "/consent", nil)
-	sessionViewer := viewer.NewUserViewerWithToken(
-		"user-1", authModel.TokenTypeSession, nil, nil, "jti")
+	sessionViewer := viewer.NewSession("user-1", role.Member, authz.ScopesForRole(role.Member))
 	request = request.WithContext(viewer.WithContext(request.Context(), sessionViewer))
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)

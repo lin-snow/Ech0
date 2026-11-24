@@ -53,6 +53,7 @@
 | [dev/table-design-standard.md](dev/table-design-standard.md) | Panel 表格组件的布局与交互规范 |
 | [dev/huma-raw-gin-endpoints.md](dev/huma-raw-gin-endpoints.md) | 仍走裸 gin 的端点清单及原因（其余 JSON 端点已全量 Huma 化） |
 | [dev/roles-and-permissions.md](dev/roles-and-permissions.md) | admin / member / 访客的权限边界，以及角色位与访问令牌 scope 两套鉴权的分工 |
+| [dev/storage-contract.md](dev/storage-contract.md) | 存储契约：instance / avatar / content / temp 四类对象、`Ref` 寻址、可见性派生、启动时一次性迁移与 URL 重写 |
 | [dev/seo-sharing.md](dev/seo-sharing.md) | 分享卡片与可抓取性：服务端 head 注入、路由表同步、canonical / OG / JSON-LD、robots / sitemap |
 
 ### 设计记录（为什么这样）
@@ -60,12 +61,16 @@
 | 文档 | 说明 |
 |------|------|
 | [dev/auth-design.md](dev/auth-design.md) | 认证体系：双 Token、OAuth / Passkey、吊销策略 |
+| [dev/space-identity-design.md](dev/space-identity-design.md) | Space 与身份建模：Instance→Space→User→Echo、唯一 `owner` 角色、`canManage` 秩规则、表设计与迁移映射（目标设计） |
+| [dev/permission-scope-design.md](dev/permission-scope-design.md) | 权限建模：authn/admission/authorization/projection 四层、Principal、action 与 scope 的关系、JWT claims、资源审查方法（目标设计） |
 | [dev/user-permission-model-design.md](dev/user-permission-model-design.md) | 用户与权限目标模型：身份、三权限域、账户状态与永久删除范围（设计稿） |
 | [dev/mcp-authorization-design.md](dev/mcp-authorization-design.md) | MCP 授权服务器：PRM / AS 元数据、CIMD + DCR、授权码 + PKCE、scope 与撤销 |
 | [dev/access-token-scope-design.md](dev/access-token-scope-design.md) | Access Token 的 `typ` / scope / audience 设计背景（实现以代码为准） |
 | [dev/cli-design.md](dev/cli-design.md) | CLI（`apps/cli`）：Bun/TS 技术栈、catalog 驱动的命令发现、Huma→TS/zod 生成链、三种登录与 device flow、输出契约 |
+| [dev/api-contract-design.md](dev/api-contract-design.md) | API 契约层重构（待审）：RFC 9457 `problem+json`、剥离响应信封、成败由 HTTP 状态码表达、兼容性与代码生成门禁（一次性硬切，不设 URL 版本） |
 | [dev/config-and-settings-architecture.md](dev/config-and-settings-architecture.md) | config / setting / kvstore / transaction 四层依赖、"读直连写走域" |
 | [dev/timezone-design.md](dev/timezone-design.md) | 时间与时区：UTC epoch 存储、本地展示、跨时区一致性 |
+| [dev/file-system-design.md](dev/file-system-design.md) | 文件系统重写：`files` 三态 locator、Store SPI、唯一内容网关、`file_links` 统一引用（取代 `storage-contract.md` 的目标模型） |
 | [dev/job-runner-design.md](dev/job-runner-design.md) | 长时有状态作业子系统（Job Runner） |
 | [dev/snapshot-design.md](dev/snapshot-design.md) | Migrator 与 Snapshot：导入/导出统一收敛 |
 | [dev/llm-chat-design.md](dev/llm-chat-design.md) | Chat RAG：索引管线、检索、SSE 流式 |

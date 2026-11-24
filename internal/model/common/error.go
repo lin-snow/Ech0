@@ -3,172 +3,181 @@
 
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
-type ServerError struct {
-	Msg string
-	Err error
+// StatusError is the only failure type: the status the transport renders, the
+// RFC 9457 type clients branch on when a status is not enough, a
+// developer-facing English message, and the cause.
+//
+// The detail shown to clients is Msg when set and the cause otherwise; 5xx
+// never exposes either. It unwraps, so errors.Is and errors.As see through it.
+type StatusError struct {
+	Status int
+	Type   string
+	Msg    string
+	Err    error
 }
 
-type BizError struct {
-	Code       string
-	Msg        string
-	MessageKey string
-	Params     map[string]any
-	Err        error
-}
-
-func (e *BizError) Error() string {
+func (e *StatusError) Error() string {
 	if e == nil {
 		return ""
 	}
-	if e.Err != nil {
+	switch {
+	case e.Msg != "" && e.Err != nil:
 		return fmt.Sprintf("%s: %v", e.Msg, e.Err)
-	}
-	return e.Msg
-}
-
-func NewBizError(code, msg string) *BizError {
-	return &BizError{Code: code, Msg: msg}
-}
-
-func NewBizErrorWithMessageKey(code, msg, messageKey string, params map[string]any) *BizError {
-	return &BizError{
-		Code:       code,
-		Msg:        msg,
-		MessageKey: messageKey,
-		Params:     params,
+	case e.Msg != "":
+		return e.Msg
+	case e.Err != nil:
+		return e.Err.Error()
+	default:
+		return http.StatusText(e.Status)
 	}
 }
 
+func (e *StatusError) Unwrap() error { return e.Err }
+
+// Fail builds a failure with the status and the message the client reads.
+func Fail(status int, msg string) error {
+	return &StatusError{Status: status, Msg: msg}
+}
+
+// FailWithType is Fail plus the RFC 9457 type URI. Use it only when a client
+// must tell this failure apart from every other one with the same status.
+func FailWithType(status int, problemType, msg string) error {
+	return &StatusError{Status: status, Type: problemType, Msg: msg}
+}
+
+// WithStatus attaches a status to an existing error and keeps the cause, so
+// the transport renders the cause's message while errors.Is still works. A nil
+// err stays nil: the caller used it as "no error".
+func WithStatus(status int, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &StatusError{Status: status, Err: err}
+}
+
+// Problem type URIs. A client must tell these failures apart from every other
+// one carrying the same status, so the URIs are part of the error contract.
 const (
-	INVALID_FILE_PATH      = "无效的文件路径"
-	INVALID_REQUEST_BODY   = "无效的请求体"
-	INVALID_PARAMS_BODY    = "无效参数"
-	INVALID_QUERY_PARAMS   = "无效的查询参数"
-	INVALID_REQUEST_METHOD = "无效的请求方法"
+	TypeAccountDisabled = "https://ech0.app/problems/account-disabled"
+	TypeDevicePending   = "https://ech0.app/problems/device-authorization-pending"
+	TypeDeviceSlowDown  = "https://ech0.app/problems/device-slow-down"
+	TypeDeviceExpired   = "https://ech0.app/problems/device-code-expired"
+	TypeDeviceDenied    = "https://ech0.app/problems/device-access-denied"
 )
 
 const (
-	ErrCodeInvalidRequest          = "INVALID_REQUEST"
-	ErrCodeInternal                = "INTERNAL_ERROR"
-	ErrCodePermissionDenied        = "PERMISSION_DENIED"
-	ErrCodeInitAlreadyDone         = "INIT_ALREADY_DONE"
-	ErrCodeInitOwnerExists         = "INIT_OWNER_EXISTS"
-	ErrCodeInitInvalidState        = "INIT_INVALID_STATE"
-	ErrCodeInvalidQuery            = "INVALID_QUERY"
-	ErrCodeTokenMissing            = "TOKEN_MISSING"
-	ErrCodeTokenInvalid            = "TOKEN_INVALID"
-	ErrCodeTokenParse              = "TOKEN_PARSE_ERROR"
-	ErrCodeScopeForbidden          = "SCOPE_FORBIDDEN"
-	ErrCodeAudienceForbidden       = "AUDIENCE_FORBIDDEN"
-	ErrCodeTokenTransportForbidden = "TOKEN_TRANSPORT_FORBIDDEN"
-	ErrCodeTokenRevoked            = "TOKEN_REVOKED"
-	ErrCodeRefreshTokenInvalid     = "REFRESH_TOKEN_INVALID"
-	ErrCodeExchangeCodeInvalid     = "EXCHANGE_CODE_INVALID"
-	ErrCodeTokenGenerateFailed     = "TOKEN_GENERATE_FAILED"
-	ErrCodeDevicePending           = "DEVICE_AUTHORIZATION_PENDING"
-	ErrCodeDeviceSlowDown          = "DEVICE_SLOW_DOWN"
-	ErrCodeDeviceExpired           = "DEVICE_EXPIRED"
-	ErrCodeDeviceDenied            = "DEVICE_ACCESS_DENIED"
-	ErrCodeDeviceUnknown           = "DEVICE_CODE_UNKNOWN"
-	ErrCodeRateLimited             = "RATE_LIMITED"
-	ErrCodeAccountDisabled         = "ACCOUNT_DISABLED"
+	INVALID_FILE_PATH      = "invalid file path"
+	INVALID_REQUEST_BODY   = "invalid request body"
+	INVALID_PARAMS_BODY    = "invalid parameters"
+	INVALID_QUERY_PARAMS   = "invalid query parameters"
+	INVALID_REQUEST_METHOD = "invalid request method"
 )
 
 const (
-	USERNAME_OR_PASSWORD_NOT_BE_EMPTY = "用户名或密码不能为空"
-	USERNAME_OR_PASSWORD_INCORRECT    = "用户名或密码错误"
-	PASSWORD_TOO_LONG                 = "密码过长，最多 72 字节"
-	USER_NOTFOUND                     = "用户不存在"
-	USER_COUNT_EXCEED_LIMIT           = "用户数量超过限制"
-	USERNAME_HAS_EXISTS               = "用户名已存在"
-	TOKEN_NOT_FOUND                   = "未找到令牌,请点击右上角登录"
-	TOKEN_NOT_VALID                   = "令牌无效，请重新登录"
-	TOKEN_PARSE_ERROR                 = "令牌解析失败，请尝试重新登陆"
-	TOKEN_REVOKED                     = "令牌已被吊销，请重新登录"
-	ACCOUNT_DISABLED                  = "账户已被禁用，请联系管理员"
-	REFRESH_TOKEN_INVALID             = "刷新令牌无效或已过期"
-	EXCHANGE_CODE_INVALID             = "授权码无效或已过期"
-	TOKEN_GENERATE_FAILED             = "令牌生成失败"
-	INTERNAL_SERVER_ERROR             = "服务器内部错误"
-	DEVICE_CODE_PENDING               = "等待在浏览器中确认授权"
-	DEVICE_CODE_SLOW_DOWN             = "轮询过快，请降低频率"
-	DEVICE_CODE_EXPIRED               = "设备码已过期，请重新登录"
-	DEVICE_CODE_DENIED                = "设备授权已被拒绝"
-	DEVICE_CODE_UNKNOWN               = "设备码无效"
-	USER_REGISTER_NOT_ALLOW           = "当前系统禁止注册新用户"
-	RATE_LIMIT_EXCEEDED               = "操作过于频繁，请稍后再试"
+	USERNAME_OR_PASSWORD_NOT_BE_EMPTY = "username and password must not be empty"
+	USERNAME_OR_PASSWORD_INCORRECT    = "incorrect username or password"
+	PASSWORD_TOO_LONG                 = "password must be at most 72 bytes"
+	USER_NOTFOUND                     = "user not found"
+	USER_COUNT_EXCEED_LIMIT           = "user limit reached on this instance"
+	USERNAME_HAS_EXISTS               = "username already exists"
+	TOKEN_NOT_FOUND                   = "no token in this request: sign in first"
+	TOKEN_NOT_VALID                   = "token is invalid: sign in again"
+	TOKEN_PARSE_ERROR                 = "token could not be parsed: sign in again"
+	TOKEN_REVOKED                     = "token has been revoked: sign in again"
+	ACCOUNT_DISABLED                  = "this account has been disabled by an administrator"
+	REFRESH_TOKEN_INVALID             = "refresh token is invalid or expired"
+	EXCHANGE_CODE_INVALID             = "authorization code is invalid or expired"
+	TOKEN_GENERATE_FAILED             = "failed to issue a token"
+	INTERNAL_SERVER_ERROR             = "internal server error"
+	DEVICE_CODE_PENDING               = "waiting for approval in the browser"
+	DEVICE_CODE_SLOW_DOWN             = "polling too fast: slow down"
+	DEVICE_CODE_EXPIRED               = "device code expired: sign in again"
+	DEVICE_CODE_DENIED                = "device authorization was denied"
+	DEVICE_CODE_UNKNOWN               = "device code is invalid"
+	USER_REGISTER_NOT_ALLOW           = "registration is disabled on this instance"
+	RATE_LIMIT_EXCEEDED               = "too many attempts: wait a moment and try again"
 )
 
 const (
-	NO_PERMISSION_DENIED         = "没有权限,请联系系统管理员"
-	ECHO_CAN_NOT_BE_EMPTY        = "ECHO 内容不能为空"
-	ECHO_NOT_FOUND               = "找不到Echo"
-	ECHO_MIXED_FILE_CATEGORIES   = "一条 Echo 只能包含同一类型的文件"
-	ECHO_OTHER_USER_FORBIDDEN    = "不允许编辑或删除其它成员的 Echo"
-	INVALID_ECHO_CURSOR          = "无效的分页游标"
-	ECHO_CURSOR_SORT_UNSUPPORTED = "游标分页不支持按互动排序"
+	NO_PERMISSION_DENIED         = "permission denied: contact the instance administrator"
+	SCOPE_FORBIDDEN_MSG          = "this token does not carry the required scope"
+	AUDIENCE_FORBIDDEN_MSG       = "this token is not valid for this audience"
+	TOKEN_QUERY_FORBIDDEN        = "access tokens cannot be sent in the query string: use the Authorization header"
+	ECHO_CAN_NOT_BE_EMPTY        = "echo content must not be empty"
+	ECHO_NOT_FOUND               = "echo not found"
+	ECHO_MIXED_FILE_CATEGORIES   = "an echo may only contain files of a single category"
+	ECHO_OTHER_USER_FORBIDDEN    = "only the author may edit or delete this echo"
+	INVALID_ECHO_CURSOR          = "invalid pagination cursor"
+	ECHO_CURSOR_SORT_UNSUPPORTED = "cursor pagination does not support sorting by interaction"
 )
 
 const (
-	NO_FILE_UPLOAD_ERROR   = "找不到上传的文件"
-	NO_FILE_STORAGE_ERROR  = "未知存储方式"
-	FILE_TYPE_NOT_ALLOWED  = "不支持的文件类型"
-	FILE_SIZE_EXCEED_LIMIT = "文件大小超过限制"
-	IMAGE_NOT_FOUND        = "图片未找到"
-	INVALID_PARAMS         = "错误的参数"
-	SIGNUP_FIRST           = "请先初始化管理员账号"
-	S3_NOT_ENABLED         = "S3存储未启用"
-	S3_NOT_CONFIGURED      = "S3存储未配置"
-	S3_CONFIG_ERROR        = "S3存储配置错误"
-	SYSTEM_ALREADY_INITED  = "系统已初始化"
-	OWNER_ALREADY_EXISTS   = "管理员已存在"
-	LAST_ADMIN_REQUIRED    = "至少保留一位管理员"
+	NO_FILE_UPLOAD_ERROR   = "no uploaded file in this request"
+	NO_FILE_STORAGE_ERROR  = "unknown storage backend"
+	FILE_TYPE_NOT_ALLOWED  = "file type is not allowed"
+	FILE_SIZE_EXCEED_LIMIT = "file exceeds the size limit"
+	IMAGE_NOT_FOUND        = "image not found"
+	INVALID_PARAMS         = "invalid parameters"
+	SIGNUP_FIRST           = "initialize the administrator account first"
+	S3_NOT_ENABLED         = "object storage is not enabled"
+	S3_NOT_CONFIGURED      = "object storage is not configured"
+	S3_CONFIG_ERROR        = "object storage configuration is invalid"
+	SYSTEM_ALREADY_INITED  = "instance is already initialized"
+	OWNER_ALREADY_EXISTS   = "administrator already exists"
 )
 
 const (
-	USERNAME_ALREADY_EXISTS      = "用户名已存在"
-	OAUTH2_NOT_CONFIGURED        = "OAuth2 未配置"
-	OAUTH2_NOT_ENABLED           = "OAuth2 未启用"
-	NO_PERMISSION_BINDING_GITHUB = "没有权限绑定 GitHub 账号"
-	NO_PERMISSION_BINDING_GOOGLE = "没有权限绑定 Google 账号"
-	NO_PERMISSION_BINDING_QQ     = "没有权限绑定 QQ 账号"
-	NO_PERMISSION_BINDING_CUSTOM = "没有权限绑定自定义 OAuth2 账号"
+	USERNAME_ALREADY_EXISTS      = "username already exists"
+	OAUTH2_NOT_CONFIGURED        = "OAuth2 is not configured"
+	OAUTH2_NOT_ENABLED           = "OAuth2 is not enabled"
+	NO_PERMISSION_BINDING_GITHUB = "binding a GitHub account is not allowed"
+	NO_PERMISSION_BINDING_GOOGLE = "binding a Google account is not allowed"
+	NO_PERMISSION_BINDING_QQ     = "binding a QQ account is not allowed"
+	NO_PERMISSION_BINDING_CUSTOM = "binding a custom OAuth2 account is not allowed"
 )
 
 const (
-	INVALID_CONNECTION_URL = "connect url不能为空"
-	CONNECT_HAS_EXISTS     = "connect 已经存在"
+	INVALID_CONNECTION_URL = "connect url must not be empty"
+	CONNECT_HAS_EXISTS     = "connect already exists"
 )
 
 const (
-	WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY = "未填写 Webhook 名称或 URL"
-	INVALID_WEBHOOK_URL                 = "webhook URL 不合法或不安全"
-	INVALID_CRON_EXPRESSION             = "无效的 Cron 表达式"
+	WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY = "webhook name and url are required"
+	INVALID_WEBHOOK_URL                 = "webhook url is invalid or unsafe"
+	INVALID_CRON_EXPRESSION             = "invalid cron expression"
 )
 
 const (
-	SNAPSHOT_RESTORE_FAILED = "快照恢复失败"
-	DATABASE_CLOSE_FAILED   = "数据库关闭失败"
+	S3_SETTING_INCOMPLETE     = "object storage requires both an endpoint and a bucket"
+	S3_CREDENTIALS_INCOMPLETE = "access key and secret key must be set together or left empty together"
+	OAUTH2_SETTING_INCOMPLETE = "OAuth2 login requires client id, client secret, auth url and token url"
 )
 
 const (
-	MIGRATION_JOB_NOT_FOUND = "迁移任务不存在"
+	SNAPSHOT_RESTORE_FAILED = "snapshot restore failed"
+	DATABASE_CLOSE_FAILED   = "database close failed"
 )
 
 const (
-	CHECK_UPDATE_FAILED = "检查更新失败"
+	MIGRATION_JOB_NOT_FOUND = "migration job not found"
 )
 
 const (
-	AGENT_NOT_ENABLED        = "未启用 Agent "
-	AGENT_PROTOCOL_NOT_FOUND = "未找到对应的 Agent 接口协议"
-	AGENT_API_KEY_MISSING    = "未配置 Agent API Key 或 API Key 为空"
-	AGENT_MODEL_MISSING      = "未配置 Agent 模型名称或模型名称不能为空"
-	AGENT_SETTING_NOT_FOUND  = "未找到 Agent 设置"
+	CHECK_UPDATE_FAILED = "failed to check for updates"
 )
 
 const (
-	CHAT_ASK_NOT_PENDING = "该提问已失效或已被回答"
+	AGENT_NOT_ENABLED        = "agent is not enabled"
+	AGENT_PROTOCOL_NOT_FOUND = "no agent protocol matches this endpoint"
+	AGENT_API_KEY_MISSING    = "agent api key is not configured"
+	AGENT_MODEL_MISSING      = "agent model name is not configured"
+)
+
+const (
+	CHAT_ASK_NOT_PENDING = "this question expired or was already answered"
 )

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+import { isAdminRole } from "../role.ts";
 import { statSync } from "node:fs";
 
 import { Client } from "../api/http.ts";
@@ -51,7 +52,7 @@ interface InitStatusDto {
 
 interface UserDto {
   username?: string;
-  is_admin?: boolean;
+  role?: string;
 }
 
 interface CatalogInfo {
@@ -67,9 +68,9 @@ type Probe<T> = { ok: true; data: T; catalog?: string } | { ok: false; error: st
 
 async function get<T>(client: Client, path: string): Promise<Probe<T>> {
   try {
-    const result = await client.call<T>({ path, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
+    const result = await client.callWithMeta<T>({ path, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
     const fingerprint = result.headers.get(CATALOG_HEADER)?.trim();
-    return { ok: true, data: result.data, catalog: fingerprint === "" ? undefined : fingerprint };
+    return { ok: true, data: result.body, catalog: fingerprint === "" ? undefined : fingerprint };
   } catch (error) {
     return {
       ok: false,
@@ -290,7 +291,7 @@ export async function info(ctx: CliContext): Promise<CommandOutput> {
       token_source: tokenSource ?? null,
       refresh_cookie: refreshSource ?? null,
       user: user?.username ?? configured?.user ?? null,
-      is_admin: user?.is_admin ?? configured?.isAdmin ?? null,
+      role: user?.role ?? configured?.role ?? null,
       valid: tokenValid,
     },
     catalog,
@@ -319,7 +320,7 @@ export async function info(ctx: CliContext): Promise<CommandOutput> {
     rows.push(["echos", `${self.total_echos}（今天 ${self.today_echos ?? 0}）`]);
   }
   if (init !== undefined) {
-    rows.push(["initialized", `${init.initialized === true ? "yes" : "no"}${init.owner_exists === true ? " · 管理员已创建" : " · 无管理员"}`]);
+    rows.push(["initialized", `${init.initialized === true ? "yes" : "no"}${init.owner_exists === true ? " · 所有者已创建" : " · 无管理员"}`]);
   }
   if (site !== undefined) {
     rows.push([
@@ -328,10 +329,10 @@ export async function info(ctx: CliContext): Promise<CommandOutput> {
     ]);
   }
   const username = user?.username ?? configured?.user;
-  const isAdmin = user?.is_admin ?? configured?.isAdmin;
+  const role = user?.role ?? configured?.role;
   rows.push([
     "user",
-    username === undefined ? "-" : `${username}${isAdmin === true ? "（admin）" : ""}`,
+    username === undefined ? "-" : `${username}${isAdminRole(role) ? `（${role}）` : ""}`,
   ]);
   const tokenParts = [tokenSource ?? "none"];
   if (refreshSource !== undefined) tokenParts.push(`refresh ${refreshSource}`);

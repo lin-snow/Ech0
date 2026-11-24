@@ -106,11 +106,10 @@ export function useDraftModule(deps: DraftModuleDeps) {
       },
       filesToAdd: filesToAdd.value.map((file) => ({
         id: file.id,
+        name: file.name,
         url: file.url || '',
-        storage_type: file.storage_type,
         category: file.category,
         content_type: file.content_type,
-        key: file.key,
         size: file.size,
         width: file.width,
         height: file.height,

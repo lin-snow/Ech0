@@ -2,7 +2,7 @@
 
 > 本文是交付给新接手者的**架构全景**：从一个进程如何启动讲起，逐层展开后端分层、业务领域、两大能力层（Agent / MCP）、事件驱动子系统、基础设施组件、`pkg/` 自研库，最后到前端与端到端数据流。读完应能回答："某个功能从请求进来到落库/落盘，经过了哪些模块、谁依赖谁。"
 >
-> 配套细节文档：DI 约定见 `AGENTS.md`；Agent/Chat 见 `docs/dev/llm-chat-design.md`、`docs/dev/agent-toolcall-design.md`；MCP 接入见 `docs/usage/mcp-usage.md`；事件系统见本文 §9 + `AGENTS.md`「Event bus (Busen)」；存储见 `docs/usage/storage-migration.md`；鉴权见 `docs/dev/auth-design.md`、`docs/dev/access-token-scope-design.md`；Job/Task 见 `docs/dev/job-runner-design.md`、`docs/dev/snapshot-design.md`。
+> 配套细节文档：DI 约定见 `AGENTS.md`；Agent/Chat 见 `docs/dev/llm-chat-design.md`、`docs/dev/agent-toolcall-design.md`；MCP 接入见 `docs/usage/mcp-usage.md`；事件系统见本文 §9 + `AGENTS.md`「Event bus (Busen)」；文件资源见 `docs/dev/file-system-design.md`；鉴权见 `docs/dev/auth-design.md`、`docs/dev/access-token-scope-design.md`；Job/Task 见 `docs/dev/job-runner-design.md`、`docs/dev/snapshot-design.md`。
 
 ---
 
@@ -40,7 +40,7 @@ Ech0 是一个**自托管的轻量个人微博（时间线）平台**，以**单
          │ HTTP + SSE        │ REST           │ JSON-RPC(/mcp)       │ 出站 HTTP(事件投递)
   ┌──────▼───────────────────▼────────────────▼──────────────────────┼────────────────┐
   │                       internal/server (Gin)                       │                │
-  │  路由组: /(SPA+/api/files) · /api(public) · /api(auth) · /api(optionalAuth) · /ws · /mcp │
+  │  路由组: /(SPA) · /api(public) · /api(auth) · /api(optionalAuth) · /ws · /mcp            │
   │  middleware: auth · scope · cors · origin · ratelimit · captcha · maintenance · nocache │
   └──────┬────────────────────────────────────────────────────────────────────────────┘
          │ handler.Bundle 分发
@@ -52,7 +52,7 @@ Ech0 是一个**自托管的轻量个人微博（时间线）平台**，以**单
   └──┬────────────────┬─────────────────────┬──────────────────────────┬──────────────────┘
      │ 调基础设施      │ emit 事件           │ Agent 出站(§7)            │ MCP 入站(§8)
   ┌──▼────────────────▼──── 基础设施 / 运行时 ──┐  ┌──────────▼─────────┐  ┌──────────▼────────┐
-  │ event/bus(Busen) storage(VireFS) cache     │  │ internal/agent     │  │ internal/mcp      │
+  │ event/bus(Busen) storage(Registry) cache   │  │ internal/agent     │  │ internal/mcp      │
   │ kvstore transaction job task captcha        │  │ Provider抽象+ReAct  │  │ JSON-RPC+Registry │
   │ visitor setting migrator …                  │  │ →OpenAIx2/Anthropic│  │ →领域 service     │
   └──┬──────────────────────────────────────────┘  └────────────────────┘  └───────────────────┘
@@ -110,7 +110,7 @@ type Component interface {
 
 | 阶段 | 动作 |
 | --- | --- |
-| **BeforeStart Hook** | ① `setting.Seed` 幂等播种系统设置 ② `EventRegistrar.Register` 把所有订阅者挂到 Busen ③ `job.Manager` 启动时清扫遗留 running 作业 |
+| **BeforeStart Hook** | ① 装入 i18n 默认语言钩子 + `setting.Migrate` 跑一次性设置迁移 ② `EventRegistrar.Register` 把所有订阅者挂到 Busen ③ `job.Manager` 启动时清扫遗留 running 作业 |
 | **Start（按序）** | `job.Manager` → `task.Manager` → `server.Server`（HTTP 监听） |
 | **Run** | 阻塞，直到收到 OS 信号 |
 | **Stop（优雅）** | HTTP graceful shutdown → 定时任务 StopHook（如 flush 访客快照）→ `EventRegistrar.Stop`（退订 + 排空实现 `Draining` 的订阅者，如 webhook worker pool） |
@@ -131,7 +131,7 @@ type Component interface {
                          │ DomainSet  RuntimeSet  AppSet                 │
                          └───┬──────────────────────────────────────────┘
    InfraSet ───────────────►│ database / eventbus / cache / transaction
-   StorageSet ─────────────►│ storage.Manager（进程级单例，含一份只读 KV 读 S3 设置）
+   StorageSet ─────────────►│ storage.Registry（进程级单例，从 storages 表构建 driver→Store）
    VisitorSet ─────────────►│ visitor.Tracker（进程级单例）
    DomainSet ──┬───────────►│ BuildHandlers   → handler.Bundle（14 个领域 Handler + MCP）
                ├───────────►│ BuildMiddlewares→ middleware.Deps
@@ -146,7 +146,7 @@ type Component interface {
 Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设施是 bug 源。以下三者必须在 `BuildApp`/`BuildServer` 顶层注入一次、统一下沉：
 
 - **`visitor.Tracker`（VisitorSet）**：否则 WebHandler 写入 #1、Tasker 从 #2 读出恒为 0。
-- **`storage.Manager`（StorageSet）**：否则设置页改了 S3 只 reload 了自己那份 Manager，文件服务仍用旧后端。
+- **`storage.Registry`（StorageSet）**：否则设置页改了 S3 只 reload 了自己那份 Registry，文件服务仍解析到旧 Store。
 - **`job.Manager`（BuildJobManager）**：Runner 在构造期一次性注册；它依赖的 `EmbeddingService` / `migrator.ImportEngine` 都不含 `*job.Manager`，故无构造环。
 
 `HandlerSet` 里还有一处跨域绑定值得记住：**copilot 的 `UserReader` 绑定到 `user` 服务**（取当前对话用户的展示名 + 按作者收口检索）。
@@ -181,7 +181,7 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 
 | 路由组 | 前缀 | 鉴权策略 |
 | --- | --- | --- |
-| `ResourceGroup` | `/` | 内嵌 SPA + `/api/files` 静态资源（带 StaticFileSecurity） |
+| `ResourceGroup` | `/` | 内嵌 SPA；文件字节不走静态目录，统一走内容网关 |
 | `PublicRouterGroup` | `/api` | 公开，无需 token |
 | `AuthRouterGroup` | `/api` | `RequireAuth`：缺失/无效 token 一律 401 |
 | `OptionalAuthRouterGroup` | `/api` | `OptionalAuth`：匿名只看公开内容，带 token 则按登录身份放行私密内容（不区分角色） |
@@ -190,7 +190,7 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 
 两条需要长期保护的特例：
 - **`POST /api/comments/integration`**：刻意绕过 captcha/form-token，靠 `comment:write` scope + `integration` / `mcp-remote` / `cli` audience 的 access token 鉴权。
-- **`/api/files`** 静态路由服务本地内容；`stream` 路由是鉴权的。
+- **`GET|HEAD /api/files/{id}/content`** 是唯一的字节出口：鉴权在 handler 内按 `access` 与 `file_links` 即时判定，拒绝一律 404（不用 403）。
 
 ---
 
@@ -204,7 +204,7 @@ Wire 默认会为每个 Build 各生成一份实例，对**有状态**基础设�
 | --- | --- | --- |
 | **echo** | 核心时间线条目（微博 post）：内容、媒体、布局（瀑布/网格/轮播）、公开/私密、音乐/视频/网站/位置扩展、标签 | 被 comment/file/embedding/copilot/migrator 引用；emit `Echo{Created,Updated,Deleted}` |
 | **comment** | 访客评论：审核流（待审/通过/拒绝）、反垃圾（蜜罐/captcha/form-token）、公开投影脱敏 | 关联 echo；emit `Comment{Created,StatusUpdated,Deleted}` |
-| **file** | 媒体资产：多后端存储（本地/S3）、临时文件生命周期、元数据、EchoFile 关联排序 | 经 storage.Manager 落盘；emit `ResourceUploaded` |
+| **file** | 媒体资产：`files`/`file_blobs`/`file_links`/`file_gc`/`storages` 五表模型，owned/blob/ref 三种存放形态，统一内容网关与引用生命周期 | 业务只持有 `file_id`；经 `fileService.Replace/Attach/ClearOwner/FilesOfOwner` 维护链接；可见性在读取时经 `OwnerAuthorizer` 判定；emit `ResourceUploaded` |
 | **connect** | 实例互联（联邦）：发现远端 Ech0、健康检查、聚合时间线 | 独立子系统 |
 
 ### 6.2 身份与配置
@@ -464,12 +464,12 @@ mcp_request 审计日志（method/tool/resource、era、client、token jti、lat
 | `internal/cache` | 应用缓存：`Backend` 接口（Ristretto 实现）+ 泛型方法读穿透（singleflight 合并、事务内绕过） | `Cache`、`Backend`、`ReadThrough[T]`/`ReadThroughUnlessTx[T]` |
 | `internal/kvstore` | KV 抽象，两实现 | `Store` 接口、`Memory`(易失) / `Persistent`(落库，包 keyvalue repo)；字段命名 `durableKV` / `ephemeralKV` |
 | `internal/transaction` | 事务抽象 | `Transactor.Run`、`GormTransactor` |
-| `internal/storage` | 本地/S3 统一文件抽象（基于 `pkg/virefs`），**有状态单例** | `Manager`、`StorageSelector`、`S3SettingStore`(从 KV 读 S3 设置)、`ReloadFromConfigAndDB`、`ApplyS3Setting` |
+| `internal/storage` | 字节存储 SPI：`Store{Put,Open,Stat,Delete}` + 可选 `Presigner`/`RangeOpener`，`Registry` 按 `storage_id` 解析 driver（local/s3/mem），`KeyFor` 派生对象键 | `Store`、`Registry`、`KeyFor`、`ErrNotFound/ErrConflict/ErrUnsupported`、`storetest` 一致性套件；`internal/model/file` 的 `storages` 表存 driver 配置 |
 | `internal/i18n` | 后端请求 locale 解析与翻译引擎（`go-i18n/v2`）：Gin 中间件 `Middleware()` 在每次请求时解析 locale，优先级：`lang` 查询参数 / `X-Locale` 请求头 → 用户偏好（DB）→ 站点默认（KV）→ 兜底 `en-US`；嵌入 4 种语言包（zh-CN / en-US / de-DE / ja-JP）；`ApplyUserLocaleFromUserID` 供 Auth 后升级当前请求 locale；内置 CVE-2022-32149 输入防护 | `ResolveLocale`、`NewLocalizer`、`Localize`、`Middleware`、`ApplyUserLocaleFromUserID`；被 `internal/middleware`（注册 locale 中间件）及 copilot `RunStrings` 使用 |
 | `internal/middleware` | 中间件聚合 | `Deps{TokenRevoker}`；实现：auth/scope/cors/origin/ratelimit/maintenance/nocache/staticfile |
 | `internal/captcha` | PoW 验证码（包 `pkg/gocap`），进程级共享 engine | `SiteVerify`、`NewHTTPHandler`（挂在 `/api`） |
 | `internal/visitor` | PV/UV 追踪器，**actor 模型**（单 goroutine 改状态） | `Tracker.Record/Last7Days/Today/Load`、`DayStat`；由 `task/scheduled.VisitorSnapshot` 落库 |
-| `internal/setting` | 配置引擎：`Spec[T]`(key+default+normalize/migrate) + 注册表 + 播种 | `Spec[T].Get/Set/Pristine`、`Seed`；启动时由 `di.ProvideApp` 的 BeforeStart 调 Seed |
+| `internal/setting` | 配置引擎：`Spec[T]`(key+default+normalize+validate) + 注册表 + 一次性迁移 | `Spec[T].Get/Set/Restore/Unset/DefaultValue`、`Migrate`；启动时由 `di.ProvideApp` 的 BeforeStart 调 Migrate |
 | `internal/migrator` | 导入导出引擎（两段式） | `ExportEngine`/`ImportEngine`；子包 `exporter/{fs,s3}`、`importer/{ech0,memos}`、`snapshot`、`spec`（契约） |
 | `internal/agent` | LLM Provider 抽象 + ReAct loop（详见 §7） | `agent.Run`、`Generate`；Provider 适配 OpenAI Chat Completions / OpenAI Responses / Anthropic |
 | `internal/mcp` | MCP JSON-RPC 服务端（详见 §8） | `Server.ServeHTTP`、`Registry`、`Adapter` |
@@ -488,9 +488,9 @@ mcp_request 审计日志（method/tool/resource、era、client、token jti、lat
 | --- | --- | --- | --- |
 | **busen**（`router`/`dispatch`） | 类型安全、有界、异步的进程内事件总线，支持 topic 路由、中间件、可观测 hook | `Bus`、`Bus.Publish[T]`/`Bus.Subscribe[T]`（Go 1.27 泛型方法）、`Bus.SubscribeTopic`、`Event[T]`、`Hooks`、`Shutdown(mode)` | `internal/event/bus` 封装为领域事件总线 |
 | **gocap**（`cap`/`core`/`store`/`transport`） | 内嵌的 PoW 验证码引擎（challenge→redeem→siteverify），内存态 + 限流 + 可插存储 | `cap.Engine`(`Handler()`/`SiteVerify()`/`RegisterSite()`)、`core.Service`、`store.Store` | `internal/captcha` |
-| **virefs**（`plugin/zip`） | 基于 key 的统一文件系统，覆盖本地盘与 S3，支持中间件、迁移、多后端路由 | `FS` 接口、`LocalFS`/`ObjectFS`、`MountTable`/`Schema`、`Migrate`、`Copier/Presigner/BatchDeleter` | `internal/storage`、`internal/migrator/snapshot` |
+| **virefs**（`plugin/zip`） | 基于 key 的统一文件系统，覆盖本地盘与 S3，支持中间件、迁移、多后端路由 | `FS` 接口、`LocalFS`/`ObjectFS`、`MountTable`、`Migrate`、`Copier/Presigner/BatchDeleter` | `internal/storage`（driver 实现）、`internal/migrator/snapshot` |
 | **viewer** | 请求级身份/鉴权上下文抽象（user/token/scope/audience） | `Context` 接口、`NewUserViewer*`、`WithContext`/`FromContext`/`MustFromContext` | auth 中间件、comment/user/file/copilot service、mcp、scope 中间件 |
-| **app** | 通用组件生命周期编排：按序启动、逆序优雅停止、Hook、信号等待、结构化 `AppError` | `App`、`New(opts...)`、`Component`/`Namer`、`Components`/`BeforeStart`/`AfterStop`/`StopTimeout`/`Signals` | `internal/di.ProvideApp`（装配 job / task / server + Seed / EventRegistrar） |
+| **app** | 通用组件生命周期编排：按序启动、逆序优雅停止、Hook、信号等待、结构化 `AppError` | `App`、`New(opts...)`、`Component`/`Namer`、`Components`/`BeforeStart`/`AfterStop`/`StopTimeout`/`Signals` | `internal/di.ProvideApp`（装配 job / task / server + Migrate / i18n 钩子 / EventRegistrar） |
 | **egress** | 统一出站 HTTP：SSRF `Guard`（校验 URL、拦截私网/保留地址、安全 `DialContext`）、超时、响应体上限、重试 | `NewClient(Guard(), Timeout(d))`、`Fetch`、`Validate`、`Retry` | auth(OAuth2)、common、connect、webhook 设置与投递 |
 
 ---
@@ -577,7 +577,7 @@ POST /api/chat  (鉴权)
 POST /migration/export  (鉴权)
   → migratorHandler → migratorService（鉴权 + DTO）→ job.Manager.Submit(jobModel.Export, payload)
   → 〔goroutine〕job/runner.ExportRunner → migrator.ExportEngine.Export
-       选 FS/S3 后端（storage.Manager）→ 打包 data/ 为 zip（pkg/virefs + plugin/zip）
+       选 FS/S3 后端（按 storages 表解析 Store）→ 打包 data/ 为 zip（pkg/virefs + plugin/zip）
        → eventbus.Notify(SystemSnapshot)   （触发 webhook 等）
   前端轮询 job 状态（统一 job 进度卡）→ 完成后 GET 下载产物
 ```
@@ -615,14 +615,14 @@ POST /migration/export  (鉴权)
 ## 15. 红线速查（接手前务必记住）
 
 1. **改 DI 图必跑 `just wire`**；提 PR 前 `just check`（后端 lint+openapi + 前端 lint+i18n）是强制的，`go build ./...` 与 `pnpm build` 必须过。
-2. **三个共享单例**（`visitor.Tracker` / `storage.Manager` / `job.Manager`）只能在顶层注入一次，别让 Wire 复制出第二份。
+2. **三个共享单例**（`visitor.Tracker` / `storage.Registry` / `job.Manager`）只能在顶层注入一次，别让 Wire 复制出第二份。
 3. **跨层导入用别名**（`xxxHandler/Service/Repository/Model/Util`）。
 4. **加副作用优先发事件**，别在 handler 里直接调服务；事件路由靠 Go 类型，不靠 topic。
 5. **依赖向内指向纯词汇**：`event` / `setting` 的 Spec / `agent` 的 Tool 等定义包不依赖基础设施或领域。
 6. **Agent 包零领域依赖**：工具由 copilot service 注入；SDK 脏活封死在 Provider 内；错误分级，绝不静默吞错（§7.4）。
 7. **MCP 鉴权统一在 dispatch**：每个 tool/resource 静态声明 scope，`Server` 在 call/read 前强制校验，别把鉴权散落进业务（§8）。
-8. **存储改 S3 走 `storage.Manager.ApplyS3Setting`/`ReloadFromConfigAndDB`**，确保文件服务与设置页/迁移用的是同一份 Manager。
-9. **路由两特例别动**：`POST /api/comments/integration`（scope+audience 鉴权，绕 captcha）、`/api/files` 静态服务。
+8. **存储改 S3 走 `fileService.ApplyS3`/`ReloadStorages`**（写/删 `storages` 行并重建唯一 Registry），确保文件服务与设置页看到同一份 Store 表。
+9. **路由两特例别动**：`POST /api/comments/integration`（scope+audience 鉴权，绕 captcha）、`/api/files/{id}/content` 内容网关（鉴权后统一 404）。
 10. **i18n 禁硬编码字符串**；日志用 `internal/util/log` 并带 `module` 字段。
 11. **快照只有一种**：snapshot export（手动 job / 定时 cron / 同步下载），没有单独的 backup。
 

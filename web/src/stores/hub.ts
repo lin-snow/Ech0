@@ -98,18 +98,18 @@ export const useHubStore = defineStore('hubStore', () => {
 
         ;(async () => {
           try {
-            const { error, data } = await useFetch<App.Api.Response<App.Api.Hub.HubItemInfo>>(
+            const { error, data } = await useFetch<App.Api.Hub.HubItemInfo>(
               `${url}/api/connect`,
             ).json()
 
             clearTimeout(timeoutId)
             if (!isResolved) {
               isResolved = true
-              if (error.value || data.value?.code !== 1) {
+              if (error.value || !data.value) {
                 console.warn(`[Hub] 请求失败: ${url}`, error.value)
                 resolve(null)
               } else {
-                resolve(data.value?.data || null)
+                resolve(data.value)
               }
             }
           } catch (err) {
@@ -188,7 +188,7 @@ export const useHubStore = defineStore('hubStore', () => {
 
     state.isLoading = true
     try {
-      const { error, data } = await useFetch<App.Api.Response<App.Api.Ech0.PaginationResult>>(
+      const { error, data } = await useFetch<App.Api.Ech0.PaginationResult>(
         hubUrl + '/api/echo/page',
       )
         .post({
@@ -197,13 +197,14 @@ export const useHubStore = defineStore('hubStore', () => {
         })
         .json()
 
-      if (error.value || data.value?.code !== 1) {
+      if (error.value || !data.value) {
         console.warn(`[Hub] 请求失败: ${hubUrl}`, error.value)
         state.hasMore = false
         return
       }
 
-      const items = (data.value?.data.items || []).map((echo: App.Api.Ech0.Echo) => ({
+      const page = data.value
+      const items = (page.items || []).map((echo: App.Api.Ech0.Echo) => ({
         ...echo,
         createdTs: timeValueToMs(echo.created_at),
         server_name: hubInfoMap.value.get(hubUrl)?.server_name || 'Ech0',

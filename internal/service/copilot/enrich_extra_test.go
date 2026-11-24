@@ -11,7 +11,6 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
-	"github.com/lin-snow/ech0/internal/storage"
 )
 
 type enrichEchoSvc struct {
@@ -24,17 +23,17 @@ func (f *enrichEchoSvc) GetEchoById(_ context.Context, _ string) (*echoModel.Ech
 }
 
 func TestEnrichHits_MediaCategoriesToFiles(t *testing.T) {
-	echoFile := func(cat string) fileModel.EchoFile {
-		return fileModel.EchoFile{File: fileModel.File{Category: cat, URL: "https://f/" + cat}}
+	echoFile := func(contentType string) echoModel.EchoFile {
+		return echoModel.EchoFile{File: fileModel.File{ID: contentType, ContentType: contentType}}
 	}
 	svc := &enrichEchoSvc{echo: &echoModel.Echo{
 		ID: "e1",
-		EchoFiles: []fileModel.EchoFile{
-			echoFile(string(storage.CategoryImage)),
-			echoFile(string(storage.CategoryVideo)),
-			echoFile(string(storage.CategoryAudio)),
-			echoFile(string(storage.CategoryPDF)),
-			echoFile(string(storage.CategoryFile)),
+		EchoFiles: []echoModel.EchoFile{
+			echoFile("image/png"),
+			echoFile("video/mp4"),
+			echoFile("audio/mpeg"),
+			echoFile("application/pdf"),
+			echoFile("application/octet-stream"),
 		},
 	}}
 	s := &CopilotService{echoService: svc}
@@ -44,7 +43,7 @@ func TestEnrichHits_MediaCategoriesToFiles(t *testing.T) {
 
 	gotCats := make([]string, 0, len(results[0].Files))
 	for _, f := range results[0].Files {
-		gotCats = append(gotCats, f.Category)
+		gotCats = append(gotCats, fileModel.CategoryOf(f.ContentType))
 	}
 	want := []string{"image", "video", "audio"}
 	if !reflect.DeepEqual(gotCats, want) {
@@ -89,34 +88,34 @@ func TestFormatExtension(t *testing.T) {
 
 func TestLoadImagePart_NonStorageBranches(t *testing.T) {
 	s := &CopilotService{}
+	ref := func(u string) *string { return &u }
 
-	t.Run("external image uses URL", func(t *testing.T) {
+	t.Run("ref image uses RefURL", func(t *testing.T) {
 		part, ok := s.loadImagePart(context.Background(), fileModel.File{
-			Category:    string(storage.CategoryImage),
-			StorageType: string(storage.StorageTypeExternal),
-			URL:         "https://img/x.png",
+			Kind:        string(fileModel.KindRef),
+			RefURL:      ref("https://img/x.png"),
 			ContentType: "image/png",
 		})
 		if !ok {
-			t.Fatalf("external image should produce an ImagePart")
+			t.Fatalf("ref image should produce an ImagePart")
 		}
 		if part.URL != "https://img/x.png" || part.MediaType != "image/png" {
 			t.Fatalf("unexpected image part: %+v", part)
 		}
 	})
 
-	t.Run("external without URL is skipped", func(t *testing.T) {
+	t.Run("ref without RefURL is skipped", func(t *testing.T) {
 		if _, ok := s.loadImagePart(context.Background(), fileModel.File{
-			Category:    string(storage.CategoryImage),
-			StorageType: string(storage.StorageTypeExternal),
+			Kind:        string(fileModel.KindRef),
+			ContentType: "image/png",
 		}); ok {
-			t.Fatalf("external image without URL should be skipped")
+			t.Fatalf("ref image without RefURL should be skipped")
 		}
 	})
 
 	t.Run("non-image is skipped", func(t *testing.T) {
 		if _, ok := s.loadImagePart(context.Background(), fileModel.File{
-			Category: "AUDIO",
+			ContentType: "audio/mpeg",
 		}); ok {
 			t.Fatalf("non-image file should be skipped")
 		}

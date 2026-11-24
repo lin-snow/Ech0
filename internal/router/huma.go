@@ -8,12 +8,10 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/handler/humares"
 	"github.com/lin-snow/ech0/internal/middleware"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
@@ -24,14 +22,22 @@ const (
 	humaAPIBase    = "/api"
 )
 
-// apiRegistry is the router's Huma API plus the fallback request budget that
-// every operation inherits. Keeping the budget here means register functions
-// stay unchanged while the budget still runs after each operation's auth
-// middleware, where the caller identity is known.
+// apiRegistry is the router's Huma API, the token revoker shared by every
+// admission chain, the fallback request budget, and the declarations recorded
+// while registering. The declarations exist so the router can verify itself at
+// boot instead of trusting every call site to remember the same invariants.
 type apiRegistry struct {
 	huma.API
-	limits *ratelimit.MemoryLimiter
-	budget huma.Middlewares
+	limits    *ratelimit.MemoryLimiter
+	budget    huma.Middlewares
+	endpoints []declaredEndpoint
+	revoker   authService.TokenRevoker
+}
+
+type declaredEndpoint struct {
+	method   string
+	path     string
+	endpoint endpoint
 }
 
 func setupHumaAPI(r *gin.Engine, limits *ratelimit.MemoryLimiter) *apiRegistry {
@@ -42,53 +48,6 @@ func setupHumaAPI(r *gin.Engine, limits *ratelimit.MemoryLimiter) *apiRegistry {
 		registry.budget = huma.Middlewares{humares.Bridge(middleware.Budget(limits))}
 	}
 	return registry
-}
-
-type posture struct {
-	security    []map[string][]string
-	middlewares huma.Middlewares
-}
-
-func public() posture { return posture{} }
-
-func optional(revoker authService.TokenRevoker) posture {
-	return posture{middlewares: huma.Middlewares{
-		humares.Bridge(middleware.NoCache()),
-		humares.Bridge(middleware.OptionalAuth(revoker)),
-	}}
-}
-
-// sessionOnly marks an endpoint as requiring an interactive session. It is
-// security-silent about scopes on purpose: access tokens must never reach
-// account-security or token-administration operations, regardless of scopes.
-func sessionOnly(revoker authService.TokenRevoker) posture {
-	return posture{
-		security: humares.Secured(),
-		middlewares: huma.Middlewares{
-			humares.Bridge(middleware.NoCache()),
-			humares.Bridge(middleware.RequireAuth(revoker)),
-			humares.Bridge(middleware.RequireSession()),
-		},
-	}
-}
-
-func secured(revoker authService.TokenRevoker, scopes ...string) posture {
-	mws := huma.Middlewares{
-		humares.Bridge(middleware.NoCache()),
-		humares.Bridge(middleware.RequireAuth(revoker)),
-	}
-	if len(scopes) > 0 {
-		mws = append(mws, humares.Bridge(middleware.RequireScopes(scopes...)))
-	}
-	if authz.HasAdminScope(scopes) {
-		mws = append(mws, humares.Bridge(middleware.RequireAdminSession()))
-	}
-	return posture{security: humares.Secured(scopes...), middlewares: mws}
-}
-
-func (p posture) audience(auds ...string) posture {
-	p.middlewares = append(p.middlewares, humares.Bridge(middleware.RequireAudience(auds...)))
-	return p
 }
 
 func noCache() huma.Middlewares {
@@ -103,38 +62,53 @@ func (a *apiRegistry) scopeLimit(scope ratelimit.Scope, cost int) huma.Middlewar
 	return huma.Middlewares{humares.Bridge(middleware.ScopeLimit(a.limits, scope, cost))}
 }
 
-// route registers one operation with the posture's middleware chain, the
-// operation's own middleware, and finally the fallback budget.
-func (a *apiRegistry) route[I, T any](p posture, op huma.Operation, h func(context.Context, *I) (commonModel.Result[T], error)) {
-	op.Security = p.security
-	mws := make(huma.Middlewares, 0, len(p.middlewares)+len(op.Middlewares)+len(a.budget))
-	mws = append(mws, p.middlewares...)
+// route registers one operation under its admission declaration. The
+// declaration supplies the OpenAPI security requirement and the gate chain;
+// whatever the operation adds (rate limits, request-specific middleware) runs
+// inside that chain, and the fallback budget runs last.
+func (a *apiRegistry) route[I, T any](e endpoint, op huma.Operation, h func(context.Context, *I) (*T, error)) {
+	if e.access == AccessPublic && op.Description == "" {
+		op.Description = e.reason
+	}
+	op.Security = e.security()
+
+	chain := a.chain(e)
+	mws := make(huma.Middlewares, 0, len(chain)+len(op.Middlewares)+len(a.budget))
+	mws = append(mws, chain...)
 	mws = append(mws, op.Middlewares...)
 	mws = append(mws, a.budget...)
 	op.Middlewares = mws
-	huma.Register(a.API, op, humares.Wrap(h))
+
+	a.endpoints = append(a.endpoints, declaredEndpoint{method: op.Method, path: op.Path, endpoint: e})
+	huma.Register(a.API, op, h)
 }
 
 func registerOperations(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
+	api.revoker = revoker
 	registerInit(api, h)
-	registerAuth(api, h, revoker)
-	registerCommon(api, h, revoker)
-	registerEcho(api, h, revoker)
-	registerConnect(api, h, revoker)
-	registerUser(api, h, revoker)
-	registerSetting(api, h, revoker)
-	registerFile(api, h, revoker)
-	registerDashboard(api, h, revoker)
-	registerCopilot(api, h, revoker)
-	registerComment(api, h, revoker)
-	registerMigration(api, h, revoker)
-	registerEmbedding(api, h, revoker)
-	registerMCP(api, h, revoker)
+	registerAuth(api, h)
+	registerCommon(api, h)
+	registerEcho(api, h)
+	registerConnect(api, h)
+	registerUser(api, h)
+	registerSetting(api, h)
+	registerFile(api, h)
+	registerDashboard(api, h)
+	registerCopilot(api, h)
+	registerComment(api, h)
+	registerMigration(api, h)
+	registerEmbedding(api, h)
+	registerMCP(api, h)
 }
 
+// GenerateOpenAPISpec builds the spec from the same declarations the server
+// registers, so the committed spec cannot describe a different gate.
 func GenerateOpenAPIYAML() ([]byte, error) {
 	gin.SetMode(gin.TestMode)
 	api := setupHumaAPI(gin.New(), nil)
 	registerOperations(api, &handler.Bundle{}, nil)
+	if err := api.verify(); err != nil {
+		return nil, err
+	}
 	return api.OpenAPI().YAML()
 }

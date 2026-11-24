@@ -5,109 +5,62 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
+	"github.com/lin-snow/ech0/internal/httperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	errorUtil "github.com/lin-snow/ech0/internal/util/err"
 )
 
+// Response is what a raw gin handler produced. Raw routes (streams, uploads,
+// downloads, redirects, MCP) cannot use Huma's typed outputs, so they report
+// the same three things Huma does: a status, a payload, or an error. Execute
+// renders the payload or the RFC 9457 problem document, which keeps every
+// route on one error contract.
 type Response struct {
-	Code int `json:"code"`
-
-	Data any `json:"data,omitempty"`
-
-	Msg string `json:"msg"`
-
-	ErrorCode string `json:"error_code,omitempty"`
-
-	MessageKey string `json:"message_key,omitempty"`
-
-	MessageParams map[string]any `json:"message_params,omitempty"`
-
-	Err error `json:"-"`
+	Status int
+	Data   any
+	Err    error
 }
 
-// retryAfterSeconds renders the retry_after message parameter as a header
-// value, so raw gin responses keep the same contract as middleware refusals.
-func retryAfterSeconds(params map[string]any) string {
-	value, ok := params["retry_after"]
-	if !ok {
-		return ""
-	}
-	switch seconds := value.(type) {
-	case int:
-		if seconds > 0 {
-			return strconv.Itoa(seconds)
-		}
-	case int64:
-		if seconds > 0 {
-			return strconv.FormatInt(seconds, 10)
-		}
-	case float64:
-		if seconds >= 1 {
-			return strconv.Itoa(int(seconds))
-		}
-	}
-	return ""
+// Payload answers 200 with data.
+func Payload(data any) Response { return Response{Data: data} }
+
+// Created answers 201 with the created resource.
+func Created(data any) Response { return Response{Status: http.StatusCreated, Data: data} }
+
+// NoContent answers the status with an empty body.
+func NoContent(status int) Response { return Response{Status: status} }
+
+// Failed answers with the status the error itself carries.
+func Failed(err error) Response { return Response{Err: err} }
+
+// FailedWithStatus renders err with an explicit status, for callers whose
+// status is a transport decision rather than a domain one.
+func FailedWithStatus(status int, err error) Response {
+	return Response{Status: status, Err: err}
 }
 
+// Execute runs fn and writes its answer.
 func Execute(fn func(ctx *gin.Context) Response) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		res := fn(ctx)
 		if res.Err != nil {
-			msg := errorUtil.HandleError(&commonModel.ServerError{
-				Msg: res.Msg,
-				Err: res.Err,
-			})
-			localizer := i18nUtil.LocalizerFromGin(ctx)
-
-			code, messageKey, params := commonModel.ResolveFailureFields(res.Err, msg)
-
-			if code == "" && res.ErrorCode != "" {
-				code = res.ErrorCode
-				messageKey = strings.TrimSpace(res.MessageKey)
-				if messageKey == "" {
-					messageKey = commonModel.MessageKeyFromErrorCode(res.ErrorCode)
-				}
-				params = res.MessageParams
+			err := res.Err
+			if res.Status > 0 {
+				err = commonModel.WithStatus(res.Status, err)
 			}
-
-			if code == "" && messageKey == "" {
-				ctx.JSON(http.StatusBadRequest, commonModel.Fail[string](msg))
-				return
-			}
-
-			msg = i18nUtil.Localize(localizer, messageKey, msg, params)
-			status := http.StatusBadRequest
-			switch code {
-			case commonModel.ErrCodeRateLimited:
-				status = http.StatusTooManyRequests
-				if seconds := retryAfterSeconds(params); seconds != "" {
-					ctx.Header("Retry-After", seconds)
-				}
-			case commonModel.ErrCodeAccountDisabled:
-				status = http.StatusForbidden
-			}
-			ctx.JSON(status, commonModel.FailWithLocalized[string](msg, code, messageKey, params))
+			httperr.Write(ctx, err)
 			return
 		}
 
-		successMsg := res.Msg
-		messageKey := strings.TrimSpace(res.MessageKey)
-		if messageKey == "" {
-			messageKey = commonModel.MessageKeyFromMessage(res.Msg)
+		status := res.Status
+		if status == 0 {
+			status = http.StatusOK
 		}
-		if messageKey != "" {
-			successMsg = i18nUtil.Localize(i18nUtil.LocalizerFromGin(ctx), messageKey, res.Msg, res.MessageParams)
+		if res.Data == nil {
+			ctx.AbortWithStatus(status)
+			return
 		}
-
-		if res.Code != 0 {
-			ctx.JSON(http.StatusOK, commonModel.OKWithCode(res.Data, res.Code, successMsg))
-		} else {
-			ctx.JSON(http.StatusOK, commonModel.OK(res.Data, successMsg))
-		}
+		ctx.JSON(status, res.Data)
 	}
 }

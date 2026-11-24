@@ -5,15 +5,15 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
-	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -64,7 +64,7 @@ func (settingService *SettingService) BootstrapSiteTitle(
 		return nil
 	}
 
-	pristine := strings.TrimSpace(coreSetting.System.Pristine().SiteTitle)
+	pristine := strings.TrimSpace(coreSetting.System.DefaultValue().SiteTitle)
 
 	return settingService.transactor.Run(ctx, func(ctx context.Context) error {
 		current, err := coreSetting.System.Get(ctx, settingService.durableKV)
@@ -83,26 +83,52 @@ func (settingService *SettingService) UpdateSetting(
 	ctx context.Context,
 	newSetting *model.SystemSettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
+	newLogoFileID := ""
+	hadLogo := false
 	serverLogoChanged := false
 	if newSetting != nil {
+		newLogoFileID = strings.TrimSpace(newSetting.ServerLogoFileID)
 		var current model.SystemSetting
 		if err := settingService.GetSetting(&current); err == nil {
-			serverLogoChanged = strings.TrimSpace(current.ServerLogo) != strings.TrimSpace(newSetting.ServerLogo)
+			hadLogo = strings.TrimSpace(current.ServerLogo) != ""
+			serverLogoChanged = strings.TrimSpace(current.ServerLogo) != strings.TrimSpace(newSetting.ServerLogo) ||
+				newLogoFileID != ""
 		}
 	}
+	// The instance logo is a link of the instance owner, not a table of its own.
+	const instanceOwnerID = "instance"
 	if err := settingService.transactor.Run(ctx, func(ctx context.Context) error {
-		user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-		if err != nil {
+		if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 			return err
 		}
-		if !user.IsAdmin {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
+
+		serverLogo := newSetting.ServerLogo
+		if newLogoFileID != "" {
+			// Get authorizes: an instance logo is public, but a private upload
+			// is not the caller's to promote.
+			logoDTO, err := settingService.fileService.Get(ctx, newLogoFileID)
+			if err != nil {
+				return err
+			}
+			serverLogo = logoDTO.URL
+			if err := settingService.fileService.Replace(
+				ctx, []string{newLogoFileID},
+				fileModel.OwnerKindInstance, instanceOwnerID, fileModel.RoleLogo,
+			); err != nil {
+				return err
+			}
+		} else if serverLogoChanged && hadLogo {
+			// An external logo URL replaced a stored one: the slot empties.
+			if err := settingService.fileService.ClearOwner(
+				ctx, fileModel.OwnerKindInstance, instanceOwnerID,
+			); err != nil {
+				return err
+			}
 		}
 
 		var setting model.SystemSetting
 		setting.SiteTitle = newSetting.SiteTitle
-		setting.ServerLogo = newSetting.ServerLogo
+		setting.ServerLogo = serverLogo
 		setting.ServerName = newSetting.ServerName
 		setting.ServerURL = urlUtil.TrimURL(newSetting.ServerURL)
 		setting.AllowRegister = newSetting.AllowRegister
@@ -115,24 +141,15 @@ func (settingService *SettingService) UpdateSetting(
 		setting.CustomJS = newSetting.CustomJS
 		setting.PrivacyPolicy = newSetting.PrivacyPolicy
 		setting.ShowPrivacyFooter = newSetting.ShowPrivacyFooter
-		setting.DisableAgentDiscovery = newSetting.DisableAgentDiscovery
+		setting.EnableAgentDiscovery = newSetting.EnableAgentDiscovery
 
 		if err := coreSetting.System.Set(ctx, settingService.durableKV, setting); err != nil {
-			return err
-		}
-
-		if err := settingService.durableKV.Set(ctx, commonModel.ServerURLKey, setting.ServerURL); err != nil {
 			return err
 		}
 
 		return nil
 	}); err != nil {
 		return err
-	}
-	if serverLogoChanged && strings.TrimSpace(newSetting.ServerLogoFileID) != "" {
-		if err := settingService.fileService.ConfirmTempFiles(ctx, []string{newSetting.ServerLogoFileID}); err != nil {
-			logUtil.GetLogger().Warn("confirm temp server logo file failed", logUtil.Err(err))
-		}
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -17,20 +18,27 @@ import (
 // deviceApprovalPath is the web route where the user approves the code.
 const deviceApprovalPath = "/device"
 
-func deviceErrorCode(err error) string {
+// deviceFailure tags a device-flow failure with the problem type a polling
+// client branches on, so it can tell "keep waiting" from a terminal error.
+// Every one of them is a 400: the device grant has no other status to express.
+func deviceFailure(err error) res.Response {
 	switch {
 	case errors.Is(err, authService.ErrDevicePending):
-		return commonModel.ErrCodeDevicePending
+		return res.Failed(commonModel.FailWithType(
+			http.StatusBadRequest, commonModel.TypeDevicePending, commonModel.DEVICE_CODE_PENDING))
 	case errors.Is(err, authService.ErrDeviceSlowDown):
-		return commonModel.ErrCodeDeviceSlowDown
+		return res.Failed(commonModel.FailWithType(
+			http.StatusBadRequest, commonModel.TypeDeviceSlowDown, commonModel.DEVICE_CODE_SLOW_DOWN))
 	case errors.Is(err, authService.ErrDeviceExpired):
-		return commonModel.ErrCodeDeviceExpired
+		return res.Failed(commonModel.FailWithType(
+			http.StatusBadRequest, commonModel.TypeDeviceExpired, commonModel.DEVICE_CODE_EXPIRED))
 	case errors.Is(err, authService.ErrDeviceDenied):
-		return commonModel.ErrCodeDeviceDenied
+		return res.Failed(commonModel.FailWithType(
+			http.StatusBadRequest, commonModel.TypeDeviceDenied, commonModel.DEVICE_CODE_DENIED))
 	case errors.Is(err, authService.ErrDeviceUnknown):
-		return commonModel.ErrCodeDeviceUnknown
+		return res.Failed(commonModel.Fail(http.StatusBadRequest, commonModel.DEVICE_CODE_UNKNOWN))
 	default:
-		return ""
+		return res.Failed(err)
 	}
 }
 
@@ -38,16 +46,16 @@ func (h *AuthHandler) DeviceCode() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		var req authModel.DeviceCodeRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
+			return res.Failed(errInvalidBody)
 		}
 
 		code, err := h.authService.StartDeviceAuthorization(req.ClientName, req.Scopes)
 		if err != nil {
-			return res.Response{Err: err, ErrorCode: deviceErrorCode(err)}
+			return deviceFailure(err)
 		}
 		code.VerificationURI = deviceApprovalPath
 		code.VerificationURIComplete = deviceApprovalPath + "?code=" + url.QueryEscape(code.UserCode)
-		return res.Response{Data: code}
+		return res.Payload(code)
 	})
 }
 
@@ -55,14 +63,14 @@ func (h *AuthHandler) DeviceToken() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		var req authModel.DeviceTokenRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
+			return res.Failed(errInvalidBody)
 		}
 
 		token, err := h.authService.PollDeviceAuthorization(req.DeviceCode)
 		if err != nil {
-			return res.Response{Err: err, ErrorCode: deviceErrorCode(err)}
+			return deviceFailure(err)
 		}
-		return res.Response{Data: token}
+		return res.Payload(token)
 	})
 }
 
@@ -70,9 +78,9 @@ func (h *AuthHandler) DevicePending() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		info, err := h.authService.DeviceAuthorizationInfo(ctx.Query("user_code"))
 		if err != nil {
-			return res.Response{Err: err, ErrorCode: deviceErrorCode(err)}
+			return deviceFailure(err)
 		}
-		return res.Response{Data: info}
+		return res.Payload(info)
 	})
 }
 
@@ -80,12 +88,12 @@ func (h *AuthHandler) DeviceApprove() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		var req authModel.DeviceApproveRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
+			return res.Failed(errInvalidBody)
 		}
 
 		if err := h.authService.ApproveDeviceAuthorization(ctx.Request.Context(), req.UserCode); err != nil {
-			return res.Response{Err: err, ErrorCode: deviceErrorCode(err)}
+			return deviceFailure(err)
 		}
-		return res.Response{}
+		return res.NoContent(http.StatusOK)
 	})
 }

@@ -59,19 +59,19 @@ capsule/
       2026-08-01-0198a3f2.md   # 每条 Echo 一个 frontmatter-markdown 文件
       …
   comments.yaml             # 评论快照（PublicComment 投影）
-  files/                    # 媒体根目录，内部结构 mirror DataRoot（默认 data/files）
-    images/                 #   即 internal/storage/schema.go 的 Resolve 目录约定
-    audios/
-    videos/
-    documents/
-    files/                  #   DefaultRoute("files/") 兜底类别（.zip/.txt 等）
+  files/                    # 媒体根目录，内部结构 = 存储对象键的原样 mirror
+    2026/
+      11/
+        019aca8e-…-7f3a.jpg   #   owned 文件：files/<object_key>
+    blob/                    #   blob 文件：files/blob/<file_id>
+      019aca8e-…
 ```
 
 设计要点：
 
 - **每条 Echo 一个文件**，而不是一个大 YAML。理由：可 diff、可单独编辑、frontmatter-markdown 是 Hugo/Astro/Obsidian 通吃的生态标准，`Echo.Content` 本来就是 markdown。
-- **files/ 内部结构原样 mirror `DataRoot`（默认 `data/files`）**：胶囊内相对路径 = `files/ + schema.Resolve(key)`，与本地磁盘布局逐一对应（`files/files/` 即 `DefaultRoute` 兜底类别的 mirror，属预期布局）。导出按 `files` 表**记录驱动**落位（非盲目目录拷贝，`data/artifacts/` 等非托管产物不进胶囊）；对本地实例，效果上仍近似一次目录拷贝。
-- **胶囊自包含（托管文件）**：本地与对象存储（S3）的托管文件在导出时**字节入胶囊**，胶囊内一律相对路径、不依赖 `File.url`（URL 是运行时表示：`File.AfterFind` 会按当前配置重算，胶囊作为离线交换格式不该携带它）。**例外——外链文件（`storage_type=external`）**：字节不在 Ech0 存储里，`url` 即其权威表示，导出时原样透传、不下载本地化（版权与预期问题）。
+- **files/ 内部结构原样 mirror 存储对象键**：胶囊内相对路径 = `files/ + <object_key>`（`internal/capsule/layout.go` 的 `MediaPath`）。对象键由 `storage.KeyFor(file_id, ext)` 生成，形如 `2026/11/<uuidv7><ext>`；`kind=blob` 的行落在 `files/blob/<file_id>`。导出按 `files` / `file_blobs` **记录驱动**落位（非盲目目录拷贝，`data/artifacts/` 等非托管产物不进胶囊）；对本地实例，效果上仍近似一次目录拷贝。
+- **胶囊自包含（托管文件）**：本地与 S3 的托管文件在导出时经 `Store.Open` 读字节写入胶囊，胶囊内一律相对路径、不依赖派生 URL（内容网关 URL `/api/files/<id>/content` 是运行时表示，胶囊作为离线交换格式不该携带它）。**例外——外链文件（`kind=ref`）**：字节不在 Ech0 存储里，`url` 即其权威表示，导出时原样透传、不下载本地化（版权与预期问题）。
 
 ### 4.2 清单文件 `ech0.yaml`
 
@@ -83,8 +83,9 @@ exported_at: 2026-08-02T10:00:00Z
 site:                        # 站点设置的公开子集（供静态站渲染与导入恢复）
   site_title: L1nSn0w 的小站            # 键名 = SystemSetting json tag 原样，import 整块反序列化零映射
   server_name: Ech0
-  server_logo: /api/files/images/logo.png  # ServerLogo 原样字符串，不本地化改写（含实例 URL 时 check 警告）
-  # 完整 site.* 字段清单见 spec.md §3（原 Q7：「渲染所需皆入，运维行为皆弃」，仅踢除 allow_register / disable_agent_discovery）
+  server_logo_file_id: 019aca8e-…       # 站标文件 id（文件域归属 instance/logo）
+  server_logo: /api/files/019aca8e-…/content  # 由文件 id 派生的内容网关 URL，不本地化改写
+  # 完整 site.* 字段清单见 spec.md §3（原 Q7：「渲染所需皆入，运维行为皆弃」，仅踢除 allow_register / enable_agent_discovery）
 
 owner:
   username: l1nsn0w
@@ -107,8 +108,8 @@ tags: [生活, 摄影]
 layout: grid                               # waterfall|grid|horizontal|carousel|stack|none
 private: false
 files:
-  - key: a1b2c3d4_1735689600_deadbeef.png  # File.Key 原样；字节位于 files/ + Resolve(key)
-    category: image                        # File.Category 原样
+  - key: 2026/11/019aca8e-…-7f3a.png   # kind=owned 时为 storage 对象键；字节位于 files/<key>
+    category: image                      # CategoryOf(content_type/ext) 的结果
 extension:                                 # 可选；对应 EchoExtension
   type: WEBSITE                            # MUSIC|VIDEO|GITHUBPROJ|WEBSITE|LOCATION|TWEET
   payload:
@@ -127,7 +128,7 @@ extension:                                 # 可选；对应 EchoExtension
 | `Echo.Content` | 正文 | 逐字，不做任何转换 |
 | `Echo.CreatedAt` (int64) | `created_at` (RFC3339) | 人类可读优先，导入时转回 Unix 秒 |
 | `Echo.Layout` / `Private` / `Username` | 同名 frontmatter | 原样保留；旧胶囊的 `fav_count` 仍可解析但导入时忽略 |
-| `EchoFiles` → `files` 表 | `files[].key`（托管，`File.Key` 原样，字节位于 `files/ + Resolve(key)`）或 `files[].url`（外链透传）；`id/category/name/content_type/size/width/height` 可选原样携带 | 字段名与值对齐 `File` 列，import 1:1 入库零转换；**数组顺序即 `SortOrder`**；`storage_type`/`provider`/`bucket`/托管 `url` 不入胶囊（运行时拓扑，导入按目标配置重建）。权威定义见 `spec.md` §4.2 |
+| `EchoFiles`（`file_links` 投影） | `files[].key`（托管字节，位于 `files/<key>`）或 `files[].url`（外链 `ref_url` 透传）；`id/category/name/content_type/size/width/height` 可选携带 | 关系由 `file_links` 表达：import 逐个建 `owner_kind=echo`、`role=attachment`、`sort_order=index` 的链接，文件行本身用 `storage.KeyFor(id, ext)` 重建对象键；**数组顺序即 `sort_order`**；`storage_id`/`object_key`/托管 `url` 不入胶囊（运行时拓扑，导入按目标 Store 重建）。权威定义见 `spec.md` §4.2、§11.1 |
 | `EchoExtension.Type/Payload` | `extension` | payload 原样 YAML 化 |
 | `Tags` (many2many) | `tags` 名称数组 | Tag 的 `UsageCount` 导入后重新统计，不导出 |
 | `Echo.UserID` | 不导出 | 内部外键，`username` 已足够，导入时重新映射（见 §5.3） |
@@ -278,7 +279,7 @@ ech0 build [路径，默认 ./capsule] [-o ./dist] [--base-url /]
 
 ### 6.1 可行性依据（已核实的代码事实）
 
-- **单一请求咽喉**：所有 API 调用经 `web/src/service/request/index.ts` 的 `request<T>({url, method, data})`，API 层不直接碰 HTTP，返回统一信封 `App.Api.Response<T>`。静态模式只需一个同签名的替代实现。
+- **单一请求咽喉**：所有 API 调用经 `web/src/service/request/index.ts` 的 `request<T>({url, method, data})`，API 层不直接碰 HTTP，返回解包后的资源 `T | null`（`null` 即失败，`204` 由传输层补真值哨兵）。静态模式只需一个同签名的替代实现。
 - **`POST /echo/query` 不是障碍**：adapter 在 HTTP 之前拦截，分页/搜索/标签过滤/排序对烘焙数组在客户端执行（微博客量级为几 MB JSON）。
 - **启动链路在咽喉之内**：路由守卫（`web/src/router/index.ts` `beforeEach`）依赖的 `initStore.init()` / `userStore.init()` 也走 `request()`；adapter 返回 `{initialized: true}` + 匿名用户即可，`requiresAuth` 路由（panel 等）自然不可达。
 
@@ -348,7 +349,7 @@ adapter 需要覆盖的只读端点（首页/详情/hub 所需）：
 - **导入不发布事件、无逃生门**（原 Q13）：webhook 回放历史内容属语义错误而非仅噪音；embedding 走既有回填命令覆盖存量；`--emit-events` 作为「不该有人用的逃生门」被整体移除（纯契约面积）。
 - **private 默认排除**（原 Q2）：export/import 双端默认排除 `private: true`，`--include-private` 显式包含；不做加密（胶囊定位可公开分享，私密内容要么不出门、要么显式带走）。
 - **文件命名**（原 Q5，实现阶段修订）：`echoes/<年>/<YYYY-MM-DD>-<id 末 8 位>.md`；命名仅浏览友好，语义一律以 frontmatter 为准。原定「前 8 位」被真实数据推翻——UUIDv7 前 48 位是时间戳，实测 287 条里 270 条共用同一前缀，判别位必须取随机段。
-- **site 子集**（原 Q7）：「渲染所需皆入，运维行为皆弃」——键集 = `SystemSetting` 全部字段仅踢运维开关（`allow_register`、`disable_agent_discovery`）；键名 = json tag 原样（import 整块反序列化零映射）；`server_logo` 原样字符串不本地化；`custom_js`/`custom_css` 非空时 check 警告（第三方胶囊 = 执行对方代码）。
+- **site 子集**（原 Q7）：「渲染所需皆入，运维行为皆弃」——键集 = `SystemSetting` 全部字段仅踢运维开关（`allow_register`、`enable_agent_discovery`）；键名 = json tag 原样（import 整块反序列化零映射）；`server_logo` 原样字符串不本地化；`custom_js`/`custom_css` 非空时 check 警告（第三方胶囊 = 执行对方代码）。
 - **产出 `api/connect`**（原 Q10，推翻此前倾向）：与活实例响应体同形的冻结快照，远端探测路径零改动可消费；无扩展名文件的 Content-Type 局限记入 spec。
 - **原样导入**（原 Q12）：胶囊形态尽量贴近 DB 形态，导入 1:1 入库禁止数值转换；`username` 逐字保留，仅补全内部必填外键 `UserID`（同名挂接，否则挂主管理员）；无 `--overwrite`。
 - **内嵌实例 URL 不改写**（原 Q15）：保「逐字一致」契约，`check` 警告级检测（`site.server_url` 前缀或 `/api/files/` 引用）；`--rewrite-content` 留作后续。

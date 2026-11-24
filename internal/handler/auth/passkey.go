@@ -5,6 +5,7 @@ package handler
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/lin-snow/ech0/internal/config"
 	res "github.com/lin-snow/ech0/internal/handler/response"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
 )
 
@@ -28,8 +28,8 @@ type (
 )
 
 type (
-	PasskeyListOutput = commonModel.Result[[]authModel.PasskeyDeviceDto]
-	EmptyOutput       = commonModel.Result[any]
+	PasskeyListOutput = struct{ Body []authModel.PasskeyDeviceDto }
+	EmptyOutput       = struct{}
 )
 
 func (h *AuthHandler) getPasskeyOriginAndRPID(ctx *gin.Context) (origin string, rpID string) {
@@ -51,13 +51,13 @@ func (h *AuthHandler) PasskeyLoginBeginV2() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 		data, err := h.authService.PasskeyLoginBegin(rpID, origin)
 		if err != nil {
-			return res.Response{Err: err}
+			return res.Failed(err)
 		}
-		return res.Response{Data: data}
+		return res.Payload(data)
 	})
 }
 
@@ -65,18 +65,18 @@ func (h *AuthHandler) PasskeyLoginFinishV2() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		var req authModel.PasskeyFinishReq
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
+			return res.Failed(errInvalidBody)
 		}
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 		tokenPair, err := h.authService.PasskeyLoginFinish(rpID, origin, req.Nonce, req.Credential)
 		if err != nil {
-			return res.Response{Err: err}
+			return res.Failed(err)
 		}
 		cookieUtil.SetRefreshTokenCookie(ctx, tokenPair.RefreshToken, config.Config().Auth.Jwt.RefreshExpires)
-		return res.Response{Data: tokenPair}
+		return res.Payload(tokenPair)
 	})
 }
 
@@ -86,13 +86,13 @@ func (h *AuthHandler) PasskeyRegisterBeginV2() gin.HandlerFunc {
 		_ = ctx.ShouldBindJSON(&req)
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 		data, err := h.authService.PasskeyRegisterBegin(ctx.Request.Context(), rpID, origin, req.DeviceName)
 		if err != nil {
-			return res.Response{Err: err}
+			return res.Failed(err)
 		}
-		return res.Response{Data: data}
+		return res.Payload(data)
 	})
 }
 
@@ -100,37 +100,37 @@ func (h *AuthHandler) PasskeyRegisterFinishV2() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		var req authModel.PasskeyFinishReq
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			return res.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
+			return res.Failed(errInvalidBody)
 		}
 		origin, rpID := h.getPasskeyOriginAndRPID(ctx)
 		if origin == "" || rpID == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 		if err := h.authService.PasskeyRegisterFinish(ctx.Request.Context(), rpID, origin, req.Nonce, req.Credential); err != nil {
-			return res.Response{Err: err}
+			return res.Failed(err)
 		}
-		return res.Response{}
+		return res.NoContent(http.StatusOK)
 	})
 }
 
-func (h *AuthHandler) ListPasskeys(ctx context.Context, _ *ListPasskeysInput) (PasskeyListOutput, error) {
+func (h *AuthHandler) ListPasskeys(ctx context.Context, _ *ListPasskeysInput) (*PasskeyListOutput, error) {
 	devs, err := h.authService.ListPasskeys(ctx)
 	if err != nil {
-		return PasskeyListOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(devs), nil
+	return &PasskeyListOutput{Body: devs}, nil
 }
 
-func (h *AuthHandler) DeletePasskey(ctx context.Context, in *PasskeyIDInput) (EmptyOutput, error) {
+func (h *AuthHandler) DeletePasskey(ctx context.Context, in *PasskeyIDInput) (*EmptyOutput, error) {
 	if err := h.authService.DeletePasskey(ctx, in.ID); err != nil {
-		return EmptyOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK[any](nil), nil
+	return &EmptyOutput{}, nil
 }
 
-func (h *AuthHandler) UpdatePasskeyDeviceName(ctx context.Context, in *UpdatePasskeyNameInput) (EmptyOutput, error) {
+func (h *AuthHandler) UpdatePasskeyDeviceName(ctx context.Context, in *UpdatePasskeyNameInput) (*EmptyOutput, error) {
 	if err := h.authService.UpdatePasskeyDeviceName(ctx, in.ID, in.Body.DeviceName); err != nil {
-		return EmptyOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK[any](nil), nil
+	return &EmptyOutput{}, nil
 }

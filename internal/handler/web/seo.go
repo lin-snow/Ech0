@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	"github.com/lin-snow/ech0/internal/util/reqinfo"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -407,7 +408,7 @@ func (webHandler *WebHandler) publicEcho(
 	}
 
 	echo, err := webHandler.echoes.GetEchoById(
-		viewer.WithContext(ctx, viewer.NewNoopViewer()),
+		viewer.WithContext(ctx, viewer.Anonymous),
 		echoID,
 	)
 	if err != nil {
@@ -500,10 +501,10 @@ func echoDescription(echo *echoModel.Echo) string {
 func echoShareImage(echo *echoModel.Echo, origin string) (string, string, int, int) {
 	for _, echoFile := range echo.EchoFiles {
 		file := echoFile.File
-		if file.Category != "image" && !strings.HasPrefix(file.ContentType, "image/") {
+		if fileModel.CategoryOf(file.ContentType) != fileModel.CategoryImage {
 			continue
 		}
-		absolute := absoluteAssetURL(file.URL, origin)
+		absolute := absoluteAssetURL(fileModel.ContentPath(file.ID), origin)
 		if absolute == "" {
 			continue
 		}

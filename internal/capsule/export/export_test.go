@@ -50,17 +50,22 @@ var testSite = settingModel.SystemSetting{
 	CustomJS:      "console.log(1)",
 }
 
-func newFixture(t *testing.T) (Deps, string) {
+func newFixture(t *testing.T) (Deps, storage.Store) {
 	t.Helper()
 
 	db := helpers.NewTestDB(t)
-	dataRoot := t.TempDir()
-	selector := storage.NewStorageManagerForTest(dataRoot).GetSelector()
 	kv := kvstore.NewMemory()
 	require.NoError(t, coreSetting.System.Set(context.Background(), kv, testSite))
 
+	registry := storage.NewRegistry()
+	require.NoError(t, registry.Reload(context.Background(), []storage.Config{
+		{ID: "mem", Driver: storage.DriverMem, Default: true},
+	}))
+	_, store, err := registry.Default()
+	require.NoError(t, err)
+
 	require.NoError(t, db.Create(&userModel.User{
-		ID: "u-owner", Username: "linsnow", IsAdmin: true,
+		ID: "u-owner", Username: "linsnow", Role: userModel.RoleOwner,
 	}).Error)
 	require.NoError(t, db.Create(&userModel.User{ID: "u-other", Username: "guest"}).Error)
 
@@ -68,40 +73,56 @@ func newFixture(t *testing.T) (Deps, string) {
 		ID: "c-1", ConnectURL: "https://peer.example.com",
 	}).Error)
 
+	keys := map[string]string{
+		"f-pic":    "2023/11/pic.png",
+		"f-clip":   "2023/11/clip.mp4",
+		"f-orphan": "2023/11/orphan.pdf",
+		"f-secret": "2023/11/secret.png",
+	}
 	files := []fileModel.File{
 		{
-			ID: "f-pic", Key: "pic.png", StorageType: "local", Name: "pic.png",
-			ContentType: "image/png", Category: "image", Size: 7, Width: 4, Height: 2, UserID: "u-owner",
+			ID: "f-pic", Kind: string(fileModel.KindOwned), Status: string(fileModel.StatusReady), Access: string(fileModel.AccessPublic),
+			StorageID: new("mem"), ObjectKey: new(keys["f-pic"]), Name: "pic.png",
+			ContentType: "image/png", Size: 7, Width: 4, Height: 2, UploaderID: "u-owner",
 		},
 		{
-			ID: "f-clip", Key: "clip.mp4", StorageType: "local", Name: "clip.mp4",
-			ContentType: "video/mp4", Category: "video", Size: 5, UserID: "u-owner",
+			ID: "f-clip", Kind: string(fileModel.KindOwned), Status: string(fileModel.StatusReady), Access: string(fileModel.AccessPublic),
+			StorageID: new("mem"), ObjectKey: new(keys["f-clip"]), Name: "clip.mp4",
+			ContentType: "video/mp4", Size: 5, UploaderID: "u-owner",
 		},
 		{
-			ID: "f-orphan", Key: "orphan.pdf", StorageType: "local", Name: "orphan.pdf",
-			ContentType: "application/pdf", Category: "pdf", Size: 6, UserID: "u-owner",
+			ID: "f-orphan", Kind: string(fileModel.KindOwned), Status: string(fileModel.StatusReady), Access: string(fileModel.AccessPublic),
+			StorageID: new("mem"), ObjectKey: new(keys["f-orphan"]), Name: "orphan.pdf",
+			ContentType: "application/pdf", Size: 6, UploaderID: "u-owner",
 		},
 		{
-			ID: "f-secret", Key: "secret.png", StorageType: "local", Name: "secret.png",
-			ContentType: "image/png", Category: "image", Size: 6, UserID: "u-owner",
+			ID: "f-secret", Kind: string(fileModel.KindOwned), Status: string(fileModel.StatusReady), Access: string(fileModel.AccessPublic),
+			StorageID: new("mem"), ObjectKey: new(keys["f-secret"]), Name: "secret.png",
+			ContentType: "image/png", Size: 6, UploaderID: "u-owner",
 		},
 		{
-			ID: "f-ext", StorageType: "external", URL: "https://cdn.example.com/remote.png",
-			Name: "remote.png", ContentType: "image/png", Category: "image", UserID: "u-owner",
+			ID: "f-blob", Kind: string(fileModel.KindBlob), Status: string(fileModel.StatusReady), Access: string(fileModel.AccessPublic),
+			BlobBytes: new(int64(6)), Name: "blob.bin", ContentType: "application/octet-stream",
+			Size: 6, UploaderID: "u-owner",
+		},
+		{
+			ID: "f-ext", Kind: string(fileModel.KindRef), Status: string(fileModel.StatusReady), Access: string(fileModel.AccessPublic),
+			RefURL: new("https://cdn.example.com/remote.png"), Name: "remote.png",
+			ContentType: "image/png", UploaderID: "u-owner",
 		},
 	}
 	for i := range files {
 		require.NoError(t, db.Create(&files[i]).Error)
 	}
+	require.NoError(t, db.Create(&fileModel.Blob{FileID: "f-blob", Data: []byte("BLOBBY")}).Error)
 	for key, body := range map[string]string{
-		"pic.png":    "PNGDATA",
-		"clip.mp4":   "MP4!!",
-		"orphan.pdf": "%PDF-1",
-		"secret.png": "SECRET",
+		keys["f-pic"]:    "PNGDATA",
+		keys["f-clip"]:   "MP4!!",
+		keys["f-orphan"]: "%PDF-1",
+		keys["f-secret"]: "SECRET",
 	} {
-		require.NoError(t, selector.Put(
-			context.Background(), storage.StorageTypeLocal, key, strings.NewReader(body),
-		))
+		_, err := store.Put(context.Background(), key, strings.NewReader(body), int64(len(body)))
+		require.NoError(t, err)
 	}
 
 	require.NoError(t, db.Create(&echoModel.Echo{
@@ -118,12 +139,13 @@ func newFixture(t *testing.T) (Deps, string) {
 		Private: true, UserID: "u-owner", CreatedAt: privateEchoAt,
 	}).Error)
 
-	links := []fileModel.EchoFile{
-		{ID: "ef-1", EchoID: publicEchoID, FileID: "f-pic", SortOrder: 1},
-		{ID: "ef-2", EchoID: publicEchoID, FileID: "f-clip", SortOrder: 0},
-		{ID: "ef-3", EchoID: publicEchoID, FileID: "f-ext", SortOrder: 2},
-		{ID: "ef-4", EchoID: privateEchoID, FileID: "f-secret", SortOrder: 0},
-		{ID: "ef-5", EchoID: privateEchoID, FileID: "f-pic", SortOrder: 1},
+	links := []fileModel.Link{
+		{FileID: "f-pic", OwnerKind: fileModel.OwnerKindEcho, OwnerID: publicEchoID, Role: fileModel.RoleAttachment, SortOrder: 1},
+		{FileID: "f-clip", OwnerKind: fileModel.OwnerKindEcho, OwnerID: publicEchoID, Role: fileModel.RoleAttachment, SortOrder: 0},
+		{FileID: "f-ext", OwnerKind: fileModel.OwnerKindEcho, OwnerID: publicEchoID, Role: fileModel.RoleAttachment, SortOrder: 2},
+		{FileID: "f-blob", OwnerKind: fileModel.OwnerKindEcho, OwnerID: publicEchoID, Role: fileModel.RoleAttachment, SortOrder: 3},
+		{FileID: "f-secret", OwnerKind: fileModel.OwnerKindEcho, OwnerID: privateEchoID, Role: fileModel.RoleAttachment, SortOrder: 0},
+		{FileID: "f-pic", OwnerKind: fileModel.OwnerKindEcho, OwnerID: privateEchoID, Role: fileModel.RoleAttachment, SortOrder: 1},
 	}
 	for i := range links {
 		require.NoError(t, db.Create(&links[i]).Error)
@@ -150,7 +172,7 @@ func newFixture(t *testing.T) (Deps, string) {
 		require.NoError(t, db.Create(&comments[i]).Error)
 	}
 
-	return Deps{DB: db, Selector: selector, KV: kv}, dataRoot
+	return Deps{DB: db, Storage: registry, KV: kv}, store
 }
 
 func runExport(t *testing.T, deps Deps, opts Options) (*Result, string) {
@@ -229,12 +251,14 @@ func TestRun_EchoDocument(t *testing.T) {
 	assert.Equal(t, echoModel.Extension_WEBSITE, doc.Extension.Type)
 	assert.Equal(t, map[string]any{"url": "https://example.org"}, doc.Extension.Payload)
 
-	require.Len(t, doc.Files, 3)
-	assert.Equal(t, []string{"clip.mp4", "pic.png", ""}, []string{doc.Files[0].Key, doc.Files[1].Key, doc.Files[2].Key})
+	require.Len(t, doc.Files, 4)
+	assert.Equal(t, []string{
+		"2023/11/clip.mp4", "2023/11/pic.png", "", "blob/f-blob",
+	}, []string{doc.Files[0].Key, doc.Files[1].Key, doc.Files[2].Key, doc.Files[3].Key})
 	assert.Empty(t, doc.Files[0].URL)
 	assert.Equal(t, "https://cdn.example.com/remote.png", doc.Files[2].URL)
 	assert.Equal(t, "f-pic", doc.Files[1].ID)
-	assert.Equal(t, "image", doc.Files[1].Category)
+	assert.Equal(t, fileModel.CategoryImage, doc.Files[1].Category)
 	assert.Equal(t, int64(7), doc.Files[1].Size)
 	assert.Equal(t, 4, doc.Files[1].Width)
 }
@@ -243,12 +267,13 @@ func TestRun_MediaBytesAreSelfContained(t *testing.T) {
 	deps, _ := newFixture(t)
 	res, out := runExport(t, deps, Options{})
 
-	assert.Equal(t, "PNGDATA", string(readCapsuleFile(t, out, "files/images/pic.png")))
-	assert.Equal(t, "MP4!!", string(readCapsuleFile(t, out, "files/videos/clip.mp4")))
-	assert.Equal(t, "%PDF-1", string(readCapsuleFile(t, out, "files/documents/orphan.pdf")))
-	assert.NoFileExists(t, filepath.Join(out, "files", "images", "remote.png"))
+	assert.Equal(t, "PNGDATA", string(readCapsuleFile(t, out, "files/2023/11/pic.png")))
+	assert.Equal(t, "MP4!!", string(readCapsuleFile(t, out, "files/2023/11/clip.mp4")))
+	assert.Equal(t, "%PDF-1", string(readCapsuleFile(t, out, "files/2023/11/orphan.pdf")))
+	assert.Equal(t, "BLOBBY", string(readCapsuleFile(t, out, "files/blob/f-blob")))
+	assert.NoFileExists(t, filepath.Join(out, "files", "2023", "11", "remote.png"))
 
-	assert.Equal(t, 4, res.Files)
+	assert.Equal(t, 5, res.Files)
 	assert.Equal(t, 1, res.ExternalFiles)
 }
 
@@ -284,10 +309,10 @@ func TestRun_IncludePrivate(t *testing.T) {
 	assert.True(t, doc.Private)
 	assert.Equal(t, "私密内容", doc.Content)
 
-	assert.Equal(t, "SECRET", string(readCapsuleFile(t, out, "files/images/secret.png")))
+	assert.Equal(t, "SECRET", string(readCapsuleFile(t, out, "files/2023/11/secret.png")))
 	assert.Equal(t, 2, res.Echoes)
 	assert.Equal(t, 0, res.SkippedPrivate)
-	assert.Equal(t, 5, res.Files)
+	assert.Equal(t, 6, res.Files)
 	assert.Equal(t, 2, res.Comments)
 }
 
@@ -310,7 +335,7 @@ func TestRun_Zip(t *testing.T) {
 	require.NoError(t, loaded.ManifestErr)
 	assert.Equal(t, "linsnow", loaded.Manifest.Owner.Username)
 	require.Len(t, loaded.Echoes, 1)
-	assert.Equal(t, int64(len("PNGDATA")), loaded.MediaPaths["files/images/pic.png"])
+	assert.Equal(t, int64(len("PNGDATA")), loaded.MediaPaths["files/2023/11/pic.png"])
 }
 
 func TestRun_RefusesNonEmptyOutputDir(t *testing.T) {
@@ -325,9 +350,9 @@ func TestRun_RefusesNonEmptyOutputDir(t *testing.T) {
 }
 
 func TestRun_ReportsUnreadableManagedFiles(t *testing.T) {
-	deps, dataRoot := newFixture(t)
-	require.NoError(t, os.Remove(filepath.Join(dataRoot, "images", "pic.png")))
-	require.NoError(t, os.Remove(filepath.Join(dataRoot, "videos", "clip.mp4")))
+	deps, store := newFixture(t)
+	require.NoError(t, store.Delete(context.Background(), "2023/11/pic.png"))
+	require.NoError(t, store.Delete(context.Background(), "2023/11/clip.mp4"))
 
 	_, err := Run(context.Background(), deps, Options{Output: filepath.Join(t.TempDir(), "capsule")})
 	require.Error(t, err)

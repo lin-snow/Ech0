@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/httperr"
+	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/util/reqinfo"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
@@ -41,8 +43,7 @@ func OriginGuard(allowedOrigins []string) gin.HandlerFunc {
 			slog.String("path", c.Request.URL.Path),
 			slog.String("hint", "add this origin to ECH0_WEB_CORS_ALLOWED_ORIGINS if it is a trusted browser client"),
 		)
-		c.JSON(http.StatusForbidden, gin.H{"error": "origin not allowed"})
-		c.Abort()
+		httperr.Abort(c, commonModel.Fail(http.StatusForbidden, "origin not allowed"))
 	}
 }
 

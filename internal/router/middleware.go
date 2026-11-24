@@ -21,4 +21,5 @@ func setupMiddleware(r *gin.Engine) {
 	r.Use(middleware.VisitorIdentity())
 	r.Use(i18nUtil.Middleware())
 	r.Use(middleware.WriteGuard())
+	r.Use(middleware.ConditionalGet())
 }

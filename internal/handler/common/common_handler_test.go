@@ -5,6 +5,7 @@ package handler_test
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"net/http"
@@ -18,7 +19,6 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
-	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
 	"github.com/stretchr/testify/assert"
@@ -55,9 +55,8 @@ func TestGetHeatMap(t *testing.T) {
 			out, err := h.GetHeatMap(context.Background(), &commonHandler.GetHeatMapInput{Timezone: tc.inputTZ})
 
 			require.NoError(t, err)
-			assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-			assert.Equal(t, commonModel.GET_HEATMAP_SUCCESS, out.Message)
-			assert.Equal(t, want, out.Data)
+			require.NotNil(t, out)
+			assert.Equal(t, want, out.Body.Items)
 		})
 	}
 }
@@ -71,7 +70,7 @@ func TestGetHeatMap_ServiceError(t *testing.T) {
 	out, err := h.GetHeatMap(context.Background(), &commonHandler.GetHeatMapInput{Timezone: "UTC"})
 
 	require.ErrorIs(t, err, sentinel)
-	assert.Equal(t, commonHandler.HeatmapOutput{}, out)
+	assert.Nil(t, out)
 }
 
 func TestHelloEch0(t *testing.T) {
@@ -81,13 +80,12 @@ func TestHelloEch0(t *testing.T) {
 	out, err := h.HelloEch0(context.Background(), &commonHandler.HelloInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, commonModel.GET_HELLO_SUCCESS, out.Message)
-	assert.Equal(t, "Hello, Ech0! 👋", out.Data.Hello)
-	assert.Equal(t, versionPkg.Copyright(), out.Data.Copyright)
-	assert.Equal(t, versionPkg.Version, out.Data.Version)
-	assert.Equal(t, versionPkg.RepoURL, out.Data.RepoURL)
-	assert.Equal(t, versionPkg.License, out.Data.License)
+	require.NotNil(t, out)
+	assert.Equal(t, "Hello, Ech0! 👋", out.Body.Hello)
+	assert.Equal(t, versionPkg.Copyright(), out.Body.Copyright)
+	assert.Equal(t, versionPkg.Version, out.Body.Version)
+	assert.Equal(t, versionPkg.RepoURL, out.Body.RepoURL)
+	assert.Equal(t, versionPkg.License, out.Body.License)
 }
 
 func TestGetWebsiteTitle(t *testing.T) {
@@ -99,8 +97,8 @@ func TestGetWebsiteTitle(t *testing.T) {
 		out, err := h.GetWebsiteTitle(context.Background(), &commonHandler.GetWebsiteTitleInput{WebsiteURL: "https://example.com"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_WEBSITE_TITLE_SUCCESS, out.Message)
-		assert.Equal(t, "Example Domain", out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, "Example Domain", out.Body)
 	})
 
 	t.Run("service-error", func(t *testing.T) {
@@ -112,7 +110,7 @@ func TestGetWebsiteTitle(t *testing.T) {
 		out, err := h.GetWebsiteTitle(context.Background(), &commonHandler.GetWebsiteTitleInput{WebsiteURL: "https://bad"})
 
 		require.ErrorIs(t, err, sentinel)
-		assert.Equal(t, commonHandler.StringOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -126,14 +124,13 @@ func TestHealthz(t *testing.T) {
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	res := helpers.ParseResult(t, rec)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, res.Code)
+	assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 
 	var data struct {
 		Status  string `json:"status"`
 		Version string `json:"version"`
 	}
-	helpers.DecodeData(t, res.Data, &data)
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &data))
 	assert.Equal(t, "ok", data.Status)
 	assert.Equal(t, versionPkg.Version, data.Version)
 }
@@ -302,7 +299,7 @@ func TestGetRss(t *testing.T) {
 		assert.Equal(t, "<html>styled</html>", rec.Body.String())
 	})
 
-	t.Run("service-error-returns-fail-envelope", func(t *testing.T) {
+	t.Run("service-error-returns-problem-document", func(t *testing.T) {
 		svc := commonmock.NewMockService(t)
 		svc.EXPECT().GenerateRSS(mock.Anything).Return(commonService.RSSDocument{}, errors.New("rss boom")).Once()
 		h := commonHandler.NewCommonHandler(svc, emptySettings())
@@ -312,8 +309,14 @@ func TestGetRss(t *testing.T) {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/rss", nil))
 
-		require.Equal(t, http.StatusOK, rec.Code)
-		res := helpers.ParseResult(t, rec)
-		assert.Equal(t, commonModel.DEFAULT_FAILED_CODE, res.Code)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		assert.Equal(t, "application/problem+json; charset=utf-8", rec.Header().Get("Content-Type"))
+		var problem struct {
+			Status int    `json:"status"`
+			Detail string `json:"detail"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &problem))
+		assert.Equal(t, http.StatusInternalServerError, problem.Status)
+		assert.Equal(t, "internal server error", problem.Detail)
 	})
 }

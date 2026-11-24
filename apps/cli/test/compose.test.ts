@@ -12,7 +12,6 @@ import { Client } from "../src/api/http.ts";
 import type { LoadedCatalog } from "../src/catalog/load.ts";
 import type { CatalogOp } from "../src/catalog/types.ts";
 import { registerCatalogCommands } from "../src/commands/dynamic.ts";
-import { categoryForFile } from "../src/commands/files.ts";
 import { buildFormRequest, invokeOperation } from "../src/commands/operation.ts";
 import { parsePayload } from "../src/commands/payload.ts";
 import type { Session } from "../src/session.ts";
@@ -49,17 +48,18 @@ const CREATE: CatalogOp = baseOp({
 });
 
 const UPLOAD: CatalogOp = baseOp({
-  path: "/files/upload",
+  method: "POST",
+  path: "/files",
+  effect: "write",
   input: {
     type: "object",
     properties: {
       file: { type: "string", format: "binary" },
-      category: { type: "string" },
-      storage_type: { type: "string" },
+      profile: { type: "string" },
+      name: { type: "string" },
     },
-    required: ["file"],
   },
-  bind: { file: "form", category: "form", storage_type: "form" },
+  bind: { file: "form", profile: "form", name: "form" },
 });
 
 function sessionFor(baseUrl: string): Session {
@@ -100,7 +100,7 @@ function startServer(): string {
       const url = new URL(request.url);
       if (url.pathname === "/api/echo") {
         body = (await request.json()) as Record<string, unknown>;
-        return Response.json({ code: 1, msg: "发布Echo成功！", data: null });
+        return Response.json(null, { status: 201 });
       }
       return new Response("not found", { status: 404 });
     },
@@ -138,7 +138,7 @@ describe("composed Echo payload", () => {
         { file_id: "f2", sort_order: 5 },
       ],
     });
-    expect(result.human).toContain("发布Echo成功");
+    expect(result.human).toBe("ok");
   });
 
   test("normalizes bare tag strings from --tags", async () => {
@@ -156,77 +156,41 @@ describe("composed Echo payload", () => {
   });
 });
 
-describe("file external command", () => {
-  test("registers a URL as an external file", async () => {
+describe("file upload as URL registration", () => {
+  test("registers an external URL on the upload endpoint", async () => {
     const program = new Command("ech0");
     let captured: Record<string, unknown> | undefined;
     const external: CatalogOp = baseOp({
-      path: "/files/external",
+      method: "POST",
+      path: "/files",
+      effect: "write",
       input: {
         type: "object",
-        properties: { url: { type: "string" }, category: { type: "string" } },
+        properties: { external_url: { type: "string" }, name: { type: "string" } },
       },
-      bind: { url: "body", category: "body" },
+      bind: { external_url: "form", name: "form" },
     });
     registerCatalogCommands(
       program,
-      { ops: { "file.external": external } },
+      { ops: { "file.upload": external } },
       {
         run: async (_command, _op, values) => {
           captured = values;
           return { human: "", json: "" };
         },
+        scope: () => true,
       },
     );
 
     await program.parseAsync(
-      ["file", "external", "--url", "https://example.com/a.png", "--category", "image"],
+      ["file", "upload", "--external-url", "https://example.com/a.png", "--name", "a.png"],
       { from: "user" },
     );
-    expect(captured).toEqual({ url: "https://example.com/a.png", category: "image" });
+    expect(captured).toEqual({ external_url: "https://example.com/a.png", name: "a.png" });
   });
 });
 
 describe("file upload command", () => {
-  test("rejects storage types that cannot upload", async () => {
-    const program = new Command("ech0");
-    registerCatalogCommands(
-      program,
-      { ops: { "file.upload": UPLOAD } },
-      {
-        run: async () => ({ human: "", json: "" }),
-        scope: () => true,
-      },
-    );
-
-    await expect(
-      program.parseAsync(
-        ["file", "upload", "--file", "/tmp/a.png", "--storage-type", "external"],
-        { from: "user" },
-      ),
-    ).rejects.toThrow("storage-type");
-  });
-
-  test("infers the category from the filename", async () => {
-    const program = new Command("ech0");
-    let captured: Record<string, unknown> | undefined;
-    registerCatalogCommands(
-      program,
-      { ops: { "file.upload": UPLOAD } },
-      {
-        run: async (_command, _op, values) => {
-          captured = values;
-          return { human: "", json: "" };
-        },
-        scope: () => true,
-      },
-    );
-
-    await program.parseAsync(["file", "upload", "--file", "/tmp/a.png"], { from: "user" });
-
-    expect(captured).toEqual({ file: "/tmp/a.png", category: "image" });
-  });
-
   test("--file-name overrides the multipart filename", async () => {
     const dir = mkdtempSync(join(tmpdir(), "ech0-upload-"));
     const path = join(dir, "blob");
@@ -258,14 +222,6 @@ describe("file upload command", () => {
     expect(extra?.uploadFileName).toBe("shot.png");
   });
 
-  test("maps extensions to server categories", () => {
-    expect(categoryForFile("a.png")).toBe("image");
-    expect(categoryForFile("clip.MOV")).toBe("video");
-    expect(categoryForFile("x.m4a")).toBe("audio");
-    expect(categoryForFile("doc.pdf")).toBe("pdf");
-    expect(categoryForFile("readme.md")).toBe("markdown");
-    expect(categoryForFile("archive.zip")).toBe("file");
-  });
 });
 
 describe("parsePayload", () => {

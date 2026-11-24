@@ -11,6 +11,7 @@ import (
 	"github.com/lin-snow/ech0/internal/authz"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 const maxStateLength = 1024
@@ -191,7 +192,7 @@ func (s *OAuthServerService) consentUser(
 	if err != nil {
 		return userModel.User{}, oauthserverModel.ErrAccessDenied("approving user not found")
 	}
-	if !user.IsAdmin {
+	if err := authz.Decide(viewer.NewSession(user.ID, user.Role, authz.ScopesForRole(user.Role)), authz.OAuthManage, authz.Instance()); err != nil {
 		return userModel.User{}, oauthserverModel.ErrAccessDenied(
 			"only administrators can authorize MCP clients")
 	}

@@ -9,17 +9,20 @@ import (
 	"testing"
 	"time"
 
-	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
 func TestSiteKeysMatchSystemSetting(t *testing.T) {
 	// Behaviour switches stay out of a capsule: importing content must not flip
 	// how the receiving instance behaves.
-	behaviourOnly := []string{"allow_register", "disable_agent_discovery"}
+	behaviourOnly := []string{"allow_register", "enable_agent_discovery"}
+	// Input-only fields are not content either: server_logo_file_id addresses an
+	// upload that the importer re-links from file_links, so a capsule never
+	// carries it.
+	inputOnly := []string{"server_logo_file_id"}
 
 	want := tagSet(t, reflect.TypeFor[settingModel.SystemSetting](), "json")
-	for _, key := range behaviourOnly {
+	for _, key := range append(behaviourOnly, inputOnly...) {
 		delete(want, key)
 	}
 	got := tagSet(t, reflect.TypeFor[Site](), "yaml")
@@ -29,18 +32,19 @@ func TestSiteKeysMatchSystemSetting(t *testing.T) {
 	}
 }
 
-func TestFileRefKeysAreFileColumns(t *testing.T) {
-	fileCols := tagSet(t, reflect.TypeFor[fileModel.File](), "json")
-	excluded := map[string]struct{}{
-		"storage_type": {}, "provider": {}, "bucket": {}, "user_id": {}, "created_at": {},
+func TestFileRefIsThePortableProjection(t *testing.T) {
+	want := map[string]struct{}{
+		"id": {}, "key": {}, "url": {}, "name": {}, "content_type": {},
+		"size": {}, "width": {}, "height": {}, "category": {},
+	}
+	got := tagSet(t, reflect.TypeFor[FileRef](), "yaml")
+	if !reflect.DeepEqual(want, got) {
+		t.Fatalf("FileRef 键集合变了\nwant: %v\ngot:  %v", keys(want), keys(got))
 	}
 
-	for k := range tagSet(t, reflect.TypeFor[FileRef](), "yaml") {
-		if _, ok := fileCols[k]; !ok {
-			t.Errorf("FileRef.%s 不是 File 的列", k)
-		}
-		if _, bad := excluded[k]; bad {
-			t.Errorf("FileRef.%s 是运行时拓扑列，禁止入胶囊", k)
+	for _, runtimeOnly := range []string{"storage_id", "object_key", "blob_bytes", "kind", "status", "access"} {
+		if _, ok := got[runtimeOnly]; ok {
+			t.Errorf("FileRef.%s 是运行时拓扑列，禁止入胶囊", runtimeOnly)
 		}
 	}
 }
@@ -140,13 +144,12 @@ func TestDecodeEchoRequiresFrontmatter(t *testing.T) {
 
 func TestMediaPath(t *testing.T) {
 	cases := map[string]string{
-		"a.png":     "files/images/a.png",
-		"clip.mp4":  "files/videos/clip.mp4",
-		"song.mp3":  "files/audios/song.mp3",
-		"paper.pdf": "files/documents/paper.pdf",
-		"notes.txt": "files/files/notes.txt",
-		"noext":     "files/files/noext",
-		"UPPER.PNG": "files/images/UPPER.PNG",
+		"2026/11/a.png":           "files/2026/11/a.png",
+		"2026/11/clip.mp4":        "files/2026/11/clip.mp4",
+		"blob/0193f1a1-aaaa":      "files/blob/0193f1a1-aaaa",
+		"2026/11/UPPER.PNG":       "files/2026/11/UPPER.PNG",
+		"2026/11/noext":           "files/2026/11/noext",
+		"2026/11/deep/nested.bin": "files/2026/11/deep/nested.bin",
 	}
 	for key, want := range cases {
 		if got := MediaPath(key); got != want {
@@ -156,13 +159,15 @@ func TestMediaPath(t *testing.T) {
 }
 
 func TestValidateKey(t *testing.T) {
-	for _, bad := range []string{"", "sub/dir.png", "../escape.png", "a/../b.png", `win\path.png`} {
+	for _, bad := range []string{"", "../escape.png", "/abs.png", `win\path.png`, "a/../b.png", "./a.png"} {
 		if err := ValidateKey(bad); err == nil {
 			t.Errorf("ValidateKey(%q) should fail", bad)
 		}
 	}
-	if err := ValidateKey("ok_1735689600_deadbeef.png"); err != nil {
-		t.Errorf("ValidateKey rejected a legit flat key: %v", err)
+	for _, good := range []string{"2026/11/0193f1a1-aaaa.png", "blob/0193f1a1-aaaa", "a.png"} {
+		if err := ValidateKey(good); err != nil {
+			t.Errorf("ValidateKey(%q) rejected a clean relative key: %v", good, err)
+		}
 	}
 }
 

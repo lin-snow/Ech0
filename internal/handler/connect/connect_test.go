@@ -6,6 +6,7 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
@@ -17,16 +18,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func assertBizErr(t *testing.T, err error, wantCode string) {
+func assertStatusErr(t *testing.T, err error, wantStatus int) {
 	t.Helper()
 	require.Error(t, err)
-	var be *commonModel.BizError
-	require.ErrorAs(t, err, &be)
-	assert.Equal(t, wantCode, be.Code)
+	var se *commonModel.StatusError
+	require.ErrorAs(t, err, &se)
+	assert.Equal(t, wantStatus, se.Status)
 }
 
-func bizErr() *commonModel.BizError {
-	return commonModel.NewBizError(commonModel.ErrCodeInternal, "boom")
+func internalErr() error {
+	return commonModel.Fail(http.StatusInternalServerError, "boom")
 }
 
 func TestConnectHandler_GetConnect(t *testing.T) {
@@ -39,21 +40,19 @@ func TestConnectHandler_GetConnect(t *testing.T) {
 		out, err := h.GetConnect(context.Background(), &connectHandler.GetConnectInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.CONNECT_SUCCESS, out.Message)
-		assert.Equal(t, want, out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, want, out.Body)
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
-		svc.EXPECT().GetConnect().Return(connectModel.Connect{}, bizErr()).Once()
+		svc.EXPECT().GetConnect().Return(connectModel.Connect{}, internalErr()).Once()
 
 		h := connectHandler.NewConnectHandler(svc)
 		out, err := h.GetConnect(context.Background(), &connectHandler.GetConnectInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInternal)
-		assert.Equal(t, 0, out.Code)
-		assert.Empty(t, out.Data)
+		assertStatusErr(t, err, http.StatusInternalServerError)
+		assert.Nil(t, out)
 	})
 }
 
@@ -67,19 +66,20 @@ func TestConnectHandler_GetConnects(t *testing.T) {
 		out, err := h.GetConnects(context.Background(), &connectHandler.GetConnectsInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_CONNECTED_LIST_SUCCESS, out.Message)
-		assert.Equal(t, want, out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, want, out.Body.Items)
+		assert.Nil(t, out.Body.Total)
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
-		svc.EXPECT().GetConnects().Return(nil, bizErr()).Once()
+		svc.EXPECT().GetConnects().Return(nil, internalErr()).Once()
 
 		h := connectHandler.NewConnectHandler(svc)
 		out, err := h.GetConnects(context.Background(), &connectHandler.GetConnectsInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInternal)
-		assert.Nil(t, out.Data)
+		assertStatusErr(t, err, http.StatusInternalServerError)
+		assert.Nil(t, out)
 	})
 }
 
@@ -93,19 +93,19 @@ func TestConnectHandler_GetConnectsInfo(t *testing.T) {
 		out, err := h.GetConnectsInfo(context.Background(), &connectHandler.GetConnectsInfoInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_CONNECT_INFO_SUCCESS, out.Message)
-		assert.Equal(t, want, out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, want, out.Body.Items)
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
-		svc.EXPECT().GetConnectsInfo().Return(nil, bizErr()).Once()
+		svc.EXPECT().GetConnectsInfo().Return(nil, internalErr()).Once()
 
 		h := connectHandler.NewConnectHandler(svc)
 		out, err := h.GetConnectsInfo(context.Background(), &connectHandler.GetConnectsInfoInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInternal)
-		assert.Nil(t, out.Data)
+		assertStatusErr(t, err, http.StatusInternalServerError)
+		assert.Nil(t, out)
 	})
 }
 
@@ -119,19 +119,19 @@ func TestConnectHandler_GetConnectsHealth(t *testing.T) {
 		out, err := h.GetConnectsHealth(context.Background(), &connectHandler.GetConnectsHealthIn{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_CONNECT_HEALTH_SUCCESS, out.Message)
-		assert.Equal(t, want, out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, want, out.Body.Items)
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
-		svc.EXPECT().GetConnectsHealth().Return(nil, bizErr()).Once()
+		svc.EXPECT().GetConnectsHealth().Return(nil, internalErr()).Once()
 
 		h := connectHandler.NewConnectHandler(svc)
 		out, err := h.GetConnectsHealth(context.Background(), &connectHandler.GetConnectsHealthIn{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInternal)
-		assert.Nil(t, out.Data)
+		assertStatusErr(t, err, http.StatusInternalServerError)
+		assert.Nil(t, out)
 	})
 }
 
@@ -148,21 +148,19 @@ func TestConnectHandler_AddConnect(t *testing.T) {
 		out, err := h.AddConnect(context.Background(), &body)
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.ADD_CONNECT_SUCCESS, out.Message)
-		assert.Nil(t, out.Data)
+		require.NotNil(t, out)
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
-		be := commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, commonModel.INVALID_CONNECTION_URL)
-		svc.EXPECT().AddConnect(mock.Anything, mock.Anything).Return(be).Once()
+		svc.EXPECT().AddConnect(mock.Anything, mock.Anything).
+			Return(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_CONNECTION_URL)).Once()
 
 		h := connectHandler.NewConnectHandler(svc)
 		out, err := h.AddConnect(context.Background(), &connectHandler.AddConnectInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInvalidRequest)
-		assert.Equal(t, 0, out.Code)
+		assertStatusErr(t, err, http.StatusBadRequest)
+		assert.Nil(t, out)
 	})
 }
 
@@ -175,7 +173,7 @@ func TestConnectHandler_DeleteConnect(t *testing.T) {
 		out, err := h.DeleteConnect(context.Background(), &connectHandler.DeleteConnectInput{ID: "id-123"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DELETE_CONNECT_SUCCESS, out.Message)
+		require.NotNil(t, out)
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -186,6 +184,6 @@ func TestConnectHandler_DeleteConnect(t *testing.T) {
 		out, err := h.DeleteConnect(context.Background(), &connectHandler.DeleteConnectInput{ID: "x"})
 
 		require.Error(t, err)
-		assert.Equal(t, 0, out.Code)
+		assert.Nil(t, out)
 	})
 }

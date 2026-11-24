@@ -5,7 +5,6 @@ package service
 
 import (
 	"github.com/lin-snow/ech0/internal/kvstore"
-	"github.com/lin-snow/ech0/internal/storage"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -14,7 +13,7 @@ type CopilotService struct {
 	embedding      EmbeddingService
 	userReader     UserReader
 	durableKV      kvstore.Store
-	storage        *storage.Manager
+	files          FileService
 	recentGenGroup singleflight.Group
 	asks           *askRegistry
 }
@@ -34,14 +33,14 @@ func NewCopilotService(
 	embedding EmbeddingService,
 	userReader UserReader,
 	durableKV kvstore.Store,
-	storageManager *storage.Manager,
+	files FileService,
 ) *CopilotService {
 	return &CopilotService{
 		echoService: echoService,
 		embedding:   embedding,
 		userReader:  userReader,
 		durableKV:   durableKV,
-		storage:     storageManager,
+		files:       files,
 		asks:        newAskRegistry(),
 	}
 }

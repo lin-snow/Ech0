@@ -5,12 +5,10 @@ import type { FileCategory, FileEntity } from '../types'
 
 export class FileRegistry {
   private byId = new Map<string, FileEntity>()
-  private byKey = new Map<string, FileEntity>()
 
   upsert(file: FileEntity) {
     if (!file.id) return
     this.byId.set(file.id, file)
-    if (file.key) this.byKey.set(file.key, file)
   }
 
   batchUpsert(files: FileEntity[]) {
@@ -21,10 +19,6 @@ export class FileRegistry {
     return this.byId.get(id)
   }
 
-  getByKey(key: string) {
-    return this.byKey.get(key)
-  }
-
   listByCategory(category: FileCategory) {
     return Array.from(this.byId.values()).filter((file) => file.category === category)
   }
@@ -33,12 +27,10 @@ export class FileRegistry {
     const existing = this.byId.get(id)
     if (!existing) return
     this.byId.delete(id)
-    if (existing.key) this.byKey.delete(existing.key)
   }
 
   clear() {
     this.byId.clear()
-    this.byKey.clear()
   }
 }
 

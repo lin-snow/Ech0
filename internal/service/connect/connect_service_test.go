@@ -9,6 +9,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/connect"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
@@ -21,6 +22,7 @@ import (
 	"github.com/lin-snow/ech0/internal/test/mocks/kvmock"
 	"github.com/lin-snow/ech0/internal/test/mocks/txmock"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -38,59 +40,26 @@ func passthroughTx(t *testing.T) *txmock.MockTransactor {
 	return tx
 }
 
-func adminCommon(t *testing.T, userID string) *commonmock.MockService {
-	t.Helper()
-	cs := commonmock.NewMockService(t)
-	cs.EXPECT().
-		CommonGetUserByUserId(mock.Anything, userID).
-		Return(userModel.User{IsAdmin: true}, nil).
-		Once()
-	return cs
-}
-
 func TestAddConnect_NonAdminDenied(t *testing.T) {
 	const userID = "u-1"
 	tx := passthroughTx(t)
 	cs := commonmock.NewMockService(t)
-	cs.EXPECT().
-		CommonGetUserByUserId(mock.Anything, userID).
-		Return(userModel.User{IsAdmin: false}, nil).
-		Once()
 	repo := connectmock.NewMockRepository(t)
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
 	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: "https://example.com"})
 
-	require.Error(t, err)
-	assert.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
-}
-
-func TestAddConnect_UserLookupErrorPropagates(t *testing.T) {
-	const userID = "u-1"
-	wantErr := errors.New("db down")
-	tx := passthroughTx(t)
-	cs := commonmock.NewMockService(t)
-	cs.EXPECT().
-		CommonGetUserByUserId(mock.Anything, userID).
-		Return(userModel.User{}, wantErr).
-		Once()
-	repo := connectmock.NewMockRepository(t)
-
-	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: "https://example.com"})
-
-	require.Error(t, err)
-	assert.ErrorIs(t, err, wantErr)
+	require.ErrorIs(t, err, authz.ErrDenied)
 }
 
 func TestAddConnect_EmptyURLRejected(t *testing.T) {
 	const userID = "u-1"
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: ""})
+	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: ""})
 
 	require.Error(t, err)
 	assert.EqualError(t, err, commonModel.INVALID_CONNECTION_URL)
@@ -117,11 +86,11 @@ func TestAddConnect_SSRFPrevalidation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			tx := passthroughTx(t)
-			cs := adminCommon(t, userID)
+			cs := commonmock.NewMockService(t)
 			repo := connectmock.NewMockRepository(t)
 
 			svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-			err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: tc.url})
+			err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: tc.url})
 
 			require.Error(t, err)
 			assert.EqualError(t, err, commonModel.INVALID_CONNECTION_URL)
@@ -132,7 +101,7 @@ func TestAddConnect_SSRFPrevalidation(t *testing.T) {
 func TestAddConnect_DuplicateRejected(t *testing.T) {
 	const userID = "u-1"
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 	repo.EXPECT().
 		GetAllConnects(mock.Anything).
@@ -140,7 +109,7 @@ func TestAddConnect_DuplicateRejected(t *testing.T) {
 		Once()
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: "https://example.com"})
+	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: "https://example.com"})
 
 	require.Error(t, err)
 	assert.EqualError(t, err, commonModel.CONNECT_HAS_EXISTS)
@@ -150,7 +119,7 @@ func TestAddConnect_GetAllConnectsErrorPropagates(t *testing.T) {
 	const userID = "u-1"
 	wantErr := errors.New("list failed")
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 	repo.EXPECT().
 		GetAllConnects(mock.Anything).
@@ -158,7 +127,7 @@ func TestAddConnect_GetAllConnectsErrorPropagates(t *testing.T) {
 		Once()
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: "https://example.com"})
+	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: "https://example.com"})
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, wantErr)
@@ -167,7 +136,7 @@ func TestAddConnect_GetAllConnectsErrorPropagates(t *testing.T) {
 func TestAddConnect_Success_TrimsURLBeforePersist(t *testing.T) {
 	const userID = "u-1"
 	tx := passthroughTx(t)
-	cs := adminCommon(t, userID)
+	cs := commonmock.NewMockService(t)
 	repo := connectmock.NewMockRepository(t)
 	repo.EXPECT().
 		GetAllConnects(mock.Anything).
@@ -181,7 +150,7 @@ func TestAddConnect_Success_TrimsURLBeforePersist(t *testing.T) {
 		Once()
 
 	svc := connectService.NewConnectService(tx, repo, nil, cs, nil)
-	err := svc.AddConnect(helpers.CtxAsUser(userID), model.Connected{ConnectURL: "  https://example.com/  "})
+	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: "  https://example.com/  "})
 
 	require.NoError(t, err)
 }
@@ -224,7 +193,7 @@ func TestGetConnect_LogoDerivation(t *testing.T) {
 				Once()
 
 			cs := commonmock.NewMockService(t)
-			cs.EXPECT().GetPrimaryAdmin().Return(userModel.User{Username: "owner"}, nil).Once()
+			cs.EXPECT().GetOwner().Return(userModel.User{Username: "owner"}, nil).Once()
 
 			echoRepo := connectmock.NewMockEchoRepository(t)
 			echoRepo.EXPECT().GetTodayEchos(echoModel.PrivateScope{All: true}, "UTC").Return([]echoModel.Echo{}).Once()
@@ -247,7 +216,7 @@ func TestGetConnect_PopulatesMetrics(t *testing.T) {
 		Once()
 
 	cs := commonmock.NewMockService(t)
-	cs.EXPECT().GetPrimaryAdmin().Return(userModel.User{Username: "alice"}, nil).Once()
+	cs.EXPECT().GetOwner().Return(userModel.User{Username: "alice"}, nil).Once()
 
 	echoRepo := connectmock.NewMockEchoRepository(t)
 	echoRepo.EXPECT().GetTodayEchos(echoModel.PrivateScope{All: true}, "UTC").Return(make([]echoModel.Echo, 3)).Once()
@@ -290,7 +259,7 @@ func TestGetConnect_OwnerErrorShortCircuits(t *testing.T) {
 		Once()
 
 	cs := commonmock.NewMockService(t)
-	cs.EXPECT().GetPrimaryAdmin().Return(userModel.User{}, wantErr).Once()
+	cs.EXPECT().GetOwner().Return(userModel.User{}, wantErr).Once()
 
 	echoRepo := connectmock.NewMockEchoRepository(t)
 

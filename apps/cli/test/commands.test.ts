@@ -26,7 +26,7 @@ describe("auth login", () => {
   test("verifies the token, stores profile and token", async () => {
     api = startFakeApi({
       "GET /api/user": () => ({
-        body: { code: 1, msg: "ok", data: { id: "u1", username: "owner", is_admin: true } },
+        body: { id: "u1", username: "owner", role: "owner" },
       }),
     });
     const dir = mkdtempSync(join(tmpdir(), "ech0-cli-login-"));
@@ -41,7 +41,7 @@ describe("auth login", () => {
     const saved = loadConfig(join(dir, "config.json"));
     expect(saved.default).toBe("memo");
     expect(saved.profiles.memo?.user).toBe("owner");
-    expect(saved.profiles.memo?.isAdmin).toBe(true);
+    expect(saved.profiles.memo?.role).toBe("owner");
     expect((await readToken("memo", ctx.credentialsPath))?.value).toBe("tok-login");
   });
 });

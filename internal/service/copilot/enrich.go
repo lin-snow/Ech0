@@ -13,7 +13,6 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	embeddingModel "github.com/lin-snow/ech0/internal/model/embedding"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
-	"github.com/lin-snow/ech0/internal/storage"
 )
 
 const maxChatImages = 4
@@ -42,12 +41,12 @@ func (s *CopilotService) enrichHits(
 
 		var files []fileModel.File
 		for _, ef := range echo.EchoFiles {
-			cat := storage.NormalizeCategory(ef.File.Category)
+			cat := fileModel.CategoryOf(ef.File.ContentType)
 			switch cat {
-			case storage.CategoryImage, storage.CategoryVideo, storage.CategoryAudio:
+			case fileModel.CategoryImage, fileModel.CategoryVideo, fileModel.CategoryAudio:
 				files = append(files, ef.File)
 			}
-			if cat.IsImageLike() && multimodal && s.storage != nil && len(images) < maxChatImages {
+			if cat == fileModel.CategoryImage && multimodal && len(images) < maxChatImages {
 				if part, ok := s.loadImagePart(ctx, ef.File); ok && budget.take(len(part.Base64)+len(part.URL)) {
 					images = append(images, part)
 				}
@@ -108,31 +107,30 @@ func formatExtension(ext *echoModel.EchoExtension) string {
 }
 
 func (s *CopilotService) loadImagePart(ctx context.Context, f fileModel.File) (agent.ImagePart, bool) {
-	if !storage.NormalizeCategory(f.Category).IsImageLike() {
+	if fileModel.CategoryOf(f.ContentType) != fileModel.CategoryImage {
 		return agent.ImagePart{}, false
 	}
 
-	st := storage.NormalizeStorageType(f.StorageType)
-	if st == storage.StorageTypeExternal {
-		if f.URL == "" {
+	if f.IsRef() {
+		if f.RefURL == nil || *f.RefURL == "" {
 			return agent.ImagePart{}, false
 		}
-		mediaType, ok := mediaTypeOfURL(f.ContentType, f.URL)
+		mediaType, ok := mediaTypeOfURL(f.ContentType, *f.RefURL)
 		if !ok {
 			return agent.ImagePart{}, false
 		}
-		return agent.ImagePart{MediaType: mediaType, URL: f.URL}, true
+		return agent.ImagePart{MediaType: mediaType, URL: *f.RefURL}, true
 	}
 
 	if f.Size > maxSourceImageBytes {
 		return agent.ImagePart{}, false
 	}
-	reader, err := s.storage.GetSelector().Get(ctx, st, f.Key)
-	if err != nil {
+	opened, err := s.files.Open(ctx, f.ID, nil)
+	if err != nil || opened.Reader == nil {
 		return agent.ImagePart{}, false
 	}
-	defer func() { _ = reader.Close() }()
-	data, err := io.ReadAll(io.LimitReader(reader, maxSourceImageBytes+1))
+	defer func() { _ = opened.Reader.Close() }()
+	data, err := io.ReadAll(io.LimitReader(opened.Reader, maxSourceImageBytes+1))
 	if err != nil || len(data) == 0 || len(data) > maxSourceImageBytes {
 		return agent.ImagePart{}, false
 	}

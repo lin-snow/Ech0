@@ -42,8 +42,8 @@ onMounted(() => {
   if (AgentSetting.value.enable) {
     fetchGetRecent()
       .then((res) => {
-        if (res.code === 1) {
-          recent.value = res.data
+        if (res) {
+          recent.value = res
         }
       })
       .catch((err) => {

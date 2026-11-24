@@ -139,7 +139,7 @@ npx -y mcp-remote@0.16.0 http://localhost:6277/mcp 53682 --debug
 | Tool | `get_on_this_day_posts` | 获取往年同月同日的帖子（"历史上的今天"，支持 IANA 时区参数） | `echo:read` |
 | Tool | `list_tags` | 列出全部标签（id、名称、使用次数） | `echo:read` |
 | Tool | `create_post` | 创建帖子；支持 `content`、`echo_files`、`layout`、`extension`，至少提供其一 | `echo:write` |
-| Tool | `update_post` | 更新帖子；`echo_files` / `extension` 提供时为**全量替换** | `echo:write` |
+| Tool | `update_post` | 更新帖子；`echo_files` 省略时保留现有附件，提供时**全量替换**（`[]` 清空）；`extension` 提供时替换 | `echo:write` |
 | Tool | `delete_post` | 永久删除帖子 | `echo:delete` |
 | Tool | `react_to_post` | 添加/移除帖子表情反应（幂等，返回该帖最新聚合） | `echo:write` |
 | Tool | `delete_tag` | 删除标签并解除与所有帖子的关联 | `echo:delete` |
@@ -169,7 +169,7 @@ npx -y mcp-remote@0.16.0 http://localhost:6277/mcp 53682 --debug
 | Tool | `create_external_file` | 用外部 URL 注册文件记录（无需上传）；返回含 `id` 的文件元信息，可直接用于 `echo_files` | `file:write` |
 | Resource | `ech0://guide/file-upload` | 文件上传指南：REST 上传端点、参数、curl 示例、以及如何将上传结果用于 `create_post` | `file:read` |
 
-> **提示**：本地文件上传通过 REST API（`POST /api/files/upload`，multipart/form-data）完成。AI Agent 可读取 `ech0://guide/file-upload` 获取完整操作指南。已有 URL 的外部文件可直接使用 `create_external_file` 注册。
+> **提示**：本地文件上传通过 REST API（`POST /api/files`，multipart/form-data，`file` + 可选 `profile` / `name`）完成。AI Agent 可读取 `ech0://guide/file-upload` 获取完整操作指南。已有 URL 的外部文件可直接使用 `create_external_file` 注册。
 
 ### Connects（实例互联）
 

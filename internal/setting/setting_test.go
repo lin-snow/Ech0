@@ -12,7 +12,6 @@ import (
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
 type demo struct {
@@ -58,15 +57,15 @@ func TestGet_ReadsStoredValue(t *testing.T) {
 	}
 }
 
-func TestGet_AppliesNormalizeToStoredValue(t *testing.T) {
+func TestGet_AbsentFieldKeepsDefault(t *testing.T) {
 	kv := kvstore.NewMemory()
 	_ = kv.Set(context.Background(), demoSpec.Key, `{"name":"stored"}`)
 	got, err := demoSpec.Get(context.Background(), kv)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	if got.Tag != "normalized" {
-		t.Fatalf("want tag normalized, got %q", got.Tag)
+	if got.Name != "stored" || got.Tag != "t" {
+		t.Fatalf("want absent field to keep default tag t, got %+v", got)
 	}
 }
 
@@ -120,14 +119,49 @@ func TestSet_AppliesNormalizeOnWrite(t *testing.T) {
 	}
 }
 
-func TestSeed_PopulatesMissingKeys(t *testing.T) {
+func TestSet_RejectsInvalidValue(t *testing.T) {
 	kv := kvstore.NewMemory()
-	if err := Seed(context.Background(), kv); err != nil {
+	spec := Spec[demo]{
+		Key:     "validated_key",
+		Default: func() demo { return demo{} },
+		Validate: func(d demo) error {
+			if d.Name == "" {
+				return errors.New("name required")
+			}
+			return nil
+		},
+	}
+	if err := spec.Set(context.Background(), kv, demo{Tag: "t"}); err == nil {
+		t.Fatal("want validation error")
+	}
+	if _, err := kv.Get(context.Background(), spec.Key); !errors.Is(err, kvstore.ErrNotFound) {
+		t.Fatalf("invalid value must not be persisted, got err=%v", err)
+	}
+	if err := spec.Set(context.Background(), kv, demo{Name: "ok"}); err != nil {
+		t.Fatalf("valid set: %v", err)
+	}
+}
+
+func TestMigrate_DropsLegacyServerURLKey(t *testing.T) {
+	kv := kvstore.NewMemory()
+	if err := kv.Set(context.Background(), "server_url", "https://legacy.example.com"); err != nil {
+		t.Fatalf("seed legacy key: %v", err)
+	}
+	if err := Migrate(context.Background(), kv); err != nil {
 		t.Fatalf("seed: %v", err)
+	}
+	if _, err := kv.Get(context.Background(), "server_url"); !errors.Is(err, kvstore.ErrNotFound) {
+		t.Fatalf("want legacy server_url removed, got err=%v", err)
+	}
+}
+
+func TestMigrate_DoesNotMaterializeDefaults(t *testing.T) {
+	kv := kvstore.NewMemory()
+	if err := Migrate(context.Background(), kv); err != nil {
+		t.Fatalf("migrate: %v", err)
 	}
 	for _, key := range []string{
 		commonModel.SystemSettingsKey,
-		commonModel.ServerURLKey,
 		commonModel.OAuth2SettingKey,
 		commonModel.S3SettingKey,
 		commonModel.PasskeySettingKey,
@@ -136,31 +170,29 @@ func TestSeed_PopulatesMissingKeys(t *testing.T) {
 		commonModel.EmbeddingSettingKey,
 		commentModel.CommentSystemSettingKey,
 	} {
-		if _, err := kv.Get(context.Background(), key); err != nil {
-			t.Errorf("key %q not seeded: %v", key, err)
+		if _, err := kv.Get(context.Background(), key); !errors.Is(err, kvstore.ErrNotFound) {
+			t.Errorf("key %q must stay unwritten until a write, got err=%v", key, err)
 		}
 	}
 }
 
-func TestSeed_IdempotentDoesNotOverwrite(t *testing.T) {
-	kv := kvstore.NewMemory()
-	_ = kv.Set(context.Background(), commonModel.SystemSettingsKey, `{"site_title":"custom"}`)
-	if err := Seed(context.Background(), kv); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	got, err := System.Get(context.Background(), kv)
+func TestSystem_UnstoredDefaults(t *testing.T) {
+	got, err := System.Get(context.Background(), kvstore.NewMemory())
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if got.SiteTitle != "custom" {
-		t.Fatalf("seed must not overwrite user value, got SiteTitle=%q", got.SiteTitle)
+	if got.SiteTitle == "" {
+		t.Fatal("want a non-empty default site title")
+	}
+	if !got.EnableAgentDiscovery {
+		t.Fatal("agent discovery must default on")
 	}
 }
 
-func TestSeed_CommentDefaultsSMTPPort(t *testing.T) {
+func TestComment_GetDefaultsSMTPPort(t *testing.T) {
 	kv := kvstore.NewMemory()
-	if err := Seed(context.Background(), kv); err != nil {
-		t.Fatalf("seed: %v", err)
+	if err := Migrate(context.Background(), kv); err != nil {
+		t.Fatalf("migrate: %v", err)
 	}
 	got, err := Comment.Get(context.Background(), kv)
 	if err != nil {
@@ -171,13 +203,13 @@ func TestSeed_CommentDefaultsSMTPPort(t *testing.T) {
 	}
 }
 
-func TestSeed_PasskeyMigratesFromLegacyOAuth2(t *testing.T) {
+func TestMigrate_PasskeyFromLegacyOAuth2(t *testing.T) {
 	kv := kvstore.NewMemory()
 	_ = kv.Set(context.Background(), commonModel.OAuth2SettingKey,
 		`{"webauthn_rp_id":"example.com","webauthn_allowed_origins":["https://example.com"]}`)
 
-	if err := Seed(context.Background(), kv); err != nil {
-		t.Fatalf("seed: %v", err)
+	if err := Migrate(context.Background(), kv); err != nil {
+		t.Fatalf("migrate: %v", err)
 	}
 
 	got, err := Passkey.Get(context.Background(), kv)
@@ -192,38 +224,63 @@ func TestSeed_PasskeyMigratesFromLegacyOAuth2(t *testing.T) {
 	}
 }
 
-var _ = []seedable{System, serverURLSeed{}, Spec[settingModel.AgentSetting]{}}
-
-func TestSystem_AgentDiscoveryDefaultsOnForLegacyBlobs(t *testing.T) {
+func TestMigrate_AgentDiscoveryFlag(t *testing.T) {
 	cases := []struct {
-		name  string
-		store string
-		want  bool
+		name      string
+		store     string
+		want      bool
+		rewritten bool
 	}{
 		{
-			name:  "older-blob-without-key",
-			store: `{"site_title":"Legacy"}`,
-			want:  false,
+			name:      "legacy-opt-out",
+			store:     `{"site_title":"Legacy","disable_agent_discovery":true}`,
+			want:      false,
+			rewritten: true,
 		},
 		{
-			name:  "explicit-opt-out",
-			store: `{"site_title":"Legacy","disable_agent_discovery":true}`,
+			name:      "legacy-enabled",
+			store:     `{"disable_agent_discovery":false}`,
+			want:      true,
+			rewritten: true,
+		},
+		{
+			name:  "flag-absent",
+			store: `{"site_title":"Legacy"}`,
 			want:  true,
+		},
+		{
+			name:  "current-flag-wins",
+			store: `{"enable_agent_discovery":false,"disable_agent_discovery":true}`,
+			want:  false,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			kv := kvstore.NewMemory()
 			if err := kv.Set(context.Background(), commonModel.SystemSettingsKey, tc.store); err != nil {
-				t.Fatalf("seed kv: %v", err)
+				t.Fatalf("write blob: %v", err)
+			}
+			if err := Migrate(context.Background(), kv); err != nil {
+				t.Fatalf("migrate: %v", err)
+			}
+			raw, err := kv.Get(context.Background(), commonModel.SystemSettingsKey)
+			if err != nil {
+				t.Fatalf("read back: %v", err)
+			}
+			if tc.rewritten {
+				if strings.Contains(raw, "disable_agent_discovery") || !strings.Contains(raw, `"enable_agent_discovery":`) {
+					t.Fatalf("want the opt-out rewritten to the positive flag, got %s", raw)
+				}
+			} else if raw != tc.store {
+				t.Fatalf("blob must stay untouched, got %s", raw)
 			}
 
 			got, err := System.Get(context.Background(), kv)
 			if err != nil {
-				t.Fatalf("unexpected err: %v", err)
+				t.Fatalf("get: %v", err)
 			}
-			if got.DisableAgentDiscovery != tc.want {
-				t.Fatalf("DisableAgentDiscovery = %v, want %v", got.DisableAgentDiscovery, tc.want)
+			if got.EnableAgentDiscovery != tc.want {
+				t.Fatalf("EnableAgentDiscovery = %v, want %v (blob %s)", got.EnableAgentDiscovery, tc.want, raw)
 			}
 		})
 	}

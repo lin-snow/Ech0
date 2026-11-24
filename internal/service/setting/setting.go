@@ -6,7 +6,6 @@ package service
 import (
 	accessService "github.com/lin-snow/ech0/internal/access"
 	"github.com/lin-snow/ech0/internal/kvstore"
-	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/internal/transaction"
 	webhookclient "github.com/lin-snow/ech0/internal/webhook"
 	"github.com/lin-snow/ech0/pkg/busen"
@@ -16,7 +15,6 @@ type SettingService struct {
 	transactor        transaction.Transactor
 	commonService     CommonService
 	fileService       FileService
-	storageManager    *storage.Manager
 	durableKV         kvstore.Store
 	settingRepository SettingRepository
 	webhookRepository WebhookRepository
@@ -30,7 +28,6 @@ func NewSettingService(
 	tx transaction.Transactor,
 	commonService CommonService,
 	fileService FileService,
-	storageManager *storage.Manager,
 	durableKV kvstore.Store,
 	settingRepository SettingRepository,
 	webhookRepository WebhookRepository,
@@ -43,7 +40,6 @@ func NewSettingService(
 		transactor:        tx,
 		commonService:     commonService,
 		fileService:       fileService,
-		storageManager:    storageManager,
 		durableKV:         durableKV,
 		webhookRepository: webhookRepository,
 		webhookSender:     webhookSender,

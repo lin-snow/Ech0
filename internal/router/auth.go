@@ -10,7 +10,6 @@ import (
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupAuthRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
@@ -50,8 +49,8 @@ func setupAuthRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	)
 }
 
-func registerAuth(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	api.route(sessionOnly(revoker), huma.Operation{
+func registerAuth(api *apiRegistry, h *handler.Bundle) {
+	api.route(session(), huma.Operation{
 		OperationID: "oauth-bind",
 		Method:      http.MethodPost,
 		Path:        "/oauth/{provider}/bind",
@@ -59,7 +58,7 @@ func registerAuth(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.OAuthBind)
 
-	api.route(secured(revoker, authz.ScopeProfileRead), huma.Operation{
+	api.route(scoped(authz.ScopeProfileRead), huma.Operation{
 		OperationID: "oauth-info",
 		Method:      http.MethodGet,
 		Path:        "/oauth/info",
@@ -67,7 +66,7 @@ func registerAuth(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.GetOAuthInfo)
 
-	api.route(secured(revoker, authz.ScopeProfileRead), huma.Operation{
+	api.route(scoped(authz.ScopeProfileRead), huma.Operation{
 		OperationID: "passkey-list",
 		Method:      http.MethodGet,
 		Path:        "/passkeys",
@@ -75,7 +74,7 @@ func registerAuth(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.ListPasskeys)
 
-	api.route(sessionOnly(revoker), huma.Operation{
+	api.route(session(), huma.Operation{
 		OperationID: "passkey-delete",
 		Method:      http.MethodDelete,
 		Path:        "/passkeys/{id}",
@@ -83,7 +82,7 @@ func registerAuth(api *apiRegistry, h *handler.Bundle, revoker authService.Token
 		Tags:        []string{"Auth"},
 	}, h.AuthHandler.DeletePasskey)
 
-	api.route(sessionOnly(revoker), huma.Operation{
+	api.route(session(), huma.Operation{
 		OperationID: "passkey-update-name",
 		Method:      http.MethodPut,
 		Path:        "/passkeys/{id}",

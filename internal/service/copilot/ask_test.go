@@ -322,7 +322,7 @@ func existingEcho() *echoModel.Echo {
 		Private:   false,
 		Tags:      []echoModel.Tag{{ID: "t1", Name: "日常"}},
 		CreatedAt: ts("2026-01-02"),
-		EchoFiles: []echoModel.EchoFile{{ID: "f1"}},
+		EchoFiles: []echoModel.EchoFile{{FileID: "f1"}},
 		Layout:    echoModel.LayoutGrid,
 		Extension: &echoModel.EchoExtension{
 			ID:      "x1",
@@ -565,7 +565,7 @@ func TestUpdateEchoTool_CarriesUnshownFieldsThrough(t *testing.T) {
 	if got.Content != "改过的内容" {
 		t.Fatalf("content = %q, want the new text", got.Content)
 	}
-	if len(got.EchoFiles) != 1 || got.EchoFiles[0].ID != "f1" {
+	if len(got.EchoFiles) != 1 || got.EchoFiles[0].FileID != "f1" {
 		t.Fatalf("files = %+v, want the existing file carried through", got.EchoFiles)
 	}
 	// UpdateEcho deletes and re-creates the extension row from what it is handed,

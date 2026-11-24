@@ -44,11 +44,7 @@ describe('editor update session', () => {
   })
 
   it('loads the fetched echo into a single update session', async () => {
-    fetchByIdMock.mockResolvedValue({
-      code: 1,
-      msg: '',
-      data: echo('echo-1'),
-    })
+    fetchByIdMock.mockResolvedValue(echo('echo-1'))
 
     const editorStore = useEditorStore()
     await editorStore.startUpdate(echo('echo-1'))
@@ -77,7 +73,7 @@ describe('editor update session', () => {
       type: ExtensionType.WEBSITE,
       payload: { title: 'Example', site: 'https://example.com' },
     }
-    fetchByIdMock.mockResolvedValue({ code: 1, msg: '', data: target })
+    fetchByIdMock.mockResolvedValue(target)
 
     const editorStore = useEditorStore()
     await editorStore.startUpdate(echo('echo-2'))
@@ -89,7 +85,7 @@ describe('editor update session', () => {
   })
 
   it('returns to compose after exiting the update session', async () => {
-    fetchByIdMock.mockResolvedValue({ code: 1, msg: '', data: echo('echo-3') })
+    fetchByIdMock.mockResolvedValue(echo('echo-3'))
 
     const editorStore = useEditorStore()
     await editorStore.startUpdate(echo('echo-3'))

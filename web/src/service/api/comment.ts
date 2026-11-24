@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { request } from '../request'
+import { reportProblemDetail, request } from '../request'
 
 export function fetchGetCommentFormMeta() {
   return request<App.Api.Comment.FormMeta>({
@@ -104,6 +104,7 @@ export function fetchUpdateCommentSystemSetting(setting: App.Api.Comment.SystemS
 export function fetchTestCommentEmail(setting: App.Api.Comment.SystemSetting) {
   return request({
     url: '/panel/comments/settings/test-email',
+    onProblem: reportProblemDetail,
     method: 'POST',
     data: { setting },
   })

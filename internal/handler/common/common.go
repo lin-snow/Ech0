@@ -14,10 +14,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	res "github.com/lin-snow/ech0/internal/handler/response"
+	"github.com/lin-snow/ech0/internal/httperr"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/common"
-	errorUtil "github.com/lin-snow/ech0/internal/util/err"
 	"github.com/lin-snow/ech0/internal/util/reqinfo"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
@@ -40,9 +40,11 @@ type (
 )
 
 type (
-	HeatmapOutput = commonModel.Result[[]commonModel.Heatmap]
-	HelloOutput   = commonModel.Result[HelloResponse]
-	StringOutput  = commonModel.Result[string]
+	HeatmapOutput struct {
+		Body commonModel.List[commonModel.Heatmap]
+	}
+	HelloOutput  struct{ Body HelloResponse }
+	StringOutput struct{ Body string }
 )
 
 type CommonHandler struct {
@@ -71,24 +73,22 @@ func NewCommonHandler(commonService service.Service, durableKV kvstore.Store) *C
 	}
 }
 
-func (commonHandler *CommonHandler) GetHeatMap(ctx context.Context, in *GetHeatMapInput) (HeatmapOutput, error) {
+func (commonHandler *CommonHandler) GetHeatMap(_ context.Context, in *GetHeatMapInput) (*HeatmapOutput, error) {
 	heatMap, err := commonHandler.commonService.GetHeatMap(timezoneUtil.NormalizeTimezone(in.Timezone))
 	if err != nil {
-		return HeatmapOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(heatMap, commonModel.GET_HEATMAP_SUCCESS), nil
+	return &HeatmapOutput{Body: commonModel.List[commonModel.Heatmap]{Items: heatMap}}, nil
+}
+
+func writeProblem(ctx *gin.Context, err error) {
+	httperr.Write(ctx, err)
 }
 
 func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
 	doc, err := commonHandler.commonService.GenerateRSS(ctx)
 	if err != nil {
-		ctx.JSON(
-			http.StatusOK,
-			commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
-				Msg: "",
-				Err: err,
-			})),
-		)
+		writeProblem(ctx, err)
 		return
 	}
 
@@ -102,36 +102,33 @@ func (commonHandler *CommonHandler) GetRss(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "application/atom+xml; charset=utf-8", []byte(doc.Atom))
 }
 
-func (commonHandler *CommonHandler) HelloEch0(ctx context.Context, _ *HelloInput) (HelloOutput, error) {
+func (commonHandler *CommonHandler) HelloEch0(_ context.Context, _ *HelloInput) (*HelloOutput, error) {
 	hello := HelloResponse{
 		Hello:     "Hello, Ech0! 👋",
 		Copyright: versionPkg.Copyright(),
 		Info:      versionPkg.Get(),
 	}
-	return commonModel.OK(hello, commonModel.GET_HELLO_SUCCESS), nil
+	return &HelloOutput{Body: hello}, nil
 }
 
 func (commonHandler *CommonHandler) Healthz() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
-		return res.Response{
-			Msg: commonModel.GET_HEALTHZ_SUCCESS,
-			Data: struct {
-				Status  string `json:"status"`
-				Version string `json:"version"`
-			}{
-				Status:  "ok",
-				Version: versionPkg.Version,
-			},
-		}
+		return res.Payload(struct {
+			Status  string `json:"status"`
+			Version string `json:"version"`
+		}{
+			Status:  "ok",
+			Version: versionPkg.Version,
+		})
 	})
 }
 
-func (commonHandler *CommonHandler) GetWebsiteTitle(ctx context.Context, in *GetWebsiteTitleInput) (StringOutput, error) {
+func (commonHandler *CommonHandler) GetWebsiteTitle(_ context.Context, in *GetWebsiteTitleInput) (*StringOutput, error) {
 	title, err := commonHandler.commonService.GetWebsiteTitle(in.WebsiteURL)
 	if err != nil {
-		return StringOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(title, commonModel.GET_WEBSITE_TITLE_SUCCESS), nil
+	return &StringOutput{Body: title}, nil
 }
 
 func resolveBaseURL(ctx *gin.Context) string {
@@ -175,13 +172,7 @@ func (commonHandler *CommonHandler) GetSitemap(ctx *gin.Context) {
 
 	refs, err := commonHandler.commonService.ListSitemapEntries(ctx.Request.Context())
 	if err != nil {
-		ctx.JSON(
-			http.StatusInternalServerError,
-			commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
-				Msg: "",
-				Err: err,
-			})),
-		)
+		writeProblem(ctx, err)
 		return
 	}
 
@@ -207,13 +198,7 @@ func (commonHandler *CommonHandler) GetSitemap(ctx *gin.Context) {
 	encoder := xml.NewEncoder(&buf)
 	encoder.Indent("", "  ")
 	if err := encoder.Encode(urlSet); err != nil {
-		ctx.JSON(
-			http.StatusInternalServerError,
-			commonModel.Fail[string](errorUtil.HandleError(&commonModel.ServerError{
-				Msg: "",
-				Err: err,
-			})),
-		)
+		writeProblem(ctx, err)
 		return
 	}
 

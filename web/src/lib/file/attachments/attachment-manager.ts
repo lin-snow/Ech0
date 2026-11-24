@@ -4,7 +4,7 @@
 import type { FileAttachment, FileValidationRule } from '../types'
 
 function keyOf(file: FileAttachment): string {
-  return String(file.id || file.key || `${file.storage_type}:${file.url}`)
+  return String(file.id || file.url)
 }
 
 export class AttachmentManager {

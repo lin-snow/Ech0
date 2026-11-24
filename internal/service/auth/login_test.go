@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -196,13 +197,13 @@ func TestLogin_RejectsDisabledAccount(t *testing.T) {
 	require.NoError(t, err)
 
 	cases := []struct {
-		name      string
-		active    bool
-		activeErr error
-		wantCode  string
-		wantErr   error
+		name       string
+		active     bool
+		activeErr  error
+		wantStatus int
+		wantErr    error
 	}{
-		{name: "disabled account", active: false, wantCode: commonModel.ErrCodeAccountDisabled},
+		{name: "disabled account", active: false, wantStatus: http.StatusForbidden},
 		{name: "status read failure", activeErr: assert.AnError, wantErr: assert.AnError},
 	}
 
@@ -221,9 +222,13 @@ func TestLogin_RejectsDisabledAccount(t *testing.T) {
 					PasswordAlgo: cryptoUtil.AlgoBcrypt,
 				}, nil).
 				Once()
+			state := userModel.AccountState{Found: true, Status: userModel.StatusActive}
+			if !tc.active {
+				state.Status = userModel.StatusDisabled
+			}
 			authRepo.EXPECT().
-				IsAccountActive(mock.Anything, userID).
-				Return(tc.active, tc.activeErr).
+				AccountState(mock.Anything, userID).
+				Return(state, tc.activeErr).
 				Once()
 
 			pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: password})
@@ -232,9 +237,9 @@ func TestLogin_RejectsDisabledAccount(t *testing.T) {
 				require.ErrorIs(t, err, tc.wantErr)
 				return
 			}
-			var bizErr *commonModel.BizError
-			require.ErrorAs(t, err, &bizErr)
-			assert.Equal(t, tc.wantCode, bizErr.Code)
+			var fail *commonModel.StatusError
+			require.ErrorAs(t, err, &fail)
+			assert.Equal(t, tc.wantStatus, fail.Status)
 		})
 	}
 }
@@ -342,14 +347,14 @@ func TestLoginBlockedAfterRepeatedFailures(t *testing.T) {
 	// The correct password must not be evaluated once the account budget is
 	// spent: the repo expectations above are already satisfied.
 	_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "right-password"})
-	var bizErr *commonModel.BizError
-	require.ErrorAs(t, err, &bizErr)
-	require.Equal(t, commonModel.ErrCodeRateLimited, bizErr.Code)
+	var fail *commonModel.StatusError
+	require.ErrorAs(t, err, &fail)
+	require.Equal(t, http.StatusTooManyRequests, fail.Status)
 
 	// Account names are folded, so casing and padding cannot buy a new budget.
 	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: "  ALICE ", Password: "right-password"})
-	require.ErrorAs(t, err, &bizErr)
-	require.Equal(t, commonModel.ErrCodeRateLimited, bizErr.Code)
+	require.ErrorAs(t, err, &fail)
+	require.Equal(t, http.StatusTooManyRequests, fail.Status)
 }
 
 func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
@@ -394,7 +399,7 @@ func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
 	require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT)
 
 	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: rightPassword})
-	var bizErr *commonModel.BizError
-	require.ErrorAs(t, err, &bizErr)
-	require.Equal(t, commonModel.ErrCodeRateLimited, bizErr.Code)
+	var fail *commonModel.StatusError
+	require.ErrorAs(t, err, &fail)
+	require.Equal(t, http.StatusTooManyRequests, fail.Status)
 }

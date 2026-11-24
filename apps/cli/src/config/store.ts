@@ -12,7 +12,8 @@ export interface Profile {
   server: string;
   /** Last verified username, for `auth status` without a round trip. */
   user?: string;
-  isAdmin?: boolean;
+  /** Last verified role; `owner` and `admin` both reach admin surfaces. */
+  role?: string;
 }
 
 export interface Config {
@@ -48,7 +49,7 @@ export function loadConfig(path: string = configFilePath()): Config {
     profiles[name] = {
       server: value.server,
       user: typeof value.user === "string" ? value.user : undefined,
-      isAdmin: typeof value.isAdmin === "boolean" ? value.isAdmin : undefined,
+      role: typeof value.role === "string" ? value.role : undefined,
     };
   }
   return { default: typeof candidate.default === "string" ? candidate.default : undefined, profiles };

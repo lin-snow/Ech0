@@ -13,7 +13,6 @@ import (
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
@@ -31,8 +30,8 @@ func setupMCPRoutes(groups *AppRouterGroup, h *handler.Bundle) {
 	g.DELETE("", h.MCPHandler.ServeEndpoint())
 }
 
-func registerMCP(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	api.route(secured(revoker, authz.ScopeMCPRead), huma.Operation{
+func registerMCP(api *apiRegistry, h *handler.Bundle) {
+	api.route(scoped(authz.ScopeMCPRead), huma.Operation{
 		OperationID: "mcp-manifest",
 		Method:      http.MethodGet,
 		Path:        mcp.MCPEndpointPath + "/manifest",

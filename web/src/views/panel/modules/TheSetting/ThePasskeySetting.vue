@@ -201,6 +201,7 @@
 <script setup lang="ts">
 import { watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { i18n } from '@/locales'
 import PanelCard from '@/layout/PanelCard.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
@@ -331,21 +332,21 @@ function formatTime(v: number) {
 
 async function refresh() {
   const res = await fetchPasskeyDevices()
-  if (res.code === 1) devices.value = res.data ?? []
+  if (res) devices.value = res ?? []
 }
 
 async function getPasskeySetting() {
   const res = await fetchGetPasskeySettings()
-  if (res.code === 1) {
-    passkeySetting.value = res.data
-    webauthnOriginsString.value = (res.data.webauthn_allowed_origins || []).join(', ')
+  if (res) {
+    passkeySetting.value = res
+    webauthnOriginsString.value = (res.webauthn_allowed_origins || []).join(', ')
   }
 }
 
 async function refreshHealthCheck() {
   const statusRes = await fetchGetPasskeyStatus()
-  if (statusRes.code === 1) {
-    passkeyRuntimeStatus.value = statusRes.data
+  if (statusRes) {
+    passkeyRuntimeStatus.value = statusRes
   }
   const missing: string[] = []
   if (!passkeySetting.value.webauthn_rp_id) {
@@ -368,8 +369,8 @@ async function handleUpdatePasskeySetting() {
   saving.value = true
   try {
     const res = await fetchUpdatePasskeySettings(passkeySetting.value)
-    if (res.code === 1) {
-      theToast.success(res.msg)
+    if (res) {
+      theToast.success(String(i18n.global.t('common.success')))
       passkeyEditMode.value = false
       await getPasskeySetting()
       await refreshHealthCheck()
@@ -401,15 +402,15 @@ async function handleBind() {
     const begin = await fetchPasskeyRegisterBegin(
       newDeviceName.value || String(t('passkeySetting.defaultDeviceName')),
     )
-    if (begin.code !== 1) return
+    if (!begin) return
 
-    const options = normalizeCreationOptions(begin.data.publicKey)
+    const options = normalizeCreationOptions(begin.publicKey)
     const created = await navigator.credentials.create({ publicKey: options })
     if (!created) throw new Error(String(t('passkeySetting.createCredentialFailed')))
     const cred = created as PublicKeyCredential
 
-    const finish = await fetchPasskeyRegisterFinish(begin.data.nonce, credentialToJSON(cred))
-    if (finish.code !== 1) return
+    const finish = await fetchPasskeyRegisterFinish(begin.nonce, credentialToJSON(cred))
+    if (!finish) return
 
     theToast.success(String(t('passkeySetting.bindSuccess')))
     await refresh()
@@ -429,7 +430,7 @@ async function handleDelete(id: string) {
       busy.value = true
       try {
         const res = await fetchDeletePasskeyDevice(id)
-        if (res.code !== 1) return
+        if (!res) return
         theToast.success(String(t('passkeySetting.deleted')))
         await refresh()
       } finally {
@@ -448,7 +449,7 @@ async function promptRename(d: App.Api.Auth.PasskeyDevice) {
   busy.value = true
   try {
     const res = await fetchUpdatePasskeyDeviceName(d.id, name)
-    if (res.code !== 1) return
+    if (!res) return
     theToast.success(String(t('passkeySetting.updated')))
     await refresh()
   } finally {

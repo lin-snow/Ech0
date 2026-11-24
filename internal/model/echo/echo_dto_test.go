@@ -48,12 +48,12 @@ func TestEchoUpsertDto_ToModel(t *testing.T) {
 	})
 
 	t.Run("scalar_and_slice_fields_pass_through", func(t *testing.T) {
-		files := []EchoFile{{ID: "f1", FileID: "file-1", SortOrder: 2}}
+		files := []EchoFile{{FileID: "file-1", SortOrder: 2}}
 		tags := []Tag{{ID: "t1", Name: "go"}}
 		dto := &EchoUpsertDto{
 			ID:        "e9",
 			Content:   "body",
-			EchoFiles: files,
+			EchoFiles: &files,
 			Layout:    LayoutGrid,
 			Private:   true,
 			Tags:      tags,

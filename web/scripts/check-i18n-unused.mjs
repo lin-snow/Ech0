@@ -11,6 +11,15 @@ const DYNAMIC_KEY_FIELDS = ['labelKey', 'titleKey', 'textKey', 'i18nKey', 'toolt
 const ALLOW_UNUSED_PREFIXES = [
 ]
 const ALLOW_UNUSED_KEYS = new Set([
+  // Chosen by HTTP status in src/service/request/problem.ts, so no literal
+  // t() call exists for them.
+  'common.notFound',
+  'common.conflict',
+  'common.unauthorized',
+  'common.forbidden',
+  'common.invalidRequest',
+  'common.rateLimited',
+  'common.serverError',
 ])
 
 const flatten = (obj, prefix = '', result = new Set()) => {

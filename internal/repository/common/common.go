@@ -9,6 +9,7 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
+	fileRepository "github.com/lin-snow/ech0/internal/repository/file"
 	commonService "github.com/lin-snow/ech0/internal/service/common"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
@@ -41,11 +42,10 @@ func (commonRepository *CommonRepository) GetUserByUserId(ctx context.Context, u
 	return user, nil
 }
 
-func (commonRepository *CommonRepository) GetPrimaryAdmin(ctx context.Context) (userModel.User, error) {
+func (commonRepository *CommonRepository) GetOwner(ctx context.Context) (userModel.User, error) {
 	var user userModel.User
 	err := commonRepository.getDB(ctx).
-		Where("is_admin = ?", true).
-		Order("id ASC").
+		Where("role = ?", userModel.RoleOwner).
 		First(&user).Error
 	if err != nil {
 		return user, err
@@ -66,10 +66,6 @@ func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, scope
 	var echos []echoModel.Echo
 
 	query := commonRepository.getDB(ctx).
-		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-			return db.Order("echo_files.sort_order ASC")
-		}).
-		Preload("EchoFiles.File").
 		Preload("Tags").
 		Order("created_at DESC")
 
@@ -80,6 +76,9 @@ func (commonRepository *CommonRepository) GetAllEchos(ctx context.Context, scope
 	}
 
 	if err := query.Find(&echos).Error; err != nil {
+		return nil, err
+	}
+	if err := fileRepository.HydrateEchoAttachments(ctx, commonRepository.getDB(ctx), echos); err != nil {
 		return nil, err
 	}
 

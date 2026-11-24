@@ -6,11 +6,9 @@ package migrator
 import (
 	"github.com/lin-snow/ech0/internal/cache"
 	"github.com/lin-snow/ech0/internal/kvstore"
-	"github.com/lin-snow/ech0/internal/storage"
 )
 
 type (
-	KVStore        = kvstore.Store
-	StorageManager = *storage.Manager
-	AppCache       = *cache.Cache
+	KVStore  = kvstore.Store
+	AppCache = *cache.Cache
 )

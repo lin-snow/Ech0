@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/connect"
@@ -86,15 +87,9 @@ func (connectService *ConnectService) WithRetryBaseDelay(d time.Duration) *Conne
 }
 
 func (connectService *ConnectService) AddConnect(ctx context.Context, connected model.Connected) error {
-	userid := viewer.MustFromContext(ctx).UserID()
 	if err := connectService.transactor.Run(ctx, func(txCtx context.Context) error {
-		user, err := connectService.commonService.CommonGetUserByUserId(txCtx, userid)
-		if err != nil {
+		if err := authz.Decide(viewer.MustFromContext(ctx), authz.ConnectManage, authz.Instance()); err != nil {
 			return err
-		}
-
-		if !user.IsAdmin {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 
 		if connected.ConnectURL == "" {
@@ -132,15 +127,9 @@ func (connectService *ConnectService) AddConnect(ctx context.Context, connected 
 }
 
 func (connectService *ConnectService) DeleteConnect(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
 	if err := connectService.transactor.Run(ctx, func(txCtx context.Context) error {
-		user, err := connectService.commonService.CommonGetUserByUserId(txCtx, userid)
-		if err != nil {
+		if err := authz.Decide(viewer.MustFromContext(ctx), authz.ConnectManage, authz.Instance()); err != nil {
 			return err
-		}
-
-		if !user.IsAdmin {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
 		}
 
 		if err := connectService.connectRepository.DeleteConnect(txCtx, id); err != nil {
@@ -164,7 +153,7 @@ func (connectService *ConnectService) GetConnect() (model.Connect, error) {
 		return connect, err
 	}
 
-	admin, err := connectService.commonService.GetPrimaryAdmin()
+	admin, err := connectService.commonService.GetOwner()
 	if err != nil {
 		return connect, err
 	}
@@ -235,17 +224,14 @@ func fetchPeerConnectInfo(peerConnectURL string, requestTimeout time.Duration) (
 		return model.Connect{}, err
 	}
 
-	var connectInfo commonModel.Result[model.Connect]
+	var connectInfo model.Connect
 	if err := json.Unmarshal(resp, &connectInfo); err != nil {
 		return model.Connect{}, fmt.Errorf("JSON解析失败: %w", err)
 	}
-	if connectInfo.Code != 1 {
-		return model.Connect{}, fmt.Errorf("响应码无效: %d, 消息: %s", connectInfo.Code, connectInfo.Message)
+	if connectInfo.ServerURL == "" {
+		return model.Connect{}, fmt.Errorf("server url is empty")
 	}
-	if connectInfo.Data.ServerURL == "" {
-		return model.Connect{}, fmt.Errorf("服务器URL为空")
-	}
-	return connectInfo.Data, nil
+	return connectInfo, nil
 }
 
 func (connectService *ConnectService) fetchConnectsInfo() ([]model.Connect, error) {

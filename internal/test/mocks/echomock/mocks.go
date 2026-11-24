@@ -357,22 +357,22 @@ func (_c *MockService_GetEchoById_Call) RunAndReturn(run func(ctx context.Contex
 }
 
 // GetEchosByPage provides a mock function for the type MockService
-func (_mock *MockService) GetEchosByPage(ctx context.Context, pageQueryDto model0.PageQueryDto) (model0.PageQueryResult[[]model.Echo], error) {
+func (_mock *MockService) GetEchosByPage(ctx context.Context, pageQueryDto model0.PageQueryDto) (model0.List[model.Echo], error) {
 	ret := _mock.Called(ctx, pageQueryDto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetEchosByPage")
 	}
 
-	var r0 model0.PageQueryResult[[]model.Echo]
+	var r0 model0.List[model.Echo]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.PageQueryDto) (model0.PageQueryResult[[]model.Echo], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.PageQueryDto) (model0.List[model.Echo], error)); ok {
 		return returnFunc(ctx, pageQueryDto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.PageQueryDto) model0.PageQueryResult[[]model.Echo]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.PageQueryDto) model0.List[model.Echo]); ok {
 		r0 = returnFunc(ctx, pageQueryDto)
 	} else {
-		r0 = ret.Get(0).(model0.PageQueryResult[[]model.Echo])
+		r0 = ret.Get(0).(model0.List[model.Echo])
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, model0.PageQueryDto) error); ok {
 		r1 = returnFunc(ctx, pageQueryDto)
@@ -412,33 +412,33 @@ func (_c *MockService_GetEchosByPage_Call) Run(run func(ctx context.Context, pag
 	return _c
 }
 
-func (_c *MockService_GetEchosByPage_Call) Return(pageQueryResult model0.PageQueryResult[[]model.Echo], err error) *MockService_GetEchosByPage_Call {
-	_c.Call.Return(pageQueryResult, err)
+func (_c *MockService_GetEchosByPage_Call) Return(list model0.List[model.Echo], err error) *MockService_GetEchosByPage_Call {
+	_c.Call.Return(list, err)
 	return _c
 }
 
-func (_c *MockService_GetEchosByPage_Call) RunAndReturn(run func(ctx context.Context, pageQueryDto model0.PageQueryDto) (model0.PageQueryResult[[]model.Echo], error)) *MockService_GetEchosByPage_Call {
+func (_c *MockService_GetEchosByPage_Call) RunAndReturn(run func(ctx context.Context, pageQueryDto model0.PageQueryDto) (model0.List[model.Echo], error)) *MockService_GetEchosByPage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetEchosByTagId provides a mock function for the type MockService
-func (_mock *MockService) GetEchosByTagId(ctx context.Context, tagId string, pageQueryDto model0.PageQueryDto) (model0.PageQueryResult[[]model.Echo], error) {
+func (_mock *MockService) GetEchosByTagId(ctx context.Context, tagId string, pageQueryDto model0.PageQueryDto) (model0.List[model.Echo], error) {
 	ret := _mock.Called(ctx, tagId, pageQueryDto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetEchosByTagId")
 	}
 
-	var r0 model0.PageQueryResult[[]model.Echo]
+	var r0 model0.List[model.Echo]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model0.PageQueryDto) (model0.PageQueryResult[[]model.Echo], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model0.PageQueryDto) (model0.List[model.Echo], error)); ok {
 		return returnFunc(ctx, tagId, pageQueryDto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model0.PageQueryDto) model0.PageQueryResult[[]model.Echo]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, model0.PageQueryDto) model0.List[model.Echo]); ok {
 		r0 = returnFunc(ctx, tagId, pageQueryDto)
 	} else {
-		r0 = ret.Get(0).(model0.PageQueryResult[[]model.Echo])
+		r0 = ret.Get(0).(model0.List[model.Echo])
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, model0.PageQueryDto) error); ok {
 		r1 = returnFunc(ctx, tagId, pageQueryDto)
@@ -484,12 +484,12 @@ func (_c *MockService_GetEchosByTagId_Call) Run(run func(ctx context.Context, ta
 	return _c
 }
 
-func (_c *MockService_GetEchosByTagId_Call) Return(pageQueryResult model0.PageQueryResult[[]model.Echo], err error) *MockService_GetEchosByTagId_Call {
-	_c.Call.Return(pageQueryResult, err)
+func (_c *MockService_GetEchosByTagId_Call) Return(list model0.List[model.Echo], err error) *MockService_GetEchosByTagId_Call {
+	_c.Call.Return(list, err)
 	return _c
 }
 
-func (_c *MockService_GetEchosByTagId_Call) RunAndReturn(run func(ctx context.Context, tagId string, pageQueryDto model0.PageQueryDto) (model0.PageQueryResult[[]model.Echo], error)) *MockService_GetEchosByTagId_Call {
+func (_c *MockService_GetEchosByTagId_Call) RunAndReturn(run func(ctx context.Context, tagId string, pageQueryDto model0.PageQueryDto) (model0.List[model.Echo], error)) *MockService_GetEchosByTagId_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -875,22 +875,22 @@ func (_c *MockService_PostEcho_Call) RunAndReturn(run func(ctx context.Context, 
 }
 
 // QueryEchos provides a mock function for the type MockService
-func (_mock *MockService) QueryEchos(ctx context.Context, queryDto model0.EchoQueryDto) (model0.PageQueryResult[[]model.Echo], error) {
+func (_mock *MockService) QueryEchos(ctx context.Context, queryDto model0.EchoQueryDto) (model0.List[model.Echo], error) {
 	ret := _mock.Called(ctx, queryDto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for QueryEchos")
 	}
 
-	var r0 model0.PageQueryResult[[]model.Echo]
+	var r0 model0.List[model.Echo]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.EchoQueryDto) (model0.PageQueryResult[[]model.Echo], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.EchoQueryDto) (model0.List[model.Echo], error)); ok {
 		return returnFunc(ctx, queryDto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.EchoQueryDto) model0.PageQueryResult[[]model.Echo]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model0.EchoQueryDto) model0.List[model.Echo]); ok {
 		r0 = returnFunc(ctx, queryDto)
 	} else {
-		r0 = ret.Get(0).(model0.PageQueryResult[[]model.Echo])
+		r0 = ret.Get(0).(model0.List[model.Echo])
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, model0.EchoQueryDto) error); ok {
 		r1 = returnFunc(ctx, queryDto)
@@ -930,12 +930,12 @@ func (_c *MockService_QueryEchos_Call) Run(run func(ctx context.Context, queryDt
 	return _c
 }
 
-func (_c *MockService_QueryEchos_Call) Return(pageQueryResult model0.PageQueryResult[[]model.Echo], err error) *MockService_QueryEchos_Call {
-	_c.Call.Return(pageQueryResult, err)
+func (_c *MockService_QueryEchos_Call) Return(list model0.List[model.Echo], err error) *MockService_QueryEchos_Call {
+	_c.Call.Return(list, err)
 	return _c
 }
 
-func (_c *MockService_QueryEchos_Call) RunAndReturn(run func(ctx context.Context, queryDto model0.EchoQueryDto) (model0.PageQueryResult[[]model.Echo], error)) *MockService_QueryEchos_Call {
+func (_c *MockService_QueryEchos_Call) RunAndReturn(run func(ctx context.Context, queryDto model0.EchoQueryDto) (model0.List[model.Echo], error)) *MockService_QueryEchos_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -118,7 +118,7 @@ function hideTooltip() {
 onMounted(async () => {
   try {
     const res = await fetchGetHeatMap()
-    if (res.data) heatmapData.value = res.data
+    if (res) heatmapData.value = res
   } catch {}
 })
 </script>

@@ -2,7 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { computed, ref } from 'vue'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE, type FileCategory } from '@/constants/file'
+import { FILE_CATEGORY, type FileCategory } from '@/constants/file'
 import { createExternalFile, globalFileRegistry, useFileAttachments } from '@/lib/file'
 import { getImageSize } from '@/utils/image'
 import { getFileToAddUrl } from '@/utils/other'
@@ -18,8 +18,6 @@ export function useFilesModule({ t }: FilesModuleDeps) {
 
   const fileToAdd = ref<App.Api.Ech0.FileToAdd>({
     url: '',
-    storage_type: FILE_STORAGE_TYPE.LOCAL,
-    key: '',
   })
 
   const {
@@ -76,7 +74,7 @@ export function useFilesModule({ t }: FilesModuleDeps) {
       } catch {}
     }
 
-    if (fileToAdd.value.storage_type === FILE_STORAGE_TYPE.EXTERNAL && !fileToAdd.value.id) {
+    if (!fileToAdd.value.id && String(fileToAdd.value.url || '').trim()) {
       const externalUrl = String(fileToAdd.value.url || '').trim()
       if (!externalUrl) {
         theToast.error(t('editor.imageUrlRequired'))
@@ -85,7 +83,6 @@ export function useFilesModule({ t }: FilesModuleDeps) {
 
       const created = await createExternalFile({
         url: externalUrl,
-        category: incomingCategory,
         width: width,
         height: height,
       })
@@ -95,18 +92,18 @@ export function useFilesModule({ t }: FilesModuleDeps) {
       }
 
       fileToAdd.value.id = created.id
-      fileToAdd.value.key = created.key
       fileToAdd.value.url = created.url || externalUrl
+      fileToAdd.value.name = created.name
+      fileToAdd.value.category = (created.category as FileCategory | undefined) ?? incomingCategory
       globalFileRegistry.upsert(created)
     }
 
     addAttachment({
       id: fileToAdd.value.id,
+      name: fileToAdd.value.name,
       url: fileToAdd.value.url,
-      storage_type: fileToAdd.value.storage_type,
       category: incomingCategory,
       content_type: fileToAdd.value.content_type,
-      key: fileToAdd.value.key ? fileToAdd.value.key : '',
       size: fileToAdd.value.size,
       width,
       height,
@@ -115,10 +112,6 @@ export function useFilesModule({ t }: FilesModuleDeps) {
     fileToAdd.value = {
       id: undefined,
       url: '',
-      storage_type: fileToAdd.value.storage_type
-        ? fileToAdd.value.storage_type
-        : FILE_STORAGE_TYPE.LOCAL,
-      key: '',
     }
   }
 
@@ -126,9 +119,8 @@ export function useFilesModule({ t }: FilesModuleDeps) {
     resetAttachments(
       files.map((file) => ({
         id: file.id,
-        key: file.key,
+        name: file.name,
         url: file.url,
-        storage_type: file.storage_type,
         category: file.category,
         content_type: file.content_type,
         size: file.size,
@@ -168,10 +160,6 @@ export function useFilesModule({ t }: FilesModuleDeps) {
     fileToAdd.value = {
       id: undefined,
       url: '',
-      storage_type: fileToAdd.value.storage_type
-        ? fileToAdd.value.storage_type
-        : FILE_STORAGE_TYPE.LOCAL,
-      key: '',
     }
     selectedCategory.value = FILE_CATEGORY.IMAGE
     resetAttachments([])
