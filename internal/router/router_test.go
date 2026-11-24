@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/handler"
@@ -31,7 +32,6 @@ import (
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
@@ -135,7 +135,7 @@ func TestSetupRouter_UnauthorizedIsProblemJSON(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &problem); err != nil {
 		t.Fatalf("decode problem failed: %v (body=%s)", err, rec.Body.String())
 	}
-	if problem.Status != http.StatusUnauthorized || problem.Detail != commonModel.TOKEN_NOT_FOUND {
+	if problem.Status != http.StatusUnauthorized || problem.Detail != apperr.ErrTokenMissing.Error() {
 		t.Fatalf("unexpected problem: %+v", problem)
 	}
 }

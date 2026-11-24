@@ -7,10 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"testing"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -54,13 +54,13 @@ func TestLogin(t *testing.T) {
 			name:      "empty username short-circuits before repo",
 			dto:       authModel.LoginDto{Username: "", Password: plainPassword},
 			setupRepo: func(*authmock.MockRepository) {},
-			wantErr:   commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY,
+			wantErr:   apperr.ErrCredentialsEmpty.Error(),
 		},
 		{
 			name:      "empty password short-circuits before repo",
 			dto:       authModel.LoginDto{Username: username, Password: ""},
 			setupRepo: func(*authmock.MockRepository) {},
-			wantErr:   commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY,
+			wantErr:   apperr.ErrCredentialsEmpty.Error(),
 		},
 		{
 			name: "unknown user looks like wrong credentials",
@@ -71,7 +71,7 @@ func TestLogin(t *testing.T) {
 					Return(userModel.User{}, errors.New("record not found")).
 					Once()
 			},
-			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
+			wantErr: apperr.ErrCredentialsIncorrect.Error(),
 		},
 		{
 			name: "missing local auth row looks like wrong credentials",
@@ -86,7 +86,7 @@ func TestLogin(t *testing.T) {
 					Return(userModel.UserLocalAuth{}, gorm.ErrRecordNotFound).
 					Once()
 			},
-			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
+			wantErr: apperr.ErrCredentialsIncorrect.Error(),
 		},
 		{
 			name: "local auth lookup db error looks like wrong credentials",
@@ -101,7 +101,7 @@ func TestLogin(t *testing.T) {
 					Return(userModel.UserLocalAuth{}, errors.New("db down")).
 					Once()
 			},
-			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
+			wantErr: apperr.ErrCredentialsIncorrect.Error(),
 		},
 		{
 			name: "wrong password is rejected with the same message",
@@ -120,7 +120,7 @@ func TestLogin(t *testing.T) {
 					}, nil).
 					Once()
 			},
-			wantErr: commonModel.USERNAME_OR_PASSWORD_INCORRECT,
+			wantErr: apperr.ErrCredentialsIncorrect.Error(),
 		},
 	}
 
@@ -197,13 +197,12 @@ func TestLogin_RejectsDisabledAccount(t *testing.T) {
 	require.NoError(t, err)
 
 	cases := []struct {
-		name       string
-		active     bool
-		activeErr  error
-		wantStatus int
-		wantErr    error
+		name      string
+		active    bool
+		activeErr error
+		wantErr   error
 	}{
-		{name: "disabled account", active: false, wantStatus: http.StatusForbidden},
+		{name: "disabled account", active: false},
 		{name: "status read failure", activeErr: assert.AnError, wantErr: assert.AnError},
 	}
 
@@ -237,9 +236,7 @@ func TestLogin_RejectsDisabledAccount(t *testing.T) {
 				require.ErrorIs(t, err, tc.wantErr)
 				return
 			}
-			var fail *commonModel.StatusError
-			require.ErrorAs(t, err, &fail)
-			assert.Equal(t, tc.wantStatus, fail.Status)
+			require.ErrorIs(t, err, apperr.ErrAccountDisabled)
 		})
 	}
 }
@@ -341,20 +338,17 @@ func TestLoginBlockedAfterRepeatedFailures(t *testing.T) {
 
 	for attempt := range rule.Limit {
 		_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong-password"})
-		require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT, "attempt %d", attempt)
+		require.EqualError(t, err, apperr.ErrCredentialsIncorrect.Error(), "attempt %d", attempt)
 	}
 
 	// The correct password must not be evaluated once the account budget is
 	// spent: the repo expectations above are already satisfied.
 	_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "right-password"})
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	require.Equal(t, http.StatusTooManyRequests, fail.Status)
+	require.ErrorIs(t, err, apperr.ErrRateLimited)
 
 	// Account names are folded, so casing and padding cannot buy a new budget.
 	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: "  ALICE ", Password: "right-password"})
-	require.ErrorAs(t, err, &fail)
-	require.Equal(t, http.StatusTooManyRequests, fail.Status)
+	require.ErrorIs(t, err, apperr.ErrRateLimited)
 }
 
 func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
@@ -386,7 +380,7 @@ func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
 
 	for range failures {
 		_, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong"})
-		require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+		require.EqualError(t, err, apperr.ErrCredentialsIncorrect.Error())
 	}
 
 	pair, err := svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: rightPassword})
@@ -396,10 +390,8 @@ func TestLoginRefundsBudgetOnlyAfterValidCredentials(t *testing.T) {
 	// Refunding the successful attempt hands back only its own slot: the
 	// failures that preceded it still count, so exactly one more try fits.
 	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: "wrong"})
-	require.EqualError(t, err, commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+	require.EqualError(t, err, apperr.ErrCredentialsIncorrect.Error())
 
 	_, err = svc.Login(context.Background(), &authModel.LoginDto{Username: username, Password: rightPassword})
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	require.Equal(t, http.StatusTooManyRequests, fail.Status)
+	require.ErrorIs(t, err, apperr.ErrRateLimited)
 }

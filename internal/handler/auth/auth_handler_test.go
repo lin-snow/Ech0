@@ -15,9 +15,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
@@ -228,8 +228,8 @@ func TestRefresh_NoCookie(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.REFRESH_TOKEN_INVALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.REFRESH_TOKEN_INVALID, res.Detail)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	if res.Detail == "" {
 		t.Fatal("problem document carries no detail")
@@ -250,8 +250,8 @@ func TestRefresh_InvalidToken(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.REFRESH_TOKEN_INVALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.REFRESH_TOKEN_INVALID, res.Detail)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -273,8 +273,8 @@ func TestRefresh_TokenRevoked(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.TOKEN_REVOKED {
-		t.Fatalf("expected detail %q, got %q", commonModel.TOKEN_REVOKED, res.Detail)
+	if res.Detail != apperr.ErrTokenRevoked.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrTokenRevoked.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -304,8 +304,8 @@ func TestRefresh_AccountDisabled(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusForbidden, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.ACCOUNT_DISABLED {
-		t.Fatalf("expected detail %q, got %q", commonModel.ACCOUNT_DISABLED, res.Detail)
+	if res.Detail != apperr.ErrAccountDisabled.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrAccountDisabled.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -362,8 +362,8 @@ func TestRefresh_UserNotFound(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.REFRESH_TOKEN_INVALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.REFRESH_TOKEN_INVALID, res.Detail)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -449,8 +449,8 @@ func TestRefresh_AccessTokenCookie_Rejected(t *testing.T) {
 		t.Fatalf("access token should be rejected by refresh endpoint, got status %d", rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.REFRESH_TOKEN_INVALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.REFRESH_TOKEN_INVALID, res.Detail)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -597,8 +597,8 @@ func TestExchange_InvalidBody(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusBadRequest, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.INVALID_REQUEST_BODY {
-		t.Fatalf("expected detail %q, got %q", commonModel.INVALID_REQUEST_BODY, res.Detail)
+	if res.Detail != apperr.ErrInvalidRequestBody.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrInvalidRequestBody.Error(), res.Detail)
 	}
 }
 
@@ -622,8 +622,8 @@ func TestExchange_InvalidCode(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
 	res := parseProblem(t, rec)
-	if res.Detail != commonModel.EXCHANGE_CODE_INVALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.EXCHANGE_CODE_INVALID, res.Detail)
+	if res.Detail != apperr.ErrExchangeCodeInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrExchangeCodeInvalid.Error(), res.Detail)
 	}
 }
 

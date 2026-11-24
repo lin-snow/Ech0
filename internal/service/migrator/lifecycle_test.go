@@ -17,10 +17,10 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/job"
 	"github.com/lin-snow/ech0/internal/migrator/artifact"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	"github.com/lin-snow/ech0/internal/test/helpers"
@@ -106,7 +106,7 @@ func TestStartGlobalMigration(t *testing.T) {
 			SourcePayload: map[string]any{"tmp_dir": "files/tmp/x"},
 		})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("non-admin denied", func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestCancelGlobalMigration(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID, role.Admin))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("terminal job cannot be cancelled", func(t *testing.T) {
@@ -213,7 +213,7 @@ func TestCancelGlobalMigration(t *testing.T) {
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusSuccess})
 		s := newService(common, repo, nil)
 		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID, role.Admin))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("running job cancel returns current DTO", func(t *testing.T) {
@@ -369,7 +369,7 @@ func TestCancelExport(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.CancelExport(helpers.CtxAsUser(adminID, role.Admin))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("terminal job cannot be cancelled", func(t *testing.T) {
@@ -378,7 +378,7 @@ func TestCancelExport(t *testing.T) {
 		repo.seed(jobModel.Job{Type: string(jobModel.Export), Status: jobModel.StatusFailed})
 		s := newService(common, repo, nil)
 		_, err := s.CancelExport(helpers.CtxAsUser(adminID, role.Admin))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("running job cancel returns current DTO", func(t *testing.T) {
@@ -522,7 +522,7 @@ func TestUploadSourceZip(t *testing.T) {
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.UploadSourceZip(helpers.CtxAsUser(adminID, role.Admin), "bogus", nil)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("nil file rejected", func(t *testing.T) {
@@ -530,7 +530,7 @@ func TestUploadSourceZip(t *testing.T) {
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.UploadSourceZip(helpers.CtxAsUser(adminID, role.Admin), migratorModel.MigrationSourceEch0, nil)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("non-admin denied", func(t *testing.T) {
@@ -568,7 +568,7 @@ func TestUploadSourceZip(t *testing.T) {
 			&multipart.FileHeader{Filename: "src.txt"},
 		)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("success unpacks and returns tmp dir DTO", func(t *testing.T) {

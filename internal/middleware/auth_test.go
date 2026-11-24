@@ -13,10 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -111,7 +111,7 @@ func TestRequireAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthDetail(rec.Body.Bytes()); got != commonModel.TOKEN_QUERY_FORBIDDEN {
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrTokenQueryForbidden.Error() {
 		t.Fatalf("expected the query-string rejection, got %q", got)
 	}
 }
@@ -143,7 +143,7 @@ func TestOptionalAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthDetail(rec.Body.Bytes()); got != commonModel.TOKEN_QUERY_FORBIDDEN {
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrTokenQueryForbidden.Error() {
 		t.Fatalf("expected the query-string rejection, got %q", got)
 	}
 }
@@ -233,7 +233,7 @@ func TestRequireAuth_RejectsDisabledAccount(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthDetail(rec.Body.Bytes()); got != commonModel.ACCOUNT_DISABLED {
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrAccountDisabled.Error() {
 		t.Fatalf("expected the disabled-account detail, got %q", got)
 	}
 }
@@ -290,7 +290,7 @@ func TestOptionalAuth_RejectsDisabledAccount(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthDetail(rec.Body.Bytes()); got != commonModel.ACCOUNT_DISABLED {
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrAccountDisabled.Error() {
 		t.Fatalf("expected the disabled-account detail, got %q", got)
 	}
 }

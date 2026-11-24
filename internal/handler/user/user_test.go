@@ -9,9 +9,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
+	"github.com/lin-snow/ech0/internal/httperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	usermock "github.com/lin-snow/ech0/internal/test/mocks/usermock"
@@ -23,9 +24,7 @@ import (
 func assertStatusErr(t *testing.T, err error, wantStatus int) {
 	t.Helper()
 	require.Error(t, err)
-	var se *commonModel.StatusError
-	require.ErrorAs(t, err, &se)
-	assert.Equal(t, wantStatus, se.Status)
+	assert.Equal(t, wantStatus, httperr.From(err).Status)
 }
 
 func TestUserHandler_Register(t *testing.T) {
@@ -48,7 +47,7 @@ func TestUserHandler_Register(t *testing.T) {
 
 	t.Run("error when registration disallowed", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.Fail(http.StatusForbidden, commonModel.USER_REGISTER_NOT_ALLOW)
+		be := apperr.ErrRegistrationDisabled
 		svc.EXPECT().Register(mock.Anything).Return(be).Once()
 
 		h := userHandler.NewUserHandler(svc)
@@ -106,7 +105,7 @@ func TestUserHandler_UpdateUserRole(t *testing.T) {
 
 	t.Run("error when the operator cannot manage the target", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.Fail(http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		be := apperr.ErrDenied
 		svc.EXPECT().UpdateUserRole(mock.Anything, mock.Anything, mock.Anything).Return(be).Once()
 
 		h := userHandler.NewUserHandler(svc)
@@ -214,17 +213,17 @@ func TestUserHandler_GetUserInfo(t *testing.T) {
 
 	t.Run("error", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.Fail(http.StatusInternalServerError, commonModel.USER_NOTFOUND)
+		be := apperr.ErrUserNotFound
 		svc.EXPECT().GetUserByID("viewer-2").Return(userModel.User{}, be).Once()
 
 		h := userHandler.NewUserHandler(svc)
 		out, err := h.GetUserInfo(helpers.CtxAsUser("viewer-2"), &userHandler.GetUserInfoInput{})
 
-		assertStatusErr(t, err, http.StatusInternalServerError)
+		assertStatusErr(t, err, http.StatusNotFound)
 		assert.Nil(t, out)
 	})
 }
 
 func internalErr() error {
-	return commonModel.Fail(http.StatusInternalServerError, "boom")
+	return errors.New("boom")
 }

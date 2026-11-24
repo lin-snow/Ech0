@@ -5,10 +5,8 @@ package authz
 
 import (
 	"errors"
-	"net/http"
 	"testing"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -160,17 +158,12 @@ func TestUnclassifiedDecisions(t *testing.T) {
 	}
 }
 
-// TestDenialIsAStatusError pins the denial contract: every transport maps it to
-// 403 + no permission with a single status.
-func TestDenialIsAStatusError(t *testing.T) {
+// TestDenialIsOneSentinel pins the denial contract: every transport classifies
+// the same value, so there is no second denial to keep in step.
+func TestDenialIsOneSentinel(t *testing.T) {
 	err := Decide(member, SettingWrite, Instance())
-
-	statusErr, ok := errors.AsType[*commonModel.StatusError](err)
-	if !ok {
-		t.Fatalf("denial is not a StatusError: %T", err)
-	}
-	if statusErr.Status != http.StatusForbidden {
-		t.Fatalf("status = %d", statusErr.Status)
+	if !errors.Is(err, ErrDenied) {
+		t.Fatalf("denial = %T %v", err, err)
 	}
 }
 

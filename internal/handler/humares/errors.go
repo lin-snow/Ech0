@@ -10,7 +10,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/httperr"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
 var installErrorModelOnce sync.Once
@@ -42,7 +41,7 @@ func frameworkProblem(status int, msg string, errs ...error) *huma.ErrorModel {
 		}
 	}
 
-	problem := httperr.From(commonModel.WithStatus(status, errors.New(msg)))
+	problem := httperr.From(httperr.Edge(status, msg))
 	for _, err := range errs {
 		detail, ok := errors.AsType[*huma.ErrorDetail](err)
 		if !ok {

@@ -7,13 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	userService "github.com/lin-snow/ech0/internal/service/user"
@@ -86,12 +85,12 @@ func TestInitOwner_InputGuards(t *testing.T) {
 		{
 			name: "empty username",
 			dto:  authModel.RegisterDto{Username: "", Password: "pw", Email: "a@b.com"},
-			want: commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY,
+			want: apperr.ErrCredentialsEmpty.Error(),
 		},
 		{
 			name: "empty password",
 			dto:  authModel.RegisterDto{Username: "owner", Password: "", Email: "a@b.com"},
-			want: commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY,
+			want: apperr.ErrCredentialsEmpty.Error(),
 		},
 		{
 			name: "empty email",
@@ -121,10 +120,7 @@ func TestInitOwner_AlreadyInitialized(t *testing.T) {
 
 	err := svc.InitOwner(&authModel.RegisterDto{Username: "owner", Password: "pw", Email: "a@b.com"})
 
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	assert.Equal(t, http.StatusBadRequest, fail.Status)
-	assert.Equal(t, commonModel.SYSTEM_ALREADY_INITED, fail.Msg)
+	require.ErrorIs(t, err, apperr.ErrAlreadyInitialized)
 }
 
 func TestInitOwner_OwnerAlreadyExists(t *testing.T) {
@@ -136,10 +132,7 @@ func TestInitOwner_OwnerAlreadyExists(t *testing.T) {
 
 	err := svc.InitOwner(&authModel.RegisterDto{Username: "owner", Password: "pw", Email: "a@b.com"})
 
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	assert.Equal(t, http.StatusBadRequest, fail.Status)
-	assert.Equal(t, commonModel.OWNER_ALREADY_EXISTS, fail.Msg)
+	require.ErrorIs(t, err, apperr.ErrOwnerExists)
 }
 
 func TestInitOwner_Success(t *testing.T) {
@@ -175,10 +168,7 @@ func TestRegister_NotInitialized(t *testing.T) {
 
 	err := svc.Register(&authModel.RegisterDto{Username: "u", Password: "pw"})
 
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	assert.Equal(t, http.StatusBadRequest, fail.Status)
-	assert.Equal(t, commonModel.SIGNUP_FIRST, fail.Msg)
+	require.ErrorIs(t, err, apperr.ErrSignupFirst)
 }
 
 func TestRegister_UserCountExceedLimit(t *testing.T) {
@@ -189,7 +179,7 @@ func TestRegister_UserCountExceedLimit(t *testing.T) {
 	m.repo.EXPECT().GetAllUsers(mock.Anything).Return(over, nil).Once()
 
 	err := svc.Register(&authModel.RegisterDto{Username: "u", Password: "pw"})
-	require.EqualError(t, err, commonModel.USER_COUNT_EXCEED_LIMIT)
+	require.EqualError(t, err, apperr.ErrUserLimit.Error())
 }
 
 func TestRegister_UsernameExists(t *testing.T) {
@@ -200,7 +190,7 @@ func TestRegister_UsernameExists(t *testing.T) {
 		Return(helpers.NewUser(withID("u-existing")), nil).Once()
 
 	err := svc.Register(&authModel.RegisterDto{Username: "dup", Password: "pw"})
-	require.EqualError(t, err, commonModel.USERNAME_HAS_EXISTS)
+	require.EqualError(t, err, apperr.ErrUsernameExists.Error())
 }
 
 func TestRegister_InvalidEmail(t *testing.T) {
@@ -222,7 +212,7 @@ func TestRegister_RegisterNotAllowed(t *testing.T) {
 		Return(mustMarshalSystem(t, settingModel.SystemSetting{AllowRegister: false}), nil).Once()
 
 	err := svc.Register(&authModel.RegisterDto{Username: "u", Password: "pw"})
-	require.EqualError(t, err, commonModel.USER_REGISTER_NOT_ALLOW)
+	require.EqualError(t, err, apperr.ErrRegistrationDisabled.Error())
 }
 
 func TestRegister_Success(t *testing.T) {
@@ -260,7 +250,7 @@ func TestRegister_PasswordTooLong(t *testing.T) {
 
 	longPw := strings.Repeat("a", cryptoUtil.MaxPasswordBytes+1)
 	err := svc.Register(&authModel.RegisterDto{Username: "u", Password: longPw})
-	require.EqualError(t, err, commonModel.PASSWORD_TOO_LONG)
+	require.EqualError(t, err, apperr.ErrPasswordTooLong.Error())
 }
 
 func TestUpdateUser_PasswordTooLong(t *testing.T) {
@@ -270,14 +260,14 @@ func TestUpdateUser_PasswordTooLong(t *testing.T) {
 
 	longPw := strings.Repeat("a", cryptoUtil.MaxPasswordBytes+1)
 	err := svc.UpdateUser(helpers.CtxAsUser("admin-1"), userModel.UserInfoDto{Password: longPw})
-	require.EqualError(t, err, commonModel.PASSWORD_TOO_LONG)
+	require.EqualError(t, err, apperr.ErrPasswordTooLong.Error())
 }
 
 func TestUpdateUserRole_InvalidRole(t *testing.T) {
 	svc, _ := newUserSvc(t)
 
 	err := svc.UpdateUserRole(helpers.CtxAsUser("owner-1"), "u-2", userModel.RoleOwner)
-	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+	require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 }
 
 func TestUpdateUserRole_MemberCannotAssignRoles(t *testing.T) {
@@ -383,7 +373,7 @@ func TestTransferOwnership_RequiresActiveAdminTarget(t *testing.T) {
 			m.repo.EXPECT().GetUserByID(mock.Anything, tc.target.ID).Return(tc.target, nil).Once()
 
 			err := svc.TransferOwnership(helpers.CtxAsUser("owner-1", role.Owner), tc.target.ID)
-			require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+			require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 		})
 	}
 }
@@ -403,14 +393,14 @@ func TestUpdateUserStatus_InvalidStatus(t *testing.T) {
 	svc, _ := newUserSvc(t)
 
 	err := svc.UpdateUserStatus(helpers.CtxAsUser("admin-1", role.Admin), "u-2", userModel.Status("BROKEN"))
-	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+	require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 }
 
 func TestUpdateUserStatus_CannotTargetSelf(t *testing.T) {
 	svc, _ := newUserSvc(t)
 
 	err := svc.UpdateUserStatus(helpers.CtxAsUser("admin-1", role.Admin), "admin-1", userModel.StatusDisabled)
-	require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+	require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 }
 
 func TestUpdateUserStatus_CannotDisableOwner(t *testing.T) {

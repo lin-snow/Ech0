@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
@@ -62,7 +63,7 @@ func TestUpdateWebhook_Validation(t *testing.T) {
 
 		err := d.build().UpdateWebhook(ctx, "wh-1", &settingModel.WebhookDto{Name: "hook", URL: ""})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY, err.Error())
+		assert.Equal(t, apperr.ErrWebhookRequired.Error(), err.Error())
 	})
 
 	t.Run("private network url rejected", func(t *testing.T) {
@@ -70,7 +71,7 @@ func TestUpdateWebhook_Validation(t *testing.T) {
 
 		err := d.build().UpdateWebhook(ctx, "wh-1", &settingModel.WebhookDto{Name: "hook", URL: "http://127.0.0.1/x"})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_WEBHOOK_URL, err.Error())
+		assert.Equal(t, apperr.ErrWebhookURL.Error(), err.Error())
 	})
 }
 
@@ -96,7 +97,7 @@ func TestTestWebhook_ValidationBranches(t *testing.T) {
 
 		err := d.build().TestWebhook(ctx, "wh-x")
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_WEBHOOK_URL, err.Error())
+		assert.Equal(t, apperr.ErrWebhookURL.Error(), err.Error())
 	})
 }
 

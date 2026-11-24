@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
@@ -85,7 +85,7 @@ func TestValidateSingleFileCategory_Reject(t *testing.T) {
 			}
 			_, err := svc.PostEcho(helpers.CtxAsUser(adminID), echoWithFileIDs(ids...))
 
-			require.EqualError(t, err, commonModel.ECHO_MIXED_FILE_CATEGORIES)
+			require.EqualError(t, err, apperr.ErrEchoMixedFiles.Error())
 		})
 	}
 }
@@ -150,5 +150,5 @@ func TestUpdateEcho_MixedFileCategoriesRejected(t *testing.T) {
 	svc := echoService.NewEchoService(nil, common, file, repo, nilBus)
 	_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), echoWithFileIDs("f1", "f2"))
 
-	require.EqualError(t, err, commonModel.ECHO_MIXED_FILE_CATEGORIES)
+	require.EqualError(t, err, apperr.ErrEchoMixedFiles.Error())
 }

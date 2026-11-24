@@ -199,7 +199,7 @@ viewer 扩展约定：
 - `401`：`no token in this request: sign in first`、`token is invalid: sign in again`、`token could not be parsed: sign in again`、`token has been revoked: sign in again`。
 - `403`：`this token does not carry the required scope`、`this token is not valid for this audience`、`access tokens cannot be sent in the query string: use the Authorization header`。
 
-这些是 `internal/model/common/error.go` 的英文常量，只作为 `detail` 下发，不是机读错误码；客户端只看 `status`，需要区分的语义走 RFC 9457 `type`。
+这些句子是 `internal/apperr` 哨兵的 `Error()` 文本，只作为 `detail` 下发，不是机读错误码；客户端只看 `status`，需要区分的语义走 RFC 9457 `type`。
 
 ## 7. 切换方案（旧 token 不兼容）
 

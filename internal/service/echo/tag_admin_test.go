@@ -8,8 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
@@ -48,7 +48,7 @@ func TestCreateTag(t *testing.T) {
 				svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 				got, err := svc.CreateTag(helpers.CtxAsUser(adminID, role.Admin), name)
 
-				require.EqualError(t, err, commonModel.INVALID_PARAMS)
+				require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 				assert.Nil(t, got)
 			})
 		}
@@ -60,7 +60,7 @@ func TestCreateTag(t *testing.T) {
 		svc := echoService.NewEchoService(nil, nil, nil, repo, nilBus)
 		got, err := svc.CreateTag(helpers.CtxAsUser(adminID, role.Admin), "<script>")
 
-		require.EqualError(t, err, commonModel.INVALID_PARAMS)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 		assert.Nil(t, got)
 	})
 

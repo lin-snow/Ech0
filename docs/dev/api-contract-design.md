@@ -127,9 +127,9 @@ HTTP 403
 
 - **不发 `code`。** 行为由 `status` 表达（401 重登、403 无权限、404 不存在、409 冲突、412 前置条件、429 冷却、5xx 服务端故障），位置由 `errors[].location` 表达，剩下极少数需要区分的语义由 `type` 表达。再发一个 UPPER_SNAKE 字符串是同一信息的第三次编码，只会多出一份必须与状态码保持同步的词汇表。
 - **不发 `message_key` / `params`。** 服务端不产出用户可见文案，也就没有译文可指向。`detail` 是英文，客户端按 `status` 选自己的 i18n 文案。
-- **状态码只活在进程内的 `StatusError`**（`internal/model/common/error.go`）。`Fail(status, msg)` / `FailWithType(status, type, msg)` / `WithStatus(status, err)` 构造它，`httperr.From` 把它投影成 problem 文档；没有第二套码表，也没有需要与状态码同步的词汇表。
+- **状态码只活在 `internal/apperr` 的分类表里。** Service、Repository、`authz` 返回哨兵（`errors.Is` 可识别，可 `%w` 包装），不在调用点选择 HTTP 状态。`httperr.From` 是唯一把哨兵投影成 problem 文档的地方。传输层自己已经知道状态的失败（Huma 解码、405、OAuth 协议错误）用 `httperr.Edge`。线上仍然不发第二套错误码。
 
-早期实现里的 `ErrCode*` 常量表（`INVALID_REQUEST`、`INTERNAL`、`TOKEN_REVOKED` …）已随 `BizError` 一起删除：状态码由 `Fail`/`WithStatus` 的调用点直接给出。`type` 只剩五个值：`TypeAccountDisabled` 与设备流的四个状态。
+`type` 只剩五个值：`TypeAccountDisabled` 与设备流的四个状态，挂在对应哨兵上。
 
 ### 2.4 状态即行为
 
@@ -148,7 +148,7 @@ HTTP 403
 | 头 | 状态 |
 |---|---|
 | `X-Ech0-Catalog` + 412 保护 | 保留（`internal/router/catalog.go`） |
-| `Retry-After` | 保留（429）：由中间件显式设置；Huma 渲染的响应不带头（`StatusError` 没有 header 通道） |
+| `Retry-After` | 保留（429）：由中间件显式设置；Huma 渲染的响应不带头（problem 文档没有 header 通道） |
 | `Location` | 201 响应带创建后资源的地址（RFC 9110 §6.4.2），仅当该资源有规范化 GET：`/echo/{id}`、`/files/{id}`。其余创建端点只回 201 + 资源体 |
 | `Allow` | 405 响应由 gin 自动填充（`internal/router/fallback.go` 只负责把响应体换成 problem 文档） |
 | `ETag` / `If-None-Match` | 已实现（`internal/middleware/conditional.go`）：只对能缓存的 JSON 读生效——带 `Cache-Control: no-store` 的响应（所有认证路由）与流式响应直接跳过；弱 ETag，命中回 304 且无体 |
@@ -188,26 +188,20 @@ HTTP 403
 
 ### 3.2 新增
 
-只新增一个文件 `internal/httperr/problem.go`。放在 `httperr` 而不是 `humares`，是因为 `internal/middleware` 也要写 problem，而中间件不该 import handler 层；反过来 `internal/model/common` 不能 import huma，否则整个领域层被 HTTP 框架绑死。
+错误哨兵在 `internal/apperr`，渲染在 `internal/httperr`。放在 `httperr` 而不是 `humares`，是因为 `internal/middleware` 也要写 problem，而中间件不该 import handler 层；领域层只返回哨兵，不 import Huma。
 
 ```go
 package httperr
 
-// Problem 就是 Huma 的 RFC 9457 文档 —— 没有自定义类型。
-// 它的 ContentType() 会把 Content-Type 换成 application/problem+json。
-
 // From 把任意 error 投影成 problem：
-//   *commonModel.StatusError（含 WithStatus 包装）→ 沿链取最外层带状态的
-//   其余 error                                    → 500，detail 固定为 "internal server error"
+//   apperr 分类表中的哨兵 → 表上的 status / type / detail
+//   httperr.Edge         → 传输层已经决定的 status 与 detail
+//   其余 error           → 500，detail 固定为 "internal server error"
 // 5xx 的真实原因只进服务端日志，不进响应体。
 func From(err error) *huma.ErrorModel
-
-// Write / Abort 给裸 gin 路由与中间件用。
-func Write(ctx *gin.Context, err error)
-func Abort(ctx *gin.Context, err error)
 ```
 
-`type` 只在两处出现（`TypeAccountDisabled` 与设备流四种），由构造时传入的 `StatusError.Type` 决定；`Request` 侧没有任何自定义字段。`huma.NewError` / `huma.NewErrorWithContext` 仍被覆写为返回 `*huma.ErrorModel`——这是 Huma 官方文档的 *Custom Errors* 路径，覆写体只有几行，负责把 Huma 的框架错误（解码失败、校验失败）也投影成同一文档。
+`huma.NewError` / `huma.NewErrorWithContext` 仍被覆写为返回 `*huma.ErrorModel`，把 Huma 自己的解码和校验错误投影成同一份文档。
 
 ### 3.3 handler 前后对照
 

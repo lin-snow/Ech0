@@ -6,16 +6,15 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/kvstore"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/connect"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
@@ -93,13 +92,13 @@ func (connectService *ConnectService) AddConnect(ctx context.Context, connected 
 		}
 
 		if connected.ConnectURL == "" {
-			return errors.New(commonModel.INVALID_CONNECTION_URL)
+			return apperr.ErrConnectURL
 		}
 
 		connected.ConnectURL = urlUtil.TrimURL(connected.ConnectURL)
 
 		if err := egress.Validate(connected.ConnectURL + "/api/connect"); err != nil {
-			return errors.New(commonModel.INVALID_CONNECTION_URL)
+			return apperr.ErrConnectURL
 		}
 
 		connectedList, err := connectService.connectRepository.GetAllConnects(txCtx)
@@ -109,7 +108,7 @@ func (connectService *ConnectService) AddConnect(ctx context.Context, connected 
 
 		for _, conn := range connectedList {
 			if conn.ConnectURL == connected.ConnectURL {
-				return errors.New(commonModel.CONNECT_HAS_EXISTS)
+				return apperr.ErrConnectExists
 			}
 		}
 

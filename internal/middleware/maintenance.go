@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/httperr"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
 var readOnlySafeMethods = map[string]struct{}{
@@ -31,9 +31,6 @@ func WriteGuard() gin.HandlerFunc {
 		}
 
 		c.Header("Retry-After", "30")
-		httperr.Abort(c, commonModel.Fail(
-			http.StatusServiceUnavailable,
-			"service is in maintenance mode: writes are temporarily disabled",
-		))
+		httperr.Abort(c, apperr.ErrMaintenance)
 	}
 }

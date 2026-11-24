@@ -6,8 +6,8 @@ package access
 import (
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/stretchr/testify/assert"
@@ -142,18 +142,18 @@ func TestValidateRequest_EdgeCases(t *testing.T) {
 		dto     *model.AccessTokenSettingDto
 		wantErr string
 	}{
-		{"nil dto rejected", admin, nil, commonModel.INVALID_PARAMS_BODY},
+		{"nil dto rejected", admin, nil, apperr.ErrInvalidParams.Error()},
 		{
 			"blank name rejected",
 			admin,
 			&model.AccessTokenSettingDto{Name: "   ", Scopes: []string{authz.ScopeEchoRead}, Audience: authz.AudiencePublic},
-			commonModel.INVALID_PARAMS_BODY,
+			apperr.ErrInvalidParams.Error(),
 		},
 		{
 			"empty scopes rejected",
 			admin,
 			&model.AccessTokenSettingDto{Name: "tok", Scopes: nil, Audience: authz.AudiencePublic},
-			commonModel.INVALID_PARAMS_BODY,
+			apperr.ErrInvalidParams.Error(),
 		},
 		{
 			"valid admin scope for admin accepted",

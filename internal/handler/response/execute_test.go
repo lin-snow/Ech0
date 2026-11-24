@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +81,7 @@ func TestExecute_Failure(t *testing.T) {
 	}{
 		{
 			name:       "status-error-keeps-its-message",
-			res:        Failed(commonModel.Fail(http.StatusBadRequest, "raw msg")),
+			res:        Failed(httperr.Edge(http.StatusBadRequest, "raw msg")),
 			wantStatus: http.StatusBadRequest,
 			wantDetail: "raw msg",
 		},
@@ -93,7 +93,7 @@ func TestExecute_Failure(t *testing.T) {
 		},
 		{
 			name:       "explicit-status-wins",
-			res:        FailedWithStatus(http.StatusTooManyRequests, commonModel.Fail(http.StatusBadRequest, "slow down")),
+			res:        FailedWithStatus(http.StatusTooManyRequests, httperr.Edge(http.StatusBadRequest, "slow down")),
 			wantStatus: http.StatusTooManyRequests,
 			wantDetail: "slow down",
 		},

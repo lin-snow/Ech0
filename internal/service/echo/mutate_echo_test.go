@@ -8,9 +8,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -89,7 +89,7 @@ func TestDeleteEchoById_NotFound(t *testing.T) {
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(nil, nil).Once()
 
 	svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-	require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID), commonModel.ECHO_NOT_FOUND)
+	require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID), apperr.ErrEchoNotFound.Error())
 }
 
 func TestDeleteEchoById_GetEchoError(t *testing.T) {
@@ -255,7 +255,7 @@ func TestUpdateEcho_Guards(t *testing.T) {
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{ID: echoID, Content: "   "})
-		require.EqualError(t, err, commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		require.EqualError(t, err, apperr.ErrEchoEmpty.Error())
 	})
 }
 

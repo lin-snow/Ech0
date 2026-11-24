@@ -6,13 +6,12 @@ package access
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/transaction"
@@ -61,10 +60,10 @@ func (s *Service) IssueForViewer(
 // invariant here makes the service safe if that gate ever moves.
 func ensureDelegatedScopes(held []string, dto *model.AccessTokenSettingDto) error {
 	if dto == nil {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	if !authz.Allows(held, dto.Scopes) {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+		return apperr.ErrDenied
 	}
 	return nil
 }
@@ -139,20 +138,20 @@ func (s *Service) issue(
 
 func validateRequest(user userModel.User, dto *model.AccessTokenSettingDto) error {
 	if dto == nil {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	if strings.TrimSpace(dto.Name) == "" {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	if !authz.IsValidAudience(dto.Audience) {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	if len(dto.Scopes) == 0 {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	for _, scope := range dto.Scopes {
 		if !authz.IsValidScope(scope) {
-			return errors.New(commonModel.INVALID_PARAMS_BODY)
+			return apperr.ErrInvalidParams
 		}
 	}
 	if authz.HasAdminScope(dto.Scopes) {

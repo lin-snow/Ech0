@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -90,14 +91,14 @@ func TestGetOAuthLoginURL(t *testing.T) {
 	t.Run("provider not configured returns OAUTH2_NOT_CONFIGURED", func(t *testing.T) {
 		svc, _, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 		out, err := svc.GetOAuthLoginURL(string(commonModel.OAuth2GOOGLE), "")
-		require.EqualError(t, err, commonModel.OAUTH2_NOT_CONFIGURED)
+		require.EqualError(t, err, apperr.ErrOAuthNotConfigured.Error())
 		assert.Empty(t, out)
 	})
 
 	t.Run("invalid client redirect is rejected before state issuance", func(t *testing.T) {
 		svc, _, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 		out, err := svc.GetOAuthLoginURL(string(commonModel.OAuth2GITHUB), "/relative/path")
-		require.EqualError(t, err, commonModel.INVALID_PARAMS)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 		assert.Empty(t, out)
 	})
 
@@ -118,7 +119,7 @@ func TestGetOAuthInfo_NonAdminRejected(t *testing.T) {
 	svc, _, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 
 	out, err := svc.GetOAuthInfo(ctx, string(commonModel.OAuth2GITHUB))
-	require.EqualError(t, err, commonModel.NO_PERMISSION_BINDING_GITHUB)
+	require.EqualError(t, err, apperr.ErrBindGitHub.Error())
 	assert.Equal(t, userModel.OAuthInfoDto{}, out)
 }
 

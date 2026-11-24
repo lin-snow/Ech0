@@ -4,13 +4,12 @@
 package middleware
 
 import (
-	"net/http"
 	"slices"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/httperr"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -25,7 +24,7 @@ func RequireSession() gin.HandlerFunc {
 			ctx.Next()
 			return
 		}
-		abortAuth(ctx, http.StatusForbidden, commonModel.SCOPE_FORBIDDEN_MSG)
+		abortAuth(ctx, apperr.ErrScopeForbidden)
 	}
 }
 
@@ -38,7 +37,7 @@ func RequireMinRank(min role.Role) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
 		if !v.Role().AtLeast(min) {
-			abortAuth(ctx, http.StatusForbidden, commonModel.SCOPE_FORBIDDEN_MSG)
+			abortAuth(ctx, apperr.ErrScopeForbidden)
 			return
 		}
 		ctx.Next()
@@ -46,8 +45,8 @@ func RequireMinRank(min role.Role) gin.HandlerFunc {
 }
 
 // abortAuth writes the shared auth problem document and stops the chain.
-func abortAuth(ctx *gin.Context, status int, message string) {
-	httperr.Abort(ctx, commonModel.Fail(status, message))
+func abortAuth(ctx *gin.Context, err error) {
+	httperr.Abort(ctx, err)
 }
 
 // RequireScopes checks the principal's capability set. Sessions derive their
@@ -58,15 +57,15 @@ func RequireScopes(scopes ...string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		v := viewer.MustFromContext(ctx.Request.Context())
 		if viewer.IsAnonymous(v) {
-			abortAuth(ctx, http.StatusUnauthorized, commonModel.TOKEN_NOT_VALID)
+			abortAuth(ctx, apperr.ErrTokenInvalid)
 			return
 		}
 		if v.Kind() == viewer.KindAccess && !containsValidAudience(v.Audience()) {
-			abortAuth(ctx, http.StatusForbidden, commonModel.AUDIENCE_FORBIDDEN_MSG)
+			abortAuth(ctx, apperr.ErrAudienceForbidden)
 			return
 		}
 		if !authz.Allows(v.Scopes(), scopes) {
-			abortAuth(ctx, http.StatusForbidden, commonModel.SCOPE_FORBIDDEN_MSG)
+			abortAuth(ctx, apperr.ErrScopeForbidden)
 			return
 		}
 		ctx.Next()
@@ -108,10 +107,10 @@ func requireAudience(challenge func(*gin.Context) string, allowed ...string) gin
 		}
 		if challenge != nil {
 			ctx.Header("WWW-Authenticate", challenge(ctx))
-			abortAuth(ctx, http.StatusUnauthorized, commonModel.TOKEN_NOT_VALID)
+			abortAuth(ctx, apperr.ErrTokenInvalid)
 			return
 		}
-		abortAuth(ctx, http.StatusForbidden, commonModel.AUDIENCE_FORBIDDEN_MSG)
+		abortAuth(ctx, apperr.ErrAudienceForbidden)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -118,7 +119,7 @@ func TestAskStream_AgentSettingMissingServesDisabledDefault(t *testing.T) {
 	if err := s.AskStream(helpers.CtxAsUser("u1"), "你好", "zh-CN", "", rec); err != nil {
 		t.Fatalf("AskStream should return nil, got %v", err)
 	}
-	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, commonModel.AGENT_NOT_ENABLED) {
+	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, apperr.ErrAgentDisabled.Error()) {
 		t.Fatalf("expected SSE agent-not-enabled error, got %q", body)
 	}
 }
@@ -136,7 +137,7 @@ func TestAskStream_AgentRunValidationError(t *testing.T) {
 	if err := s.AskStream(helpers.CtxAsUser("u1"), "你好", "zh-CN", "Asia/Shanghai", rec); err != nil {
 		t.Fatalf("AskStream should return nil, got %v", err)
 	}
-	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, commonModel.AGENT_NOT_ENABLED) {
+	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, apperr.ErrAgentDisabled.Error()) {
 		t.Fatalf("expected SSE agent-not-enabled error, got %q", body)
 	}
 }

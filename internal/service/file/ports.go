@@ -5,42 +5,45 @@ package service
 
 import (
 	"context"
-	"errors"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
-// ErrNotFound is returned for "no such file" and for "not allowed to see it":
-// the two are indistinguishable on the wire so an id cannot be probed.
-var ErrNotFound = errors.New("file: not found")
+// File failures are apperr sentinels. These names are the ones the file
+// domain already uses; httperr classifies the underlying sentinel.
+var (
+	// ErrNotFound is returned for "no such file" and for "not allowed to see
+	// it": the two are indistinguishable on the wire so an id cannot be probed.
+	ErrNotFound = apperr.ErrFileNotFound
+	// ErrUnsupported reports a request the profile cannot serve, e.g. a direct
+	// upload into a profile whose access rule would let anyone read a half-written
+	// object.
+	ErrUnsupported = apperr.ErrFileUnsupported
+	// ErrInvalid reports a malformed request: unknown profile, bad URL, blocked
+	// extension.
+	ErrInvalid = apperr.ErrFileInvalid
+	// ErrTooLarge reports a body above the profile's limit.
+	ErrTooLarge = apperr.ErrFileTooLarge
+	// ErrTypeNotAllowed reports a content type outside the profile's allowlist.
+	ErrTypeNotAllowed = apperr.ErrFileTypeRejected
+	// ErrConsumed reports a commit of a file that is not pending.
+	ErrConsumed = apperr.ErrFileNotPending
+	// ErrRangeNotSatisfiable reports a Range the object cannot satisfy.
+	ErrRangeNotSatisfiable = apperr.ErrFileRange
+)
 
-// ErrUnsupported reports a request the profile cannot serve, e.g. a direct
-// upload into a profile whose access rule would let anyone read a half-written
-// object.
-var ErrUnsupported = errors.New("file: unsupported")
-
-// ErrInvalid reports a malformed request: unknown profile, bad URL, blocked
-// extension.
-var ErrInvalid = errors.New("file: invalid request")
-
-// ErrTooLarge reports a body above the profile's limit.
-var ErrTooLarge = errors.New("file: too large")
-
-// ErrTypeNotAllowed reports a content type outside the profile's allowlist.
-var ErrTypeNotAllowed = errors.New("file: type not allowed")
-
-// ErrConsumed reports a commit of a file that is not pending.
-var ErrConsumed = errors.New("file: not pending")
-
-// ConflictError reports a delete that still has references. Its error text is
-// the localized message; References is the machine-readable companion.
+// ConflictError reports a delete that still has references. References is the
+// machine-readable companion; the error unwraps to apperr.ErrFileReferenced.
 type ConflictError struct {
 	References []fileModel.Reference
 }
 
-func (e *ConflictError) Error() string { return "file: still referenced" }
+func (e *ConflictError) Error() string { return apperr.ErrFileReferenced.Error() }
+
+func (e *ConflictError) Unwrap() error { return apperr.ErrFileReferenced }
 
 // Repository is the persistence the service needs. It is declared here, next
 // to its consumer, so the repository package can be swapped without the

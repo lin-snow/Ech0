@@ -6,13 +6,12 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
@@ -79,7 +78,7 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 	newEcho.Username = user.Username
 
 	if isEchoEmpty(newEcho) {
-		return nil, errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		return nil, apperr.ErrEchoEmpty
 	}
 
 	ids := collectEchoFileIDs(newEcho)
@@ -146,7 +145,7 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 			return err
 		}
 		if echo == nil {
-			return commonModel.WithStatus(http.StatusNotFound, errors.New(commonModel.ECHO_NOT_FOUND))
+			return apperr.ErrEchoNotFound
 		}
 		if err := authz.Decide(p, authz.EchoDelete, authz.ForEcho(*echo)); err != nil {
 			return err
@@ -221,7 +220,7 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return nil, err
 	}
 	if existing == nil {
-		return nil, commonModel.WithStatus(http.StatusNotFound, errors.New(commonModel.ECHO_NOT_FOUND))
+		return nil, apperr.ErrEchoNotFound
 	}
 	if err := authz.Decide(p, authz.EchoWrite, authz.ForEcho(*existing)); err != nil {
 		return nil, err
@@ -254,7 +253,7 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 	echo.Extension = normalizedExt
 
 	if isEchoEmpty(echo) {
-		return nil, errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		return nil, apperr.ErrEchoEmpty
 	}
 
 	ids := collectEchoFileIDs(echo)
@@ -299,10 +298,10 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 		return nil, err
 	}
 	if echo == nil {
-		return nil, commonModel.WithStatus(http.StatusNotFound, errors.New(commonModel.ECHO_NOT_FOUND))
+		return nil, apperr.ErrEchoNotFound
 	}
 	if echo.Private && !echoService.privateScope(ctx).Authenticated {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, apperr.ErrDenied
 	}
 	return echoService.hydrateEchoReactions(ctx, echo)
 }
@@ -317,10 +316,10 @@ func (echoService *EchoService) GetAllTags() ([]model.Tag, error) {
 func (echoService *EchoService) CreateTag(ctx context.Context, name string) (*model.Tag, error) {
 	cleaned := strings.TrimSpace(strings.TrimPrefix(name, "#"))
 	if cleaned == "" {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	if !isSafeTagName(cleaned) {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 
 	existing, err := echoService.echoRepository.GetTagsByNames(ctx, []string{cleaned})
@@ -362,7 +361,7 @@ func (echoService *EchoService) ProcessEchoTags(ctx context.Context, echo *model
 			continue
 		}
 		if !isSafeTagName(name) {
-			return errors.New(commonModel.INVALID_PARAMS)
+			return apperr.ErrInvalidParams
 		}
 		names = append(names, name)
 	}
@@ -430,7 +429,7 @@ func (echoService *EchoService) QueryEchos(
 		userID := viewer.MustFromContext(ctx).UserID()
 		if userID == "" {
 			return commonModel.List[model.Echo]{},
-				commonModel.Fail(http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+				apperr.ErrDenied
 		}
 		queryDto.UserID = userID
 	}
@@ -496,7 +495,7 @@ func normalizeEchoCursor(queryDto *commonModel.EchoQueryDto) error {
 	}
 
 	if queryDto.SortBy != "created_at" {
-		return commonModel.Fail(http.StatusBadRequest, commonModel.ECHO_CURSOR_SORT_UNSUPPORTED)
+		return apperr.ErrCursorSortUnsupported
 	}
 
 	cursor := strings.TrimSpace(*queryDto.Cursor)
@@ -514,7 +513,7 @@ func normalizeEchoCursor(queryDto *commonModel.EchoQueryDto) error {
 }
 
 func invalidEchoCursorError() error {
-	return commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_ECHO_CURSOR)
+	return apperr.ErrInvalidCursor
 }
 
 func isSafeTagName(name string) bool {
@@ -664,11 +663,11 @@ func (echoService *EchoService) validateSingleFileCategory(ctx context.Context, 
 	}
 
 	if len(counts) > 1 {
-		return errors.New(commonModel.ECHO_MIXED_FILE_CATEGORIES)
+		return apperr.ErrEchoMixedFiles
 	}
 	for cat, count := range counts {
 		if (cat == fileModel.CategoryAudio || cat == fileModel.CategoryVideo) && count > 1 {
-			return errors.New(commonModel.ECHO_MIXED_FILE_CATEGORIES)
+			return apperr.ErrEchoMixedFiles
 		}
 	}
 	return nil

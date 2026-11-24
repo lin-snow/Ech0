@@ -5,8 +5,8 @@ package agent
 
 import (
 	"context"
-	"errors"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 )
@@ -17,16 +17,16 @@ const (
 
 func validate(setting model.AgentSetting) error {
 	if !setting.Enable {
-		return errors.New(commonModel.AGENT_NOT_ENABLED)
+		return apperr.ErrAgentDisabled
 	}
 	if setting.Model == "" {
-		return errors.New(commonModel.AGENT_MODEL_MISSING)
+		return apperr.ErrAgentModel
 	}
 	if setting.Protocol == "" {
-		return errors.New(commonModel.AGENT_PROTOCOL_NOT_FOUND)
+		return apperr.ErrAgentProtocol
 	}
 	if setting.ApiKey == "" && !allowsEmptyAPIKey(setting.Protocol) {
-		return errors.New(commonModel.AGENT_API_KEY_MISSING)
+		return apperr.ErrAgentKey
 	}
 	return nil
 }
@@ -68,13 +68,13 @@ func Generate(
 
 func Ping(ctx context.Context, setting model.AgentSetting) error {
 	if setting.Model == "" {
-		return errors.New(commonModel.AGENT_MODEL_MISSING)
+		return apperr.ErrAgentModel
 	}
 	if setting.Protocol == "" {
-		return errors.New(commonModel.AGENT_PROTOCOL_NOT_FOUND)
+		return apperr.ErrAgentProtocol
 	}
 	if setting.ApiKey == "" && !allowsEmptyAPIKey(setting.Protocol) {
-		return errors.New(commonModel.AGENT_API_KEY_MISSING)
+		return apperr.ErrAgentKey
 	}
 
 	provider, err := providerFor(setting)

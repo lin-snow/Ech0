@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	"github.com/stretchr/testify/assert"
@@ -34,7 +34,7 @@ func TestValidateSourceType(t *testing.T) {
 			err := validateSourceType(tc.in)
 			if tc.wantErr {
 				require.Error(t, err)
-				assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+				assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 				return
 			}
 			require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestValidateStartRequest(t *testing.T) {
 			err := validateStartRequest(tc.req)
 			if tc.wantErr {
 				require.Error(t, err)
-				assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+				assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 				return
 			}
 			require.NoError(t, err)

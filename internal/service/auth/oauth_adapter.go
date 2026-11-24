@@ -4,9 +4,9 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -44,7 +44,7 @@ func getOAuthProviderAdapter(provider string) (oauthProviderAdapter, error) {
 	case string(commonModel.OAuth2CUSTOM):
 		return &customOAuthAdapter{}, nil
 	default:
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 }
 

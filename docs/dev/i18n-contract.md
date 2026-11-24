@@ -38,7 +38,7 @@
 
 ## 4. Backend Rules
 
-- A business error is `commonModel.Fail(status, "<English sentence>")`（需要 RFC 9457 `type` 时用 `FailWithType(status, type, msg)`；给已有 error 标状态用 `WithStatus(status, err)`）. The status is the whole contract; the message becomes the problem's `detail` and is developer-facing only.
+- A business error is an `internal/apperr` sentinel. `httperr.From` is the only place that turns it into a status and a developer-facing English `detail`. The status is the whole contract.
 - Never write Chinese into an error message that can reach the wire. OpenAPI `Summary`/`Description`, LLM prompts and panic messages are not wire text and may stay in Chinese.
 - The server has no translation catalog. `internal/i18n` only resolves which locale to use (default settings, user preference, `X-Locale`) and passes it to the copilot so the LLM answers in the user's language.
 - Keep logs and telemetry machine-oriented; do not localize log field names.

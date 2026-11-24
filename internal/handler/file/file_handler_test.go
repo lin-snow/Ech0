@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	service "github.com/lin-snow/ech0/internal/service/file"
 	"github.com/stretchr/testify/assert"
@@ -186,11 +185,9 @@ func TestListMapsDomainErrors(t *testing.T) {
 	}}
 
 	out, err := NewFileHandler(svc).List(context.Background(), &ListFilesInput{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, service.ErrInvalid)
 	assert.Nil(t, out)
-	var statusErr *commonModel.StatusError
-	require.True(t, errors.As(err, &statusErr))
-	assert.Equal(t, http.StatusBadRequest, statusErr.Status)
+	assert.Equal(t, http.StatusBadRequest, httperr.From(err).Status)
 }
 
 func TestUploadAnswers201WithTheFile(t *testing.T) {

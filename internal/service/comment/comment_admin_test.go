@@ -6,9 +6,9 @@ package service_test
 import (
 	"context"
 	"errors"
-	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
@@ -26,13 +26,13 @@ func TestRequireAdminGuard(t *testing.T) {
 	t.Run("anonymous is denied before any IO", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().UpdateCommentStatus(helpers.CtxAnonymous(), "c-1", commentModel.StatusApproved)
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("non-admin user is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().UpdateCommentStatus(helpers.CtxAsUser("user-normal"), "c-1", commentModel.StatusApproved)
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 }
 
@@ -40,7 +40,7 @@ func TestUpdateCommentStatus(t *testing.T) {
 	t.Run("invalid status is rejected after admin check", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().UpdateCommentStatus(helpers.CtxAsUser("admin-1", role.Admin), "c-1", commentModel.Status("weird"))
-		assertFail(t, err, http.StatusBadRequest, "invalid comment status")
+		assertFail(t, err, apperr.ErrCommentStatus)
 	})
 
 	t.Run("repo error is propagated", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestUpdateCommentHot(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().UpdateCommentHot(helpers.CtxAnonymous(), "c-1", true)
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("repo error is propagated", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestDeleteComment(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().DeleteComment(helpers.CtxAnonymous(), "c-1")
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("repo delete error is propagated", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestBatchAction(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().BatchAction(helpers.CtxAnonymous(), "approve", []string{"c-1"})
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("empty ids is a no-op after admin check", func(t *testing.T) {
@@ -195,7 +195,7 @@ func TestBatchAction(t *testing.T) {
 	t.Run("unknown action is rejected", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().BatchAction(helpers.CtxAsUser("admin-1", role.Admin), "explode", []string{"c-1"})
-		assertFail(t, err, http.StatusBadRequest, "invalid bulk action")
+		assertFail(t, err, apperr.ErrCommentBulk)
 	})
 
 	statusCases := []struct {
@@ -261,7 +261,7 @@ func TestBatchAction(t *testing.T) {
 		ctx := helpers.CtxAsToken("admin-1", authModel.TokenTypeAccess,
 			[]string{authz.ScopeCommentReview}, []string{authz.AudienceCLI}, "jti", role.Admin)
 		err := d.service().BatchAction(ctx, "delete", []string{"c-1"})
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("delete-scoped token can batch delete", func(t *testing.T) {
@@ -302,7 +302,7 @@ func TestListPanelComments(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		_, err := d.service().ListPanelComments(helpers.CtxAnonymous(), commentModel.ListCommentQuery{})
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	normalizeCases := []struct {

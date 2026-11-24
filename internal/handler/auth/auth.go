@@ -9,24 +9,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	res "github.com/lin-snow/ech0/internal/handler/response"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 )
 
-// Repeated failures of the auth surface. A StatusError is immutable, so one
+// Repeated failures of the auth surface. Sentinels are immutable, so one
 // value per case is safe to share instead of rebuilding it per request.
 var (
-	errInvalidBody         = commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_REQUEST_BODY)
-	errInvalidParams       = commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_PARAMS)
-	errRefreshTokenInvalid = commonModel.Fail(http.StatusUnauthorized, commonModel.REFRESH_TOKEN_INVALID)
-	errAccountDisabled     = commonModel.FailWithType(http.StatusForbidden, commonModel.TypeAccountDisabled, commonModel.ACCOUNT_DISABLED)
-	errTokenGenerateFailed = commonModel.Fail(http.StatusInternalServerError, commonModel.TOKEN_GENERATE_FAILED)
+	errInvalidBody         = apperr.ErrInvalidRequestBody
+	errInvalidParams       = apperr.ErrInvalidParams
+	errRefreshTokenInvalid = apperr.ErrRefreshTokenInvalid
+	errAccountDisabled     = apperr.ErrAccountDisabled
+	errTokenGenerateFailed = apperr.ErrTokenIssueFailed
 )
 
 type AuthHandler struct {
@@ -56,7 +56,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		if h.authService.IsTokenRevoked(claims.ID) {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
-			return res.Failed(commonModel.Fail(http.StatusUnauthorized, commonModel.TOKEN_REVOKED))
+			return res.Failed(apperr.ErrTokenRevoked)
 		}
 
 		user, err := h.userService.GetUserByID(claims.Subject)
@@ -67,7 +67,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		state, err := h.authService.AccountState(ctx.Request.Context(), user.ID)
 		if err != nil {
-			return res.Failed(commonModel.Fail(http.StatusInternalServerError, commonModel.INTERNAL_SERVER_ERROR))
+			return res.Failed(apperr.ErrInternal)
 		}
 		if !state.Active() {
 			cookieUtil.ClearRefreshTokenCookie(ctx)
@@ -132,7 +132,7 @@ func (h *AuthHandler) Exchange() gin.HandlerFunc {
 
 		tokenPair, err := h.authService.ExchangeOAuthCode(req.Code)
 		if err != nil {
-			return res.Failed(commonModel.Fail(http.StatusUnauthorized, commonModel.EXCHANGE_CODE_INVALID))
+			return res.Failed(apperr.ErrExchangeCodeInvalid)
 		}
 
 		cookieUtil.SetRefreshTokenCookie(ctx, tokenPair.RefreshToken, config.Config().Auth.Jwt.RefreshExpires)

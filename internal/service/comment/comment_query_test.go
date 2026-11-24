@@ -6,9 +6,9 @@ package service_test
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -168,7 +168,7 @@ func TestGetCommentByID(t *testing.T) {
 	t.Run("anonymous is denied before any IO", func(t *testing.T) {
 		d := newDeps(t)
 		_, err := d.service().GetCommentByID(helpers.CtxAnonymous(), "c-1")
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("admin gets the comment passed through", func(t *testing.T) {
@@ -210,7 +210,7 @@ func TestUpdateSystemSetting(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().UpdateSystemSetting(helpers.CtxAnonymous(), commentModel.SystemSetting{})
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("applies port default and preserves blank password before persist", func(t *testing.T) {
@@ -272,7 +272,7 @@ func TestSendTestEmail(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().SendTestEmail(helpers.CtxAnonymous(), commentModel.SystemSetting{})
-		assertFail(t, err, http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("missing admin email fails before sending", func(t *testing.T) {
@@ -302,7 +302,7 @@ func TestSendTestEmail(t *testing.T) {
 		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1", role.Admin), commentModel.SystemSetting{
 			EmailNotify: bad,
 		})
-		assertFail(t, err, http.StatusBadRequest, "")
+		assertFail(t, err, apperr.ErrSMTPHost)
 	})
 
 	t.Run("happy path delivers via mailer", func(t *testing.T) {

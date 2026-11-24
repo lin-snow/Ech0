@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/httperr"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
 // Response is what a raw gin handler produced. Raw routes (streams, uploads,
@@ -47,7 +46,7 @@ func Execute(fn func(ctx *gin.Context) Response) gin.HandlerFunc {
 		if res.Err != nil {
 			err := res.Err
 			if res.Status > 0 {
-				err = commonModel.WithStatus(res.Status, err)
+				err = httperr.EdgeCause(res.Status, err)
 			}
 			httperr.Write(ctx, err)
 			return

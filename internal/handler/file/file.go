@@ -5,13 +5,13 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	res "github.com/lin-snow/ech0/internal/handler/response"
 	"github.com/lin-snow/ech0/internal/httperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -77,34 +77,10 @@ type (
 	EmptyOutput  = struct{}
 )
 
-// statusOf names the transport status a domain error deserves. The domain keeps
-// its errors free of HTTP; the mapping lives at the edge, once.
-func statusOf(err error) error {
-	if err == nil {
-		return nil
-	}
-	var conflict *service.ConflictError
-	switch {
-	case errors.Is(err, service.ErrNotFound):
-		return commonModel.WithStatus(http.StatusNotFound, err)
-	case errors.Is(err, service.ErrTooLarge):
-		return commonModel.WithStatus(http.StatusRequestEntityTooLarge, err)
-	case errors.Is(err, service.ErrTypeNotAllowed):
-		return commonModel.WithStatus(http.StatusUnsupportedMediaType, err)
-	case errors.Is(err, service.ErrRangeNotSatisfiable):
-		return commonModel.WithStatus(http.StatusRequestedRangeNotSatisfiable, err)
-	case errors.Is(err, service.ErrInvalid), errors.Is(err, service.ErrUnsupported):
-		return commonModel.WithStatus(http.StatusBadRequest, err)
-	case errors.As(err, &conflict):
-		return commonModel.WithStatus(http.StatusConflict, err)
-	}
-	return err
-}
-
 func (fileHandler *FileHandler) Commit(ctx context.Context, in *CommitInput) (*FileCreatedOutput, error) {
 	dto, err := fileHandler.files.Commit(ctx, in.ID)
 	if err != nil {
-		return nil, statusOf(err)
+		return nil, err
 	}
 	return &FileCreatedOutput{Location: "/api/files/" + in.ID, Body: dto}, nil
 }
@@ -112,7 +88,7 @@ func (fileHandler *FileHandler) Commit(ctx context.Context, in *CommitInput) (*F
 func (fileHandler *FileHandler) Get(ctx context.Context, in *GetFileInput) (*FileOutput, error) {
 	dto, err := fileHandler.files.Get(ctx, in.ID)
 	if err != nil {
-		return nil, statusOf(err)
+		return nil, err
 	}
 	return &FileOutput{Body: dto}, nil
 }
@@ -130,7 +106,7 @@ func (fileHandler *FileHandler) List(ctx context.Context, in *ListFilesInput) (*
 		Role:     in.Role,
 	})
 	if err != nil {
-		return nil, statusOf(err)
+		return nil, err
 	}
 	total := page.Total
 	return &FileListPage{Body: commonModel.List[fileModel.FileDTO]{Items: page.Items, Total: &total}}, nil
@@ -139,14 +115,14 @@ func (fileHandler *FileHandler) List(ctx context.Context, in *ListFilesInput) (*
 func (fileHandler *FileHandler) Rename(ctx context.Context, in *RenameFileInput) (*FileOutput, error) {
 	dto, err := fileHandler.files.Rename(ctx, in.ID, in.Body.Name)
 	if err != nil {
-		return nil, statusOf(err)
+		return nil, err
 	}
 	return &FileOutput{Body: dto}, nil
 }
 
 func (fileHandler *FileHandler) Delete(ctx context.Context, in *DeleteFileInput) (*EmptyOutput, error) {
 	if _, err := fileHandler.files.Delete(ctx, in.ID, in.Force); err != nil {
-		return nil, statusOf(err)
+		return nil, err
 	}
 	return &EmptyOutput{}, nil
 }
@@ -167,11 +143,11 @@ func (fileHandler *FileHandler) Upload() gin.HandlerFunc {
 		if fh, err := ctx.FormFile("file"); err == nil {
 			in.File = fh
 		} else if in.ExternalURL == "" && !in.Direct {
-			return res.Failed(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_REQUEST_BODY))
+			return res.Failed(apperr.ErrInvalidRequestBody)
 		}
 		created, err := fileHandler.files.Create(ctx.Request.Context(), in)
 		if err != nil {
-			return res.Failed(statusOf(err))
+			return res.Failed(err)
 		}
 		out := *created
 		return res.Created(out)
@@ -266,7 +242,7 @@ func writeStatus(ctx *gin.Context, status int) {
 }
 
 func (fileHandler *FileHandler) writeError(ctx *gin.Context, err error) {
-	httperr.Write(ctx, statusOf(err))
+	httperr.Write(ctx, err)
 }
 
 // parseRange understands the single byte range a media element needs:

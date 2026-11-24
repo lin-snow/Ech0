@@ -9,6 +9,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/connect"
@@ -62,7 +63,7 @@ func TestAddConnect_EmptyURLRejected(t *testing.T) {
 	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: ""})
 
 	require.Error(t, err)
-	assert.EqualError(t, err, commonModel.INVALID_CONNECTION_URL)
+	assert.EqualError(t, err, apperr.ErrConnectURL.Error())
 }
 
 func TestAddConnect_SSRFPrevalidation(t *testing.T) {
@@ -93,7 +94,7 @@ func TestAddConnect_SSRFPrevalidation(t *testing.T) {
 			err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: tc.url})
 
 			require.Error(t, err)
-			assert.EqualError(t, err, commonModel.INVALID_CONNECTION_URL)
+			assert.EqualError(t, err, apperr.ErrConnectURL.Error())
 		})
 	}
 }
@@ -112,7 +113,7 @@ func TestAddConnect_DuplicateRejected(t *testing.T) {
 	err := svc.AddConnect(helpers.CtxAsUser(userID, role.Admin), model.Connected{ConnectURL: "https://example.com"})
 
 	require.Error(t, err)
-	assert.EqualError(t, err, commonModel.CONNECT_HAS_EXISTS)
+	assert.EqualError(t, err, apperr.ErrConnectExists.Error())
 }
 
 func TestAddConnect_GetAllConnectsErrorPropagates(t *testing.T) {

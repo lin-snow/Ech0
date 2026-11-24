@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/kvstore"
@@ -88,7 +89,7 @@ func (authService *AuthService) AccountState(ctx context.Context, userID string)
 }
 
 func accountDisabledError() error {
-	return commonModel.FailWithType(http.StatusForbidden, commonModel.TypeAccountDisabled, commonModel.ACCOUNT_DISABLED)
+	return apperr.ErrAccountDisabled
 }
 
 func (authService *AuthService) PasskeyBoundary(ctx context.Context) (rpID string, origins []string) {
@@ -105,7 +106,7 @@ func (authService *AuthService) ExchangeOAuthCode(code string) (*authModel.Token
 
 func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.LoginDto) (*authModel.TokenPair, error) {
 	if loginDto.Username == "" || loginDto.Password == "" {
-		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
+		return nil, apperr.ErrCredentialsEmpty
 	}
 
 	attempt, err := authService.reserveSignIn(ctx, loginDto.Username)
@@ -118,7 +119,7 @@ func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.L
 	// oracle. The distinguishers stay in the server log only.
 	user, err := authService.repository.GetUserByUsername(ctx, loginDto.Username)
 	if err != nil {
-		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+		return nil, apperr.ErrCredentialsIncorrect
 	}
 
 	localAuth, err := authService.repository.GetLocalAuthByUserID(ctx, user.ID)
@@ -131,10 +132,10 @@ func (authService *AuthService) Login(ctx context.Context, loginDto *authModel.L
 				logUtil.Err(err),
 			)
 		}
-		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+		return nil, apperr.ErrCredentialsIncorrect
 	}
 	if !cryptoUtil.CheckPassword(localAuth.PasswordAlgo, localAuth.PasswordHash, loginDto.Password) {
-		return nil, errors.New(commonModel.USERNAME_OR_PASSWORD_INCORRECT)
+		return nil, apperr.ErrCredentialsIncorrect
 	}
 	attempt.succeeded()
 
@@ -215,7 +216,7 @@ func (authService *AuthService) BindOAuth(
 
 	authorizeURL := authService.buildOAuthAuthorizeURL(setting, provider, state, nonce)
 	if authorizeURL == "" {
-		return "", errors.New(commonModel.OAUTH2_NOT_CONFIGURED)
+		return "", apperr.ErrOAuthNotConfigured
 	}
 
 	return authorizeURL, nil
@@ -245,7 +246,7 @@ func (authService *AuthService) GetOAuthLoginURL(provider string, redirectURI st
 
 	authorizeURL := authService.buildOAuthAuthorizeURL(setting, provider, state, nonce)
 	if authorizeURL == "" {
-		return "", errors.New(commonModel.OAUTH2_NOT_CONFIGURED)
+		return "", apperr.ErrOAuthNotConfigured
 	}
 
 	return authorizeURL, nil
@@ -267,7 +268,7 @@ func (authService *AuthService) HandleOAuthCallback(
 	}
 
 	if oauthState.Provider != provider {
-		return "", errors.New(commonModel.INVALID_PARAMS)
+		return "", apperr.ErrInvalidParams
 	}
 
 	adapter, err := authService.resolveAdapter(provider)
@@ -296,17 +297,17 @@ func (authService *AuthService) getOAuthSetting(provider string) (*settingModel.
 	}
 
 	if setting.Provider != provider {
-		return nil, errors.New(commonModel.OAUTH2_NOT_CONFIGURED)
+		return nil, apperr.ErrOAuthNotConfigured
 	}
 
 	if !setting.Enable {
-		return nil, errors.New(commonModel.OAUTH2_NOT_ENABLED)
+		return nil, apperr.ErrOAuthDisabled
 	}
 
 	if setting.ClientID == "" || setting.RedirectURI == "" || setting.AuthURL == "" || setting.TokenURL == "" ||
 		setting.UserInfoURL == "" ||
 		setting.ClientSecret == "" {
-		return nil, errors.New(commonModel.OAUTH2_NOT_CONFIGURED)
+		return nil, apperr.ErrOAuthNotConfigured
 	}
 
 	return &setting, nil
@@ -381,15 +382,15 @@ func (authService *AuthService) buildOAuthAuthorizeURL(
 func bindingPermissionError(provider string) error {
 	switch provider {
 	case string(commonModel.OAuth2GITHUB):
-		return errors.New(commonModel.NO_PERMISSION_BINDING_GITHUB)
+		return apperr.ErrBindGitHub
 	case string(commonModel.OAuth2GOOGLE):
-		return errors.New(commonModel.NO_PERMISSION_BINDING_GOOGLE)
+		return apperr.ErrBindGoogle
 	case string(commonModel.OAuth2QQ):
-		return errors.New(commonModel.NO_PERMISSION_BINDING_QQ)
+		return apperr.ErrBindQQ
 	case string(commonModel.OAuth2CUSTOM):
-		return errors.New(commonModel.NO_PERMISSION_BINDING_CUSTOM)
+		return apperr.ErrBindCustom
 	default:
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+		return apperr.ErrDenied
 	}
 }
 
@@ -408,7 +409,7 @@ func (authService *AuthService) resolveOAuthCallback(
 				slog.String("result", "fail"),
 				slog.String("reason", "unexpected_user_id_in_login_state"),
 			)
-			return "", errors.New(commonModel.INVALID_PARAMS)
+			return "", apperr.ErrInvalidParams
 		}
 
 		var (
@@ -496,7 +497,7 @@ func (authService *AuthService) resolveOAuthCallback(
 				slog.String("result", "fail"),
 				slog.String("reason", "missing_user_id"),
 			)
-			return "", errors.New(commonModel.INVALID_PARAMS)
+			return "", apperr.ErrInvalidParams
 		}
 
 		if err := authService.transactor.Run(context.Background(), func(ctx context.Context) error {
@@ -537,20 +538,20 @@ func (authService *AuthService) resolveOAuthCallback(
 		)
 		return redirectURL.String(), nil
 	default:
-		return "", errors.New(commonModel.INVALID_PARAMS)
+		return "", apperr.ErrInvalidParams
 	}
 }
 
 func (authService *AuthService) parseAndValidateClientRedirect(redirect string) (*url.URL, error) {
 	redirectURL, err := url.Parse(redirect)
 	if err != nil || redirectURL == nil {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	if !redirectURL.IsAbs() || redirectURL.Host == "" {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	if redirectURL.Scheme != "http" && redirectURL.Scheme != "https" {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 
 	allowed := config.Config().Auth.Redirect.AllowedReturnURLs
@@ -567,7 +568,7 @@ func (authService *AuthService) parseAndValidateClientRedirect(redirect string) 
 	candidates = append(candidates, allowed...)
 	candidates = append(candidates, implicitSelf...)
 	if len(candidates) == 0 {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	redirectNorm := strings.ToLower(redirectURL.Scheme) + "://" +
 		strings.ToLower(redirectURL.Host) +
@@ -587,7 +588,7 @@ func (authService *AuthService) parseAndValidateClientRedirect(redirect string) 
 		}
 	}
 	if !matched {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 
 	return redirectURL, nil
@@ -767,16 +768,16 @@ func (authService *AuthService) PasskeyRegisterFinish(
 	cacheKey := getPasskeyRegisterSessionKey(nonce)
 	cached, err := authService.repository.CacheGetPasskeySession(cacheKey)
 	if err != nil {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 	authService.repository.CacheDeletePasskeySession(cacheKey)
 
 	sess, ok := cached.(passkeySessionCache)
 	if !ok {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 	if sess.Origin != origin {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 
 	wa, err := authService.newWebAuthn(rpID, origin)
@@ -865,16 +866,16 @@ func (authService *AuthService) PasskeyLoginFinish(
 	cacheKey := getPasskeyLoginSessionKey(nonce)
 	cached, err := authService.repository.CacheGetPasskeySession(cacheKey)
 	if err != nil {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	authService.repository.CacheDeletePasskeySession(cacheKey)
 
 	sess, ok := cached.(passkeySessionCache)
 	if !ok {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	if sess.Origin != origin {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 
 	wa, err := authService.newWebAuthn(rpID, origin)
@@ -898,7 +899,7 @@ func (authService *AuthService) PasskeyLoginFinish(
 
 		expected := makeUserHandle(pk.UserID)
 		if len(userHandle) > 0 && !bytes.Equal(userHandle, expected) {
-			return nil, errors.New(commonModel.INVALID_PARAMS)
+			return nil, apperr.ErrInvalidParams
 		}
 
 		wUser, _, err := authService.getWebauthnUserByID(pk.UserID)
@@ -989,7 +990,7 @@ func (authService *AuthService) UpdatePasskeyDeviceName(
 ) error {
 	userID := viewer.MustFromContext(ctx).UserID()
 	if strings.TrimSpace(deviceName) == "" {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	return authService.transactor.Run(ctx, func(txCtx context.Context) error {
 		return authService.repository.UpdatePasskeyDeviceName(

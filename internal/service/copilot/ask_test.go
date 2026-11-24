@@ -6,14 +6,13 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 )
 
@@ -481,7 +480,7 @@ func TestDeleteEchoTool_ExpiryLeavesTheEchoAlone(t *testing.T) {
 func TestDeleteEchoTool_UnknownEchoNeverAsks(t *testing.T) {
 	echoSvc := &recordingEchoSvc{}
 	echoSvc.getByIDFn = func(string) (*echoModel.Echo, error) {
-		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+		return nil, apperr.ErrEchoNotFound
 	}
 	s := &CopilotService{echoService: echoSvc, asks: newAskRegistry()}
 	a, events := newTestAsker(time.Second)

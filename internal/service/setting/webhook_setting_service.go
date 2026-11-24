@@ -5,11 +5,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
@@ -52,7 +51,7 @@ func (settingService *SettingService) UpdateWebhook(
 	newWebhook.URL = urlUtil.TrimURL(newWebhook.URL)
 
 	if newWebhook.Name == "" || newWebhook.URL == "" {
-		return errors.New(commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY)
+		return apperr.ErrWebhookRequired
 	}
 	if err := validateWebhookURL(newWebhook.URL); err != nil {
 		return err
@@ -81,7 +80,7 @@ func (settingService *SettingService) CreateWebhook(
 	newWebhook.URL = urlUtil.TrimURL(newWebhook.URL)
 
 	if newWebhook.Name == "" || newWebhook.URL == "" {
-		return errors.New(commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY)
+		return apperr.ErrWebhookRequired
 	}
 	if err := validateWebhookURL(newWebhook.URL); err != nil {
 		return err
@@ -124,7 +123,7 @@ func (settingService *SettingService) TestWebhook(ctx context.Context, id string
 
 func validateWebhookURL(rawURL string) error {
 	if err := egress.Validate(rawURL); err != nil {
-		return errors.New(commonModel.INVALID_WEBHOOK_URL)
+		return apperr.ErrWebhookURL
 	}
 	return nil
 }

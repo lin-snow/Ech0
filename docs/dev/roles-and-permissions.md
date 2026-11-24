@@ -32,7 +32,7 @@ authz.Decide(viewer.MustFromContext(ctx), authz.EchoDelete, authz.ForEcho(echo))
 
 - **Principal** 就是 `viewer.Context`（`Kind` / `UserID` / `Role` / `Scopes` / `Audience`）；匿名是 `KindAnonymous` 的值，不是 nil。**Action** 是编译期枚举（16 个，`internal/authz/action.go`），**Resource** 带资源类型、ID、归属者与目标角色（`ForEcho` / `ForFile` / `ForUser` / `Instance`）。
 - 规则是一个 `switch`，没有策略文件、没有数据库存储、没有 `Authorizer` 接口。未知动作或结构不合理的对象返回 `ErrNoPolicy`——fail closed，测试逐一枚举动作兜底。
-- 拒绝是 `authz.ErrDenied`（`commonModel.Fail(http.StatusForbidden, …)` 构造的 `*commonModel.StatusError`，仅进程内使用）；`internal/httperr` 把它映射成 403 problem 文档，服务层只负责返回错误。
+- 拒绝是 `authz.ErrDenied`（`apperr.ErrDenied` 这一个哨兵）；`internal/httperr` 把它映射成 403 problem 文档，服务层只负责返回错误。
 - 判定不查库：角色来自中间件解析的 principal，归属者来自已加载的资源行。为此 `stream`、文件读取等路径把授权放在加载资源之后、写任何字节之前。
 - 少数入口必须按"数据库里的目标账号"决定（转让所有权、OAuth 同意页），它们先加载该行，再用 `viewer.NewSession(user.ID, user.Role, …)` 构造 principal——授权对象就是被加载的那个账号。
 

@@ -5,10 +5,9 @@ package auth
 
 import (
 	"context"
-	"net/http"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/clientip"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 )
 
@@ -66,9 +65,9 @@ func (attempt *signInAttempt) refundAddress() {
 	}
 }
 
-// signInRateLimited reports a 429. Huma renders the problem document itself,
-// and huma.StatusError has no header channel, so the cool-down is conveyed by
-// the status alone; the middleware-set Retry-After covers the transport layer.
+// signInRateLimited reports a rate limit. The problem document carries 429;
+// huma.StatusError has no header channel, so the cool-down is the status
+// alone. The middleware-set Retry-After covers the transport layer.
 func signInRateLimited(_ ratelimit.Decision) error {
-	return commonModel.Fail(http.StatusTooManyRequests, commonModel.RATE_LIMIT_EXCEEDED)
+	return apperr.ErrRateLimited
 }

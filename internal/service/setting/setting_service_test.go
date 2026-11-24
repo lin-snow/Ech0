@@ -11,6 +11,7 @@ import (
 	"time"
 
 	accessService "github.com/lin-snow/ech0/internal/access"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -179,7 +180,7 @@ func TestCreateWebhook(t *testing.T) {
 
 		err := d.build().CreateWebhook(ctx, &settingModel.WebhookDto{Name: "hook", URL: ""})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY, err.Error())
+		assert.Equal(t, apperr.ErrWebhookRequired.Error(), err.Error())
 	})
 
 	t.Run("unsafe url rejected", func(t *testing.T) {
@@ -187,7 +188,7 @@ func TestCreateWebhook(t *testing.T) {
 
 		err := d.build().CreateWebhook(ctx, &settingModel.WebhookDto{Name: "hook", URL: "http://127.0.0.1/x"})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_WEBHOOK_URL, err.Error())
+		assert.Equal(t, apperr.ErrWebhookURL.Error(), err.Error())
 	})
 
 	t.Run("valid webhook persisted via transaction", func(t *testing.T) {
@@ -367,7 +368,7 @@ func TestUpdateSnapshotScheduleSetting(t *testing.T) {
 			Enable: true, CronExpression: "definitely not cron",
 		})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_CRON_EXPRESSION, err.Error())
+		assert.Equal(t, apperr.ErrInvalidCron.Error(), err.Error())
 	})
 
 	t.Run("valid cron persisted", func(t *testing.T) {
@@ -442,7 +443,7 @@ func TestUpdateAgentSettings_Temperature(t *testing.T) {
 		err := d.build().UpdateAgentSettings(helpers.CtxAsUser(testUserID, role.Admin), &settingModel.AgentSettingDto{
 			Protocol: "openai", Model: "m", Temperature: &temp,
 		})
-		require.EqualError(t, err, commonModel.INVALID_PARAMS)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 	})
 }
 

@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	connectHandler "github.com/lin-snow/ech0/internal/handler/connect"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	connectModel "github.com/lin-snow/ech0/internal/model/connect"
 	connectmock "github.com/lin-snow/ech0/internal/test/mocks/connectmock"
 	"github.com/stretchr/testify/assert"
@@ -21,13 +22,11 @@ import (
 func assertStatusErr(t *testing.T, err error, wantStatus int) {
 	t.Helper()
 	require.Error(t, err)
-	var se *commonModel.StatusError
-	require.ErrorAs(t, err, &se)
-	assert.Equal(t, wantStatus, se.Status)
+	assert.Equal(t, wantStatus, httperr.From(err).Status)
 }
 
 func internalErr() error {
-	return commonModel.Fail(http.StatusInternalServerError, "boom")
+	return errors.New("boom")
 }
 
 func TestConnectHandler_GetConnect(t *testing.T) {
@@ -154,7 +153,7 @@ func TestConnectHandler_AddConnect(t *testing.T) {
 	t.Run("error", func(t *testing.T) {
 		svc := connectmock.NewMockService(t)
 		svc.EXPECT().AddConnect(mock.Anything, mock.Anything).
-			Return(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_CONNECTION_URL)).Once()
+			Return(apperr.ErrConnectURL).Once()
 
 		h := connectHandler.NewConnectHandler(svc)
 		out, err := h.AddConnect(context.Background(), &connectHandler.AddConnectInput{})

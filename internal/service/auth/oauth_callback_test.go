@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -127,7 +128,7 @@ func TestHandleOAuthCallback_ValidationErrors(t *testing.T) {
 			provider: string(commonModel.OAuth2GOOGLE),
 			setting:  fullOAuth2Setting(string(commonModel.OAuth2GITHUB)),
 			state:    validGithubState,
-			wantErr:  commonModel.OAUTH2_NOT_CONFIGURED,
+			wantErr:  apperr.ErrOAuthNotConfigured.Error(),
 		},
 		{
 			name:     "oauth2 disabled",
@@ -138,7 +139,7 @@ func TestHandleOAuthCallback_ValidationErrors(t *testing.T) {
 				return s
 			}(),
 			state:   validGithubState,
-			wantErr: commonModel.OAUTH2_NOT_ENABLED,
+			wantErr: apperr.ErrOAuthDisabled.Error(),
 		},
 		{
 			name:     "missing required config field",
@@ -149,14 +150,14 @@ func TestHandleOAuthCallback_ValidationErrors(t *testing.T) {
 				return s
 			}(),
 			state:   validGithubState,
-			wantErr: commonModel.OAUTH2_NOT_CONFIGURED,
+			wantErr: apperr.ErrOAuthNotConfigured.Error(),
 		},
 		{
 			name:     "state provider mismatch",
 			provider: string(commonModel.OAuth2GITHUB),
 			setting:  fullOAuth2Setting(string(commonModel.OAuth2GITHUB)),
 			state:    mismatchProviderState,
-			wantErr:  commonModel.INVALID_PARAMS,
+			wantErr:  apperr.ErrInvalidParams.Error(),
 		},
 	}
 
@@ -323,7 +324,7 @@ func TestResolveOAuthCallback_PureValidation(t *testing.T) {
 			out, err := svc.resolveOAuthCallback(
 				tc.state, string(commonModel.OAuth2GITHUB), "ext-1", "", string(authModel.AuthTypeOAuth2),
 			)
-			require.EqualError(t, err, commonModel.INVALID_PARAMS)
+			require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 			assert.Empty(t, out)
 		})
 	}
@@ -420,7 +421,7 @@ func TestResolveOAuthCallback_LoginRedirectRejected(t *testing.T) {
 		loginState("https://evil.example.net/auth"),
 		string(commonModel.OAuth2GITHUB), "ext-1", "", string(authModel.AuthTypeOAuth2),
 	)
-	require.EqualError(t, err, commonModel.INVALID_PARAMS)
+	require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 	assert.Empty(t, out)
 }
 
@@ -482,6 +483,6 @@ func TestResolveOAuthCallback_BindRedirectRejected(t *testing.T) {
 		bindState("u-7", "https://evil.example.net/panel"),
 		string(commonModel.OAuth2GITHUB), "ext-bind", "", string(authModel.AuthTypeOAuth2),
 	)
-	require.EqualError(t, err, commonModel.INVALID_PARAMS)
+	require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 	assert.Empty(t, out)
 }

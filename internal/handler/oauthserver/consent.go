@@ -4,12 +4,12 @@
 package oauthserver
 
 import (
-	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	res "github.com/lin-snow/ech0/internal/handler/response"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -90,12 +90,12 @@ func approveQuery(request approveRequest) url.Values {
 func requireSession(ctx *gin.Context) (string, error) {
 	current := viewer.MustFromContext(ctx.Request.Context())
 	if current.UserID() == "" {
-		return "", commonModel.Fail(http.StatusUnauthorized, "authentication required")
+		return "", apperr.ErrAuthenticationRequired
 	}
 	// Consent must never be grantable with an API token: that would let a
 	// token mint another, broader token.
 	if current.Kind() != viewer.KindSession {
-		return "", commonModel.Fail(http.StatusForbidden, "a browser session is required")
+		return "", apperr.ErrSessionRequired
 	}
 	return current.UserID(), nil
 }
@@ -108,5 +108,5 @@ func writeConsentError(ctx *gin.Context, oauthErr *oauthserverModel.Error) res.R
 		oauthErr = oauthserverModel.ErrInvalidRequest("request failed")
 	}
 	ctx.Header("Cache-Control", "no-store")
-	return res.Failed(commonModel.Fail(oauthErr.Status, oauthErr.Description))
+	return res.Failed(httperr.Edge(oauthErr.Status, oauthErr.Description))
 }

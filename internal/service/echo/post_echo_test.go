@@ -8,8 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/event"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
@@ -103,7 +103,7 @@ func TestPostEcho_Guards(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "   "})
 
-		require.EqualError(t, err, commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		require.EqualError(t, err, apperr.ErrEchoEmpty.Error())
 	})
 }
 

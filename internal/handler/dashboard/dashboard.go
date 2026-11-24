@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/dashboard"
 	githubUtil "github.com/lin-snow/ech0/internal/util/github"
@@ -60,10 +61,7 @@ type (
 func (dashboardHandler *DashboardHandler) CheckUpdate(_ context.Context, _ *CheckUpdateInput) (*CheckUpdateOutput, error) {
 	latestVersion, err := githubUtil.GetLatestVersion()
 	if err != nil {
-		return nil, commonModel.WithStatus(
-			http.StatusInternalServerError,
-			fmt.Errorf("%s: %w", commonModel.CHECK_UPDATE_FAILED, err),
-		)
+		return nil, fmt.Errorf("check for updates: %w", err)
 	}
 
 	cur := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(versionPkg.Version), "v"))
@@ -82,7 +80,7 @@ func (dashboardHandler *DashboardHandler) GetSystemLogs(_ context.Context, in *G
 	if rawTail := strings.TrimSpace(in.Tail); rawTail != "" {
 		n, err := strconv.Atoi(rawTail)
 		if err != nil || n <= 0 {
-			return nil, commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_QUERY_PARAMS)
+			return nil, apperr.ErrInvalidQuery
 		}
 		tail = n
 	}

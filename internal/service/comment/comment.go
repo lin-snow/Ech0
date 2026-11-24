@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"net/mail"
 	"net/url"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	captchaCfg "github.com/lin-snow/ech0/internal/captcha"
 	"github.com/lin-snow/ech0/internal/config"
@@ -109,7 +109,7 @@ func (s *CommentService) viewerSeesPrivate(ctx context.Context) bool {
 func (s *CommentService) assertEchoCommentable(ctx context.Context, echoID string) error {
 	private, err := s.repo.IsEchoPrivate(ctx, echoID)
 	if err != nil || (private && !s.viewerSeesPrivate(ctx)) {
-		return commonModel.Fail(http.StatusBadRequest, "comment target is not visible")
+		return apperr.ErrCommentHidden
 	}
 	return nil
 }
@@ -122,11 +122,11 @@ func (s *CommentService) CreateComment(
 ) (*model.Comment, error) {
 	if strings.TrimSpace(dto.HoneypotField) != "" {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "submission rejected")
+			apperr.ErrCommentRejected
 	}
 	if err := s.verifyFormToken(clientIP, dto.FormToken); err != nil {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "submitted too fast or the form expired")
+			apperr.ErrCommentForm
 	}
 
 	setting, err := s.GetSystemSetting(ctx)
@@ -135,13 +135,13 @@ func (s *CommentService) CreateComment(
 	}
 	if !setting.EnableComment {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "comments are disabled")
+			apperr.ErrCommentsDisabled
 	}
 
 	if setting.CaptchaEnabled {
 		if err := captchaCfg.SiteVerify(dto.CaptchaToken); err != nil {
 			return nil,
-				commonModel.Fail(http.StatusBadRequest, "captcha verification failed")
+				apperr.ErrCaptcha
 		}
 	}
 
@@ -160,11 +160,11 @@ func (s *CommentService) CreateComment(
 	}
 	if comment.EchoID == "" || comment.Content == "" {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "comment content must not be empty")
+			apperr.ErrCommentEmpty
 	}
 	if utf8.RuneCountInString(comment.Content) > maxCommentRunes {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "comment content must be at most 200 characters")
+			apperr.ErrCommentTooLong
 	}
 	parentID, err := s.resolveParentID(ctx, comment.EchoID, dto.ParentID)
 	if err != nil {
@@ -184,11 +184,11 @@ func (s *CommentService) CreateComment(
 		website := strings.TrimSpace(dto.Website)
 		if nickname == "" || email == "" {
 			return nil,
-				commonModel.Fail(http.StatusBadRequest, "nickname and email are required")
+				apperr.ErrCommentIdentity
 		}
 		if _, err := mail.ParseAddress(email); err != nil {
 			return nil,
-				commonModel.Fail(http.StatusBadRequest, "invalid email address")
+				apperr.ErrInvalidEmail
 		}
 		if website != "" {
 			// The website is rendered as an <a href> on the public page, so only
@@ -198,7 +198,7 @@ func (s *CommentService) CreateComment(
 			if err != nil || parsed.Host == "" ||
 				(parsed.Scheme != "http" && parsed.Scheme != "https") {
 				return nil,
-					commonModel.Fail(http.StatusBadRequest, "invalid website url")
+					apperr.ErrInvalidWebsite
 			}
 		}
 		comment.Nickname = nickname
@@ -232,7 +232,7 @@ func (s *CommentService) CreateComment(
 	}
 	if duplicated {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "duplicate comment")
+			apperr.ErrDuplicateComment
 	}
 
 	if err := s.repo.CreateComment(ctx, &comment); err != nil {
@@ -253,10 +253,10 @@ func (s *CommentService) resolveParentID(ctx context.Context, echoID, rawParentI
 	}
 	parent, err := s.repo.GetCommentByID(ctx, parentID)
 	if err != nil || parent.ID == "" || parent.EchoID != echoID {
-		return nil, commonModel.Fail(http.StatusBadRequest, "the comment being replied to does not exist")
+		return nil, apperr.ErrReplyMissing
 	}
 	if parent.Status != model.StatusApproved {
-		return nil, commonModel.Fail(http.StatusBadRequest, "this comment cannot be replied to")
+		return nil, apperr.ErrReplyForbidden
 	}
 	return &parent.ID, nil
 }
@@ -273,7 +273,7 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 	if !setting.EnableComment {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "comments are disabled")
+			apperr.ErrCommentsDisabled
 	}
 
 	v := viewer.MustFromContext(ctx)
@@ -290,11 +290,11 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 	if comment.EchoID == "" || comment.Content == "" {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "comment content must not be empty")
+			apperr.ErrCommentEmpty
 	}
 	if utf8.RuneCountInString(comment.Content) > maxCommentRunes {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "comment content must be at most 200 characters")
+			apperr.ErrCommentTooLong
 	}
 	nickname := strings.TrimSpace(dto.Nickname)
 	if nickname == "" {
@@ -332,7 +332,7 @@ func (s *CommentService) CreateIntegrationComment(
 	}
 	if duplicated {
 		return nil,
-			commonModel.Fail(http.StatusBadRequest, "duplicate comment")
+			apperr.ErrDuplicateComment
 	}
 
 	if err := s.repo.CreateComment(ctx, &comment); err != nil {
@@ -365,7 +365,7 @@ func (s *CommentService) checkIntegrationRateLimit(ctx context.Context, ipHash, 
 		return err
 	}
 	if ipShort >= integrationShortLimit || ipLong >= integrationLongLimit {
-		return commonModel.Fail(http.StatusBadRequest, "integration comment rate limit exceeded")
+		return apperr.ErrIntegrationCommentRate
 	}
 
 	if userID != "" {
@@ -374,7 +374,7 @@ func (s *CommentService) checkIntegrationRateLimit(ctx context.Context, ipHash, 
 			return err
 		}
 		if userShort >= integrationShortLimit {
-			return commonModel.Fail(http.StatusBadRequest, "integration comment rate limit exceeded")
+			return apperr.ErrIntegrationCommentRate
 		}
 	}
 
@@ -445,7 +445,7 @@ func (s *CommentService) UpdateCommentStatus(ctx context.Context, id string, sta
 		return err
 	}
 	if status != model.StatusPending && status != model.StatusApproved && status != model.StatusRejected {
-		return commonModel.Fail(http.StatusBadRequest, "invalid comment status")
+		return apperr.ErrCommentStatus
 	}
 	if err := s.repo.UpdateCommentStatus(ctx, id, status); err != nil {
 		return err
@@ -534,7 +534,7 @@ func (s *CommentService) BatchAction(ctx context.Context, action string, ids []s
 		}
 		return nil
 	default:
-		return commonModel.Fail(http.StatusBadRequest, "invalid bulk action")
+		return apperr.ErrCommentBulk
 	}
 }
 
@@ -605,7 +605,7 @@ func (s *CommentService) SendTestEmail(ctx context.Context, setting model.System
 	}
 	serverURL := s.resolveServerURL(ctx)
 	if err := validateEmailNotifySetting(setting.EmailNotify, adminEmail); err != nil {
-		return commonModel.Fail(http.StatusBadRequest, err.Error())
+		return err
 	}
 	content := buildNotifyContent("test", model.Comment{
 		EchoID:    "demo",
@@ -725,7 +725,7 @@ func parseValidEmail(raw string) (string, bool) {
 
 func (s *CommentService) sendAdminMail(ctx context.Context, cfg model.EmailNotifySetting, msg MailMessage) error {
 	if s.mailer == nil {
-		return errors.New("mailer unavailable")
+		return apperr.ErrMailerUnavailable
 	}
 	if err := validateEmailNotifySetting(cfg, msg.To); err != nil {
 		return err
@@ -761,29 +761,29 @@ func shouldNotify(setting model.SystemSetting, kind string, status model.Status)
 
 func validateEmailNotifySetting(cfg model.EmailNotifySetting, adminEmail string) error {
 	if strings.TrimSpace(adminEmail) == "" {
-		return errors.New("admin email is required")
+		return apperr.ErrAdminEmailRequired
 	}
 	if _, err := mail.ParseAddress(strings.TrimSpace(adminEmail)); err != nil {
-		return errors.New("invalid admin email")
+		return apperr.ErrAdminEmailInvalid
 	}
 	if strings.TrimSpace(cfg.SMTPHost) == "" {
-		return errors.New("SMTP host is required")
+		return apperr.ErrSMTPHost
 	}
 	if cfg.SMTPPort <= 0 {
-		return errors.New("invalid SMTP port")
+		return apperr.ErrSMTPPort
 	}
 	if strings.TrimSpace(cfg.SMTPUsername) == "" {
-		return errors.New("SMTP username is required")
+		return apperr.ErrSMTPUser
 	}
 	sender := strings.TrimSpace(cfg.SMTPSender)
 	if sender == "" {
 		sender = strings.TrimSpace(cfg.SMTPUsername)
 	}
 	if _, err := mail.ParseAddress(sender); err != nil {
-		return errors.New("invalid sender address: check the SMTP from address")
+		return apperr.ErrSMTPFrom
 	}
 	if strings.TrimSpace(cfg.SMTPPassword) == "" {
-		return errors.New("SMTP password is required")
+		return apperr.ErrSMTPPassword
 	}
 	return nil
 }
@@ -811,7 +811,7 @@ func (s *CommentService) resolveAdminEmail() (string, error) {
 	}
 	email := strings.TrimSpace(admin.Email)
 	if email == "" {
-		return "", errors.New("admin email is not configured")
+		return "", apperr.ErrAdminEmailMissing
 	}
 	return email, nil
 }
@@ -842,7 +842,7 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 		return err
 	}
 	if ipShort >= shortLimit || ipLong >= longLimit {
-		return commonModel.Fail(http.StatusBadRequest, "comment rate limit exceeded")
+		return apperr.ErrCommentRate
 	}
 
 	emailShort, err := s.repo.CountByEmailWithin(ctx, email, shortWindow)
@@ -850,7 +850,7 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 		return err
 	}
 	if emailShort >= shortLimit {
-		return commonModel.Fail(http.StatusBadRequest, "comment rate limit exceeded")
+		return apperr.ErrCommentRate
 	}
 
 	if userID != "" {
@@ -859,7 +859,7 @@ func (s *CommentService) checkRateLimit(ctx context.Context, ipHash, email, user
 			return err
 		}
 		if userShort >= shortLimit {
-			return commonModel.Fail(http.StatusBadRequest, "comment rate limit exceeded")
+			return apperr.ErrCommentRate
 		}
 	}
 
@@ -911,7 +911,7 @@ func (s *CommentService) requireAdmin(ctx context.Context) error {
 func requireCommentDeleteScope(ctx context.Context) error {
 	v := viewer.MustFromContext(ctx)
 	if !authz.Allows(v.Scopes(), []string{authz.ScopeCommentDelete}) {
-		return commonModel.Fail(http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+		return apperr.ErrDenied
 	}
 	return nil
 }

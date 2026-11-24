@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
@@ -105,7 +105,7 @@ func TestProcessEchoTags(t *testing.T) {
 		echo := &echoModel.Echo{Tags: []echoModel.Tag{{Name: "<script>"}}}
 
 		err := svc.ProcessEchoTags(helpers.CtxAnonymous(), echo)
-		require.EqualError(t, err, commonModel.INVALID_PARAMS)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 	})
 
 	t.Run("all existing increments only", func(t *testing.T) {

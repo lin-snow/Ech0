@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 	"errors"
-	"net/http"
 	"net/mail"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
@@ -61,21 +61,21 @@ func NewUserService(
 
 func ensurePasswordLength(password string) error {
 	if len(password) > cryptoUtil.MaxPasswordBytes {
-		return errors.New(commonModel.PASSWORD_TOO_LONG)
+		return apperr.ErrPasswordTooLong
 	}
 	return nil
 }
 
 func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) error {
 	if registerDto.Username == "" || registerDto.Password == "" {
-		return errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
+		return apperr.ErrCredentialsEmpty
 	}
 	email := strings.TrimSpace(registerDto.Email)
 	if email == "" {
-		return errors.New("email is required")
+		return apperr.ErrEmailRequired
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
-		return errors.New("invalid email address")
+		return apperr.ErrInvalidEmail
 	}
 
 	ownerLocale := string(commonModel.DefaultLocale)
@@ -100,7 +100,7 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			return err
 		}
 		if initialized {
-			return commonModel.Fail(http.StatusBadRequest, commonModel.SYSTEM_ALREADY_INITED)
+			return apperr.ErrAlreadyInitialized
 		}
 
 		users, err := userService.userRepository.GetAllUsers(ctx)
@@ -108,12 +108,12 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			return err
 		}
 		if len(users) > 0 {
-			return commonModel.Fail(http.StatusBadRequest, commonModel.OWNER_ALREADY_EXISTS)
+			return apperr.ErrOwnerExists
 		}
 
 		existingUser, err := userService.userRepository.GetUserByUsername(ctx, registerDto.Username)
 		if err == nil && existingUser.ID != model.USER_NOT_EXISTS_ID {
-			return errors.New(commonModel.USERNAME_HAS_EXISTS)
+			return apperr.ErrUsernameExists
 		}
 
 		owner = model.User{
@@ -146,7 +146,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		return err
 	}
 	if !initialized {
-		return commonModel.Fail(http.StatusBadRequest, commonModel.SIGNUP_FIRST)
+		return apperr.ErrSignupFirst
 	}
 
 	users, err := userService.userRepository.GetAllUsers(context.Background())
@@ -154,7 +154,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		return err
 	}
 	if len(users) > authModel.MAX_USER_COUNT {
-		return errors.New(commonModel.USER_COUNT_EXCEED_LIMIT)
+		return apperr.ErrUserLimit
 	}
 
 	if err := ensurePasswordLength(registerDto.Password); err != nil {
@@ -167,7 +167,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	email := strings.TrimSpace(registerDto.Email)
 	if email != "" {
 		if _, err := mail.ParseAddress(email); err != nil {
-			return errors.New("invalid email address")
+			return apperr.ErrInvalidEmail
 		}
 	}
 
@@ -180,7 +180,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 
 	user, err := userService.userRepository.GetUserByUsername(context.Background(), newUser.Username)
 	if err == nil && user.ID != model.USER_NOT_EXISTS_ID {
-		return errors.New(commonModel.USERNAME_HAS_EXISTS)
+		return apperr.ErrUsernameExists
 	}
 
 	sysSetting, err := coreSetting.System.Get(context.Background(), userService.durableKV)
@@ -188,7 +188,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		return err
 	}
 	if !sysSetting.AllowRegister {
-		return errors.New(commonModel.USER_REGISTER_NOT_ALLOW)
+		return apperr.ErrRegistrationDisabled
 	}
 	if err := userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		if err := userService.userRepository.CreateUser(ctx, &newUser); err != nil {
@@ -218,7 +218,7 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	if userdto.Username != "" && userdto.Username != user.Username {
 		existingUser, err := userService.userRepository.GetUserByUsername(ctx, userdto.Username)
 		if err == nil && existingUser.ID != user.ID {
-			return errors.New(commonModel.USERNAME_ALREADY_EXISTS)
+			return apperr.ErrUsernameExists
 		}
 		user.Username = userdto.Username
 	}
@@ -258,7 +258,7 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	}
 	if strings.TrimSpace(userdto.Email) != "" {
 		if _, err := mail.ParseAddress(strings.TrimSpace(userdto.Email)); err != nil {
-			return errors.New("invalid email address")
+			return apperr.ErrInvalidEmail
 		}
 		user.Email = strings.TrimSpace(userdto.Email)
 	}
@@ -309,7 +309,7 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 // TransferOwnership.
 func (userService *UserService) UpdateUserRole(ctx context.Context, id string, newRole model.Role) error {
 	if newRole != model.RoleAdmin && newRole != model.RoleMember {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	target, err := userService.userRepository.GetUserByID(ctx, id)
 	if err != nil {
@@ -356,7 +356,7 @@ func (userService *UserService) TransferOwnership(ctx context.Context, newOwnerI
 		return err
 	}
 	if target.Role != model.RoleAdmin || !target.IsActive() {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 
 	if err := userService.userRepository.TransferOwnership(ctx, operator.ID, target.ID); err != nil {
@@ -406,11 +406,11 @@ func (userService *UserService) GetOwner() (model.User, error) {
 // another administrator and nobody can lock out the owner.
 func (userService *UserService) UpdateUserStatus(ctx context.Context, id string, status model.Status) error {
 	if !status.Valid() {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	userid := viewer.MustFromContext(ctx).UserID()
 	if userid == id {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 
 	target, err := userService.userRepository.GetUserByID(ctx, id)

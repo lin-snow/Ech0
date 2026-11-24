@@ -779,8 +779,6 @@ func cacheControlFor(f *fileModel.File, p viewer.Context) (cacheControl string, 
 	}
 }
 
-var ErrRangeNotSatisfiable = errors.New("file: range not satisfiable")
-
 func mapStoreErr(err error) error {
 	if errors.Is(err, storage.ErrNotFound) {
 		return ErrNotFound

@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/httperr"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
@@ -24,15 +24,8 @@ type rejection struct {
 	err    error
 }
 
-// reject is the common case: the status is the whole story.
-func reject(status int, msg string) *rejection {
-	return &rejection{status: status, err: commonModel.Fail(status, msg)}
-}
-
-// rejectTyped adds the problem type for failures a client must handle
-// differently from every other one with the same status.
-func rejectTyped(status int, problemType, msg string) *rejection {
-	return &rejection{status: status, err: commonModel.FailWithType(status, problemType, msg)}
+func reject(err error) *rejection {
+	return &rejection{status: httperr.Code(err), err: err}
 }
 
 func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (rej *rejection, hard bool) {
@@ -50,10 +43,10 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 	parts := strings.SplitN(auth, " ", 2)
 
 	if auth == "" || len(parts) != 2 || len(parts[1]) == 0 || parts[1] == "null" || parts[1] == "undefined" {
-		return reject(http.StatusUnauthorized, commonModel.TOKEN_NOT_FOUND), false
+		return reject(apperr.ErrTokenMissing), false
 	}
 	if parts[0] != "Bearer" {
-		return reject(http.StatusUnauthorized, commonModel.TOKEN_NOT_VALID), false
+		return reject(apperr.ErrTokenInvalid), false
 	}
 
 	// The bearer is either a session or an access token; each parser pins its
@@ -64,15 +57,15 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 		mc, err = jwtUtil.ParseSessionToken(parts[1])
 	}
 	if err != nil {
-		return reject(http.StatusUnauthorized, commonModel.TOKEN_PARSE_ERROR), false
+		return reject(apperr.ErrTokenUnparsable), false
 	}
 
 	if tokenBlacklist != nil && mc.ID != "" && tokenBlacklist.IsTokenRevoked(mc.ID) {
-		return reject(http.StatusUnauthorized, commonModel.TOKEN_REVOKED), false
+		return reject(apperr.ErrTokenRevoked), false
 	}
 
 	if tokenFromQuery && authz.HasAdminScope(mc.Scopes) {
-		return reject(http.StatusForbidden, commonModel.TOKEN_QUERY_FORBIDDEN), true
+		return reject(apperr.ErrTokenQueryForbidden), true
 	}
 
 	// Role and status live in the database, not in the signed token: a token
@@ -83,10 +76,10 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 		var err error
 		state, err = tokenBlacklist.AccountState(ctx.Request.Context(), mc.Subject)
 		if err != nil {
-			return reject(http.StatusInternalServerError, "account state lookup failed"), true
+			return reject(apperr.ErrAccountState), true
 		}
 		if !state.Active() {
-			return rejectTyped(http.StatusForbidden, commonModel.TypeAccountDisabled, commonModel.ACCOUNT_DISABLED), true
+			return reject(apperr.ErrAccountDisabled), true
 		}
 	}
 
@@ -102,7 +95,7 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 		// The role is still live: it bounds rank-based decisions.
 		principal = viewer.NewAccess(mc.Subject, mc.ID, state.Role, mc.Scopes, []string(mc.Audience))
 	default:
-		return reject(http.StatusUnauthorized, commonModel.TOKEN_PARSE_ERROR), false
+		return reject(apperr.ErrTokenUnparsable), false
 	}
 
 	viewer.AttachToRequest(&ctx.Request, principal)

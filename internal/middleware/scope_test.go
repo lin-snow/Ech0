@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -33,8 +33,8 @@ func TestRequireScopes_ReturnsScopeForbiddenCode(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.SCOPE_FORBIDDEN_MSG {
-		t.Fatalf("expected detail %q, got %q", commonModel.SCOPE_FORBIDDEN_MSG, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrScopeForbidden.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrScopeForbidden.Error(), got)
 	}
 }
 
@@ -46,8 +46,8 @@ func TestRequireScopes_ReturnsAudienceForbiddenCode(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.AUDIENCE_FORBIDDEN_MSG {
-		t.Fatalf("expected detail %q, got %q", commonModel.AUDIENCE_FORBIDDEN_MSG, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrAudienceForbidden.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrAudienceForbidden.Error(), got)
 	}
 }
 
@@ -59,8 +59,8 @@ func TestRequireScopes_ProfileReadCannotAccessProfileWrite(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.SCOPE_FORBIDDEN_MSG {
-		t.Fatalf("expected detail %q, got %q", commonModel.SCOPE_FORBIDDEN_MSG, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrScopeForbidden.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrScopeForbidden.Error(), got)
 	}
 }
 
@@ -114,8 +114,8 @@ func TestRequireScopes_RejectsAnonymous(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.TOKEN_NOT_VALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.TOKEN_NOT_VALID, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrTokenInvalid.Error(), got)
 	}
 }
 
@@ -127,8 +127,8 @@ func TestRequireMinRank_RejectsMemberSession(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.SCOPE_FORBIDDEN_MSG {
-		t.Fatalf("expected detail %q, got %q", commonModel.SCOPE_FORBIDDEN_MSG, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrScopeForbidden.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrScopeForbidden.Error(), got)
 	}
 }
 
@@ -169,8 +169,8 @@ func TestRequireSession_RejectsAccessToken(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.SCOPE_FORBIDDEN_MSG {
-		t.Fatalf("expected detail %q, got %q", commonModel.SCOPE_FORBIDDEN_MSG, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrScopeForbidden.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrScopeForbidden.Error(), got)
 	}
 }
 
@@ -202,8 +202,8 @@ func TestRequireAudienceWithChallenge_Returns401AndMetadata(t *testing.T) {
 	if got := rec.Header().Get("WWW-Authenticate"); got != want {
 		t.Fatalf("WWW-Authenticate = %q, want %q", got, want)
 	}
-	if got := parseDetail(rec.Body.Bytes()); got != commonModel.TOKEN_NOT_VALID {
-		t.Fatalf("expected detail %q, got %q", commonModel.TOKEN_NOT_VALID, got)
+	if got := parseDetail(rec.Body.Bytes()); got != apperr.ErrTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrTokenInvalid.Error(), got)
 	}
 }
 

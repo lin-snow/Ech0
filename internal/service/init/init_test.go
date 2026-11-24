@@ -5,11 +5,10 @@ package service_test
 
 import (
 	"errors"
-	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	initService "github.com/lin-snow/ech0/internal/service/init"
@@ -40,11 +39,9 @@ func (f *fakeInitRepo) GetOwner() (userModel.User, error) {
 	return f.owner, f.getOwnerErr
 }
 
-func asStatusError(t *testing.T, err error) *commonModel.StatusError {
+func asSentinel(t *testing.T, err, want error) {
 	t.Helper()
-	var fail *commonModel.StatusError
-	require.True(t, errors.As(err, &fail), "expected *commonModel.StatusError, got %T (%v)", err, err)
-	return fail
+	require.ErrorIs(t, err, want)
 }
 
 func TestInitService_GetStatus(t *testing.T) {
@@ -147,9 +144,7 @@ func TestInitService_InitOwner(t *testing.T) {
 
 		err := svc.InitOwner(dto)
 
-		fail := asStatusError(t, err)
-		assert.Equal(t, http.StatusBadRequest, fail.Status)
-		assert.Equal(t, commonModel.SYSTEM_ALREADY_INITED, fail.Msg)
+		asSentinel(t, err, apperr.ErrAlreadyInitialized)
 	})
 
 	t.Run("user service InitOwner error is propagated, locale not bootstrapped", func(t *testing.T) {

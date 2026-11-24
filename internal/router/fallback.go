@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/httperr"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
 // setupFallbacks answers the two routing misses a REST client has to tell
@@ -18,7 +17,7 @@ import (
 func setupFallbacks(r *gin.Engine, notFound gin.HandlerFunc) {
 	r.HandleMethodNotAllowed = true
 	r.NoMethod(func(ctx *gin.Context) {
-		httperr.Abort(ctx, commonModel.Fail(
+		httperr.Abort(ctx, httperr.Edge(
 			http.StatusMethodNotAllowed,
 			ctx.Request.Method+" is not allowed on "+ctx.Request.URL.Path+": see the Allow header",
 		))

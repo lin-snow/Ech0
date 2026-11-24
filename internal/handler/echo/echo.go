@@ -5,9 +5,8 @@ package handler
 
 import (
 	"context"
-	"errors"
-	"net/http"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	service "github.com/lin-snow/ech0/internal/service/echo"
@@ -201,7 +200,7 @@ func (echoHandler *EchoHandler) GetRandomEcho(ctx context.Context, _ *GetRandomE
 	}
 	if echo == nil {
 		// The resource is optional: an empty library is a 404, never a null body.
-		return nil, commonModel.WithStatus(http.StatusNotFound, errors.New(commonModel.ECHO_NOT_FOUND))
+		return nil, apperr.ErrEchoNotFound
 	}
 	return &EchoOutput{Body: *echo}, nil
 }

@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	response "github.com/lin-snow/ech0/internal/handler/response"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	service "github.com/lin-snow/ech0/internal/service/migrator"
 )
@@ -105,11 +105,11 @@ func (h *MigrationHandler) UploadSourceZip() gin.HandlerFunc {
 	return response.Execute(func(ctx *gin.Context) response.Response {
 		sourceType := ctx.PostForm("source_type")
 		if sourceType == "" {
-			return response.Failed(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_REQUEST_BODY))
+			return response.Failed(apperr.ErrInvalidRequestBody)
 		}
 		file, err := ctx.FormFile("file")
 		if err != nil {
-			return response.Failed(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_REQUEST_BODY))
+			return response.Failed(apperr.ErrInvalidRequestBody)
 		}
 
 		data, err := h.migrationService.UploadSourceZip(ctx.Request.Context(), sourceType, file)

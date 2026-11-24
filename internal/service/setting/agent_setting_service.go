@@ -5,10 +5,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
@@ -73,7 +73,7 @@ func (settingService *SettingService) UpdateAgentSettings(
 		Temperature:   newSetting.Temperature,
 	}
 	if !validTemperature(setting.Temperature) {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 	return coreSetting.Agent.Set(ctx, settingService.durableKV, setting)
 }
@@ -97,7 +97,7 @@ func (settingService *SettingService) TestAgentConnection(
 		Temperature: newSetting.Temperature,
 	}
 	if !validTemperature(setting.Temperature) {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, agentTestTimeout)

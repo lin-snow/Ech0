@@ -4,9 +4,9 @@
 package setting
 
 import (
-	"errors"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
@@ -165,12 +165,12 @@ func validateS3(s settingModel.S3Setting) error {
 		return nil
 	}
 	if strings.TrimSpace(s.Endpoint) == "" || strings.TrimSpace(s.BucketName) == "" {
-		return errors.New(commonModel.S3_SETTING_INCOMPLETE)
+		return apperr.ErrS3SettingIncomplete
 	}
 	// Empty keys fall back to the instance credential chain, so they are valid
 	// only as a pair.
 	if (strings.TrimSpace(s.AccessKey) == "") != (strings.TrimSpace(s.SecretKey) == "") {
-		return errors.New(commonModel.S3_CREDENTIALS_INCOMPLETE)
+		return apperr.ErrS3Credentials
 	}
 	return nil
 }
@@ -181,7 +181,7 @@ func validateOAuth2(s settingModel.OAuth2Setting) error {
 	}
 	for _, field := range []string{s.ClientID, s.ClientSecret, s.AuthURL, s.TokenURL} {
 		if strings.TrimSpace(field) == "" {
-			return errors.New(commonModel.OAUTH2_SETTING_INCOMPLETE)
+			return apperr.ErrOAuthSettingIncomplete
 		}
 	}
 	return nil

@@ -6,9 +6,8 @@ package authz
 import (
 	"errors"
 	"fmt"
-	"net/http"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
@@ -66,7 +65,7 @@ func ForUser(u userModel.User, assign role.Role) Resource {
 
 // ErrDenied is the single denial value: every transport renders it as 403 with
 // the same message, so no second lookup table is needed.
-var ErrDenied = commonModel.Fail(http.StatusForbidden, commonModel.NO_PERMISSION_DENIED)
+var ErrDenied = apperr.ErrDenied
 
 // ErrNoPolicy reports that an action reached the decision without a rule. It is
 // a programming error, not a denial: fail closed, and let the test suite catch

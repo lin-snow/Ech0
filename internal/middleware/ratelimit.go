@@ -5,15 +5,14 @@ package middleware
 
 import (
 	"net"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/clientip"
 	"github.com/lin-snow/ech0/internal/httperr"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -121,10 +120,7 @@ func writeRateLimited(c *gin.Context, decision ratelimit.Decision) {
 	}
 	c.Header("Retry-After", strconv.Itoa(seconds))
 
-	httperr.Abort(c, commonModel.Fail(
-		http.StatusTooManyRequests,
-		commonModel.RATE_LIMIT_EXCEEDED,
-	))
+	httperr.Abort(c, apperr.ErrRateLimited)
 }
 
 func RateLimitWithIdempotency(

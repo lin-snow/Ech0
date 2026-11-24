@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	dashboardHandler "github.com/lin-snow/ech0/internal/handler/dashboard"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	dashboardService "github.com/lin-snow/ech0/internal/service/dashboard"
 	dashboardmock "github.com/lin-snow/ech0/internal/test/mocks/dashboardmock"
 	"github.com/lin-snow/ech0/internal/visitor"
@@ -85,11 +86,8 @@ func TestGetSystemLogs_InvalidTail(t *testing.T) {
 
 			out, err := h.GetSystemLogs(context.Background(), &dashboardHandler.GetSystemLogsInput{Tail: tc.tail})
 
-			require.Error(t, err)
-			var statusErr *commonModel.StatusError
-			require.ErrorAs(t, err, &statusErr)
-			assert.Equal(t, http.StatusBadRequest, statusErr.Status)
-			assert.NotEmpty(t, statusErr.Msg)
+			require.ErrorIs(t, err, apperr.ErrInvalidQuery)
+			assert.Equal(t, http.StatusBadRequest, httperr.From(err).Status)
 			assert.Nil(t, out)
 		})
 	}

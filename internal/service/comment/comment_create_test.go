@@ -10,13 +10,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	commentService "github.com/lin-snow/ech0/internal/service/comment"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commentmock "github.com/lin-snow/ech0/internal/test/mocks/commentmock"
@@ -107,15 +106,9 @@ func freshToken() string {
 	return signFormToken(testIP, time.Now().UnixMilli()-5000)
 }
 
-func assertFail(t *testing.T, err error, wantStatus int, wantMsg string) {
+func assertFail(t *testing.T, err, want error) {
 	t.Helper()
-	require.Error(t, err)
-	var se *commonModel.StatusError
-	require.ErrorAs(t, err, &se)
-	assert.Equal(t, wantStatus, se.Status)
-	if wantMsg != "" {
-		assert.Equal(t, wantMsg, se.Msg)
-	}
+	require.ErrorIs(t, err, want)
 }
 
 func TestCreateComment_GuardRails(t *testing.T) {
@@ -128,7 +121,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				HoneypotField: "i-am-a-bot",
 				FormToken:     "whatever",
 			})
-		assertFail(t, err, http.StatusBadRequest, "submission rejected")
+		assertFail(t, err, apperr.ErrCommentRejected)
 	})
 
 	t.Run("invalid form token is rejected", func(t *testing.T) {
@@ -139,7 +132,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				Content:   "hi",
 				FormToken: "garbage-token",
 			})
-		assertFail(t, err, http.StatusBadRequest, "submitted too fast or the form expired")
+		assertFail(t, err, apperr.ErrCommentForm)
 	})
 
 	t.Run("comment feature disabled", func(t *testing.T) {
@@ -154,7 +147,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				Content:   "hi",
 				FormToken: freshToken(),
 			})
-		assertFail(t, err, http.StatusBadRequest, "comments are disabled")
+		assertFail(t, err, apperr.ErrCommentsDisabled)
 	})
 
 	t.Run("captcha enabled but token invalid", func(t *testing.T) {
@@ -170,7 +163,7 @@ func TestCreateComment_GuardRails(t *testing.T) {
 				FormToken:    freshToken(),
 				CaptchaToken: "",
 			})
-		assertFail(t, err, http.StatusBadRequest, "captcha verification failed")
+		assertFail(t, err, apperr.ErrCaptcha)
 	})
 }
 
@@ -178,38 +171,38 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 	helpers.SetJWTSecret(t, testSecret)
 
 	cases := []struct {
-		name    string
-		dto     commentModel.CreateCommentDto
-		wantMsg string
+		name string
+		dto  commentModel.CreateCommentDto
+		want error
 	}{
 		{
-			name:    "empty content",
-			dto:     commentModel.CreateCommentDto{EchoID: "echo-1", Content: "   "},
-			wantMsg: "comment content must not be empty",
+			name: "empty content",
+			dto:  commentModel.CreateCommentDto{EchoID: "echo-1", Content: "   "},
+			want: apperr.ErrCommentEmpty,
 		},
 		{
-			name:    "content too long",
-			dto:     commentModel.CreateCommentDto{EchoID: "echo-1", Content: strings.Repeat("a", 201)},
-			wantMsg: "comment content must be at most 200 characters",
+			name: "content too long",
+			dto:  commentModel.CreateCommentDto{EchoID: "echo-1", Content: strings.Repeat("a", 201)},
+			want: apperr.ErrCommentTooLong,
 		},
 		{
-			name:    "missing nickname and email",
-			dto:     commentModel.CreateCommentDto{EchoID: "echo-1", Content: "hello"},
-			wantMsg: "nickname and email are required",
+			name: "missing nickname and email",
+			dto:  commentModel.CreateCommentDto{EchoID: "echo-1", Content: "hello"},
+			want: apperr.ErrCommentIdentity,
 		},
 		{
 			name: "invalid email",
 			dto: commentModel.CreateCommentDto{
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "not-an-email",
 			},
-			wantMsg: "invalid email address",
+			want: apperr.ErrInvalidEmail,
 		},
 		{
 			name: "invalid website",
 			dto: commentModel.CreateCommentDto{
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com", Website: "notaurl",
 			},
-			wantMsg: "invalid website url",
+			want: apperr.ErrInvalidWebsite,
 		},
 		{
 			// ParseRequestURI accepts any scheme with a host, so a
@@ -219,7 +212,7 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
 				Website: "javascript://evil.example/%0aalert(document.domain)",
 			},
-			wantMsg: "invalid website url",
+			want: apperr.ErrInvalidWebsite,
 		},
 		{
 			name: "data website scheme",
@@ -227,7 +220,7 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 				EchoID: "echo-1", Content: "hello", Nickname: "Bob", Email: "bob@example.com",
 				Website: "data:text/html,<script>alert(1)</script>",
 			},
-			wantMsg: "invalid website url",
+			want: apperr.ErrInvalidWebsite,
 		},
 	}
 
@@ -238,7 +231,7 @@ func TestCreateComment_GuestValidation(t *testing.T) {
 			dto := tc.dto
 			dto.FormToken = freshToken()
 			_, err := d.service().CreateComment(helpers.CtxAnonymous(), testIP, "ua", &dto)
-			assertFail(t, err, http.StatusBadRequest, tc.wantMsg)
+			assertFail(t, err, tc.want)
 		})
 	}
 }
@@ -304,7 +297,7 @@ func TestCreateComment_RateLimitExceeded(t *testing.T) {
 			Email:     "bob@example.com",
 			FormToken: freshToken(),
 		})
-	assertFail(t, err, http.StatusBadRequest, "comment rate limit exceeded")
+	assertFail(t, err, apperr.ErrCommentRate)
 }
 
 func TestCreateComment_DuplicateRejected(t *testing.T) {
@@ -329,7 +322,7 @@ func TestCreateComment_DuplicateRejected(t *testing.T) {
 			Content:   "hello",
 			FormToken: freshToken(),
 		})
-	assertFail(t, err, http.StatusBadRequest, "duplicate comment")
+	assertFail(t, err, apperr.ErrDuplicateComment)
 }
 
 func TestCreateComment_ParentResolution(t *testing.T) {
@@ -354,7 +347,7 @@ func TestCreateComment_ParentResolution(t *testing.T) {
 				ParentID:  "missing-parent",
 				FormToken: freshToken(),
 			})
-		assertFail(t, err, http.StatusBadRequest, "the comment being replied to does not exist")
+		assertFail(t, err, apperr.ErrReplyMissing)
 	})
 
 	t.Run("parent belongs to a different echo", func(t *testing.T) {
@@ -380,7 +373,7 @@ func TestCreateComment_ParentResolution(t *testing.T) {
 				ParentID:  "parent-1",
 				FormToken: freshToken(),
 			})
-		assertFail(t, err, http.StatusBadRequest, "the comment being replied to does not exist")
+		assertFail(t, err, apperr.ErrReplyMissing)
 	})
 
 	t.Run("parent not approved", func(t *testing.T) {
@@ -406,7 +399,7 @@ func TestCreateComment_ParentResolution(t *testing.T) {
 				ParentID:  "parent-1",
 				FormToken: freshToken(),
 			})
-		assertFail(t, err, http.StatusBadRequest, "this comment cannot be replied to")
+		assertFail(t, err, apperr.ErrReplyForbidden)
 	})
 }
 
@@ -533,7 +526,7 @@ func TestCreateIntegrationComment_GuardRails(t *testing.T) {
 		d.expectSetting(t, s)
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-		assertFail(t, err, http.StatusBadRequest, "comments are disabled")
+		assertFail(t, err, apperr.ErrCommentsDisabled)
 	})
 
 	t.Run("empty content", func(t *testing.T) {
@@ -541,7 +534,7 @@ func TestCreateIntegrationComment_GuardRails(t *testing.T) {
 		d.expectSetting(t, enabledSetting())
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "   "})
-		assertFail(t, err, http.StatusBadRequest, "comment content must not be empty")
+		assertFail(t, err, apperr.ErrCommentEmpty)
 	})
 
 	t.Run("content too long", func(t *testing.T) {
@@ -549,7 +542,7 @@ func TestCreateIntegrationComment_GuardRails(t *testing.T) {
 		d.expectSetting(t, enabledSetting())
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: strings.Repeat("z", 201)})
-		assertFail(t, err, http.StatusBadRequest, "comment content must be at most 200 characters")
+		assertFail(t, err, apperr.ErrCommentTooLong)
 	})
 }
 
@@ -562,7 +555,7 @@ func TestCreateIntegrationComment_RateLimit(t *testing.T) {
 			Return(int64(5), nil)
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-		assertFail(t, err, http.StatusBadRequest, "integration comment rate limit exceeded")
+		assertFail(t, err, apperr.ErrIntegrationCommentRate)
 	})
 
 	t.Run("user short window exceeded", func(t *testing.T) {
@@ -577,7 +570,7 @@ func TestCreateIntegrationComment_RateLimit(t *testing.T) {
 			Once()
 		_, err := d.service().CreateIntegrationComment(integrationCtx(), testIP, "ua",
 			&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-		assertFail(t, err, http.StatusBadRequest, "integration comment rate limit exceeded")
+		assertFail(t, err, apperr.ErrIntegrationCommentRate)
 	})
 }
 
@@ -597,7 +590,7 @@ func TestCreateIntegrationComment_DuplicateRejected(t *testing.T) {
 
 	_, err := d.service().CreateIntegrationComment(helpers.CtxAnonymous(), testIP, "ua",
 		&commentModel.CreateIntegrationCommentDto{EchoID: "echo-1", Content: "hi"})
-	assertFail(t, err, http.StatusBadRequest, "duplicate comment")
+	assertFail(t, err, apperr.ErrDuplicateComment)
 }
 
 func TestCreateIntegrationComment_Happy(t *testing.T) {
@@ -684,7 +677,7 @@ func TestCreateComment_RejectsInvisibleEcho(t *testing.T) {
 				Email:     "bob@example.com",
 				FormToken: freshToken(),
 			})
-		assertFail(t, err, http.StatusBadRequest, "comment target is not visible")
+		assertFail(t, err, apperr.ErrCommentHidden)
 	})
 
 	t.Run("missing echo", func(t *testing.T) {
@@ -706,7 +699,7 @@ func TestCreateComment_RejectsInvisibleEcho(t *testing.T) {
 				Email:     "bob@example.com",
 				FormToken: freshToken(),
 			})
-		assertFail(t, err, http.StatusBadRequest, "comment target is not visible")
+		assertFail(t, err, apperr.ErrCommentHidden)
 	})
 }
 
@@ -763,5 +756,5 @@ func TestCreateIntegrationComment_RejectsPrivateEcho(t *testing.T) {
 			EchoID:  "echo-private",
 			Content: "hi from bot",
 		})
-	assertFail(t, err, http.StatusBadRequest, "comment target is not visible")
+	assertFail(t, err, apperr.ErrCommentHidden)
 }

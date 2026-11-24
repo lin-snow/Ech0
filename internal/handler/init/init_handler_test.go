@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	initHandler "github.com/lin-snow/ech0/internal/handler/init"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	initmock "github.com/lin-snow/ech0/internal/test/mocks/initmock"
 	"github.com/stretchr/testify/assert"
@@ -72,15 +73,14 @@ func TestInitOwner(t *testing.T) {
 
 	t.Run("owner-already-exists", func(t *testing.T) {
 		svc := initmock.NewMockService(t)
-		failure := commonModel.Fail(http.StatusBadRequest, commonModel.OWNER_ALREADY_EXISTS)
+		failure := apperr.ErrOwnerExists
 		svc.EXPECT().InitOwner(mock.Anything).Return(failure).Once()
 
 		h := initHandler.NewInitHandler(svc)
 		out, err := h.InitOwner(context.Background(), &initHandler.InitOwnerInput{Body: initModel.InitOwnerDto{Username: "x", Password: "y"}})
 
-		var statusErr *commonModel.StatusError
-		require.ErrorAs(t, err, &statusErr)
-		assert.Equal(t, http.StatusBadRequest, statusErr.Status)
+		require.ErrorIs(t, err, apperr.ErrOwnerExists)
+		assert.Equal(t, http.StatusConflict, httperr.From(err).Status)
 		assert.Nil(t, out)
 	})
 }

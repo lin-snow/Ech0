@@ -15,6 +15,7 @@ import (
 	"time"
 
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	dbMigration "github.com/lin-snow/ech0/internal/database/migration"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -249,5 +250,5 @@ func CloseDatabaseFully(db *gorm.DB) error {
 		return nil
 	}
 
-	return errors.New(commonModel.DATABASE_CLOSE_FAILED)
+	return apperr.ErrDatabaseClose
 }

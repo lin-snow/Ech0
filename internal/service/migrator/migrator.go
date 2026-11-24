@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
@@ -24,7 +25,6 @@ import (
 	coreMigrator "github.com/lin-snow/ech0/internal/migrator"
 	"github.com/lin-snow/ech0/internal/migrator/artifact"
 	snapshot "github.com/lin-snow/ech0/internal/migrator/snapshot"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
@@ -67,7 +67,7 @@ func (s *MigratorService) DownloadExport(ctx *gin.Context, reqCtx context.Contex
 
 	artifactPath, err := slot.Latest()
 	if errors.Is(err, artifact.ErrNone) {
-		return errors.New("no artifact to download: create an export first")
+		return apperr.ErrNoExport
 	}
 	if err != nil {
 		return err
@@ -102,20 +102,20 @@ func (s *MigratorService) UploadSourceZip(
 		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
 	if file == nil {
-		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.UploadMigrationSourceZipResponse{}, apperr.ErrInvalidRequestBody
 	}
 
 	if err := authz.Decide(viewer.MustFromContext(ctx), authz.DataManage, authz.Instance()); err != nil {
 		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
 	if _, err := s.jobManager.Get(ctx, jobModel.Migration); err == nil {
-		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New("finish or clean up the current migration first")
+		return migratorModel.UploadMigrationSourceZipResponse{}, apperr.ErrMigrationBusy
 	} else if !errors.Is(err, job.ErrNotFound) {
 		return migratorModel.UploadMigrationSourceZipResponse{}, err
 	}
 
 	if !strings.HasSuffix(strings.ToLower(file.Filename), ".zip") {
-		return migratorModel.UploadMigrationSourceZipResponse{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.UploadMigrationSourceZipResponse{}, apperr.ErrInvalidRequestBody
 	}
 
 	baseTmpDir := artifact.TmpRoot()
@@ -174,7 +174,7 @@ func (s *MigratorService) StartGlobalMigration(
 	if err != nil {
 		_ = coreMigrator.CleanupTmpDirFromPayload(req.SourcePayload)
 		if errors.Is(err, job.ErrAlreadyRunning) {
-			return migratorModel.GlobalMigrationStateDTO{}, errors.New("finish or clean up the current migration first")
+			return migratorModel.GlobalMigrationStateDTO{}, apperr.ErrMigrationBusy
 		}
 		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
@@ -201,13 +201,13 @@ func (s *MigratorService) CancelGlobalMigration(ctx context.Context) (migratorMo
 	}
 	jb, err := s.jobManager.Get(ctx, jobModel.Migration)
 	if errors.Is(err, job.ErrNotFound) {
-		return migratorModel.GlobalMigrationStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.GlobalMigrationStateDTO{}, apperr.ErrInvalidRequestBody
 	}
 	if err != nil {
 		return migratorModel.GlobalMigrationStateDTO{}, err
 	}
 	if jb.Status != jobModel.StatusPending && jb.Status != jobModel.StatusRunning {
-		return migratorModel.GlobalMigrationStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.GlobalMigrationStateDTO{}, apperr.ErrInvalidRequestBody
 	}
 	_ = s.jobManager.Cancel(jobModel.Migration)
 	jb, err = s.jobManager.Get(ctx, jobModel.Migration)
@@ -229,7 +229,7 @@ func (s *MigratorService) CleanupGlobalMigration(ctx context.Context) error {
 		return err
 	}
 	if jb.Status == jobModel.StatusPending || jb.Status == jobModel.StatusRunning {
-		return errors.New("cannot clean up while a migration is running")
+		return apperr.ErrMigrationRunning
 	}
 	var payload migratorModel.MigrationPayload
 	if jb.Payload != "" {
@@ -258,7 +258,7 @@ func (s *MigratorService) StartExport(
 	})
 	if err != nil {
 		if errors.Is(err, job.ErrAlreadyRunning) {
-			return migratorModel.ExportStateDTO{}, errors.New("an export is already running")
+			return migratorModel.ExportStateDTO{}, apperr.ErrExportRunning
 		}
 		return migratorModel.ExportStateDTO{}, err
 	}
@@ -285,13 +285,13 @@ func (s *MigratorService) CancelExport(ctx context.Context) (migratorModel.Expor
 	}
 	jb, err := s.jobManager.Get(ctx, jobModel.Export)
 	if errors.Is(err, job.ErrNotFound) {
-		return migratorModel.ExportStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.ExportStateDTO{}, apperr.ErrInvalidRequestBody
 	}
 	if err != nil {
 		return migratorModel.ExportStateDTO{}, err
 	}
 	if jb.Status != jobModel.StatusPending && jb.Status != jobModel.StatusRunning {
-		return migratorModel.ExportStateDTO{}, errors.New(commonModel.INVALID_REQUEST_BODY)
+		return migratorModel.ExportStateDTO{}, apperr.ErrInvalidRequestBody
 	}
 	_ = s.jobManager.Cancel(jobModel.Export)
 	jb, err = s.jobManager.Get(ctx, jobModel.Export)
@@ -360,7 +360,7 @@ func validateStartRequest(req migratorModel.StartGlobalMigrationRequest) error {
 	}
 	tmpDir, ok := req.SourcePayload["tmp_dir"].(string)
 	if !ok || strings.TrimSpace(tmpDir) == "" {
-		return errors.New(commonModel.INVALID_REQUEST_BODY)
+		return apperr.ErrInvalidRequestBody
 	}
 	return nil
 }
@@ -379,7 +379,7 @@ func validateSourceType(sourceType string) error {
 		migratorModel.MigrationSourceCapsule:
 		return nil
 	default:
-		return errors.New(commonModel.INVALID_REQUEST_BODY)
+		return apperr.ErrInvalidRequestBody
 	}
 }
 
@@ -390,7 +390,7 @@ func normalizeExportFormat(format string) (string, error) {
 	case migratorModel.ExportFormatCapsule:
 		return migratorModel.ExportFormatCapsule, nil
 	default:
-		return "", errors.New(commonModel.INVALID_REQUEST_BODY)
+		return "", apperr.ErrInvalidRequestBody
 	}
 }
 

@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	settingHandler "github.com/lin-snow/ech0/internal/handler/setting"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
 	settingmock "github.com/lin-snow/ech0/internal/test/mocks/settingmock"
@@ -22,13 +23,11 @@ import (
 func assertStatusErr(t *testing.T, err error, wantStatus int) {
 	t.Helper()
 	require.Error(t, err)
-	var se *commonModel.StatusError
-	require.ErrorAs(t, err, &se)
-	assert.Equal(t, wantStatus, se.Status)
+	assert.Equal(t, wantStatus, httperr.From(err).Status)
 }
 
 func internalErr() error {
-	return commonModel.Fail(http.StatusInternalServerError, "boom")
+	return errors.New("boom")
 }
 
 func TestSettingHandler_GetSettings(t *testing.T) {
@@ -234,7 +233,7 @@ func TestSettingHandler_S3(t *testing.T) {
 	t.Run("test connection error", func(t *testing.T) {
 		svc := settingmock.NewMockService(t)
 		svc.EXPECT().TestS3Connection(mock.Anything, mock.Anything).
-			Return(commonModel.Fail(http.StatusBadRequest, commonModel.S3_CONFIG_ERROR)).Once()
+			Return(apperr.ErrS3Config).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
 		_, err := h.TestS3Connection(context.Background(), &settingHandler.S3SettingInput{})
@@ -370,7 +369,7 @@ func TestSettingHandler_Webhooks(t *testing.T) {
 	t.Run("create error", func(t *testing.T) {
 		svc := settingmock.NewMockService(t)
 		svc.EXPECT().CreateWebhook(mock.Anything, mock.Anything).
-			Return(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_WEBHOOK_URL)).Once()
+			Return(apperr.ErrWebhookURL).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
 		_, err := h.CreateWebhook(context.Background(), &settingHandler.WebhookInput{})
@@ -483,7 +482,7 @@ func TestSettingHandler_SnapshotSchedule(t *testing.T) {
 	t.Run("update error invalid cron", func(t *testing.T) {
 		svc := settingmock.NewMockService(t)
 		svc.EXPECT().UpdateSnapshotScheduleSetting(mock.Anything, mock.Anything).
-			Return(commonModel.Fail(http.StatusBadRequest, commonModel.INVALID_CRON_EXPRESSION)).Once()
+			Return(apperr.ErrInvalidCron).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
 		_, err := h.UpdateSnapshotScheduleSetting(context.Background(), &settingHandler.SnapshotScheduleInput{})
@@ -554,7 +553,7 @@ func TestSettingHandler_AgentSettings(t *testing.T) {
 	t.Run("test connection error missing api key", func(t *testing.T) {
 		svc := settingmock.NewMockService(t)
 		svc.EXPECT().TestAgentConnection(mock.Anything, mock.Anything).
-			Return(commonModel.Fail(http.StatusBadRequest, commonModel.AGENT_API_KEY_MISSING)).Once()
+			Return(apperr.ErrAgentKey).Once()
 
 		h := settingHandler.NewSettingHandler(svc)
 		_, err := h.TestAgentConnection(context.Background(), &settingHandler.AgentSettingInput{})

@@ -6,9 +6,9 @@ package service_test
 import (
 	"context"
 	"errors"
-	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -176,10 +176,7 @@ func TestQueryEchos_MineFilter(t *testing.T) {
 		_, err := svc.QueryEchos(helpers.CtxAnonymous(), commonModel.EchoQueryDto{
 			Page: 1, PageSize: 10, Mine: true,
 		})
-		require.Error(t, err)
-		var fail *commonModel.StatusError
-		require.ErrorAs(t, err, &fail)
-		assert.Equal(t, http.StatusForbidden, fail.Status)
+		require.ErrorIs(t, err, apperr.ErrDenied)
 	})
 }
 
@@ -409,10 +406,7 @@ func TestQueryEchos_RejectsInvalidCursor(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	assert.Equal(t, http.StatusBadRequest, fail.Status)
-	assert.Equal(t, commonModel.INVALID_ECHO_CURSOR, fail.Msg)
+	require.ErrorIs(t, err, apperr.ErrInvalidCursor)
 }
 
 func TestQueryEchos_RejectsCursorWithReactionSort(t *testing.T) {
@@ -425,7 +419,5 @@ func TestQueryEchos_RejectsCursorWithReactionSort(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var fail *commonModel.StatusError
-	require.ErrorAs(t, err, &fail)
-	assert.Equal(t, commonModel.ECHO_CURSOR_SORT_UNSUPPORTED, fail.Msg)
+	require.ErrorIs(t, err, apperr.ErrCursorSortUnsupported)
 }

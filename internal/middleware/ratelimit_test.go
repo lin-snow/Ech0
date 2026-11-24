@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/ratelimit"
 	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -43,8 +43,8 @@ func assertRateLimited(t *testing.T, rec *httptest.ResponseRecorder) {
 	if body.Status != http.StatusTooManyRequests {
 		t.Fatalf("problem status = %d, want %d", body.Status, http.StatusTooManyRequests)
 	}
-	if body.Detail != commonModel.RATE_LIMIT_EXCEEDED {
-		t.Fatalf("detail = %q, want %q", body.Detail, commonModel.RATE_LIMIT_EXCEEDED)
+	if body.Detail != apperr.ErrRateLimited.Error() {
+		t.Fatalf("detail = %q, want %q", body.Detail, apperr.ErrRateLimited.Error())
 	}
 }
 
