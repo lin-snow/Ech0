@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"hash/fnv"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -45,6 +46,9 @@ func (s *Tracker) Record(r *http.Request, ip string) {
 	if r == nil || r.Method != http.MethodGet {
 		return
 	}
+	if isCrawlerUA(r.UserAgent()) {
+		return
+	}
 	event := recordEvent{
 		ipHash: hashIP(ip),
 		at:     time.Now().UTC(),
@@ -53,6 +57,54 @@ func (s *Tracker) Record(r *http.Request, ip string) {
 	case s.recordCh <- event:
 	default:
 	}
+}
+
+// crawlerUAHints are lowercase User-Agent substrings. Prefer "bot/" and named
+// crawlers over a bare "bot" token so phone brands like Cubot are not dropped.
+var crawlerUAHints = []string{
+	"bot/",
+	"spider",
+	"crawler",
+	"crawl/",
+	"slurp",
+	"applebot",
+	"googlebot",
+	"bingbot",
+	"baiduspider",
+	"yandex",
+	"duckduckbot",
+	"facebookexternalhit",
+	"meta-externalagent",
+	"twitterbot",
+	"linkedinbot",
+	"slackbot",
+	"discordbot",
+	"whatsapp",
+	"telegrambot",
+	"sofyabot",
+	"bytespider",
+	"gptbot",
+	"claudebot",
+	"amazonbot",
+	"petalbot",
+	"ahrefs",
+	"semrush",
+	"mj12bot",
+	"dotbot",
+	"ia_archiver",
+}
+
+func isCrawlerUA(ua string) bool {
+	ua = strings.ToLower(ua)
+	if ua == "" {
+		return false
+	}
+	for _, hint := range crawlerUAHints {
+		if strings.Contains(ua, hint) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Tracker) Last7Days() []DayStat {
