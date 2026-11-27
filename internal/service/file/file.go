@@ -1002,6 +1002,12 @@ func (s *FileService) DeleteFileRecord(ctx context.Context, id string) error {
 	return s.fileRepository.Delete(ctx, id)
 }
 
+// DeleteFileRecordIfUnused removes a file record only when no echo still
+// references it, and reports whether the row was removed.
+func (s *FileService) DeleteFileRecordIfUnused(ctx context.Context, id string) (bool, error) {
+	return s.fileRepository.DeleteIfUnused(ctx, id)
+}
+
 func (s *FileService) DeleteStoredFile(storageType string, key string) error {
 	if key == "" {
 		return nil

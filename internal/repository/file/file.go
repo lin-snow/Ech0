@@ -155,6 +155,19 @@ func (r *FileRepository) Delete(ctx context.Context, id string) error {
 	return r.getDB(ctx).Where("id = ?", id).Delete(&model.File{}).Error
 }
 
+// DeleteIfUnused removes the file row only when no echo links to it. A row
+// shared by several echoes, such as a deduplicated external image, stays.
+func (r *FileRepository) DeleteIfUnused(ctx context.Context, id string) (bool, error) {
+	result := r.getDB(ctx).
+		Where("id = ?", id).
+		Where("NOT EXISTS (SELECT 1 FROM echo_files WHERE echo_files.file_id = ?)", id).
+		Delete(&model.File{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
 func (r *FileRepository) DeleteByRoute(
 	ctx context.Context,
 	storageType, provider, bucket, key string,

@@ -2357,6 +2357,63 @@ func (_c *MockRepository_QueryEchos_Call) RunAndReturn(run func(queryDto model0.
 	return _c
 }
 
+// RecountTagUsage provides a mock function for the type MockRepository
+func (_mock *MockRepository) RecountTagUsage(ctx context.Context, tagIDs []string) error {
+	ret := _mock.Called(ctx, tagIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RecountTagUsage")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []string) error); ok {
+		r0 = returnFunc(ctx, tagIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_RecountTagUsage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RecountTagUsage'
+type MockRepository_RecountTagUsage_Call struct {
+	*mock.Call
+}
+
+// RecountTagUsage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tagIDs []string
+func (_e *MockRepository_Expecter) RecountTagUsage(ctx any, tagIDs any) *MockRepository_RecountTagUsage_Call {
+	return &MockRepository_RecountTagUsage_Call{Call: _e.mock.On("RecountTagUsage", ctx, tagIDs)}
+}
+
+func (_c *MockRepository_RecountTagUsage_Call) Run(run func(ctx context.Context, tagIDs []string)) *MockRepository_RecountTagUsage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []string
+		if args[1] != nil {
+			arg1 = args[1].([]string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_RecountTagUsage_Call) Return(err error) *MockRepository_RecountTagUsage_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_RecountTagUsage_Call) RunAndReturn(run func(ctx context.Context, tagIDs []string) error) *MockRepository_RecountTagUsage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RemoveReaction provides a mock function for the type MockRepository
 func (_mock *MockRepository) RemoveReaction(ctx context.Context, echoID string, emoji string, actor string) error {
 	ret := _mock.Called(ctx, echoID, emoji, actor)

@@ -155,7 +155,9 @@ func (echoRepository *EchoRepository) GetEchosById(ctx context.Context, id strin
 
 func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id string) error {
 	var echo model.Echo
-	echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&fileModel.EchoFile{})
+	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&fileModel.EchoFile{}).Error; err != nil {
+		return err
+	}
 
 	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&model.EchoExtension{}).Error; err != nil {
 		return err
@@ -164,6 +166,12 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id str
 	// Reactions reference the echo by id only; without this they would linger
 	// as unreachable rows forever.
 	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&model.Reaction{}).Error; err != nil {
+		return err
+	}
+
+	// The many2many join table has no foreign key to the echo, so remove its
+	// rows explicitly or they would keep the tag looking used.
+	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&model.EchoTag{}).Error; err != nil {
 		return err
 	}
 
@@ -344,6 +352,19 @@ func (echoRepository *EchoRepository) IncrementTagUsageCount(
 	return echoRepository.getDB(ctx).Model(&model.Tag{}).
 		Where("id = ?", tagID).
 		UpdateColumn("usage_count", gorm.Expr("usage_count + ?", 1)).Error
+}
+
+// RecountTagUsage makes usage_count match the number of echoes linked to each
+// tag. An edit replaces the join rows, so an increment alone cannot keep the
+// count correct.
+func (echoRepository *EchoRepository) RecountTagUsage(ctx context.Context, tagIDs []string) error {
+	if len(tagIDs) == 0 {
+		return nil
+	}
+	return echoRepository.getDB(ctx).Exec(
+		"UPDATE tags SET usage_count = (SELECT COUNT(*) FROM echo_tags WHERE echo_tags.tag_id = tags.id) WHERE id IN ?",
+		tagIDs,
+	).Error
 }
 
 func (echoRepository *EchoRepository) QueryEchos(
