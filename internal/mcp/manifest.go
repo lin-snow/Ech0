@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 )
 
 type Manifest struct {
@@ -99,9 +98,9 @@ func (r *Registry) Manifest() Manifest {
 
 type (
 	GetManifestInput  struct{}
-	GetManifestOutput = commonModel.Result[Manifest]
+	GetManifestOutput = struct{ Body Manifest }
 )
 
-func (h *Handler) GetManifest(_ context.Context, _ *GetManifestInput) (GetManifestOutput, error) {
-	return commonModel.OK(h.server.registry.Manifest()), nil
+func (h *Handler) GetManifest(_ context.Context, _ *GetManifestInput) (*GetManifestOutput, error) {
+	return &GetManifestOutput{Body: h.server.registry.Manifest()}, nil
 }

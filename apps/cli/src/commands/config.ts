@@ -21,17 +21,17 @@ export function list(ctx: CliContext): CommandOutput {
     name === ctx.config.default ? `* ${name}` : name,
     profile.server,
     profile.user ?? "-",
-    profile.isAdmin ? "yes" : "no",
+    profile.role ?? "-",
   ]);
   const payload = entries.map(([name, profile]) => ({
     name,
     default: name === ctx.config.default,
     server: profile.server,
     user: profile.user ?? null,
-    is_admin: profile.isAdmin ?? null,
+    role: profile.role ?? null,
   }));
   return {
-    human: renderTable(["profile", "server", "user", "admin"], rows),
+    human: renderTable(["profile", "server", "user", "role"], rows),
     json: JSON.stringify(payload, null, 2),
   };
 }

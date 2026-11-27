@@ -38,47 +38,38 @@ function routes(extra: Record<string, () => RouteReply> = {}): Record<string, ()
   return {
     "GET /api/hello": () => ({
       body: {
-        code: 1,
-        data: {
-          hello: "Hello, Ech0! 👋",
-          version: "v1.4.2",
-          commit: "abcdef123456",
-          build_time: "2026-10-01T00:00:00Z",
-          license: "AGPL-3.0-or-later",
-          repo_url: "https://github.com/lin-snow/Ech0",
-        },
+        hello: "Hello, Ech0! 👋",
+        version: "v1.4.2",
+        commit: "abcdef123456",
+        build_time: "2026-10-01T00:00:00Z",
+        license: "AGPL-3.0-or-later",
+        repo_url: "https://github.com/lin-snow/Ech0",
       },
       headers: { "X-Ech0-Catalog": fingerprint },
     }),
     "GET /api/connect": () => ({
       body: {
-        code: 1,
-        data: {
-          server_name: "memo",
-          server_url: "https://memo.example",
-          total_echos: 12,
-          today_echos: 3,
-          sys_username: "lin-snow",
-          version: "v1.4.2",
-        },
+        server_name: "memo",
+        server_url: "https://memo.example",
+        total_echos: 12,
+        today_echos: 3,
+        sys_username: "lin-snow",
+        version: "v1.4.2",
       },
       headers: { "X-Ech0-Catalog": fingerprint },
     }),
     "GET /api/settings": () => ({
       body: {
-        code: 1,
-        data: {
-          site_title: "MyEch0",
-          server_name: "memo",
-          server_url: "https://memo.example",
-          allow_register: true,
-          default_locale: "zh-CN",
-        },
+        site_title: "MyEch0",
+        server_name: "memo",
+        server_url: "https://memo.example",
+        allow_register: true,
+        default_locale: "zh-CN",
       },
       headers: { "X-Ech0-Catalog": fingerprint },
     }),
     "GET /api/init/status": () => ({
-      body: { code: 1, data: { initialized: true, owner_exists: true } },
+      body: { initialized: true, owner_exists: true },
       headers: { "X-Ech0-Catalog": fingerprint },
     }),
     "GET /api/_catalog": () => ({ body: CATALOG, headers: { "X-Ech0-Catalog": fingerprint } }),
@@ -139,7 +130,7 @@ describe("info", () => {
 
   test("flags a stale catalog cache against the server fingerprint", async () => {
     const fingerprint = "f".repeat(64);
-    const api = startFakeApi(routes({ "GET /api/hello": () => ({ body: { code: 1, data: {} }, headers: { "X-Ech0-Catalog": fingerprint } }) }));
+    const api = startFakeApi(routes({ "GET /api/hello": () => ({ body: {}, headers: { "X-Ech0-Catalog": fingerprint } }) }));
     try {
       const dir = mkdtempSync(join(tmpdir(), "ech0-info-"));
       const result = await info(context(api.baseUrl, dir));

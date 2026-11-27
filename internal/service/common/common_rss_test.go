@@ -134,7 +134,7 @@ func TestGenerateRSS_RendersEchoImages(t *testing.T) {
 			Content:   "look at this",
 			CreatedAt: time.Now().UTC().Unix(),
 			EchoFiles: []echoModel.EchoFile{
-				{File: fileModel.File{URL: "http://example.com/files/pic.png"}},
+				{File: fileModel.File{ID: "pic.png", ContentType: "image/png"}},
 			},
 		},
 	}
@@ -147,7 +147,7 @@ func TestGenerateRSS_RendersEchoImages(t *testing.T) {
 	require.NoError(t, err)
 	atom := doc.Atom
 
-	assert.Contains(t, atom, "http://example.com/files/pic.png", "图片直链应出现在条目描述里")
+	assert.Contains(t, atom, "http://example.com/api/files/pic.png/content", "图片直链应出现在条目描述里")
 	assert.Contains(t, atom, "look at this")
 }
 
@@ -162,10 +162,10 @@ func TestGenerateRSS_RendersMediaByCategory(t *testing.T) {
 			Content:   "mixed media",
 			CreatedAt: time.Now().UTC().Unix(),
 			EchoFiles: []echoModel.EchoFile{
-				{File: fileModel.File{Category: "image", URL: "http://example.com/files/pic.png"}},
-				{File: fileModel.File{Category: "video", URL: "http://example.com/files/clip.mp4"}},
-				{File: fileModel.File{Category: "audio", URL: "http://example.com/files/song.mp3"}},
-				{File: fileModel.File{Category: "pdf", URL: "http://example.com/files/doc.pdf", Name: "doc.pdf"}},
+				{File: fileModel.File{ID: "pic", ContentType: "image/png"}},
+				{File: fileModel.File{ID: "clip", ContentType: "video/mp4"}},
+				{File: fileModel.File{ID: "song", ContentType: "audio/mpeg"}},
+				{File: fileModel.File{ID: "doc", ContentType: "application/pdf", Name: "doc.pdf"}},
 			},
 		},
 	}
@@ -178,12 +178,12 @@ func TestGenerateRSS_RendersMediaByCategory(t *testing.T) {
 	require.NoError(t, err)
 	atom := doc.Atom
 
-	assert.Contains(t, atom, `&lt;img src=&#34;http://example.com/files/pic.png&#34;`, "图片应渲染为 <img>")
-	assert.Contains(t, atom, `&lt;video controls=&#34;&#34; src=&#34;http://example.com/files/clip.mp4&#34;`, "视频应渲染为 <video controls>")
-	assert.Contains(t, atom, `&lt;a href=&#34;http://example.com/files/clip.mp4&#34;&gt;打开视频&lt;/a&gt;`, "视频应内嵌链接兜底")
-	assert.Contains(t, atom, `&lt;audio controls=&#34;&#34; src=&#34;http://example.com/files/song.mp3&#34;`, "音频应渲染为 <audio controls>")
-	assert.Contains(t, atom, `&lt;a href=&#34;http://example.com/files/song.mp3&#34;&gt;打开音频&lt;/a&gt;`, "音频应内嵌链接兜底")
-	assert.Contains(t, atom, `&lt;a href=&#34;http://example.com/files/doc.pdf&#34;&gt;doc.pdf&lt;/a&gt;`, "普通文件应渲染为下载链接")
+	assert.Contains(t, atom, `&lt;img src=&#34;http://example.com/api/files/pic/content&#34;`, "图片应渲染为 <img>")
+	assert.Contains(t, atom, `&lt;video controls=&#34;&#34; src=&#34;http://example.com/api/files/clip/content&#34;`, "视频应渲染为 <video controls>")
+	assert.Contains(t, atom, `&lt;a href=&#34;http://example.com/api/files/clip/content&#34;&gt;打开视频&lt;/a&gt;`, "视频应内嵌链接兜底")
+	assert.Contains(t, atom, `&lt;audio controls=&#34;&#34; src=&#34;http://example.com/api/files/song/content&#34;`, "音频应渲染为 <audio controls>")
+	assert.Contains(t, atom, `&lt;a href=&#34;http://example.com/api/files/song/content&#34;&gt;打开音频&lt;/a&gt;`, "音频应内嵌链接兜底")
+	assert.Contains(t, atom, `&lt;a href=&#34;http://example.com/api/files/doc/content&#34;&gt;doc.pdf&lt;/a&gt;`, "普通文件应渲染为下载链接")
 }
 
 func TestGenerateRSS_MediaFieldEscaping(t *testing.T) {
@@ -198,9 +198,9 @@ func TestGenerateRSS_MediaFieldEscaping(t *testing.T) {
 			CreatedAt: time.Now().UTC().Unix(),
 			EchoFiles: []echoModel.EchoFile{
 				{File: fileModel.File{
-					Category: "file",
-					URL:      `http://x/"><script>alert(1)</script>`,
-					Name:     `<script>alert(2)</script>`,
+					ID:          `x"><script>alert(1)</script>`,
+					ContentType: "application/pdf",
+					Name:        `<script>alert(2)</script>`,
 				}},
 			},
 		},
@@ -262,7 +262,7 @@ func TestGenerateRSS_AbsolutizesRelativeContentURLs(t *testing.T) {
 			Content:   "[原文](/echo/abc) ![图](/files/a.png) [外链](https://example.org/x) [邮件](mailto:a@example.org)",
 			CreatedAt: time.Now().UTC().Unix(),
 			EchoFiles: []echoModel.EchoFile{
-				{File: fileModel.File{Category: "image", URL: "/api/files/images/pic.png"}},
+				{File: fileModel.File{ID: "images/pic.png", ContentType: "image/png"}},
 			},
 		},
 	}
@@ -274,7 +274,7 @@ func TestGenerateRSS_AbsolutizesRelativeContentURLs(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, doc.Atom, `<content type="html">`, "Reeder 等阅读器按 content 渲染正文")
-	assert.Contains(t, doc.Atom, `src=&#34;http://example.com/api/files/images/pic.png&#34;`, "本地附件相对路径需补成绝对地址")
+	assert.Contains(t, doc.Atom, `src=&#34;http://example.com/api/files/images/pic.png/content&#34;`, "本地附件相对路径需补成绝对地址")
 	assert.Contains(t, doc.Atom, `href=&#34;http://example.com/echo/abc&#34;`)
 	assert.Contains(t, doc.Atom, `src=&#34;http://example.com/files/a.png&#34;`)
 	assert.Contains(t, doc.Atom, `href=&#34;https://example.org/x&#34;`, "绝对地址保持不变")

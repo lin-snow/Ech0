@@ -35,6 +35,11 @@ const (
 	commentIDLive   = "01890000-0000-7000-8000-0000000000a1"
 	commentIDOrphan = "01890000-0000-7000-8000-0000000000a2"
 
+	fileIDPublic = "01890000-0000-7000-8000-0000000000f1"
+	fileIDOther  = "01890000-0000-7000-8000-0000000000f2"
+
+	mediaKey = "media/pic.png"
+
 	publicCreatedAt = "2024-03-05T06:07:08Z"
 	publicCreatedTS = int64(1709618828)
 )
@@ -44,6 +49,7 @@ var pngBytes = []byte("\x89PNG\r\n\x1a\nfake-image-payload")
 type fixture struct {
 	db      *gorm.DB
 	deps    Deps
+	store   storage.Store
 	ownerID string
 	aliceID string
 }
@@ -52,10 +58,14 @@ func newFixture(t *testing.T) *fixture {
 	t.Helper()
 
 	db := helpers.NewTestDB(t)
-	dataRoot := t.TempDir()
-	selector := storage.NewStorageManagerForTest(dataRoot).GetSelector()
+	registry := storage.NewRegistry()
+	require.NoError(t, registry.Reload(context.Background(), []storage.Config{
+		{ID: "mem", Driver: storage.DriverMem, Default: true},
+	}))
+	_, store, err := registry.Default()
+	require.NoError(t, err)
 
-	owner := userModel.User{Username: "owner", IsAdmin: true}
+	owner := userModel.User{Username: "owner", Role: userModel.RoleOwner}
 	require.NoError(t, db.Create(&owner).Error)
 	alice := userModel.User{Username: "alice"}
 	require.NoError(t, db.Create(&alice).Error)
@@ -65,13 +75,14 @@ func newFixture(t *testing.T) *fixture {
 
 	return &fixture{
 		db:      db,
+		store:   store,
 		ownerID: owner.ID,
 		aliceID: alice.ID,
 		deps: Deps{
-			DB:       db,
-			Tx:       transaction.NewGormTransactor(func() *gorm.DB { return db }),
-			Selector: selector,
-			KV:       kv,
+			DB:      db,
+			Tx:      transaction.NewGormTransactor(func() *gorm.DB { return db }),
+			Storage: registry,
+			KV:      kv,
 		},
 	}
 }
@@ -151,8 +162,9 @@ func fullDocs() []*capsule.EchoDoc {
 			Layout:    echoModel.LayoutGrid,
 			FavCount:  42,
 			Files: []capsule.FileRef{{
-				Key:         "pic.png",
-				Category:    string(storage.CategoryImage),
+				ID:          fileIDPublic,
+				Key:         mediaKey,
+				Category:    fileModel.CategoryImage,
 				Name:        "原图.png",
 				ContentType: "image/png",
 				Size:        int64(len(pngBytes)),
@@ -205,7 +217,7 @@ func fullComments() *capsule.CommentsDoc {
 
 func TestRun_LandsCapsuleVerbatim(t *testing.T) {
 	f := newFixture(t)
-	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{"pic.png": pngBytes})
+	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{mediaKey: pngBytes})
 
 	res, err := Run(context.Background(), f.deps, loadCapsule(t, dir), Options{})
 	require.NoError(t, err)
@@ -215,9 +227,9 @@ func TestRun_LandsCapsuleVerbatim(t *testing.T) {
 	require.Equal(t, 0, res.EchoesSkipped)
 	require.Equal(t, 2, res.TagsCreated)
 	require.Equal(t, 1, res.FilesCreated)
+	require.Equal(t, 0, res.FilesReused)
 	require.Equal(t, 1, res.CommentsCreated)
 	require.Equal(t, 1, res.OrphanComments)
-	require.Empty(t, res.Renames)
 
 	var echo echoModel.Echo
 	require.NoError(t, f.db.Where("id = ?", echoIDPublic).First(&echo).Error)
@@ -249,23 +261,37 @@ func TestRun_LandsCapsuleVerbatim(t *testing.T) {
 	require.EqualValues(t, 2, links)
 
 	var file fileModel.File
-	require.NoError(t, f.db.Where("key = ?", "pic.png").First(&file).Error)
-	require.Equal(t, string(storage.StorageTypeLocal), file.StorageType)
+	require.NoError(t, f.db.Where("id = ?", fileIDPublic).First(&file).Error)
+	require.Equal(t, string(fileModel.KindOwned), file.Kind)
+	require.Equal(t, string(fileModel.StatusReady), file.Status)
+	require.Equal(t, string(fileModel.AccessOwner), file.Access)
+	require.NotNil(t, file.StorageID)
+	require.Equal(t, "mem", *file.StorageID)
+	require.NotNil(t, file.ObjectKey)
+
+	expectedKey, err := storage.KeyFor(fileIDPublic, ".png")
+	require.NoError(t, err)
+	require.Equal(t, expectedKey, *file.ObjectKey)
 	require.Equal(t, "原图.png", file.Name)
 	require.Equal(t, "image/png", file.ContentType)
 	require.EqualValues(t, len(pngBytes), file.Size)
 	require.Equal(t, 3, file.Width)
 	require.Equal(t, 4, file.Height)
-	require.Equal(t, string(storage.CategoryImage), file.Category)
-	require.Equal(t, f.aliceID, file.UserID)
-	require.Empty(t, file.URL)
+	require.Equal(t, f.aliceID, file.UploaderID)
+	require.Nil(t, file.RefURL)
+	require.Equal(t, fileModel.CategoryImage, fileModel.CategoryOf(file.ContentType))
 
-	var link fileModel.EchoFile
-	require.NoError(t, f.db.Where("echo_id = ?", echoIDPublic).First(&link).Error)
-	require.Equal(t, file.ID, link.FileID)
+	var link fileModel.Link
+	require.NoError(t, f.db.Where("file_id = ? AND owner_id = ?", file.ID, echoIDPublic).First(&link).Error)
+	require.Equal(t, fileModel.OwnerKindEcho, link.OwnerKind)
+	require.Equal(t, fileModel.RoleAttachment, link.Role)
 	require.Equal(t, 0, link.SortOrder)
 
-	require.Equal(t, pngBytes, readStoredBytes(t, f, "pic.png"))
+	require.Equal(t, pngBytes, readStoredBytes(t, f, *file.ObjectKey))
+
+	var blobs int64
+	require.NoError(t, f.db.Model(&fileModel.Blob{}).Count(&blobs).Error)
+	require.Zero(t, blobs)
 
 	var ext echoModel.EchoExtension
 	require.NoError(t, f.db.Where("echo_id = ?", echoIDPublic).First(&ext).Error)
@@ -303,7 +329,7 @@ func TestRun_LandsCapsuleVerbatim(t *testing.T) {
 
 func TestRun_IsIdempotent(t *testing.T) {
 	f := newFixture(t)
-	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{"pic.png": pngBytes})
+	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{mediaKey: pngBytes})
 
 	_, err := Run(context.Background(), f.deps, loadCapsule(t, dir), Options{})
 	require.NoError(t, err)
@@ -317,7 +343,7 @@ func TestRun_IsIdempotent(t *testing.T) {
 	require.Equal(t, 1, res.SkippedPrivate)
 	require.Equal(t, 0, res.TagsCreated)
 	require.Equal(t, 0, res.FilesCreated, "幂等跳过的 Echo 其关联文件一并跳过")
-	require.Equal(t, 0, res.FilesRenamed)
+	require.Equal(t, 0, res.FilesReused)
 	require.Equal(t, 0, res.CommentsCreated)
 	require.Equal(t, 1, res.CommentsSkipped)
 	require.Equal(t, 1, res.OrphanComments)
@@ -328,7 +354,7 @@ func TestRun_IsIdempotent(t *testing.T) {
 
 func TestRun_DryRunWritesNothing(t *testing.T) {
 	f := newFixture(t)
-	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{"pic.png": pngBytes})
+	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{mediaKey: pngBytes})
 
 	res, err := Run(context.Background(), f.deps, loadCapsule(t, dir), Options{DryRun: true})
 	require.NoError(t, err)
@@ -342,7 +368,9 @@ func TestRun_DryRunWritesNothing(t *testing.T) {
 
 	require.Equal(t, map[string]int64{}, nonZero(snapshotCounts(t, f.db)))
 
-	_, err = f.deps.Selector.Get(context.Background(), storage.StorageTypeLocal, "pic.png")
+	key, err := storage.KeyFor(fileIDPublic, ".png")
+	require.NoError(t, err)
+	_, err = f.store.Stat(context.Background(), key)
 	require.Error(t, err)
 
 	sys, err := coreSetting.System.Get(context.Background(), f.deps.KV)
@@ -351,73 +379,73 @@ func TestRun_DryRunWritesNothing(t *testing.T) {
 	require.Empty(t, sys.ServerName, "dry-run 不得写 KV：仓储写完会刷进程内缓存，回滚兜不住")
 }
 
-func TestRun_RenamesOnKeyCollisionWithDifferentBytes(t *testing.T) {
+func TestRun_DedupesByObjectKey(t *testing.T) {
 	f := newFixture(t)
-	first := writeCapsule(t, fullManifest(), []*capsule.EchoDoc{{
+	key, err := storage.KeyFor(fileIDPublic, ".png")
+	require.NoError(t, err)
+	require.NoError(t, f.db.Create(&fileModel.File{
+		ID:          fileIDOther,
+		Kind:        string(fileModel.KindOwned),
+		Status:      string(fileModel.StatusReady),
+		Access:      string(fileModel.AccessOwner),
+		StorageID:   new("mem"),
+		ObjectKey:   &key,
+		Name:        "already-there.png",
+		ContentType: "image/png",
+		Size:        int64(len(pngBytes)),
+		UploaderID:  f.ownerID,
+	}).Error)
+
+	docs := []*capsule.EchoDoc{{
 		ID:        echoIDPublic,
 		CreatedAt: publicCreatedAt,
 		Username:  "alice",
-		Files:     []capsule.FileRef{{Key: "dup.png", Category: string(storage.CategoryImage)}},
-		Content:   "first\n",
-	}}, nil, map[string][]byte{"dup.png": pngBytes})
+		Files:     []capsule.FileRef{{ID: fileIDPublic, Key: mediaKey}},
+		Content:   "dedupe\n",
+	}}
+	dir := writeCapsule(t, fullManifest(), docs, nil, map[string][]byte{mediaKey: pngBytes})
 
-	res, err := Run(context.Background(), f.deps, loadCapsule(t, first), Options{})
+	res, err := Run(context.Background(), f.deps, loadCapsule(t, dir), Options{})
 	require.NoError(t, err)
-	require.Equal(t, 1, res.FilesCreated)
-	require.Empty(t, res.Renames)
-
-	other := []byte("\x89PNG\r\n\x1a\na-totally-different-payload")
-	second := writeCapsule(t, fullManifest(), []*capsule.EchoDoc{{
-		ID:        echoIDGhost,
-		CreatedAt: "2024-03-07T00:00:00Z",
-		Username:  "alice",
-		Files:     []capsule.FileRef{{Key: "dup.png", Category: string(storage.CategoryImage)}},
-		Content:   "second\n",
-	}}, nil, map[string][]byte{"dup.png": other})
-
-	res, err = Run(context.Background(), f.deps, loadCapsule(t, second), Options{})
-	require.NoError(t, err)
-	require.Equal(t, 1, res.FilesRenamed)
 	require.Equal(t, 0, res.FilesCreated)
-	require.Len(t, res.Renames, 1)
-	require.Contains(t, res.Renames[0], "dup.png -> ")
+	require.Equal(t, 1, res.FilesReused)
 
-	var files []fileModel.File
-	require.NoError(t, f.db.Order("key asc").Find(&files).Error)
-	require.Len(t, files, 2)
-	require.Equal(t, pngBytes, readStoredBytes(t, f, "dup.png"), "既有 key 的字节没被覆盖")
+	var files int64
+	require.NoError(t, f.db.Model(&fileModel.File{}).Count(&files).Error)
+	require.EqualValues(t, 1, files)
 
-	newKey := files[0].Key
-	if newKey == "dup.png" {
-		newKey = files[1].Key
-	}
-	require.Equal(t, other, readStoredBytes(t, f, newKey))
+	var link fileModel.Link
+	require.NoError(t, f.db.Where("owner_id = ?", echoIDPublic).First(&link).Error)
+	require.Equal(t, fileIDOther, link.FileID)
 }
 
-func TestRun_ReusesFileWithIdenticalBytes(t *testing.T) {
+func TestRun_ReusesFileByID(t *testing.T) {
 	f := newFixture(t)
 	docs := []*capsule.EchoDoc{{
 		ID:        echoIDPublic,
 		CreatedAt: publicCreatedAt,
-		Files:     []capsule.FileRef{{Key: "dup.png", Category: string(storage.CategoryImage)}},
+		Files:     []capsule.FileRef{{ID: fileIDPublic, Key: mediaKey}},
 		Content:   "first\n",
 	}}
-	first := writeCapsule(t, fullManifest(), docs, nil, map[string][]byte{"dup.png": pngBytes})
+	first := writeCapsule(t, fullManifest(), docs, nil, map[string][]byte{mediaKey: pngBytes})
 	_, err := Run(context.Background(), f.deps, loadCapsule(t, first), Options{})
 	require.NoError(t, err)
 
 	docs[0].ID = echoIDGhost
-	second := writeCapsule(t, fullManifest(), docs, nil, map[string][]byte{"dup.png": pngBytes})
+	second := writeCapsule(t, fullManifest(), docs, nil, map[string][]byte{mediaKey: pngBytes})
 	res, err := Run(context.Background(), f.deps, loadCapsule(t, second), Options{})
 	require.NoError(t, err)
 
 	require.Equal(t, 1, res.FilesReused)
 	require.Equal(t, 0, res.FilesCreated)
-	require.Empty(t, res.Renames)
 
 	var files int64
 	require.NoError(t, f.db.Model(&fileModel.File{}).Count(&files).Error)
-	require.EqualValues(t, 1, files, "同 key 同内容只该有一行")
+	require.EqualValues(t, 1, files, "同 ID 只该有一行")
+
+	var links int64
+	require.NoError(t, f.db.Model(&fileModel.Link{}).Count(&links).Error)
+	require.EqualValues(t, 2, links)
 }
 
 func TestRun_ExternalRefKeepsURLVerbatim(t *testing.T) {
@@ -436,15 +464,18 @@ func TestRun_ExternalRefKeepsURLVerbatim(t *testing.T) {
 	require.Equal(t, 1, res.FilesCreated)
 
 	var file fileModel.File
-	require.NoError(t, f.db.Where("storage_type = ?", string(storage.StorageTypeExternal)).First(&file).Error)
-	require.Equal(t, raw, file.URL, "外链 URL 原样透传，不本地化")
-	require.Equal(t, string(storage.CategoryImage), file.Category, "缺省 category 由扩展名推导，query 不干扰")
-	require.Equal(t, string(storage.StorageTypeExternal), file.Provider)
+	require.NoError(t, f.db.Where("kind = ?", string(fileModel.KindRef)).First(&file).Error)
+	require.NotNil(t, file.RefURL)
+	require.Equal(t, raw, *file.RefURL, "外链 URL 原样透传，不本地化")
+	require.Nil(t, file.ObjectKey)
+	require.Nil(t, file.StorageID)
+	require.Equal(t, fileModel.CategoryImage, fileModel.CategoryOf(file.ContentType), "缺省 contentType 由扩展名推导")
+	require.Equal(t, "image/png", file.ContentType)
 }
 
 func TestRun_IncludePrivateLandsPrivateEchoAndItsComment(t *testing.T) {
 	f := newFixture(t)
-	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{"pic.png": pngBytes})
+	dir := writeCapsule(t, fullManifest(), fullDocs(), fullComments(), map[string][]byte{mediaKey: pngBytes})
 
 	res, err := Run(context.Background(), f.deps, loadCapsule(t, dir), Options{IncludePrivate: true})
 	require.NoError(t, err)
@@ -458,12 +489,12 @@ func TestRun_FreshInstanceTakesCapsuleSiteIdentity(t *testing.T) {
 	f := newFixture(t)
 	f.deps.KV = kvstore.NewMemory()
 
-	pristine := coreSetting.System.Pristine()
+	pristine := coreSetting.System.DefaultValue()
 	require.NotEmpty(t, pristine.SiteTitle, "前提：默认站点标题非空，否则本用例守不住任何东西")
 
 	manifest := fullManifest()
 	manifest.Site.SiteTitle = "搬家后的站点"
-	dir := writeCapsule(t, manifest, fullDocs(), fullComments(), map[string][]byte{"pic.png": pngBytes})
+	dir := writeCapsule(t, manifest, fullDocs(), fullComments(), map[string][]byte{mediaKey: pngBytes})
 
 	res, err := Run(context.Background(), f.deps, loadCapsule(t, dir), Options{})
 	require.NoError(t, err)
@@ -476,7 +507,7 @@ func TestRun_FreshInstanceTakesCapsuleSiteIdentity(t *testing.T) {
 
 func readStoredBytes(t *testing.T, f *fixture, key string) []byte {
 	t.Helper()
-	rc, err := f.deps.Selector.Get(context.Background(), storage.StorageTypeLocal, key)
+	rc, _, err := f.store.Open(context.Background(), key)
 	require.NoError(t, err)
 	defer func() { _ = rc.Close() }()
 	data, err := io.ReadAll(rc)
@@ -487,7 +518,7 @@ func readStoredBytes(t *testing.T, f *fixture, key string) []byte {
 func snapshotCounts(t *testing.T, db *gorm.DB) map[string]int64 {
 	t.Helper()
 	out := map[string]int64{}
-	for _, table := range []string{"echos", "echo_extensions", "tags", "echo_tags", "files", "echo_files", "comments", "connecteds"} {
+	for _, table := range []string{"echos", "echo_extensions", "tags", "echo_tags", "files", "file_links", "file_blobs", "comments", "connecteds"} {
 		var n int64
 		require.NoError(t, db.Table(table).Count(&n).Error)
 		out[table] = n

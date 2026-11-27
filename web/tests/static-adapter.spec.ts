@@ -89,25 +89,27 @@ describe('handleStaticRequest', () => {
       { page: 1, pageSize: 2, search: 'hello' },
     )
 
-    expect(page1.code).toBe(1)
-    expect(page1.data.total).toBe(3)
-    expect(page1.data.items.map((item) => item.id)).toEqual(['e5', 'e4'])
+    expect(page1).not.toBeNull()
+    expect(page1!.total).toBe(3)
+    expect(page1!.items.map((item) => item.id)).toEqual(['e5', 'e4'])
 
     const page2 = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
       '/api/echo/query',
       'POST',
       { page: 2, pageSize: 2, search: 'HeLLo' },
     )
-    expect(page2.data.total).toBe(3)
-    expect(page2.data.items.map((item) => item.id)).toEqual(['e2'])
+    expect(page2).not.toBeNull()
+    expect(page2!.total).toBe(3)
+    expect(page2!.items.map((item) => item.id)).toEqual(['e2'])
 
     const unfiltered = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
       '/api/echo/query',
       'POST',
       { page: 1, pageSize: 0 },
     )
-    expect(unfiltered.data.total).toBe(5)
-    expect(unfiltered.data.items).toHaveLength(5)
+    expect(unfiltered).not.toBeNull()
+    expect(unfiltered!.total).toBe(5)
+    expect(unfiltered!.items).toHaveLength(5)
   })
 
   it('POST /api/echo/query cursor 分页续接且不重叠', async () => {
@@ -116,37 +118,39 @@ describe('handleStaticRequest', () => {
       'POST',
       { page: 1, pageSize: 2, cursor: '' },
     )
-    expect(first.data.items.map((item) => item.id)).toEqual(['e5', 'e4'])
-    expect(first.data.nextCursor).toBeTruthy()
+    expect(first).not.toBeNull()
+    expect(first!.items.map((item) => item.id)).toEqual(['e5', 'e4'])
+    expect(first!.nextCursor).toBeTruthy()
 
     const second = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
       '/api/echo/query',
       'POST',
-      { page: 1, pageSize: 2, cursor: first.data.nextCursor ?? '' },
+      { page: 1, pageSize: 2, cursor: first!.nextCursor ?? '' },
     )
-    expect(second.data.items.map((item) => item.id)).toEqual(['e3', 'e2'])
+    expect(second).not.toBeNull()
+    expect(second!.items.map((item) => item.id)).toEqual(['e3', 'e2'])
 
     const third = await handleStaticRequest<App.Api.Ech0.PaginationResult>(
       '/api/echo/query',
       'POST',
-      { page: 1, pageSize: 2, cursor: second.data.nextCursor ?? '' },
+      { page: 1, pageSize: 2, cursor: second!.nextCursor ?? '' },
     )
-    expect(third.data.items.map((item) => item.id)).toEqual(['e1'])
-    expect(third.data.nextCursor).toBeNull()
+    expect(third).not.toBeNull()
+    expect(third!.items.map((item) => item.id)).toEqual(['e1'])
+    expect(third!.nextCursor).toBeNull()
   })
 
-  it('GET /api/echo/{id} 命中返回 Echo，未命中返回 code 0', async () => {
+  it('GET /api/echo/{id} 命中返回 Echo，未命中返回 null', async () => {
     const hit = await handleStaticRequest<App.Api.Ech0.Echo>('/api/echo/e3', 'GET', undefined)
-    expect(hit.code).toBe(1)
-    expect(hit.data.id).toBe('e3')
+    expect(hit).not.toBeNull()
+    expect(hit!.id).toBe('e3')
 
     const miss = await handleStaticRequest<App.Api.Ech0.Echo | null>(
       '/api/echo/nope',
       'GET',
       undefined,
     )
-    expect(miss.code).toBe(0)
-    expect(miss.data).toBeNull()
+    expect(miss).toBeNull()
   })
 
   it('GET /api/comments?echo_id=x 只返回该 echo 的评论', async () => {
@@ -156,22 +160,19 @@ describe('handleStaticRequest', () => {
       undefined,
     )
 
-    expect(res.code).toBe(1)
-    expect(res.data.map((item) => item.id)).toEqual(['c1', 'c3'])
+    expect(res).not.toBeNull()
+    expect(res!.map((item) => item.id)).toEqual(['c1', 'c3'])
   })
 
-  it('PUT /api/echo/{id}/reactions/{emoji} 返回 code 0（冻结展示）', async () => {
+  it('PUT /api/echo/{id}/reactions/{emoji} 返回 null（冻结展示）', async () => {
     const res = await handleStaticRequest('/api/echo/e1/reactions/like', 'PUT', undefined)
 
-    expect(res.code).toBe(0)
-    expect(res.data).toBeNull()
+    expect(res).toBeNull()
   })
 
-  it('未知路径返回 code 0', async () => {
+  it('未知路径返回 null', async () => {
     const res = await handleStaticRequest('/api/panel/comments?page=1', 'GET', undefined)
 
-    expect(res.code).toBe(0)
-    expect(res.msg).toBe('Not available in static mode')
-    expect(res.data).toBeNull()
+    expect(res).toBeNull()
   })
 })

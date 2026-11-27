@@ -52,7 +52,7 @@ apps/cli/
       load.ts             # cache-first 拉取与刷新
     api/
       generated/          # 生成：types.gen.ts / zod.gen.ts / index.ts（入库，gen 会整目录重建）
-      http.ts             # 手写：fetch、鉴权/语言/指纹头、envelope 解包、Ech0Error
+      http.ts             # 手写：fetch、鉴权/语言/指纹头、problem+json 错误解析、Ech0Error
     commands/
       root.ts             # 本地命令 + 动态命令装配
       auth.ts             # login/status/logout
@@ -105,10 +105,10 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 ```
 
 - 清单由 Huma 文档派生（`internal/openapi/catalog`），再合并 `raw.go` 里手写的裸 gin 操作：`operationId` 的 `-` 换成 `.`（`echo-list` → `echo.list`）；`input` 把 path/query/body/form 四类参数拍平成一个对象，`$ref` 递归内联；`bind` 标记每个字段落在 `path`/`query`/`body`/`form`；`effect` 默认由方法推导（GET/HEAD=read、DELETE=destructive、其余=write），但以 POST 承载 body 过滤条件的查询（`echo-list`、`echo-page-post`）显式标记为 `read`，否则 help 会把它们误写成「写入」；`kind` 由成功响应内容类型推导（json/stream/binary/websocket）。
-- 非 JSON 传输额外带 `transport`（见 4.5）；没有该字段即「JSON 进、JSON 信封出」。
+- 非 JSON 传输额外带 `transport`（见 4.5）；没有该字段即「JSON 进、JSON 资源出」（成功响应体就是资源本身，不带信封）。
 - `session_only: true` 标记只接受浏览器会话、拒绝任何 access token 的路由（系统日志 SSE/WS）。CLI 不注册这类命令，即使它们出现在 `--scopes` 允许的集合里；`transport.request.auth = "query"` 仍表示令牌走查询参数（EventSource/WebSocket 无法带 header）。
 - 指纹 = sha256(canonical bytes)。**每个 `/api` 响应**都带 `X-Ech0-Catalog: <指纹>`。
-- 请求可带同一个头；带了但和当前指纹不同 → **412**，body `{"code":0,"msg":"catalog stale","error_code":"catalog_stale"}`，在 handler 之前短路。不带头的旧客户端（web、MCP、脚本）完全不受影响。
+- 请求可带同一个头；带了但和当前指纹不同 → **412**，body 为 `application/problem+json`：`{"title":"Precondition Failed","status":412,"detail":"catalog stale","code":"CATALOG_STALE"}`，在 handler 之前短路。不带头的旧客户端（web、MCP、脚本）完全不受影响。
 - 目录端点自身也带指纹头与 `ETag`。
 
 ### 4.3 客户端缓存
@@ -136,9 +136,9 @@ CLI 若把 `POST /echo` 之类的接口写死成 `ech0 echo add`，服务端加�
 
 | id | 路由 | 传输 |
 | --- | --- | --- |
-| `system.logs.stream` | `GET /api/system/logs/stream` | SSE，无 `event:`，`data` 是信封 |
+| `system.logs.stream` | `GET /api/system/logs/stream` | SSE，无 `event:`，`data` 是日志对象 |
 | `ws.system.logs` | `GET /ws/system/logs?token=` | WebSocket，token 走查询串 |
-| `file.upload` | `POST /api/files/upload` | multipart：`file`(binary) + `category` + `storage_type` |
+| `file.upload` | `POST /api/files` | multipart：`file`(binary) + 可选 `profile` / `mode` / `name` / `width` / `height` |
 | `migration.upload` | `POST /api/migration/upload` | multipart：`file`(binary) + `source_type` |
 | `file.stream` | `GET /api/file/stream?path=&storage_type=` | binary |
 | `file.stream.by_id` | `GET /api/file/{id}/stream` | binary |
@@ -181,7 +181,7 @@ CLI 按 `kind` 分派：
 
 ### 4.6 组合 Echo：先上传，再引用
 
-Echo 可以由「文本 + 附件 + 标签 + extension」组成。HTTP 侧附件本来就是独立的 `POST /files/upload`，CLI 保持同样的两步，不把上传藏进 `echo create`：
+Echo 可以由「文本 + 附件 + 标签 + extension」组成。HTTP 侧附件本来就是独立的 `POST /files`，CLI 保持同样的两步，不把上传藏进 `echo create`：
 
 ```bash
 # 1) 上传，拿 file_id（category 省略时按扩展名推断）
@@ -276,7 +276,7 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin
 | version / commit / build_time / license / repo_url | `common-hello` `GET /api/hello`（public） |
 | server_name / server_url / logo / total_echos / today_echos | `connect-self` `GET /api/connect`（public；实例未初始化时该项跳过，因为 self card 需要 owner） |
 | initialized / owner_exists | `init-status` `GET /api/init/status`（public） |
-| user / is_admin / valid | `user-info` `GET /api/user`，仅在本地有 token 时请求 |
+| user / role / valid | `user-info` `GET /api/user`，仅在本地有 token 时请求 |
 | token_source / refresh_cookie / profile | 本地 profile 与凭据存储（keychain/file） |
 | catalog 指纹 / op 数 / 缓存年龄 | catalog 缓存文件；并与响应头 `X-Ech0-Catalog` 比对，不一致时提示 `ech0 catalog refresh` |
 
@@ -314,13 +314,13 @@ Webhook 面镜像 MCP 的 `list/create/update/delete/test`，统一使用 `admin
 | 方法 | 路径 | 认证 | 请求 | 响应 |
 | --- | --- | --- | --- | --- |
 | POST | `/api/auth/device/code` | public | `{client_name, scopes[]}` | `{device_code, user_code, verification_uri, verification_uri_complete, expires_in: 600, interval: 5}` |
-| POST | `/api/auth/device/token` | public | `{device_code}` | 成功 `{access_token, token_type:"Bearer", expires_in, scopes[]}`；未批准/过期/拒绝时 HTTP 400 + 稳定 `error_code` |
+| POST | `/api/auth/device/token` | public | `{device_code}` | 成功 `{access_token, token_type:"Bearer", expires_in, scopes[]}`；未批准/过期/拒绝时 HTTP 400 + `application/problem+json` 的稳定 `code` |
 | GET | `/api/auth/device/pending?user_code=` | 已登录会话 | — | `{client_name, scopes[], expires_in}` |
-| POST | `/api/auth/device/approve` | 已登录会话 | `{user_code}` | `200 {code:1}` |
+| POST | `/api/auth/device/approve` | 已登录会话 | `{user_code}` | `204` |
 
-错误码（`error_code`，保留 `msg` 作为人类可读回退）：
+错误码（problem 的 `code`，`detail` 是人类可读回退）：
 
-| error_code | 含义 |
+| code | 含义 |
 | --- | --- |
 | `DEVICE_AUTHORIZATION_PENDING` | 尚未在浏览器批准，CLI 继续轮询 |
 | `DEVICE_SLOW_DOWN` | 轮询快于 `interval`，CLI 退避 5s |
@@ -508,11 +508,11 @@ just cli release 0.1.4        # 检查 + bump + commit + tag + push（dry：ECH0
 go test ./internal/openapi/... ./internal/router/...
 ```
 
-- Go：catalog 派生单测（bind/effect/kind/scopes/$ref 内联/指纹稳定性）+ 路由测试（`/api/_catalog` 指纹与 body 哈希一致、过期指纹 412 且 `error_code=catalog_stale`）。
-- CLI：`bun test` 覆盖 envelope 映射、catalog 缓存、动态命令 flag 解析、412 重试、CLI 退出码。
+- Go：catalog 派生单测（bind/effect/kind/scopes/$ref 内联/指纹稳定性）+ 路由测试（`/api/_catalog` 指纹与 body 哈希一致、过期指纹 412 且 `code=CATALOG_STALE`）。
+- CLI：`bun test` 覆盖 problem 映射、catalog 缓存、动态命令 flag 解析、412 重试、CLI 退出码。
 - 端到端实测（真实 Go 服务端 + CLI）：init owner → login → 铸造 `audience=cli` token → `auth login` → `catalog refresh`（111 ops）→ `echo create` → `echo list`；把缓存文件改脏后 `echo create` 收到 412，CLI 自动刷新并重试成功。
 - 审核与自述实测：`ech0 info` 在未登录与已登录两种状态下均成功（后者显示 `user admin（admin）· token file · 有效`）；`comment create` 返回 `pending` → `comment panel list --status pending` → `comment panel status --status approved`（PATCH）→ `comment list` 可见 → `comment panel delete --yes` 成功；`connect health` 在无连接时返回 `[]`。
-- 密码登录：`printf 'pw' | ech0 auth login -u owner --password-stdin` → 自动铸造 CLI 令牌 → `echo create` 成功；device 登录：CLI 打印设备码 → 浏览器/curl 批准 → CLI 拿到令牌 → `echo create` 成功；轮询的 pending / slow_down / unknown 三个 `error_code` 在真实服务端复核。
+- 密码登录：`printf 'pw' | ech0 auth login -u owner --password-stdin` → 自动铸造 CLI 令牌 → `echo create` 成功；device 登录：CLI 打印设备码 → 浏览器/curl 批准 → CLI 拿到令牌 → `echo create` 成功；轮询的 pending / slow_down / unknown 三个 problem `code` 在真实服务端复核。
 
 ## 11. 里程碑
 

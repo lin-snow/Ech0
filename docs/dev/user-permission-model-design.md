@@ -1,6 +1,8 @@
 # 用户与权限模型（目标设计）
 
 > **状态：已实现。** 本文冻结产品规则，作为实现与评审依据；逐条落点与现行行为见 [roles-and-permissions.md](./roles-and-permissions.md)。实现与本文冲突时以本文为准，并修实现。
+>
+> **注意：** §2 的身份表与 §8 的 D2（允许多个 admin、不引入唯一所有者）已被 [space-identity-design.md](./space-identity-design.md) 取代——目标模型引入唯一 `owner`（`users.role = 'owner'`，部分唯一索引保证至多一个），`admin` 仅保留 `member` 之上的治理秩。本文其余部分（账户状态、删除数据范围）继续有效。
 
 ## 1. 定位
 
@@ -146,10 +148,10 @@ Admin 允许多个，但系统至少保留一位（D2，见 §8）。
 ```
 User
 ├── UserLocalAuth / UserExternalIdentity / WebAuthnCredential / AccessToken
-├── File (user_id, 上传者)
-│   └── TempFile
+├── File (uploader_id, 上传者)
+│   └── (file_links 指向它；文件本身不属于任何 Echo)
 └── Echo (user_id)
-    ├── EchoFile (echo_id)
+    ├── file_links (owner_kind = "echo", owner_id = echo_id)
     ├── EchoExtension (echo_id)
     ├── EchoTag / Tag.usage_count
     ├── Reaction (echo_id, actor = u:<userID>)
@@ -201,7 +203,7 @@ Admin 删除用户时必须二次确认，并明确告知影响范围。文案�
 | 永久删除范围 | ✅ | `UserRepository.PurgeUserContent` 单事务级联 + 删除后对象存储清理（`internal/service/user/user.go`） |
 | 私密 Echo 可见性 | ✅ | `PrivateScope{Authenticated, All}`；`privateScope()` / `GetEchoById` |
 | 私密 Echo 评论 | ✅ | `assertEchoCommentable` 仅拒绝匿名；评论列表 `JOIN echos` 按 `private` 过滤 |
-| 用户上传的文件 | ✅ | D3：删除本人 `File` 行与对象，解除其在存活 Echo 上的 `EchoFile` |
+| 用户上传的文件 | ✅ | D3：`fileService.PurgeUploader` 删除本人**不再被任何 link 引用**的 `File` 行（字节走 `file_gc`）；仍被他人 Echo 引用的文件保留 |
 | 反应 | ✅ | 删除 `actor = actorUtil.UserActor(userID)` 的记录 |
 | 标签创建 | ✅ | 任意登录用户可显式创建；Echo 写入时按名字隐式创建。删除仍限 Admin |
 | 匿名评论 | ✅ | 已实现，昵称+邮箱+验证码+审核 |
@@ -226,7 +228,7 @@ Admin 删除用户时必须二次确认，并明确告知影响范围。文案�
 
 ### 默认取值（可直接推翻）
 
-**D3 — 删除用户时其上传的文件。** 默认删除该用户上传的全部 `File` 行与存储对象，并解除其在存活 Echo 上的 `EchoFile` 关联；其他 Echo 若引用这些文件会失去附件。
+**D3 — 删除用户时其上传的文件。** 先按 `user_id` 删掉该用户的 Echo（`file_links` 随外键级联消失），再删他上传且已无 link 引用的 `files` 行，字节由 `file_gc` 回收。仍被他人 Echo 引用的文件保留原样——文件不因上传者离开而消失。
 
 **D4 — 不提供用户自助注销。** 永久删除只能由 Admin 发起，避免用户级联删除他人评论时缺少风险确认。
 

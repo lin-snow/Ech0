@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -74,23 +73,49 @@ func copyMedia(ctx context.Context, dir string, loaded *capsule.Loaded) (int, er
 	}
 	sort.Strings(keys)
 
-	prefix := capsule.FilesDir + "/"
+	ids := mediaFileIDs(loaded)
 	n := 0
 	for _, p := range keys {
-		rel := strings.TrimPrefix(p, prefix)
-		if rel == p || rel == "" || rel != path.Clean(rel) || strings.HasPrefix(rel, "../") {
-			return n, fmt.Errorf("unexpected media path %q in capsule", p)
+		id, ok := ids[p]
+		if !ok {
+			return n, fmt.Errorf("capsule media %q has no file reference", p)
 		}
 		data, err := loaded.Source.ReadFile(ctx, p)
 		if err != nil {
 			return n, fmt.Errorf("read media %s: %w", p, err)
 		}
-		if err := writeFile(dir, "api/files/"+rel, data); err != nil {
+		if err := writeFile(dir, "api/files/"+id+"/content", data); err != nil {
 			return n, err
 		}
 		n++
 	}
 	return n, nil
+}
+
+// mediaFileIDs maps each capsule media path to the id its baked URL uses.
+func mediaFileIDs(loaded *capsule.Loaded) map[string]string {
+	ids := make(map[string]string)
+	add := func(refs []capsule.FileRef) {
+		for _, ref := range refs {
+			if !ref.Managed() {
+				continue
+			}
+			id := ref.ID
+			if id == "" {
+				id = derivedID("file", "key", ref.Key)
+			}
+			ids[capsule.MediaPath(ref.Key)] = id
+		}
+	}
+	if loaded.Manifest != nil {
+		add(loaded.Manifest.Files)
+	}
+	for _, echo := range loaded.Echoes {
+		if echo.Doc != nil {
+			add(echo.Doc.Files)
+		}
+	}
+	return ids
 }
 
 var rootPathAttr = regexp.MustCompile(`\b(href|src)="/([^/"])`)

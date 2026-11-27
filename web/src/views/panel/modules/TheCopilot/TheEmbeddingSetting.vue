@@ -150,6 +150,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fetchGetEmbeddingSettings, fetchUpdateEmbeddingSettings } from '@/service/api'
 import { theToast } from '@/utils/toast'
+import { i18n } from '@/locales'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 import { useReindexStore } from '@/stores/reindex'
 
@@ -198,10 +199,10 @@ watch(
 
 const getSetting = async () => {
   const res = await fetchGetEmbeddingSettings()
-  if (res.code === 1 && res.data) {
-    setting.value = res.data
-    originalModel.value = res.data.model
-    originalDim.value = res.data.dim
+  if (res) {
+    setting.value = res
+    originalModel.value = res.model
+    originalDim.value = res.dim
   }
 }
 
@@ -210,8 +211,8 @@ const save = async () => {
     setting.value.model !== originalModel.value || setting.value.dim !== originalDim.value
   await fetchUpdateEmbeddingSettings(setting.value)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
         if (changed && setting.value.enable) {
           openConfirm({
             title: t('embeddingSetting.reindexConfirmTitle'),
@@ -230,15 +231,15 @@ defineExpose({ save })
 
 const handleReindex = async () => {
   const res = await reindex.start()
-  if (res.code === 1) {
-    theToast.success(res.msg)
+  if (res) {
+    theToast.success(String(i18n.global.t('common.success')))
   }
 }
 
 const handleCancelReindex = async () => {
   const res = await reindex.cancel()
-  if (res.code === 1) {
-    theToast.success(res.msg)
+  if (res) {
+    theToast.success(String(i18n.global.t('common.success')))
   }
 }
 

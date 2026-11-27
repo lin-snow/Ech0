@@ -6,8 +6,8 @@ package access
 import (
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestCreateAccessToken_RejectsUnknownScope(t *testing.T) {
-	user := userModel.User{IsAdmin: true}
+	user := userModel.User{Role: userModel.RoleAdmin}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-scope",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -28,7 +28,7 @@ func TestCreateAccessToken_RejectsUnknownScope(t *testing.T) {
 }
 
 func TestCreateAccessToken_RejectsUnknownAudience(t *testing.T) {
-	user := userModel.User{IsAdmin: true}
+	user := userModel.User{Role: userModel.RoleAdmin}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-audience",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -41,7 +41,7 @@ func TestCreateAccessToken_RejectsUnknownAudience(t *testing.T) {
 }
 
 func TestCreateAccessToken_AcceptsProfileWriteScope(t *testing.T) {
-	user := userModel.User{IsAdmin: true}
+	user := userModel.User{Role: userModel.RoleAdmin}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "profile-write-token",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -54,7 +54,7 @@ func TestCreateAccessToken_AcceptsProfileWriteScope(t *testing.T) {
 }
 
 func TestCreateAccessToken_RejectsAdminScopeForNonAdminUser(t *testing.T) {
-	user := userModel.User{IsAdmin: false}
+	user := userModel.User{Role: userModel.RoleMember}
 	dto := &model.AccessTokenSettingDto{
 		Name:     "bad-admin-scope",
 		Expiry:   model.EIGHT_HOUR_EXPIRY,
@@ -133,8 +133,8 @@ func TestNormalizeScopes(t *testing.T) {
 }
 
 func TestValidateRequest_EdgeCases(t *testing.T) {
-	admin := userModel.User{IsAdmin: true}
-	normal := userModel.User{IsAdmin: false}
+	admin := userModel.User{ID: "u-admin", Role: userModel.RoleAdmin}
+	normal := userModel.User{ID: "u-member", Role: userModel.RoleMember}
 
 	cases := []struct {
 		name    string
@@ -142,18 +142,18 @@ func TestValidateRequest_EdgeCases(t *testing.T) {
 		dto     *model.AccessTokenSettingDto
 		wantErr string
 	}{
-		{"nil dto rejected", admin, nil, commonModel.INVALID_PARAMS_BODY},
+		{"nil dto rejected", admin, nil, apperr.ErrInvalidParams.Error()},
 		{
 			"blank name rejected",
 			admin,
 			&model.AccessTokenSettingDto{Name: "   ", Scopes: []string{authz.ScopeEchoRead}, Audience: authz.AudiencePublic},
-			commonModel.INVALID_PARAMS_BODY,
+			apperr.ErrInvalidParams.Error(),
 		},
 		{
 			"empty scopes rejected",
 			admin,
 			&model.AccessTokenSettingDto{Name: "tok", Scopes: nil, Audience: authz.AudiencePublic},
-			commonModel.INVALID_PARAMS_BODY,
+			apperr.ErrInvalidParams.Error(),
 		},
 		{
 			"valid admin scope for admin accepted",

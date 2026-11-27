@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { request } from '../request'
+import { reportProblemDetail, request } from '../request'
 
 export function fetchGetSettings() {
   return request<App.Api.Setting.SystemSetting>({
@@ -36,9 +36,9 @@ export function fetchUpdateS3Settings(s3Setting: App.Api.Setting.S3Setting) {
 export function fetchTestS3Connection(s3Setting: App.Api.Setting.S3Setting) {
   return request({
     url: '/s3/settings/test',
+    onProblem: reportProblemDetail,
     method: 'POST',
     data: s3Setting,
-    silentError: true,
   })
 }
 
@@ -126,6 +126,7 @@ export function fetchDeleteWebhook(webhookId: string) {
 export function fetchTestWebhook(webhookId: string) {
   return request({
     url: `/webhook/${webhookId}/test`,
+    onProblem: reportProblemDetail,
     method: 'POST',
   })
 }
@@ -194,8 +195,8 @@ export function fetchUpdateAgentSettings(agentSetting: App.Api.Setting.AgentSett
 export function fetchTestAgentConnection(agentSetting: App.Api.Setting.AgentSettingDto) {
   return request({
     url: '/agent/settings/test',
+    onProblem: reportProblemDetail,
     method: 'POST',
     data: agentSetting,
-    silentError: true,
   })
 }

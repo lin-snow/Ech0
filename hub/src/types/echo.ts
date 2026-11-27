@@ -28,12 +28,6 @@ export interface HubPostMeta {
 
 export type EchoPostWithHub = EchoPost & { _hub: HubPostMeta }
 
-export interface ApiResult<T> {
-  code: number
-  msg: string
-  data: T
-}
-
 export interface EchoQueryPage {
   total: number
   items: EchoPost[]

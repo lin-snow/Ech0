@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import { ofetch } from 'ofetch'
+import { FetchError, ofetch } from 'ofetch'
+import { ACCOUNT_DISABLED_TYPE, problemMessage } from './problem'
+import { handleStaticRequest } from './static-adapter'
 import { getInitReadyStatus, buildCommonHeaders, isStaticMode } from './shared'
 import { useAuthStore } from '@/stores/auth'
 import { theToast } from '@/utils/toast'
@@ -14,14 +16,18 @@ interface RequestOptions {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   timeout?: number
   silentError?: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any
+  // Diagnostics endpoints (connection tests, migration failures) surface the
+  // server's detail verbatim instead of the status-derived text.
+  onProblem?: (problem: App.Api.Problem) => void
+  data?: object
 }
+
+// ofetch types bodies structurally; every caller passes a typed DTO.
+const toBody = (data: object | undefined) => data as unknown as Record<string, unknown> | undefined
 
 const ofetchInstance = ofetch.create({
   baseURL: import.meta.env.VITE_SERVICE_BASE_URL,
   timeout: 20000,
-  ignoreResponseError: true,
 
   onRequest({ options }) {
     const isDirectUrl = options.headers.get('X-Direct-URL')
@@ -33,27 +39,61 @@ const ofetchInstance = ofetch.create({
 
     options.headers.delete('X-Direct-URL')
   },
-  onResponseError: async ({ response }) => {
-    let data
-    try {
-      data = await response.json()
-    } catch {
-      data = { code: 0, msg: String(i18n.global.t('common.requestFailed')), data: null }
-    }
-
-    response._data = data
-
-    return data
-  },
 })
 
-export const request = async <T>(requestOptions: RequestOptions): Promise<App.Api.Response<T>> => {
+// Raw third-party fetches (GitHub cards, peer instances) keep the non-throwing
+// behaviour so their callers keep receiving whatever body came back.
+const rawFetchInstance = ofetch.create({
+  baseURL: import.meta.env.VITE_SERVICE_BASE_URL,
+  timeout: 20000,
+  ignoreResponseError: true,
+})
+
+// A 204 (or any empty body) resolves to `undefined`; callers only need
+// "did it succeed". Hand back a truthy value so `if (res)` means success for
+// every endpoint while `null` keeps meaning failure.
+const settle = <T>(data: T | undefined): T => (data === undefined ? (true as unknown as T) : data)
+
+function problemOf(error: unknown): App.Api.Problem {
+  if (error instanceof FetchError) {
+    const body = error.data
+    if (body && typeof body === 'object' && typeof (body as App.Api.Problem).status === 'number') {
+      return body as App.Api.Problem
+    }
+    return { status: error.response?.status ?? 0, detail: error.message }
+  }
+  return { status: 0 }
+}
+
+function notify(problem: App.Api.Problem, options: RequestOptions) {
+  if (options.onProblem) {
+    options.onProblem(problem)
+    return
+  }
+  if (options.silentError === true || !getInitReadyStatus()) return
+  theToast.error(problemMessage(problem))
+}
+
+function handleAccountDisabled(): boolean {
+  if (!window.location.pathname.endsWith('/auth')) {
+    useAuthStore().clearToken()
+    localStorage.setItem('needLoginRedirect', 'true')
+    theToast.error(String(i18n.global.t('auth.account_disabled')))
+    window.location.assign(`${import.meta.env.BASE_URL}auth`)
+    return true
+  }
+  return false
+}
+
+/** For diagnostics endpoints: the server's detail is the whole answer. */
+export const reportProblemDetail = (problem: App.Api.Problem) => {
+  theToast.error(problem.detail || problem.title || String(i18n.global.t('common.requestFailed')))
+}
+
+export const request = async <T>(requestOptions: RequestOptions): Promise<T | null> => {
   if (isStaticMode()) {
-    const { handleStaticRequest } = await import('./static-adapter')
     return handleStaticRequest<T>(requestOptions.url, requestOptions.method, requestOptions.data)
   }
-
-  const isSystemReady = getInitReadyStatus()
 
   if (import.meta.env.VITE_PROXY === 'YES') {
     const proxyUrl = import.meta.env.VITE_PROXY_URL
@@ -64,96 +104,65 @@ export const request = async <T>(requestOptions: RequestOptions): Promise<App.Ap
   }
 
   const doRequest = () =>
-    ofetchInstance<App.Api.Response<T>>(requestOptions.url, {
+    ofetchInstance<T>(requestOptions.url, {
       method: requestOptions.method,
-      body: requestOptions.data,
+      body: toBody(requestOptions.data),
       timeout: requestOptions.timeout,
       credentials: 'include',
     })
 
-  let res = await doRequest()
+  try {
+    return settle(await doRequest())
+  } catch (error) {
+    let problem = problemOf(error)
 
-  const isTokenError =
-    res.error_code === 'TOKEN_MISSING' ||
-    res.error_code === 'TOKEN_INVALID' ||
-    res.error_code === 'TOKEN_PARSE_ERROR' ||
-    res.error_code === 'TOKEN_REVOKED'
-
-  if (isTokenError) {
-    const refreshed = await useAuthStore().silentRefresh()
-    if (refreshed) {
-      res = await doRequest()
+    if (problem.status === 401) {
+      const refreshed = await useAuthStore().silentRefresh()
+      if (refreshed) {
+        try {
+          return settle(await doRequest())
+        } catch (retryError) {
+          problem = problemOf(retryError)
+        }
+      }
     }
+
+    if (problem.type === ACCOUNT_DISABLED_TYPE) {
+      handleAccountDisabled()
+      return null
+    }
+
+    notify(problem, requestOptions)
+    return null
   }
-
-  let accountDisabledHandled = false
-  if (res.error_code === 'ACCOUNT_DISABLED') {
-    // Disabling an account terminates existing sessions. Drop the token and
-    // bounce to the auth page instead of leaving a half-authenticated UI.
-    accountDisabledHandled = true
-    useAuthStore().clearToken()
-    localStorage.setItem('needLoginRedirect', 'true')
-    if (!requestOptions.silentError) {
-      theToast.error(String(i18n.global.t('auth.account_disabled')))
-    }
-    if (!window.location.pathname.endsWith('/auth')) {
-      window.location.assign(`${import.meta.env.BASE_URL}auth`)
-    }
-  }
-
-  if (res.code !== 1 && !requestOptions.silentError && !accountDisabledHandled) {
-    if (isSystemReady) {
-      const translated =
-        res.message_key && i18n.global.te(res.message_key)
-          ? i18n.global.t(res.message_key, (res.message_params || {}) as Record<string, unknown>)
-          : res.msg
-      theToast.error(
-        translated ? String(translated) : String(i18n.global.t('common.requestFailed')),
-      )
-    }
-  }
-
-  return res
 }
 
 export const requestWithDirectUrl = async <T>(
   requestOptions: RequestOptions,
-): Promise<App.Api.Response<T>> => {
-  const isSystemReady = getInitReadyStatus()
-
-  return ofetchInstance<App.Api.Response<T>>(
-    requestOptions.dirrectUrl ? requestOptions.dirrectUrl : '',
-    {
-      method: requestOptions.method,
-      body: requestOptions.data,
-      timeout: requestOptions.timeout,
-      credentials: 'omit',
-    },
-  ).then((res) => {
-    if (res.code !== 1 && !requestOptions.silentError) {
-      if (isSystemReady) {
-        const translated =
-          res.message_key && i18n.global.te(res.message_key)
-            ? i18n.global.t(res.message_key, (res.message_params || {}) as Record<string, unknown>)
-            : res.msg
-        theToast.error(
-          translated ? String(translated) : String(i18n.global.t('common.requestFailed')),
-        )
-      }
-    }
-
-    return res
-  })
+): Promise<T | null> => {
+  try {
+    return settle(
+      await ofetchInstance<T>(requestOptions.dirrectUrl ? requestOptions.dirrectUrl : '', {
+        method: requestOptions.method,
+        body: toBody(requestOptions.data),
+        timeout: requestOptions.timeout,
+        credentials: 'omit',
+      }),
+    )
+  } catch (error) {
+    notify(problemOf(error), requestOptions)
+    return null
+  }
 }
 
 export const requestWithDirectUrlAndData = async <T>(
   requestOptions: RequestOptions,
 ): Promise<T> => {
-  return ofetchInstance<T>(
+  return rawFetchInstance<T>(
     requestOptions.dirrectUrlAndData ? requestOptions.dirrectUrlAndData : '',
     {
       method: requestOptions.method,
-      body: requestOptions.data,
+      body: toBody(requestOptions.data),
       timeout: requestOptions.timeout,
       credentials: 'omit',
       headers: {
@@ -178,17 +187,15 @@ export const downloadFile = async (requestOptions: RequestOptions): Promise<Blob
     requestOptions.url = `${proxyUrl}${requestOptions.url}`
   }
 
-  return ofetchInstance<Blob>(requestOptions.url, {
-    method: requestOptions.method,
-    body: requestOptions.data,
-    timeout: requestOptions.timeout,
-    credentials: 'include',
-  }).then((res) => {
-    if (res instanceof Blob) {
-      return res
-    }
-    const msg = String(i18n.global.t('common.requestFailed'))
-    theToast.error(msg)
-    throw new Error(msg)
-  })
+  try {
+    return await ofetchInstance<Blob>(requestOptions.url, {
+      method: requestOptions.method,
+      body: toBody(requestOptions.data),
+      timeout: requestOptions.timeout,
+      credentials: 'include',
+    })
+  } catch (error) {
+    notify(problemOf(error), requestOptions)
+    throw new Error(problemMessage(problemOf(error)))
+  }
 }

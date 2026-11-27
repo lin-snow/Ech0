@@ -6,11 +6,13 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	userHandler "github.com/lin-snow/ech0/internal/handler/user"
+	"github.com/lin-snow/ech0/internal/httperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	usermock "github.com/lin-snow/ech0/internal/test/mocks/usermock"
@@ -19,16 +21,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func assertBizErr(t *testing.T, err error, wantCode string) {
+func assertStatusErr(t *testing.T, err error, wantStatus int) {
 	t.Helper()
 	require.Error(t, err)
-	var be *commonModel.BizError
-	require.ErrorAs(t, err, &be)
-	assert.Equal(t, wantCode, be.Code)
+	assert.Equal(t, wantStatus, httperr.From(err).Status)
 }
 
 func TestUserHandler_Register(t *testing.T) {
-	t.Run("success passes dto through", func(t *testing.T) {
+	t.Run("success emits an empty output", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
 		svc.EXPECT().
 			Register(mock.MatchedBy(func(dto *authModel.RegisterDto) bool {
@@ -42,21 +42,19 @@ func TestUserHandler_Register(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.REGISTER_SUCCESS, out.Message)
-		assert.Nil(t, out.Data)
+		require.NotNil(t, out)
 	})
 
 	t.Run("error when registration disallowed", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.USER_REGISTER_NOT_ALLOW)
+		be := apperr.ErrRegistrationDisabled
 		svc.EXPECT().Register(mock.Anything).Return(be).Once()
 
 		h := userHandler.NewUserHandler(svc)
 		out, err := h.Register(context.Background(), &userHandler.RegisterInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodePermissionDenied)
-		assert.Equal(t, 0, out.Code)
+		assertStatusErr(t, err, http.StatusForbidden)
+		assert.Nil(t, out)
 	})
 }
 
@@ -76,8 +74,7 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.UPDATE_USER_SUCCESS, out.Message)
-		assert.Nil(t, out.Data)
+		require.NotNil(t, out)
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -88,37 +85,67 @@ func TestUserHandler_UpdateUser(t *testing.T) {
 		out, err := h.UpdateUser(context.Background(), &userHandler.UpdateUserInput{})
 
 		require.Error(t, err)
-		assert.Equal(t, 0, out.Code)
+		assert.Nil(t, out)
 	})
 }
 
-func TestUserHandler_UpdateUserAdmin(t *testing.T) {
-	t.Run("success passes id through", func(t *testing.T) {
+func TestUserHandler_UpdateUserRole(t *testing.T) {
+	t.Run("success passes id and role through", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		svc.EXPECT().UpdateUserAdmin(mock.Anything, "uid-9").Return(nil).Once()
+		svc.EXPECT().UpdateUserRole(mock.Anything, "uid-9", userModel.RoleAdmin).Return(nil).Once()
 
 		h := userHandler.NewUserHandler(svc)
-		out, err := h.UpdateUserAdmin(context.Background(), &userHandler.UpdateUserAdminInput{ID: "uid-9"})
+		in := &userHandler.UpdateUserRoleInput{ID: "uid-9"}
+		in.Body.Role = userModel.RoleAdmin
+		out, err := h.UpdateUserRole(context.Background(), in)
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.UPDATE_USER_SUCCESS, out.Message)
+		require.NotNil(t, out)
 	})
 
-	t.Run("error when the last admin would be removed", func(t *testing.T) {
+	t.Run("error when the operator cannot manage the target", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.LAST_ADMIN_REQUIRED)
-		svc.EXPECT().UpdateUserAdmin(mock.Anything, mock.Anything).Return(be).Once()
+		be := apperr.ErrDenied
+		svc.EXPECT().UpdateUserRole(mock.Anything, mock.Anything, mock.Anything).Return(be).Once()
 
 		h := userHandler.NewUserHandler(svc)
-		out, err := h.UpdateUserAdmin(context.Background(), &userHandler.UpdateUserAdminInput{ID: "x"})
+		out, err := h.UpdateUserRole(context.Background(), &userHandler.UpdateUserRoleInput{ID: "x"})
 
-		assertBizErr(t, err, commonModel.ErrCodePermissionDenied)
-		assert.Equal(t, 0, out.Code)
+		assertStatusErr(t, err, http.StatusForbidden)
+		assert.Nil(t, out)
+	})
+}
+
+func TestUserHandler_TransferOwnership(t *testing.T) {
+	t.Run("success passes the successor through", func(t *testing.T) {
+		svc := usermock.NewMockService(t)
+		svc.EXPECT().TransferOwnership(mock.Anything, "uid-9").Return(nil).Once()
+
+		h := userHandler.NewUserHandler(svc)
+		out, err := h.TransferOwnership(context.Background(), &userHandler.TransferOwnershipInput{ID: "uid-9"})
+
+		require.NoError(t, err)
+		require.NotNil(t, out)
+	})
+}
+
+func TestUserHandler_UpdateUserStatus(t *testing.T) {
+	t.Run("success passes id and status through", func(t *testing.T) {
+		svc := usermock.NewMockService(t)
+		svc.EXPECT().UpdateUserStatus(mock.Anything, "uid-4", userModel.StatusDisabled).Return(nil).Once()
+
+		h := userHandler.NewUserHandler(svc)
+		in := &userHandler.UpdateUserStatusInput{ID: "uid-4"}
+		in.Body.Status = userModel.StatusDisabled
+		out, err := h.UpdateUserStatus(context.Background(), in)
+
+		require.NoError(t, err)
+		require.NotNil(t, out)
 	})
 }
 
 func TestUserHandler_GetAllUsers(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success returns the list payload", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
 		want := []userModel.User{{ID: "u1", Username: "alice"}, {ID: "u2", Username: "bob"}}
 		svc.EXPECT().GetAllUsers(mock.Anything).Return(want, nil).Once()
@@ -127,19 +154,20 @@ func TestUserHandler_GetAllUsers(t *testing.T) {
 		out, err := h.GetAllUsers(context.Background(), &userHandler.GetAllUsersInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_USER_SUCCESS, out.Message)
-		assert.Equal(t, want, out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, want, out.Body.Items)
+		assert.Nil(t, out.Body.Total, "an unpaged list carries no total")
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		svc.EXPECT().GetAllUsers(mock.Anything).Return(nil, bizErrInternal()).Once()
+		svc.EXPECT().GetAllUsers(mock.Anything).Return(nil, internalErr()).Once()
 
 		h := userHandler.NewUserHandler(svc)
 		out, err := h.GetAllUsers(context.Background(), &userHandler.GetAllUsersInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInternal)
-		assert.Nil(t, out.Data)
+		assertStatusErr(t, err, http.StatusInternalServerError)
+		assert.Nil(t, out)
 	})
 }
 
@@ -152,7 +180,7 @@ func TestUserHandler_DeleteUser(t *testing.T) {
 		out, err := h.DeleteUser(context.Background(), &userHandler.DeleteUserInput{ID: "uid-3"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DELETE_USER_SUCCESS, out.Message)
+		require.NotNil(t, out)
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -163,7 +191,7 @@ func TestUserHandler_DeleteUser(t *testing.T) {
 		out, err := h.DeleteUser(context.Background(), &userHandler.DeleteUserInput{ID: "x"})
 
 		require.Error(t, err)
-		assert.Equal(t, 0, out.Code)
+		assert.Nil(t, out)
 	})
 }
 
@@ -179,23 +207,23 @@ func TestUserHandler_GetUserInfo(t *testing.T) {
 		out, err := h.GetUserInfo(helpers.CtxAsUser("viewer-1"), &userHandler.GetUserInfoInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_USER_INFO_SUCCESS, out.Message)
-		assert.Equal(t, "alice", out.Data.Username)
+		require.NotNil(t, out)
+		assert.Equal(t, "alice", out.Body.Username)
 	})
 
 	t.Run("error", func(t *testing.T) {
 		svc := usermock.NewMockService(t)
-		be := commonModel.NewBizError(commonModel.ErrCodeInternal, commonModel.USER_NOTFOUND)
+		be := apperr.ErrUserNotFound
 		svc.EXPECT().GetUserByID("viewer-2").Return(userModel.User{}, be).Once()
 
 		h := userHandler.NewUserHandler(svc)
 		out, err := h.GetUserInfo(helpers.CtxAsUser("viewer-2"), &userHandler.GetUserInfoInput{})
 
-		assertBizErr(t, err, commonModel.ErrCodeInternal)
-		assert.Equal(t, 0, out.Code)
+		assertStatusErr(t, err, http.StatusNotFound)
+		assert.Nil(t, out)
 	})
 }
 
-func bizErrInternal() *commonModel.BizError {
-	return commonModel.NewBizError(commonModel.ErrCodeInternal, "boom")
+func internalErr() error {
+	return errors.New("boom")
 }

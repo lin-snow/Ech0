@@ -19,9 +19,9 @@ import (
 )
 
 type Deps struct {
-	DB       *gorm.DB
-	Selector *storage.StorageSelector
-	KV       kvstore.Store
+	DB      *gorm.DB
+	Storage *storage.Registry
+	KV      kvstore.Store
 }
 
 type Options struct {
@@ -42,8 +42,8 @@ func (d Deps) validate() error {
 	switch {
 	case d.DB == nil:
 		return errors.New("capsule export: database is required")
-	case d.Selector == nil:
-		return errors.New("capsule export: storage selector is required")
+	case d.Storage == nil:
+		return errors.New("capsule export: storage registry is required")
 	case d.KV == nil:
 		return errors.New("capsule export: kv store is required")
 	}

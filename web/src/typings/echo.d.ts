@@ -75,10 +75,9 @@ declare namespace App {
         id: string
         echo_id: string
         url: string
-        storage_type: File.StorageType
+        name?: string
         category?: File.Category
         content_type?: string
-        key?: string
         size?: number
         width?: number
         height?: number
@@ -96,31 +95,15 @@ declare namespace App {
         echo_id: string
         file_id: string
         sort_order: number
-        file?: {
-          id: string
-          key: string
-          storage_type: File.StorageType
-          provider?: string
-          bucket?: string
-          url: string
-          name?: string
-          content_type?: string
-          size?: number
-          category?: File.Category
-          user_id?: string
-          width?: number
-          height?: number
-          created_at?: number
-        }
+        file?: File.FileDto
       }
 
       type FileToAdd = {
         id?: string
         url: string
-        storage_type: File.StorageType
+        name?: string
         category?: File.Category
         content_type?: string
-        key?: string
         size?: number
         width?: number
         height?: number
@@ -190,15 +173,6 @@ declare namespace App {
         license: string
         author: string
         repo_url: string
-      }
-
-      type PresignResult = {
-        id: string
-        file_name: string
-        content_type: string
-        key: string
-        presign_url: string
-        file_url: string
       }
     }
   }

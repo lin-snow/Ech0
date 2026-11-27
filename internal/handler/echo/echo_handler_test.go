@@ -22,11 +22,9 @@ import (
 
 var errBoom = errors.New("boom")
 
-func newPage(items []echoModel.Echo) commonModel.PageQueryResult[[]echoModel.Echo] {
-	return commonModel.PageQueryResult[[]echoModel.Echo]{
-		Items: items,
-		Total: int64(len(items)),
-	}
+func newPage(items []echoModel.Echo) commonModel.List[echoModel.Echo] {
+	total := int64(len(items))
+	return commonModel.List[echoModel.Echo]{Items: items, Total: &total}
 }
 
 func TestEchoHandler_PostEcho(t *testing.T) {
@@ -44,10 +42,10 @@ func TestEchoHandler_PostEcho(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.POST_ECHO_SUCCESS, out.Message)
-		require.NotNil(t, out.Data)
-		assert.Equal(t, "e1", out.Data.ID)
+		require.NotNil(t, out)
+		assert.Equal(t, "e1", out.Body.ID)
+		assert.Equal(t, "hi", out.Body.Content)
+		assert.True(t, out.Body.Private)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -60,7 +58,7 @@ func TestEchoHandler_PostEcho(t *testing.T) {
 		})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.EchoOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -79,9 +77,9 @@ func TestEchoHandler_UpdateEcho(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.UPDATE_ECHO_SUCCESS, out.Message)
-		require.NotNil(t, out.Data)
-		assert.Equal(t, "e1", out.Data.ID)
+		require.NotNil(t, out)
+		assert.Equal(t, "e1", out.Body.ID)
+		assert.Equal(t, "edited", out.Body.Content)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -106,7 +104,7 @@ func TestEchoHandler_DeleteEcho(t *testing.T) {
 		out, err := h.DeleteEcho(helpers.CtxAsUser("u1"), &handler.EchoIDInput{ID: "e1"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DELETE_ECHO_SUCCESS, out.Message)
+		assert.Equal(t, &handler.EmptyOutput{}, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -133,10 +131,9 @@ func TestEchoHandler_Reactions(t *testing.T) {
 		out, err := h.AddReaction(helpers.CtxAnonymous(), &handler.ReactionInput{ID: "e1", Emoji: "like"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.REACT_ECHO_SUCCESS, out.Message)
-		require.Len(t, out.Data, 1)
-		assert.Equal(t, "like", out.Data[0].Key)
-		assert.True(t, out.Data[0].Reacted)
+		require.Len(t, out.Body.Items, 1)
+		assert.Equal(t, "like", out.Body.Items[0].Key)
+		assert.True(t, out.Body.Items[0].Reacted)
 	})
 
 	t.Run("add propagates service errors", func(t *testing.T) {
@@ -157,8 +154,7 @@ func TestEchoHandler_Reactions(t *testing.T) {
 		out, err := h.RemoveReaction(helpers.CtxAnonymous(), &handler.ReactionInput{ID: "e1", Emoji: "like"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.UNREACT_ECHO_SUCCESS, out.Message)
-		assert.Empty(t, out.Data)
+		assert.Empty(t, out.Body.Items)
 	})
 
 	t.Run("catalog returns the registry", func(t *testing.T) {
@@ -169,8 +165,7 @@ func TestEchoHandler_Reactions(t *testing.T) {
 		out, err := h.GetReactionCatalog(helpers.CtxAnonymous(), &handler.ReactionCatalogInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_REACTIONS_SUCCESS, out.Message)
-		assert.Equal(t, echoModel.ReactionEmojis, out.Data)
+		assert.Equal(t, echoModel.ReactionEmojis, out.Body.Items)
 	})
 }
 
@@ -197,9 +192,8 @@ func TestEchoHandler_GetEchoById(t *testing.T) {
 		out, err := h.GetEchoById(helpers.CtxAnonymous(), &handler.EchoIDInput{ID: "e1"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_ECHO_BY_ID_SUCCESS, out.Message)
-		require.NotNil(t, out.Data)
-		assert.Equal(t, want.ID, out.Data.ID)
+		require.NotNil(t, out)
+		assert.Equal(t, want.ID, out.Body.ID)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -210,7 +204,7 @@ func TestEchoHandler_GetEchoById(t *testing.T) {
 		out, err := h.GetEchoById(helpers.CtxAnonymous(), &handler.EchoIDInput{ID: "e1"})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.EchoOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -226,14 +220,15 @@ func TestEchoHandler_QueryEchos(t *testing.T) {
 		out, err := h.QueryEchos(helpers.CtxAnonymous(), &handler.QueryEchosInput{Body: query})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.QUERY_ECHOS_SUCCESS, out.Message)
-		assert.Equal(t, int64(1), out.Data.Total)
+		require.NotNil(t, out.Body.Total)
+		assert.Equal(t, int64(1), *out.Body.Total)
+		assert.Len(t, out.Body.Items, 1)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := echomock.NewMockService(t)
 		svc.EXPECT().QueryEchos(mock.Anything, mock.Anything).
-			Return(commonModel.PageQueryResult[[]echoModel.Echo]{}, errBoom).Once()
+			Return(commonModel.List[echoModel.Echo]{}, errBoom).Once()
 
 		h := handler.NewEchoHandler(svc)
 		_, err := h.QueryEchos(helpers.CtxAnonymous(), &handler.QueryEchosInput{})
@@ -254,13 +249,14 @@ func TestEchoHandler_GetEchosByPageGet(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_ECHOS_BY_PAGE_SUCCESS, out.Message)
+		require.NotNil(t, out.Body.Total)
+		assert.Equal(t, int64(0), *out.Body.Total)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := echomock.NewMockService(t)
 		svc.EXPECT().GetEchosByPage(mock.Anything, mock.Anything).
-			Return(commonModel.PageQueryResult[[]echoModel.Echo]{}, errBoom).Once()
+			Return(commonModel.List[echoModel.Echo]{}, errBoom).Once()
 
 		h := handler.NewEchoHandler(svc)
 		_, err := h.GetEchosByPageGet(helpers.CtxAnonymous(), &handler.EchoPageGetInput{})
@@ -279,13 +275,13 @@ func TestEchoHandler_GetEchosByPagePost(t *testing.T) {
 		out, err := h.GetEchosByPagePost(helpers.CtxAnonymous(), &handler.EchoPagePostInput{Body: dto})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_ECHOS_BY_PAGE_SUCCESS, out.Message)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := echomock.NewMockService(t)
 		svc.EXPECT().GetEchosByPage(mock.Anything, mock.Anything).
-			Return(commonModel.PageQueryResult[[]echoModel.Echo]{}, errBoom).Once()
+			Return(commonModel.List[echoModel.Echo]{}, errBoom).Once()
 
 		h := handler.NewEchoHandler(svc)
 		_, err := h.GetEchosByPagePost(helpers.CtxAnonymous(), &handler.EchoPagePostInput{})
@@ -306,13 +302,13 @@ func TestEchoHandler_GetEchosByTagId(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_ECHOS_BY_TAG_ID_SUCCESS, out.Message)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := echomock.NewMockService(t)
 		svc.EXPECT().GetEchosByTagId(mock.Anything, mock.Anything, mock.Anything).
-			Return(commonModel.PageQueryResult[[]echoModel.Echo]{}, errBoom).Once()
+			Return(commonModel.List[echoModel.Echo]{}, errBoom).Once()
 
 		h := handler.NewEchoHandler(svc)
 		_, err := h.GetEchosByTagId(helpers.CtxAnonymous(), &handler.GetEchosByTagIDInput{TagID: "tag-1"})
@@ -341,8 +337,7 @@ func TestEchoHandler_GetTodayEchos(t *testing.T) {
 			out, err := h.GetTodayEchos(helpers.CtxAnonymous(), &handler.TimezoneInput{Timezone: tc.header})
 
 			require.NoError(t, err)
-			assert.Equal(t, commonModel.GET_TODAY_ECHOS_SUCCESS, out.Message)
-			assert.Len(t, out.Data, 1)
+			assert.Len(t, out.Body.Items, 1)
 		})
 	}
 
@@ -376,7 +371,7 @@ func TestEchoHandler_GetHotEchos(t *testing.T) {
 			out, err := h.GetHotEchos(helpers.CtxAnonymous(), &handler.GetHotEchosInput{Limit: tc.input})
 
 			require.NoError(t, err)
-			assert.Equal(t, commonModel.GET_HOT_ECHOS_SUCCESS, out.Message)
+			assert.Empty(t, out.Body.Items)
 		})
 	}
 
@@ -401,9 +396,19 @@ func TestEchoHandler_GetRandomEcho(t *testing.T) {
 		out, err := h.GetRandomEcho(helpers.CtxAnonymous(), &handler.GetRandomEchoInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_RANDOM_ECHO_SUCCESS, out.Message)
-		require.NotNil(t, out.Data)
-		assert.Equal(t, want.ID, out.Data.ID)
+		require.NotNil(t, out)
+		assert.Equal(t, want.ID, out.Body.ID)
+	})
+
+	t.Run("empty library is a 404", func(t *testing.T) {
+		svc := echomock.NewMockService(t)
+		svc.EXPECT().GetRandomEcho(mock.Anything).Return(nil, nil).Once()
+
+		h := handler.NewEchoHandler(svc)
+		out, err := h.GetRandomEcho(helpers.CtxAnonymous(), &handler.GetRandomEchoInput{})
+
+		require.Error(t, err)
+		assert.Nil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -426,7 +431,7 @@ func TestEchoHandler_GetOnThisDayEchos(t *testing.T) {
 		out, err := h.GetOnThisDayEchos(helpers.CtxAnonymous(), &handler.TimezoneInput{Timezone: "bad/zone"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_ON_THIS_DAY_ECHOS_SUCCESS, out.Message)
+		assert.Empty(t, out.Body.Items)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -449,8 +454,7 @@ func TestEchoHandler_GetAllTags(t *testing.T) {
 		out, err := h.GetAllTags(helpers.CtxAnonymous(), &handler.GetAllTagsInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.GET_ALL_TAGS_SUCCESS, out.Message)
-		assert.Len(t, out.Data, 1)
+		assert.Len(t, out.Body.Items, 1)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -476,9 +480,8 @@ func TestEchoHandler_CreateTag(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.CREATE_TAG_SUCCESS, out.Message)
-		require.NotNil(t, out.Data)
-		assert.Equal(t, "golang", out.Data.Name)
+		require.NotNil(t, out)
+		assert.Equal(t, "golang", out.Body.Name)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -489,7 +492,7 @@ func TestEchoHandler_CreateTag(t *testing.T) {
 		out, err := h.CreateTag(helpers.CtxAsUser("u1"), &handler.CreateTagInput{})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.TagOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -502,7 +505,7 @@ func TestEchoHandler_DeleteTag(t *testing.T) {
 		out, err := h.DeleteTag(helpers.CtxAsUser("u1"), &handler.TagIDInput{ID: "t1"})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DELETE_TAG_SUCCESS, out.Message)
+		assert.Equal(t, &handler.EmptyOutput{}, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {

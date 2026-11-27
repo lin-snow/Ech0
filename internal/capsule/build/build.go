@@ -66,11 +66,11 @@ func run(ctx context.Context, loaded *capsule.Loaded, opts Options, assets fs.FS
 		return nil, err
 	}
 
-	envelope, err := json.Marshal(resultEnvelope{Code: 1, Msg: "", Data: ds.Connect})
+	connect, err := json.Marshal(ds.Connect)
 	if err != nil {
 		return nil, fmt.Errorf("marshal connect payload: %w", err)
 	}
-	if err := writeFile(dir, "api/connect", envelope); err != nil {
+	if err := writeFile(dir, "api/connect", connect); err != nil {
 		return nil, err
 	}
 

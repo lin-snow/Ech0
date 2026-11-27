@@ -9,5 +9,5 @@ import (
 )
 
 func setupTemplateRoutes(r *gin.Engine, h *handler.Bundle) {
-	r.NoRoute(h.WebHandler.Templates())
+	setupFallbacks(r, h.WebHandler.Templates())
 }

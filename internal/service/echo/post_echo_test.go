@@ -8,9 +8,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/event"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
@@ -48,7 +49,7 @@ func TestPostEcho_Guards(t *testing.T) {
 		repo.EXPECT().InvalidateEchoCaches().Once()
 		saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "saved-1" })
 		repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(&saved, nil).Once()
-		file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+		file.EXPECT().Replace(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
 		_, err := svc.PostEcho(helpers.CtxAsUser(userID), &echoModel.Echo{Content: "hi"})
@@ -102,7 +103,7 @@ func TestPostEcho_Guards(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "   "})
 
-		require.EqualError(t, err, commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		require.EqualError(t, err, apperr.ErrEchoEmpty.Error())
 	})
 }
 
@@ -134,7 +135,7 @@ func TestPostEcho_Success(t *testing.T) {
 	saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "saved-1"; e.Content = "hello" })
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(&saved, nil).Once()
 
-	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+	file.EXPECT().Replace(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	var gotEvent event.EchoCreated
 	var gotCount int
@@ -157,7 +158,7 @@ func TestPostEcho_Success(t *testing.T) {
 
 	require.Equal(t, 1, gotCount)
 	assert.Equal(t, "saved-1", gotEvent.Echo.ID)
-	assert.True(t, gotEvent.User.IsAdmin)
+	assert.Equal(t, userModel.RoleAdmin, gotEvent.User.Role)
 }
 
 func TestPostEcho_ValidLayoutPreserved(t *testing.T) {
@@ -183,7 +184,7 @@ func TestPostEcho_ValidLayoutPreserved(t *testing.T) {
 	repo.EXPECT().InvalidateEchoCaches().Once()
 	saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "saved-2" })
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(&saved, nil).Once()
-	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+	file.EXPECT().Replace(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
 	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
@@ -231,7 +232,7 @@ func TestPostEcho_SavedEchoNilSkipsEvent(t *testing.T) {
 	repo.EXPECT().CreateEcho(mock.Anything, mock.Anything).Return(nil).Once()
 	repo.EXPECT().InvalidateEchoCaches().Once()
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(nil, nil).Once()
-	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+	file.EXPECT().Replace(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	var fired int
 	unsub, err := bus.Subscribe(func(_ context.Context, _ busen.Event[event.EchoCreated]) error {
@@ -251,6 +252,7 @@ func TestPostEcho_SavedEchoNilSkipsEvent(t *testing.T) {
 func TestPostEcho_RefetchError(t *testing.T) {
 	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
+	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
 	bus := helpers.NewTestBus(t)
 	boom := errors.New("refetch failed")
@@ -262,10 +264,11 @@ func TestPostEcho_RefetchError(t *testing.T) {
 	tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 	repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
 	repo.EXPECT().CreateEcho(mock.Anything, mock.Anything).Return(nil).Once()
+	file.EXPECT().Replace(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	repo.EXPECT().InvalidateEchoCaches().Once()
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(nil, boom).Once()
 
-	svc := echoService.NewEchoService(tx, common, nil, repo, func() *busen.Bus { return bus })
+	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
 	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{Content: "hello"})
 
 	require.ErrorIs(t, err, boom)
@@ -294,7 +297,7 @@ func TestPostEcho_LayoutNonePreserved(t *testing.T) {
 	repo.EXPECT().InvalidateEchoCaches().Once()
 	saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "saved-none" })
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(&saved, nil).Once()
-	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+	file.EXPECT().Replace(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
 	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{

@@ -161,7 +161,7 @@ Ech0 是**微博客**（朋友圈式的日常分享 + 偶尔的想法/思考）�
 
 ### 6.1 数据模型
 
-**已核对的 Echo 主表字段**（`internal/model/echo/echo.go`）：`ID`（string，UUID v7）、`Content`（text，正文）、`Username`、`UserID`、`Private`（bool，可见性，非软删除）、`CreatedAt`（int64，Unix 时间戳，已建索引）、`Tags`、`EchoFiles`、`Extension`。索引文本取自 `Content`（可附带 `Tags`）。
+**已核对的 Echo 主表字段**（`internal/model/echo/echo.go`）：`ID`（string，UUID v7）、`Content`（text，正文）、`Username`、`UserID`、`Private`（bool，可见性，非软删除）、`CreatedAt`（int64，Unix 时间戳，已建索引）、`Tags`、`EchoFiles`（`gorm:"-"` 投影，由 `file_links` 批量填充，不参与 SQL）、`Extension`。索引文本取自 `Content`（可附带 `Tags`）。
 
 **重要约束（已核对 sqlite-vec v0.1.6）**：`vec0` 是**虚拟表**，GORM `AutoMigrate` 无法创建/管理它，且**向量维度在建表时即固定**（`embedding FLOAT[N]`）。维度取决于运行时配置的 embedding 模型，安装时未知。因此采用**两表 + 懒建表**：
 

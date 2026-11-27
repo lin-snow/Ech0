@@ -36,22 +36,26 @@ func seedEcho(t *testing.T, db *gorm.DB, id, userID string, private bool, create
 
 func seedFile(t *testing.T, db *gorm.DB, id, userID string) {
 	t.Helper()
+	refURL := "https://example.com/" + id
 	require.NoError(t, db.Create(&fileModel.File{
 		ID:          id,
-		Key:         "key-" + id,
-		StorageType: "external",
-		URL:         "https://example.com/" + id,
-		UserID:      userID,
-		Category:    "image",
+		Kind:        string(fileModel.KindRef),
+		Status:      string(fileModel.StatusReady),
+		Access:      string(fileModel.AccessPublic),
+		RefURL:      &refURL,
+		Name:        id,
+		ContentType: "image/png",
+		UploaderID:  userID,
 	}).Error)
 }
 
-func linkEchoFile(t *testing.T, db *gorm.DB, id, echoID, fileID string, sortOrder int) {
+func linkEchoFile(t *testing.T, db *gorm.DB, echoID, fileID string, sortOrder int) {
 	t.Helper()
-	require.NoError(t, db.Create(&fileModel.EchoFile{
-		ID:        id,
-		EchoID:    echoID,
+	require.NoError(t, db.Create(&fileModel.Link{
 		FileID:    fileID,
+		OwnerKind: fileModel.OwnerKindEcho,
+		OwnerID:   echoID,
+		Role:      fileModel.RoleAttachment,
 		SortOrder: sortOrder,
 	}).Error)
 }
@@ -89,8 +93,8 @@ func TestCommonRepository_GetAllEchos_PreloadFilesOrderedAndTags(t *testing.T) {
 
 	seedFile(t, db, "f-a", "u1")
 	seedFile(t, db, "f-b", "u1")
-	linkEchoFile(t, db, "ef-b", "e1", "f-b", 2)
-	linkEchoFile(t, db, "ef-a", "e1", "f-a", 1)
+	linkEchoFile(t, db, "e1", "f-b", 2)
+	linkEchoFile(t, db, "e1", "f-a", 1)
 
 	require.NoError(t, db.Create(&echoModel.Tag{ID: "t1", Name: "alpha"}).Error)
 	require.NoError(t, db.Create(&echoModel.EchoTag{EchoID: "e1", TagID: "t1"}).Error)
@@ -104,7 +108,8 @@ func TestCommonRepository_GetAllEchos_PreloadFilesOrderedAndTags(t *testing.T) {
 	assert.Equal(t, "f-a", got.EchoFiles[0].FileID)
 	assert.Equal(t, "f-b", got.EchoFiles[1].FileID)
 	assert.Equal(t, "f-a", got.EchoFiles[0].File.ID)
-	assert.Equal(t, "https://example.com/f-a", got.EchoFiles[0].File.URL)
+	require.NotNil(t, got.EchoFiles[0].File.RefURL)
+	assert.Equal(t, "https://example.com/f-a", *got.EchoFiles[0].File.RefURL)
 	require.Len(t, got.Tags, 1)
 	assert.Equal(t, "alpha", got.Tags[0].Name)
 }
@@ -147,25 +152,25 @@ func TestCommonRepository_GetHeatMap_HalfOpenWindow(t *testing.T) {
 	})
 }
 
-func TestCommonRepository_GetPrimaryAdmin(t *testing.T) {
+func TestCommonRepository_GetOwner(t *testing.T) {
 	repo, db := newCommonRepo(t)
 
-	t.Run("no admin returns record-not-found", func(t *testing.T) {
-		require.NoError(t, db.Create(&userModel.User{ID: "u-normal", Username: "normal"}).Error)
+	t.Run("no owner returns record-not-found", func(t *testing.T) {
+		require.NoError(t, db.Create(&userModel.User{ID: "u-admin", Username: "admin", Role: userModel.RoleAdmin}).Error)
 
-		_, err := repo.GetPrimaryAdmin(context.Background())
+		_, err := repo.GetOwner(context.Background())
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 	})
 
-	t.Run("returns the earliest admin among many users", func(t *testing.T) {
-		require.NoError(t, db.Create(&userModel.User{ID: "u-admin-2", Username: "later", IsAdmin: true}).Error)
-		require.NoError(t, db.Create(&userModel.User{ID: "u-admin-1", Username: "first", IsAdmin: true}).Error)
+	t.Run("returns the owner and ignores admins", func(t *testing.T) {
+		require.NoError(t, db.Create(&userModel.User{ID: "u-admin-2", Username: "admin2", Role: userModel.RoleAdmin}).Error)
+		require.NoError(t, db.Create(&userModel.User{ID: "u-owner", Username: "owner", Role: userModel.RoleOwner}).Error)
 
-		admin, err := repo.GetPrimaryAdmin(context.Background())
+		owner, err := repo.GetOwner(context.Background())
 		require.NoError(t, err)
-		assert.Equal(t, "u-admin-1", admin.ID)
-		assert.True(t, admin.IsAdmin)
+		assert.Equal(t, "u-owner", owner.ID)
+		assert.Equal(t, userModel.RoleOwner, owner.Role)
 	})
 }
 

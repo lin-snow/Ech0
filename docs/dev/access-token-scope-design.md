@@ -89,7 +89,7 @@ MCP：
 - Passkey 注册/删除、OAuth 绑定、访问令牌 CRUD 是 **session-only**，不进入 scope 词表；任何 `typ=access` token 即使持有全部 scope 也不能调用。
 - 用 access token 铸造新 token 时，新 token 的 scopes 必须是调用者 scopes 的子集；该检查是纵深防御，正常入口已被 session-only 限制。
 - 服务端始终以 scope 判定 access token 是否允许调用，即便用户角色是 admin。
-- 浏览器 session 不是 scope 通配符：`admin:*` 接口额外要求 session 的 `is_admin` claim，非管理员会话返回 403；系统日志 SSE/WS 同样拒绝普通会话。
+- 浏览器 session 不是 scope 通配符：`admin:*` 接口额外要求会话用户当前是 admin 或 owner（`middleware.RequireAdminSession` 读取 `users.role`），普通成员会话返回 403；系统日志 SSE/WS 同样拒绝普通会话。
 
 ### 3.3 Audience 与时效
 
@@ -194,13 +194,12 @@ viewer 扩展约定：
 - `decision`（allow/deny）
 - `reason`（scope_missing、aud_mismatch、expired 等）
 
-错误码建议（与 HTTP 状态组合）：
+错误与 HTTP 状态的对应（现行实现）：
 
-- `401`：复用现有 token 缺失/无效/解析失败错误码。
-- `403`：新增或明确区分以下错误码：
-  - `ErrCodeScopeForbidden`
-  - `ErrCodeAudienceForbidden`
-  - `ErrCodeTokenTransportForbidden`
+- `401`：`no token in this request: sign in first`、`token is invalid: sign in again`、`token could not be parsed: sign in again`、`token has been revoked: sign in again`。
+- `403`：`this token does not carry the required scope`、`this token is not valid for this audience`、`access tokens cannot be sent in the query string: use the Authorization header`。
+
+这些句子是 `internal/apperr` 哨兵的 `Error()` 文本，只作为 `detail` 下发，不是机读错误码；客户端只看 `status`，需要区分的语义走 RFC 9457 `type`。
 
 ## 7. 切换方案（旧 token 不兼容）
 

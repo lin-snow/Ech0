@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/agent"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/kvstore"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
@@ -43,8 +43,8 @@ func TestGetRecent_DisabledIsRefusedEvenWhenCached(t *testing.T) {
 	seedRecent(t, kv, recentFingerprint(setting), "stale summary")
 
 	if _, err := (&CopilotService{durableKV: kv}).GetRecent(context.Background()); err == nil ||
-		err.Error() != commonModel.AGENT_NOT_ENABLED {
-		t.Fatalf("want %q, got %v", commonModel.AGENT_NOT_ENABLED, err)
+		err.Error() != apperr.ErrAgentDisabled.Error() {
+		t.Fatalf("want %q, got %v", apperr.ErrAgentDisabled.Error(), err)
 	}
 }
 

@@ -23,8 +23,8 @@ packages:
       pkgname: filemock
     interfaces:
       Service: {}
-      CommonRepository: {}
-      FileRepository: {}
+      Repository: {}
+      Authorizer: {}
 
   github.com/lin-snow/ech0/internal/transaction:
     config:

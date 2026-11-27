@@ -10,7 +10,6 @@ import (
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupCopilotRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
@@ -21,8 +20,8 @@ func setupCopilotRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	)
 }
 
-func registerCopilot(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	api.route(public(), huma.Operation{
+func registerCopilot(api *apiRegistry, h *handler.Bundle) {
+	api.route(public("public digest of the author's recent posts"), huma.Operation{
 		OperationID: "copilot-recent",
 		Method:      http.MethodGet,
 		Path:        "/agent/recent",
@@ -30,7 +29,7 @@ func registerCopilot(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.GetRecent)
 
-	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(scoped(authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "copilot-session-get",
 		Method:      http.MethodGet,
 		Path:        "/chat/session",
@@ -38,7 +37,7 @@ func registerCopilot(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.GetSession)
 
-	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(scoped(authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "copilot-session-clear",
 		Method:      http.MethodDelete,
 		Path:        "/chat/session",
@@ -46,7 +45,7 @@ func registerCopilot(api *apiRegistry, h *handler.Bundle, revoker authService.To
 		Tags:        []string{"Copilot"},
 	}, h.CopilotHandler.ClearSession)
 
-	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(scoped(authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "copilot-chat-answer",
 		Method:      http.MethodPost,
 		Path:        "/chat/answer",

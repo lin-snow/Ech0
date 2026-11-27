@@ -2,6 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { defineStore } from 'pinia'
+import { isAdminRole } from '@/utils/role'
 import { ref } from 'vue'
 import {
   fetchGetSettings,
@@ -17,6 +18,7 @@ import {
   fetchHelloEch0,
 } from '@/service/api'
 import type { ExportFormat, ExportStatusPayload } from '@/service/api'
+import { listItems } from '@/utils/list'
 import { S3Provider, OAuth2Provider, AgentProtocol } from '@/enums/enums'
 import { useUserStore } from './user'
 
@@ -42,7 +44,7 @@ export const useSettingStore = defineStore('settingStore', () => {
     custom_js: '',
     privacy_policy: '',
     show_privacy_footer: false,
-    disable_agent_discovery: false,
+    enable_agent_discovery: true,
   })
   const S3Setting = ref<App.Api.Setting.S3Setting>({
     enable: false,
@@ -109,8 +111,8 @@ export const useSettingStore = defineStore('settingStore', () => {
 
   const getSystemSetting = async () => {
     await fetchGetSettings().then((res) => {
-      if (res.code === 1) {
-        SystemSetting.value = res.data
+      if (res) {
+        SystemSetting.value = res
         loading.value = false
       }
     })
@@ -118,16 +120,16 @@ export const useSettingStore = defineStore('settingStore', () => {
 
   const getS3Setting = async () => {
     fetchGetS3Settings().then((res) => {
-      if (res.code === 1) {
-        S3Setting.value = res.data
+      if (res) {
+        S3Setting.value = res
       }
     })
   }
 
   const getOAuth2Setting = async () => {
     const res = await fetchGetOAuth2Settings()
-    if (res.code === 1) {
-      OAuth2Setting.value = res.data
+    if (res) {
+      OAuth2Setting.value = res
     }
     return OAuth2Setting.value
   }
@@ -137,11 +139,11 @@ export const useSettingStore = defineStore('settingStore', () => {
     webhooksError.value = ''
     try {
       const res = await fetchGetAllWebhooks()
-      if (res.code === 1) {
-        Webhooks.value = res.data || []
+      if (res) {
+        Webhooks.value = listItems<App.Api.Setting.Webhook>(res)
         return
       }
-      webhooksError.value = res.msg || 'Failed to load webhooks'
+      webhooksError.value = 'Failed to load webhooks'
     } catch (error) {
       webhooksError.value = error instanceof Error ? error.message : 'Failed to load webhooks'
     } finally {
@@ -151,19 +153,15 @@ export const useSettingStore = defineStore('settingStore', () => {
 
   const getAllAccessTokens = async () => {
     const res = await fetchListAccessTokens()
-    if (res.code === 1) {
-      if (res.data) {
-        AccessTokens.value = res.data
-      } else {
-        AccessTokens.value = []
-      }
+    if (res) {
+      AccessTokens.value = listItems<App.Api.Setting.AccessToken>(res)
     }
   }
 
   const getSnapshotSchedule = async () => {
     const res = await fetchGetSnapshotScheduleSetting()
-    if (res.code === 1) {
-      SnapshotSchedule.value = res.data
+    if (res) {
+      SnapshotSchedule.value = res
     }
   }
 
@@ -200,9 +198,9 @@ export const useSettingStore = defineStore('settingStore', () => {
     snapshotPollInFlight.value = true
     try {
       const res = await fetchGetExportStatus()
-      if (res.code === 1) {
-        applyExportState(res.data)
-        if (isExportTerminal(res.data.status)) {
+      if (res) {
+        applyExportState(res)
+        if (isExportTerminal(res.status)) {
           stopSnapshotPolling()
           return
         }
@@ -221,9 +219,9 @@ export const useSettingStore = defineStore('settingStore', () => {
   ) => {
     if (snapshotStatus.value === 'pending' || snapshotStatus.value === 'running') return null
     const res = await fetchStartExport({ format, include_private: includePrivate })
-    if (res.code === 1 && res.data) {
-      applyExportState(res.data)
-      if (!res.data.format) snapshotFormat.value = format
+    if (res) {
+      applyExportState(res)
+      if (!res.format) snapshotFormat.value = format
       snapshotPolling.value = true
       scheduleSnapshotPoll()
     }
@@ -232,8 +230,8 @@ export const useSettingStore = defineStore('settingStore', () => {
 
   const restoreSnapshotTask = async () => {
     const res = await fetchGetExportStatus()
-    if (res.code === 1 && (res.data.status === 'pending' || res.data.status === 'running')) {
-      applyExportState(res.data)
+    if (res && (res.status === 'pending' || res.status === 'running')) {
+      applyExportState(res)
       snapshotPolling.value = true
       scheduleSnapshotPoll()
     }
@@ -241,30 +239,30 @@ export const useSettingStore = defineStore('settingStore', () => {
 
   const getHelloEch0 = async () => {
     const res = await fetchHelloEch0()
-    if (res.code === 1) {
-      hello.value = res.data
+    if (res) {
+      hello.value = res
     }
   }
 
   const getAgentSetting = async () => {
     const res = await fetchGetAgentSettings()
-    if (res.code === 1) {
-      AgentSetting.value = res.data
+    if (res) {
+      AgentSetting.value = res
     }
   }
 
   const getAgentInfo = async () => {
     const res = await fetchGetAgentInfo()
-    if (res.code === 1) {
-      AgentSetting.value.enable = res.data.enable
-      AgentSetting.value.model = res.data.model
-      AgentSetting.value.protocol = res.data.protocol
+    if (res) {
+      AgentSetting.value.enable = res.enable
+      AgentSetting.value.model = res.model
+      AgentSetting.value.protocol = res.protocol
     }
   }
 
   const init = async () => {
     await getSystemSetting()
-    if (userStore.isLogin && userStore.user?.is_admin) {
+    if (userStore.isLogin && isAdminRole(userStore.user?.role)) {
       getS3Setting()
     }
     getAgentInfo()

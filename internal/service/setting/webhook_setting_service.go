@@ -5,10 +5,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
@@ -17,13 +17,8 @@ import (
 )
 
 func (settingService *SettingService) GetAllWebhooks(ctx context.Context) ([]webhookModel.Webhook, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return nil, err
-	}
-	if !user.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	webhooks, err := settingService.webhookRepository.GetAllWebhooks(ctx)
@@ -35,13 +30,8 @@ func (settingService *SettingService) GetAllWebhooks(ctx context.Context) ([]web
 }
 
 func (settingService *SettingService) DeleteWebhook(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	return settingService.transactor.Run(ctx, func(txCtx context.Context) error {
@@ -54,19 +44,14 @@ func (settingService *SettingService) UpdateWebhook(
 	id string,
 	newWebhook *model.WebhookDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	newWebhook.URL = urlUtil.TrimURL(newWebhook.URL)
 
 	if newWebhook.Name == "" || newWebhook.URL == "" {
-		return errors.New(commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY)
+		return apperr.ErrWebhookRequired
 	}
 	if err := validateWebhookURL(newWebhook.URL); err != nil {
 		return err
@@ -88,19 +73,14 @@ func (settingService *SettingService) CreateWebhook(
 	ctx context.Context,
 	newWebhook *model.WebhookDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	newWebhook.URL = urlUtil.TrimURL(newWebhook.URL)
 
 	if newWebhook.Name == "" || newWebhook.URL == "" {
-		return errors.New(commonModel.WEBHOOK_NAME_OR_URL_CANNOT_BE_EMPTY)
+		return apperr.ErrWebhookRequired
 	}
 	if err := validateWebhookURL(newWebhook.URL); err != nil {
 		return err
@@ -119,13 +99,8 @@ func (settingService *SettingService) CreateWebhook(
 }
 
 func (settingService *SettingService) TestWebhook(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	webhook, err := settingService.webhookRepository.GetWebhookByID(ctx, id)
@@ -148,7 +123,7 @@ func (settingService *SettingService) TestWebhook(ctx context.Context, id string
 
 func validateWebhookURL(rawURL string) error {
 	if err := egress.Validate(rawURL); err != nil {
-		return errors.New(commonModel.INVALID_WEBHOOK_URL)
+		return apperr.ErrWebhookURL
 	}
 	return nil
 }

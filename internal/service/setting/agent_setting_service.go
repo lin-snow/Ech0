@@ -5,10 +5,11 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
@@ -40,13 +41,8 @@ func (settingService *SettingService) GetAgentSettings(
 	ctx context.Context,
 	setting *model.AgentSetting,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	v, err := coreSetting.Agent.Get(ctx, settingService.durableKV)
@@ -61,13 +57,8 @@ func (settingService *SettingService) UpdateAgentSettings(
 	ctx context.Context,
 	newSetting *model.AgentSettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	setting := model.AgentSetting{
@@ -82,7 +73,7 @@ func (settingService *SettingService) UpdateAgentSettings(
 		Temperature:   newSetting.Temperature,
 	}
 	if !validTemperature(setting.Temperature) {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 	return coreSetting.Agent.Set(ctx, settingService.durableKV, setting)
 }
@@ -91,13 +82,8 @@ func (settingService *SettingService) TestAgentConnection(
 	ctx context.Context,
 	newSetting *model.AgentSettingDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	setting := model.AgentSetting{
@@ -111,7 +97,7 @@ func (settingService *SettingService) TestAgentConnection(
 		Temperature: newSetting.Temperature,
 	}
 	if !validTemperature(setting.Temperature) {
-		return errors.New(commonModel.INVALID_PARAMS)
+		return apperr.ErrInvalidParams
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, agentTestTimeout)

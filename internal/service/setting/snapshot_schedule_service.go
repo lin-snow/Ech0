@@ -5,11 +5,11 @@ package service
 
 import (
 	"context"
-	"errors"
 
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	fmtUtil "github.com/lin-snow/ech0/internal/util/format"
@@ -31,13 +31,8 @@ func (settingService *SettingService) UpdateSnapshotScheduleSetting(
 	ctx context.Context,
 	newSetting *model.SnapshotScheduleDto,
 ) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.SettingWrite, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	updated := model.SnapshotSchedule{
@@ -46,7 +41,7 @@ func (settingService *SettingService) UpdateSnapshotScheduleSetting(
 	}
 
 	if err := fmtUtil.ValidateCrontabExpression(updated.CronExpression); err != nil {
-		return errors.New(commonModel.INVALID_CRON_EXPRESSION)
+		return apperr.ErrInvalidCron
 	}
 
 	if err := coreSetting.Snapshot.Set(ctx, settingService.durableKV, updated); err != nil {

@@ -5,6 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { fetchQueryEchos, fetchGetTags, fetchGetEchoById, fetchCreateTag } from '@/service/api'
 import { TIMELINE_BASE_PAGE_SIZE, TIMELINE_PAGE_ITEMS, timelineChunkSize } from '@/utils/timeline'
+import { listItems } from '@/utils/list'
 
 /** Backoff before each automatic retry of a failed load-more; past these the reader retries by hand. */
 const MORE_RETRY_DELAYS_MS = [1000, 3000]
@@ -265,12 +266,12 @@ export const useEchoStore = defineStore('echoStore', () => {
           cursor,
         })
         if (requestGeneration !== generation) return
-        if (walked.code !== 1 || !walked.data) {
+        if (!walked) {
           loadError.value = 'first'
           return
         }
         // Only a full page reports a boundary; null means the feed ends first.
-        const boundary = walked.data.nextCursor
+        const boundary = walked.nextCursor
         if (!boundary) break
         index += 1
         cursor = boundary
@@ -283,14 +284,14 @@ export const useEchoStore = defineStore('echoStore', () => {
         cursor,
       })
       if (requestGeneration !== generation) return
-      if (res.code !== 1 || !res.data) {
+      if (!res) {
         loadError.value = 'first'
         return
       }
       pageIndex.value = index
-      total.value = res.data.total ?? 0
-      appendDeduped(normalizeItems(res.data.items))
-      nextCursor.value = res.data.nextCursor ?? null
+      total.value = res.total ?? 0
+      appendDeduped(normalizeItems(res.items))
+      nextCursor.value = res.nextCursor ?? null
       loadedSignature.value = requestSignature
     } catch {
       if (requestGeneration === generation) {
@@ -347,14 +348,14 @@ export const useEchoStore = defineStore('echoStore', () => {
         cursor,
       })
       if (requestGeneration !== generation) return
-      if (res.code !== 1 || !res.data) {
+      if (!res) {
         failMore(requestGeneration)
         return
       }
       moreFailures = 0
-      appendDeduped(normalizeItems(res.data.items))
-      nextCursor.value = res.data.nextCursor ?? null
-      total.value = res.data.total ?? total.value
+      appendDeduped(normalizeItems(res.items))
+      nextCursor.value = res.nextCursor ?? null
+      total.value = res.total ?? total.value
     } catch {
       failMore(requestGeneration)
     } finally {
@@ -453,16 +454,10 @@ export const useEchoStore = defineStore('echoStore', () => {
     if (existing) return existing
 
     const promise: Promise<App.Api.Ech0.Echo | null> = fetchGetEchoById(id)
-      .then((res) => {
-        if (res.code === 1 && res.data) {
-          return res.data
-        }
-        return null
-      })
       .catch(() => null)
       .finally(() => {
         pendingEchoMap.delete(id)
-      }) as Promise<App.Api.Ech0.Echo | null>
+      })
 
     pendingEchoMap.set(id, promise)
     return promise
@@ -470,16 +465,16 @@ export const useEchoStore = defineStore('echoStore', () => {
 
   const getTags = async () => {
     const res = await fetchGetTags()
-    if (res.code === 1) {
-      tagList.value.splice(0, tagList.value.length, ...res.data)
+    if (res) {
+      tagList.value.splice(0, tagList.value.length, ...listItems<App.Api.Ech0.Tag>(res))
     }
   }
 
   const createTag = async (name: string) => {
     const res = await fetchCreateTag(name)
-    if (res.code === 1) {
+    if (res) {
       await getTags()
-      return res.data
+      return res
     }
     return null
   }

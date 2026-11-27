@@ -2,6 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { problemMessage } from '@/service/request/problem'
 
 import { httpUpload, UploadError } from '../../../src/lib/file/upload'
 
@@ -65,16 +66,15 @@ function fakeFile(): File {
 }
 
 describe('httpUpload — local POST', () => {
-  it('sends multipart with auth header and resolves with parsed JSON envelope', async () => {
+  it('sends multipart with auth header and resolves with the parsed body', async () => {
     const file = fakeFile()
     const promise = httpUpload(file, {
-      kind: 'local',
       endpoint: '/api/files/upload',
       authHeader: 'Bearer xyz',
       fields: { category: 'image', storage_type: 'local' },
     })
     queueMicrotask(() =>
-      last.__succeed(200, JSON.stringify({ code: 1, msg: 'ok', data: { id: 'F1', url: '/x' } })),
+      last.__succeed(200, JSON.stringify({ id: 'F1', url: '/x' })),
     )
     const res = await promise
     expect(last.method).toBe('POST')
@@ -85,14 +85,14 @@ describe('httpUpload — local POST', () => {
     expect(fd.get('category')).toBe('image')
     expect(fd.get('storage_type')).toBe('local')
     expect(fd.get('file')).toBeInstanceOf(File)
-    expect(res.responseBody).toEqual({ code: 1, msg: 'ok', data: { id: 'F1', url: '/x' } })
+    expect(res.responseBody).toEqual({ id: 'F1', url: '/x' })
   })
 
   it('forwards progress events', async () => {
     const onProgress = vi.fn()
     const promise = httpUpload(
       fakeFile(),
-      { kind: 'local', endpoint: '/up', authHeader: '', fields: {} },
+      { endpoint: '/up', authHeader: '', fields: {} },
       { onProgress },
     )
     queueMicrotask(() => {
@@ -105,26 +105,31 @@ describe('httpUpload — local POST', () => {
     expect(onProgress).toHaveBeenNthCalledWith(2, 100, 100)
   })
 
-  it('rejects with UploadError on non-2xx and surfaces backend msg', async () => {
+  it('rejects with UploadError on non-2xx and picks the text from the status', async () => {
     const promise = httpUpload(fakeFile(), {
-      kind: 'local',
       endpoint: '/up',
       authHeader: '',
       fields: {},
     })
     queueMicrotask(() =>
-      last.__succeed(400, JSON.stringify({ code: 0, msg: 'file too big', data: null })),
+      last.__succeed(
+        400,
+        JSON.stringify({
+          title: 'Bad Request',
+          status: 400,
+          detail: 'file too big',
+        }),
+      ),
     )
     await expect(promise).rejects.toMatchObject({
       name: 'UploadError',
       status: 400,
-      message: 'file too big',
+      message: problemMessage({ status: 400 }),
     })
   })
 
   it('rejects on network error', async () => {
     const promise = httpUpload(fakeFile(), {
-      kind: 'local',
       endpoint: '/up',
       authHeader: '',
       fields: {},
@@ -134,21 +139,26 @@ describe('httpUpload — local POST', () => {
   })
 })
 
-describe('httpUpload — S3 PUT', () => {
-  it('sends raw body with Content-Type and no auth header', async () => {
+describe('httpUpload — target without auth', () => {
+  it('posts the file as multipart to the given endpoint and omits Authorization', async () => {
     const file = fakeFile()
     const promise = httpUpload(file, {
-      kind: 's3',
-      presignUrl: 'https://bucket.example.com/key?sig=abc',
-      contentType: 'image/png',
+      endpoint: 'https://bucket.example.com/api/files?sig=abc',
+      authHeader: '',
+      fields: { profile: 'attachment', name: 'a.png' },
     })
     queueMicrotask(() => last.__succeed(200, ''))
-    await promise
-    expect(last.method).toBe('PUT')
-    expect(last.url).toBe('https://bucket.example.com/key?sig=abc')
-    expect(last.headers['Content-Type']).toBe('image/png')
+    const res = await promise
+    expect(last.method).toBe('POST')
+    expect(last.url).toBe('https://bucket.example.com/api/files?sig=abc')
+    expect(last.headers['Content-Type']).toBeUndefined()
     expect(last.headers['Authorization']).toBeUndefined()
-    expect(last.body).toBe(file)
+    expect(last.body).toBeInstanceOf(FormData)
+    const fd = last.body as FormData
+    expect(fd.get('file')).toBe(file)
+    expect(fd.get('profile')).toBe('attachment')
+    expect(fd.get('name')).toBe('a.png')
+    expect(res.responseBody).toBeNull()
   })
 })
 
@@ -157,7 +167,7 @@ describe('httpUpload — abort', () => {
     const ctl = new AbortController()
     const promise = httpUpload(
       fakeFile(),
-      { kind: 'local', endpoint: '/up', authHeader: '', fields: {} },
+      { endpoint: '/up', authHeader: '', fields: {} },
       { signal: ctl.signal },
     )
     queueMicrotask(() => ctl.abort())

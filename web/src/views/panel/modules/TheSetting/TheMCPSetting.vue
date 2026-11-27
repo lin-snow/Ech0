@@ -291,8 +291,8 @@ const goToAccessTokens = () => {
 onMounted(async () => {
   try {
     const res = await fetchGetMCPManifest()
-    if (res.code === 1 && res.data) {
-      manifest.value = res.data
+    if (res) {
+      manifest.value = res
     }
   } finally {
     isLoading.value = false

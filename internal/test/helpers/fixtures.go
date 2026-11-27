@@ -12,6 +12,7 @@ func NewUser(opts ...func(*userModel.User)) userModel.User {
 	u := userModel.User{
 		ID:       "user-test-0001",
 		Username: "tester",
+		Role:     userModel.RoleMember,
 	}
 	for _, o := range opts {
 		o(&u)
@@ -19,7 +20,12 @@ func NewUser(opts ...func(*userModel.User)) userModel.User {
 	return u
 }
 
-func AsAdmin(u *userModel.User) { u.IsAdmin = true }
+// AsAdmin marks an account that passes administrator gates. It is not the
+// space owner: ownership is a single row and only AsOwner models it.
+func AsAdmin(u *userModel.User) { u.Role = userModel.RoleAdmin }
+
+// AsOwner marks the single account that owns the space.
+func AsOwner(u *userModel.User) { u.Role = userModel.RoleOwner }
 
 func NewEcho(opts ...func(*echoModel.Echo)) echoModel.Echo {
 	e := echoModel.Echo{

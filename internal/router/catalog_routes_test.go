@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	openapiCatalog "github.com/lin-snow/ech0/internal/openapi/catalog"
+	"github.com/stretchr/testify/require"
 )
 
 // Routes that deliberately stay outside the catalog, with the reason.
@@ -23,7 +24,6 @@ var catalogExclusions = []struct {
 	{"/api/openapi-3.0.json", "OpenAPI spec"},
 	{"/api/openapi-3.0.yaml", "OpenAPI spec"},
 	{"/api/_catalog", "the catalog itself"},
-	{"/api/files/", "static upload serving, addressed by URL not by operation"},
 	{"/api/mcp", "JSON-RPC, tools are described by the MCP server itself"},
 	{"/api/cap/", "third-party captcha handler"},
 	{"/api/login", "the CLI signs in locally instead of shelling out to a command"},
@@ -60,7 +60,7 @@ func TestCatalogMatchesRouter(t *testing.T) {
 	initTestDatabase(t)
 	handlers := buildTestHandlers()
 	engine := gin.New()
-	SetupRouter(engine, handlers, buildTestMWDeps())
+	require.NoError(t, SetupRouter(engine, handlers, buildTestMWDeps()))
 
 	api := setupHumaAPI(gin.New(), nil)
 	registerOperations(api, handlers, nil)

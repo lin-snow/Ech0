@@ -8,7 +8,6 @@ import "fmt"
 const (
 	UsernameKeyPrefix = "username"
 	IDKeyPrefix       = "id"
-	AdminKey          = "admin"
 	PasskeyRegKey     = "passkey:reg"
 	PasskeyLoginKey   = "passkey:login"
 )
@@ -19,10 +18,6 @@ func GetUserIDKey(id string) string {
 
 func GetUsernameKey(username string) string {
 	return fmt.Sprintf("%s:%s", UsernameKeyPrefix, username)
-}
-
-func GetAdminKey(id string) string {
-	return fmt.Sprintf("%s:%s", AdminKey, id)
 }
 
 func GetPasskeyRegisterSessionKey(nonce string) string {

@@ -4,7 +4,7 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TheUploader from '@/components/advanced/TheUploader.vue'
-import { FILE_STORAGE_TYPE } from '@/constants/file'
+import { FILE_CATEGORY } from '@/constants/file'
 
 type FileToAdd = App.Api.Ech0.FileToAdd
 
@@ -59,13 +59,13 @@ vi.mock('@/stores/user', () => ({
 }))
 
 vi.mock('@/lib/file/upload', () => ({
-  UPLOAD_KIND: { LOCAL: 'local', S3: 's3' },
   httpUpload: vi.fn(async (file: File) => ({
     responseBody: {
-      data: {
+      file: {
         id: `file-${file.name}`,
         url: `https://example.test/${file.name}`,
-        key: `key-${file.name}`,
+        name: file.name,
+        category: 'image',
         content_type: file.type,
         size: file.size,
       },
@@ -127,7 +127,7 @@ describe('TheUploader', () => {
     ]
     const wrapper = mount(TheUploader, {
       props: {
-        fileStorageType: FILE_STORAGE_TYPE.LOCAL,
+        fileCategory: FILE_CATEGORY.IMAGE,
         EnableCompressor: false,
         allowedFileTypes: ['image/*'],
         maxFiles: 9,
@@ -157,8 +157,6 @@ describe('TheUploader', () => {
     shared.editorState.filesToAdd.push({
       id: 'existing-1',
       url: 'https://example.test/a.png',
-      key: 'images/a.png',
-      storage_type: FILE_STORAGE_TYPE.LOCAL,
       category: 'image',
       content_type: 'image/png',
       size: 123,
@@ -166,7 +164,7 @@ describe('TheUploader', () => {
 
     const wrapper = mount(TheUploader, {
       props: {
-        fileStorageType: FILE_STORAGE_TYPE.LOCAL,
+        fileCategory: FILE_CATEGORY.IMAGE,
         EnableCompressor: false,
         allowedFileTypes: ['image/*'],
         maxFiles: 9,
@@ -185,8 +183,6 @@ describe('TheUploader', () => {
       {
         id: 'existing-1',
         url: 'https://example.test/a.png',
-        key: 'images/a.png',
-        storage_type: FILE_STORAGE_TYPE.LOCAL,
         category: 'image',
         content_type: 'image/png',
         size: 123,
@@ -194,8 +190,6 @@ describe('TheUploader', () => {
       {
         id: 'existing-2',
         url: 'https://example.test/b.png',
-        key: 'images/b.png',
-        storage_type: FILE_STORAGE_TYPE.LOCAL,
         category: 'image',
         content_type: 'image/png',
         size: 456,
@@ -205,7 +199,7 @@ describe('TheUploader', () => {
 
     const wrapper = mount(TheUploader, {
       props: {
-        fileStorageType: FILE_STORAGE_TYPE.LOCAL,
+        fileCategory: FILE_CATEGORY.IMAGE,
         EnableCompressor: false,
         allowedFileTypes: ['image/*'],
         maxFiles: 9,
@@ -230,7 +224,7 @@ describe('TheUploader', () => {
   it('drops the queue item when its attachment leaves the store', async () => {
     const wrapper = mount(TheUploader, {
       props: {
-        fileStorageType: FILE_STORAGE_TYPE.LOCAL,
+        fileCategory: FILE_CATEGORY.IMAGE,
         EnableCompressor: false,
         allowedFileTypes: ['image/*'],
         maxFiles: 9,

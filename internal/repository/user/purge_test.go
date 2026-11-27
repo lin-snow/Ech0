@@ -39,18 +39,14 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	require.NoError(t, db.Create(&echoModel.EchoTag{EchoID: ownedEcho.ID, TagID: tagOwned.ID}).Error)
 	require.NoError(t, db.Create(&echoModel.EchoTag{EchoID: survivingEcho.ID, TagID: tagOther.ID}).Error)
 
-	ownedFile := fileModel.File{ID: "f-owned", Key: "k1", UserID: owner.ID, Name: "owned"}
-	attachedOtherFile := fileModel.File{ID: "f-attached", Key: "k2", UserID: other.ID, Name: "attached"}
-	survivingFile := fileModel.File{ID: "f-other", Key: "k3", UserID: other.ID, Name: "other"}
-	require.NoError(t, db.Create(&ownedFile).Error)
-	require.NoError(t, db.Create(&attachedOtherFile).Error)
-	require.NoError(t, db.Create(&survivingFile).Error)
-	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: ownedEcho.ID, FileID: ownedFile.ID}).Error)
-	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: ownedEcho.ID, FileID: attachedOtherFile.ID}).Error)
-	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: survivingEcho.ID, FileID: survivingFile.ID}).Error)
+	ownedFile := seedRefFile(t, db, "f-owned", owner.ID, "owned")
+	attachedOtherFile := seedRefFile(t, db, "f-attached", other.ID, "attached")
+	survivingFile := seedRefFile(t, db, "f-other", other.ID, "other")
+	require.NoError(t, db.Create(&fileModel.Link{FileID: ownedFile.ID, OwnerKind: fileModel.OwnerKindEcho, OwnerID: ownedEcho.ID, Role: fileModel.RoleAttachment}).Error)
+	require.NoError(t, db.Create(&fileModel.Link{FileID: attachedOtherFile.ID, OwnerKind: fileModel.OwnerKindEcho, OwnerID: ownedEcho.ID, Role: fileModel.RoleAttachment}).Error)
+	require.NoError(t, db.Create(&fileModel.Link{FileID: survivingFile.ID, OwnerKind: fileModel.OwnerKindEcho, OwnerID: survivingEcho.ID, Role: fileModel.RoleAttachment}).Error)
 	// The user's own file is linked to a surviving echo so detaching is visible.
-	require.NoError(t, db.Create(&fileModel.EchoFile{EchoID: survivingEcho.ID, FileID: ownedFile.ID}).Error)
-	require.NoError(t, db.Create(&fileModel.TempFile{FileID: ownedFile.ID, UploaderID: owner.ID}).Error)
+	require.NoError(t, db.Create(&fileModel.Link{FileID: ownedFile.ID, OwnerKind: fileModel.OwnerKindEcho, OwnerID: survivingEcho.ID, Role: fileModel.RoleAttachment}).Error)
 	require.NoError(t, db.Create(&echoModel.EchoExtension{ID: "ext-1", EchoID: ownedEcho.ID, Type: "weather", Payload: map[string]any{"t": 1}}).Error)
 	require.NoError(t, db.Create(&authModel.Passkey{ID: "pk-1", UserID: owner.ID, CredentialID: "cred-1", CredentialJSON: "{}"}).Error)
 	require.NoError(t, db.Create(&userModel.WebAuthnCredential{ID: "wa-1", UserID: owner.ID, CredentialID: "cred-2", CredentialJSON: "{}"}).Error)
@@ -82,13 +78,13 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	assertRowPresent(t, db, &fileModel.File{}, ownedFile.ID)
 	assertRowPresent(t, db, &fileModel.File{}, attachedOtherFile.ID)
 	var links int64
-	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("echo_id = ?", ownedEcho.ID).Count(&links).Error)
+	require.NoError(t, db.Model(&fileModel.Link{}).Where("owner_id = ?", ownedEcho.ID).Count(&links).Error)
 	assert.Zero(t, links, "被删除 Echo 的附件关联必须清空")
-	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("file_id = ?", survivingFile.ID).Count(&links).Error)
+	require.NoError(t, db.Model(&fileModel.Link{}).Where("file_id = ?", survivingFile.ID).Count(&links).Error)
 	assert.Equal(t, int64(1), links, "其他用户 Echo 的附件不能受影响")
-	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("file_id = ?", ownedFile.ID).Count(&links).Error)
+	require.NoError(t, db.Model(&fileModel.Link{}).Where("file_id = ?", ownedFile.ID).Count(&links).Error)
 	assert.Zero(t, links, "被删用户的文件要从存活 Echo 上解绑")
-	require.NoError(t, db.Model(&fileModel.EchoFile{}).Where("file_id = ?", attachedOtherFile.ID).Count(&links).Error)
+	require.NoError(t, db.Model(&fileModel.Link{}).Where("file_id = ?", attachedOtherFile.ID).Count(&links).Error)
 	assert.Zero(t, links, "被删除 Echo 下他人文件的链接随 Echo 一起清空")
 
 	assertRowGone(t, db, &commentModel.Comment{}, "c-under-owned-by-other")
@@ -106,7 +102,6 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	assertRowGone(t, db, &authModel.Passkey{}, "pk-1")
 	assertRowGone(t, db, &userModel.WebAuthnCredential{}, "wa-1")
 	assertRowGone(t, db, &userModel.UserExternalIdentity{}, "idp-1")
-	assertRowGone(t, db, &fileModel.TempFile{}, ownedFile.ID)
 	assertRowGone(t, db, &settingModel.AccessTokenSetting{}, "at-1")
 	require.NoError(t, db.Model(&userModel.UserLocalAuth{}).Where("user_id = ?", owner.ID).Count(&links).Error)
 	assert.Zero(t, links)
@@ -118,6 +113,23 @@ func TestPurgeUserContent_RemovesOwnedAndAuthoredRows(t *testing.T) {
 	var reloadedOtherTag echoModel.Tag
 	require.NoError(t, db.First(&reloadedOtherTag, "id = ?", tagOther.ID).Error)
 	assert.Equal(t, 1, reloadedOtherTag.UsageCount, "其他标签不受影响")
+}
+
+func seedRefFile(t *testing.T, db *gorm.DB, id, uploaderID, name string) fileModel.File {
+	t.Helper()
+	refURL := "https://example.com/" + id
+	f := fileModel.File{
+		ID:          id,
+		Kind:        string(fileModel.KindRef),
+		Status:      string(fileModel.StatusReady),
+		Access:      string(fileModel.AccessPublic),
+		RefURL:      &refURL,
+		Name:        name,
+		ContentType: "image/png",
+		UploaderID:  uploaderID,
+	}
+	require.NoError(t, db.Create(&f).Error)
+	return f
 }
 
 func ptr[T any](v T) *T { return &v }

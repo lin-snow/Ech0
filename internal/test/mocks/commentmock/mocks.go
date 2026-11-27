@@ -11,6 +11,7 @@ import (
 	"context"
 
 	"github.com/lin-snow/ech0/internal/model/comment"
+	model0 "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/service/comment"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -115,22 +116,24 @@ func (_c *MockService_BatchAction_Call) RunAndReturn(run func(ctx context.Contex
 }
 
 // CreateComment provides a mock function for the type MockService
-func (_mock *MockService) CreateComment(ctx context.Context, clientIP string, userAgent string, dto *model.CreateCommentDto) (model.CreateCommentResult, error) {
+func (_mock *MockService) CreateComment(ctx context.Context, clientIP string, userAgent string, dto *model.CreateCommentDto) (*model.Comment, error) {
 	ret := _mock.Called(ctx, clientIP, userAgent, dto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateComment")
 	}
 
-	var r0 model.CreateCommentResult
+	var r0 *model.Comment
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateCommentDto) (model.CreateCommentResult, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateCommentDto) (*model.Comment, error)); ok {
 		return returnFunc(ctx, clientIP, userAgent, dto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateCommentDto) model.CreateCommentResult); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateCommentDto) *model.Comment); ok {
 		r0 = returnFunc(ctx, clientIP, userAgent, dto)
 	} else {
-		r0 = ret.Get(0).(model.CreateCommentResult)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Comment)
+		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *model.CreateCommentDto) error); ok {
 		r1 = returnFunc(ctx, clientIP, userAgent, dto)
@@ -182,33 +185,35 @@ func (_c *MockService_CreateComment_Call) Run(run func(ctx context.Context, clie
 	return _c
 }
 
-func (_c *MockService_CreateComment_Call) Return(createCommentResult model.CreateCommentResult, err error) *MockService_CreateComment_Call {
-	_c.Call.Return(createCommentResult, err)
+func (_c *MockService_CreateComment_Call) Return(comment *model.Comment, err error) *MockService_CreateComment_Call {
+	_c.Call.Return(comment, err)
 	return _c
 }
 
-func (_c *MockService_CreateComment_Call) RunAndReturn(run func(ctx context.Context, clientIP string, userAgent string, dto *model.CreateCommentDto) (model.CreateCommentResult, error)) *MockService_CreateComment_Call {
+func (_c *MockService_CreateComment_Call) RunAndReturn(run func(ctx context.Context, clientIP string, userAgent string, dto *model.CreateCommentDto) (*model.Comment, error)) *MockService_CreateComment_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CreateIntegrationComment provides a mock function for the type MockService
-func (_mock *MockService) CreateIntegrationComment(ctx context.Context, clientIP string, userAgent string, dto *model.CreateIntegrationCommentDto) (model.CreateCommentResult, error) {
+func (_mock *MockService) CreateIntegrationComment(ctx context.Context, clientIP string, userAgent string, dto *model.CreateIntegrationCommentDto) (*model.Comment, error) {
 	ret := _mock.Called(ctx, clientIP, userAgent, dto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateIntegrationComment")
 	}
 
-	var r0 model.CreateCommentResult
+	var r0 *model.Comment
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateIntegrationCommentDto) (model.CreateCommentResult, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateIntegrationCommentDto) (*model.Comment, error)); ok {
 		return returnFunc(ctx, clientIP, userAgent, dto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateIntegrationCommentDto) model.CreateCommentResult); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.CreateIntegrationCommentDto) *model.Comment); ok {
 		r0 = returnFunc(ctx, clientIP, userAgent, dto)
 	} else {
-		r0 = ret.Get(0).(model.CreateCommentResult)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.Comment)
+		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *model.CreateIntegrationCommentDto) error); ok {
 		r1 = returnFunc(ctx, clientIP, userAgent, dto)
@@ -260,12 +265,12 @@ func (_c *MockService_CreateIntegrationComment_Call) Run(run func(ctx context.Co
 	return _c
 }
 
-func (_c *MockService_CreateIntegrationComment_Call) Return(createCommentResult model.CreateCommentResult, err error) *MockService_CreateIntegrationComment_Call {
-	_c.Call.Return(createCommentResult, err)
+func (_c *MockService_CreateIntegrationComment_Call) Return(comment *model.Comment, err error) *MockService_CreateIntegrationComment_Call {
+	_c.Call.Return(comment, err)
 	return _c
 }
 
-func (_c *MockService_CreateIntegrationComment_Call) RunAndReturn(run func(ctx context.Context, clientIP string, userAgent string, dto *model.CreateIntegrationCommentDto) (model.CreateCommentResult, error)) *MockService_CreateIntegrationComment_Call {
+func (_c *MockService_CreateIntegrationComment_Call) RunAndReturn(run func(ctx context.Context, clientIP string, userAgent string, dto *model.CreateIntegrationCommentDto) (*model.Comment, error)) *MockService_CreateIntegrationComment_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -525,23 +530,83 @@ func (_c *MockService_GetSystemSetting_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// GetSystemSettingForAdmin provides a mock function for the type MockService
+func (_mock *MockService) GetSystemSettingForAdmin(ctx context.Context) (model.SystemSetting, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSystemSettingForAdmin")
+	}
+
+	var r0 model.SystemSetting
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (model.SystemSetting, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) model.SystemSetting); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(model.SystemSetting)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_GetSystemSettingForAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSystemSettingForAdmin'
+type MockService_GetSystemSettingForAdmin_Call struct {
+	*mock.Call
+}
+
+// GetSystemSettingForAdmin is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockService_Expecter) GetSystemSettingForAdmin(ctx any) *MockService_GetSystemSettingForAdmin_Call {
+	return &MockService_GetSystemSettingForAdmin_Call{Call: _e.mock.On("GetSystemSettingForAdmin", ctx)}
+}
+
+func (_c *MockService_GetSystemSettingForAdmin_Call) Run(run func(ctx context.Context)) *MockService_GetSystemSettingForAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_GetSystemSettingForAdmin_Call) Return(systemSetting model.SystemSetting, err error) *MockService_GetSystemSettingForAdmin_Call {
+	_c.Call.Return(systemSetting, err)
+	return _c
+}
+
+func (_c *MockService_GetSystemSettingForAdmin_Call) RunAndReturn(run func(ctx context.Context) (model.SystemSetting, error)) *MockService_GetSystemSettingForAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListPanelComments provides a mock function for the type MockService
-func (_mock *MockService) ListPanelComments(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error) {
+func (_mock *MockService) ListPanelComments(ctx context.Context, query model.ListCommentQuery) (model0.List[model.Comment], error) {
 	ret := _mock.Called(ctx, query)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListPanelComments")
 	}
 
-	var r0 model.PageResult[model.Comment]
+	var r0 model0.List[model.Comment]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) (model.PageResult[model.Comment], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) (model0.List[model.Comment], error)); ok {
 		return returnFunc(ctx, query)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) model.PageResult[model.Comment]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) model0.List[model.Comment]); ok {
 		r0 = returnFunc(ctx, query)
 	} else {
-		r0 = ret.Get(0).(model.PageResult[model.Comment])
+		r0 = ret.Get(0).(model0.List[model.Comment])
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, model.ListCommentQuery) error); ok {
 		r1 = returnFunc(ctx, query)
@@ -581,12 +646,12 @@ func (_c *MockService_ListPanelComments_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *MockService_ListPanelComments_Call) Return(pageResult model.PageResult[model.Comment], err error) *MockService_ListPanelComments_Call {
-	_c.Call.Return(pageResult, err)
+func (_c *MockService_ListPanelComments_Call) Return(list model0.List[model.Comment], err error) *MockService_ListPanelComments_Call {
+	_c.Call.Return(list, err)
 	return _c
 }
 
-func (_c *MockService_ListPanelComments_Call) RunAndReturn(run func(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error)) *MockService_ListPanelComments_Call {
+func (_c *MockService_ListPanelComments_Call) RunAndReturn(run func(ctx context.Context, query model.ListCommentQuery) (model0.List[model.Comment], error)) *MockService_ListPanelComments_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1682,22 +1747,22 @@ func (_c *MockRepository_IsEchoPrivate_Call) RunAndReturn(run func(ctx context.C
 }
 
 // ListComments provides a mock function for the type MockRepository
-func (_mock *MockRepository) ListComments(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error) {
+func (_mock *MockRepository) ListComments(ctx context.Context, query model.ListCommentQuery) (model0.List[model.Comment], error) {
 	ret := _mock.Called(ctx, query)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListComments")
 	}
 
-	var r0 model.PageResult[model.Comment]
+	var r0 model0.List[model.Comment]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) (model.PageResult[model.Comment], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) (model0.List[model.Comment], error)); ok {
 		return returnFunc(ctx, query)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) model.PageResult[model.Comment]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, model.ListCommentQuery) model0.List[model.Comment]); ok {
 		r0 = returnFunc(ctx, query)
 	} else {
-		r0 = ret.Get(0).(model.PageResult[model.Comment])
+		r0 = ret.Get(0).(model0.List[model.Comment])
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, model.ListCommentQuery) error); ok {
 		r1 = returnFunc(ctx, query)
@@ -1737,12 +1802,12 @@ func (_c *MockRepository_ListComments_Call) Run(run func(ctx context.Context, qu
 	return _c
 }
 
-func (_c *MockRepository_ListComments_Call) Return(pageResult model.PageResult[model.Comment], err error) *MockRepository_ListComments_Call {
-	_c.Call.Return(pageResult, err)
+func (_c *MockRepository_ListComments_Call) Return(list model0.List[model.Comment], err error) *MockRepository_ListComments_Call {
+	_c.Call.Return(list, err)
 	return _c
 }
 
-func (_c *MockRepository_ListComments_Call) RunAndReturn(run func(ctx context.Context, query model.ListCommentQuery) (model.PageResult[model.Comment], error)) *MockRepository_ListComments_Call {
+func (_c *MockRepository_ListComments_Call) RunAndReturn(run func(ctx context.Context, query model.ListCommentQuery) (model0.List[model.Comment], error)) *MockRepository_ListComments_Call {
 	_c.Call.Return(run)
 	return _c
 }

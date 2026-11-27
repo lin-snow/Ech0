@@ -8,13 +8,16 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	filemock "github.com/lin-snow/ech0/internal/test/mocks/filemock"
 	"github.com/lin-snow/ech0/pkg/busen"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -193,11 +196,11 @@ func TestGetEmbeddingSetting(t *testing.T) {
 }
 
 func TestGetAdminGatedSettings(t *testing.T) {
-	ctx := helpers.CtxAsUser(testUserID)
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
 	t.Run("GetAgentSettings success", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.AgentSettingKey).
 			Return(settingJSON(t, settingModel.AgentSetting{Enable: true, Model: "m"}), nil).
@@ -210,7 +213,7 @@ func TestGetAdminGatedSettings(t *testing.T) {
 
 	t.Run("GetAgentSettings backend error", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		boom := errors.New("kv down")
 		d.kv.EXPECT().Get(mock.Anything, commonModel.AgentSettingKey).Return("", boom).Once()
 
@@ -220,7 +223,7 @@ func TestGetAdminGatedSettings(t *testing.T) {
 
 	t.Run("GetOAuth2Setting success", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.OAuth2SettingKey).
 			Return(settingJSON(t, settingModel.OAuth2Setting{Enable: true, Provider: "github", ClientID: "cid"}), nil).
@@ -233,7 +236,7 @@ func TestGetAdminGatedSettings(t *testing.T) {
 
 	t.Run("GetPasskeySetting success", func(t *testing.T) {
 		d := newDeps(t)
-		d.expectAdmin()
+
 		d.kv.EXPECT().
 			Get(mock.Anything, commonModel.PasskeySettingKey).
 			Return(settingJSON(t, settingModel.PasskeySetting{WebAuthnRPID: "example.com"}), nil).
@@ -272,10 +275,6 @@ func TestGetS3Setting(t *testing.T) {
 	t.Run("non-admin gets masked secrets", func(t *testing.T) {
 		d := newDeps(t)
 		d.kv.EXPECT().Get(mock.Anything, commonModel.S3SettingKey).Return(stored(t), nil).Once()
-		d.common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, mock.Anything).
-			Return(helpers.NewUser(), nil).
-			Once()
 
 		var s settingModel.S3Setting
 		require.NoError(t, d.build().GetS3Setting(helpers.CtxAsUser(testUserID), &s))
@@ -285,10 +284,9 @@ func TestGetS3Setting(t *testing.T) {
 	t.Run("admin sees plaintext secrets", func(t *testing.T) {
 		d := newDeps(t)
 		d.kv.EXPECT().Get(mock.Anything, commonModel.S3SettingKey).Return(stored(t), nil).Once()
-		d.expectAdmin()
 
 		var s settingModel.S3Setting
-		require.NoError(t, d.build().GetS3Setting(helpers.CtxAsUser(testUserID), &s))
+		require.NoError(t, d.build().GetS3Setting(helpers.CtxAsUser(testUserID, role.Admin), &s))
 		assert.Equal(t, "AKID", s.AccessKey)
 		assert.Equal(t, "SECRET", s.SecretKey)
 		assert.Equal(t, "bkt", s.BucketName)
@@ -302,59 +300,37 @@ func TestGetS3Setting(t *testing.T) {
 		var s settingModel.S3Setting
 		require.ErrorIs(t, d.build().GetS3Setting(helpers.CtxAnonymous(), &s), boom)
 	})
-
-	t.Run("authenticated user lookup error propagates", func(t *testing.T) {
-		d := newDeps(t)
-		boom := errors.New("lookup failed")
-		d.kv.EXPECT().Get(mock.Anything, commonModel.S3SettingKey).Return(stored(t), nil).Once()
-		d.common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, mock.Anything).
-			Return(helpers.NewUser(), boom).
-			Once()
-
-		var s settingModel.S3Setting
-		require.ErrorIs(t, d.build().GetS3Setting(helpers.CtxAsUser(testUserID), &s), boom)
-	})
 }
 
 func TestUpdateSetting(t *testing.T) {
-	ctx := helpers.CtxAsUser(testUserID)
+	ctx := helpers.CtxAsUser(testUserID, role.Admin)
 
 	t.Run("non-admin denied inside transaction", func(t *testing.T) {
 		d := newDeps(t)
 		d.kv.EXPECT().Get(mock.Anything, commonModel.SystemSettingsKey).Return("", kvstore.ErrNotFound).Once()
 		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
-		d.common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, mock.Anything).
-			Return(helpers.NewUser(), nil).
-			Once()
 
-		err := d.build().UpdateSetting(ctx, &settingModel.SystemSettingDto{SiteTitle: "x"})
-		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		err := d.build().UpdateSetting(helpers.CtxAsUser(testUserID), &settingModel.SystemSettingDto{SiteTitle: "x"})
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
-	t.Run("admin persists setting and derived server_url", func(t *testing.T) {
+	t.Run("admin persists system setting", func(t *testing.T) {
 		d := newDeps(t)
-		d.kv.EXPECT().Get(mock.Anything, commonModel.SystemSettingsKey).Return("", kvstore.ErrNotFound).Once()
+		d.kv.EXPECT().Get(mock.Anything, commonModel.SystemSettingsKey).Return("", kvstore.ErrNotFound).Twice()
 		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
-		d.common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, mock.Anything).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
-			Once()
 		d.kv.EXPECT().Set(mock.Anything, commonModel.SystemSettingsKey, mock.Anything).Return(nil).Once()
-		d.kv.EXPECT().
-			Set(mock.Anything, commonModel.ServerURLKey, "https://my.example.com").
-			Return(nil).
-			Once()
 
-		err := d.build().UpdateSetting(ctx, &settingModel.SystemSettingDto{
-			SiteTitle: "x", ServerURL: "https://my.example.com/",
+		svc := d.build()
+		var current settingModel.SystemSetting
+		require.NoError(t, svc.GetSetting(&current))
+
+		err := svc.UpdateSetting(ctx, &settingModel.SystemSettingDto{
+			SiteTitle: "x", ServerLogo: current.ServerLogo, ServerURL: "https://my.example.com/",
 		})
 		require.NoError(t, err)
 	})
 
-	t.Run("server logo change confirms temp file", func(t *testing.T) {
+	t.Run("server logo change links the uploaded file", func(t *testing.T) {
 		d := newDeps(t)
 		file := filemock.NewMockService(t)
 		d.kv.EXPECT().
@@ -362,16 +338,25 @@ func TestUpdateSetting(t *testing.T) {
 			Return(settingJSON(t, settingModel.SystemSetting{ServerLogo: "old-logo.png"}), nil).
 			Once()
 		d.tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTxExec()).Once()
-		d.common.EXPECT().
-			CommonGetUserByUserId(mock.Anything, mock.Anything).
-			Return(helpers.NewUser(helpers.AsAdmin), nil).
+		logoURL := "/api/files/logo-file-1/content"
+		d.kv.EXPECT().Set(mock.Anything, commonModel.SystemSettingsKey, mock.MatchedBy(func(raw string) bool {
+			var stored settingModel.SystemSetting
+			if err := json.Unmarshal([]byte(raw), &stored); err != nil {
+				return false
+			}
+			return stored.ServerLogo == logoURL
+		})).Return(nil).Once()
+		file.EXPECT().
+			Get(mock.Anything, "logo-file-1").
+			Return(fileModel.FileDTO{ID: "logo-file-1", URL: logoURL}, nil).
 			Once()
-		d.kv.EXPECT().Set(mock.Anything, commonModel.SystemSettingsKey, mock.Anything).Return(nil).Once()
-		d.kv.EXPECT().Set(mock.Anything, commonModel.ServerURLKey, mock.Anything).Return(nil).Once()
-		file.EXPECT().ConfirmTempFiles(mock.Anything, []string{"logo-file-1"}).Return(nil).Once()
+		file.EXPECT().
+			Replace(mock.Anything, []string{"logo-file-1"}, fileModel.OwnerKindInstance, "instance", fileModel.RoleLogo).
+			Return(nil).
+			Once()
 
 		svc := settingService.NewSettingService(
-			d.tx, d.common, file, nil, d.kv, d.settingRepo, d.webhookRepo, nil, d.revoker, d.access,
+			d.tx, d.common, file, d.kv, d.settingRepo, d.webhookRepo, nil, d.revoker, d.access,
 			func() *busen.Bus { return d.bus },
 		)
 		err := svc.UpdateSetting(ctx, &settingModel.SystemSettingDto{

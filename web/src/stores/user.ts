@@ -34,8 +34,8 @@ export const useUserStore = defineStore('userStore', () => {
 
   async function login(userInfo: App.Api.Auth.LoginParams) {
     const res = await fetchLogin(userInfo)
-    if (res.code === 1 && res.data?.access_token) {
-      authStore.setToken(res.data.access_token)
+    if (res?.access_token) {
+      authStore.setToken(res.access_token)
 
       await refreshCurrentUser()
 
@@ -65,14 +65,14 @@ export const useUserStore = defineStore('userStore', () => {
 
   async function loginWithCode(code: string) {
     const res = await fetchExchangeCode(code)
-    if (res.code === 1 && res.data?.access_token) {
-      await loginWithTokenPair(res.data)
+    if (res) {
+      await loginWithTokenPair(res)
     }
   }
 
   async function signup(userInfo: App.Api.Auth.SignupParams) {
     return await fetchSignup(userInfo).then((res) => {
-      if (res.code === 1) {
+      if (res) {
         theToast.success(String(i18n.global.t('auth.signupSuccess')))
         return true
       }
@@ -113,10 +113,10 @@ export const useUserStore = defineStore('userStore', () => {
 
   async function refreshCurrentUser() {
     const res = await fetchGetCurrentUser()
-    if (res.code === 1) {
-      user.value = res.data
-      if (res.data.locale) {
-        await setI18nLocale(res.data.locale)
+    if (res) {
+      user.value = res
+      if (res.locale) {
+        await setI18nLocale(res.locale)
       }
     } else {
       user.value = null

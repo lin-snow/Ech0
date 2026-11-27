@@ -17,18 +17,18 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/job"
 	"github.com/lin-snow/ech0/internal/migrator/artifact"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
-	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	"github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	"github.com/lin-snow/ech0/pkg/busen"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,14 +90,6 @@ func newService(common CommonService, repo *fakeJobRepo, bus *busen.Bus) *Migrat
 	return NewMigratorService(common, job.NewManager(repo), func() *busen.Bus { return bus })
 }
 
-func expectUser(t *testing.T, common *commonmock.MockService, u userModel.User, err error) {
-	t.Helper()
-	common.EXPECT().CommonGetUserByUserId(mock.Anything, adminID).Return(u, err)
-}
-
-func adminUser() userModel.User  { return helpers.NewUser(helpers.AsAdmin) }
-func normalUser() userModel.User { return helpers.NewUser() }
-
 func TestStartGlobalMigration(t *testing.T) {
 	validReq := func() migratorModel.StartGlobalMigrationRequest {
 		return migratorModel.StartGlobalMigrationRequest{
@@ -109,62 +101,49 @@ func TestStartGlobalMigration(t *testing.T) {
 	t.Run("invalid request rejected before auth", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID), migratorModel.StartGlobalMigrationRequest{
+		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID, role.Admin), migratorModel.StartGlobalMigrationRequest{
 			SourceType:    "bogus",
 			SourcePayload: map[string]any{"tmp_dir": "files/tmp/x"},
 		})
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID), validReq())
 		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
-	})
-
-	t.Run("user lookup error propagates", func(t *testing.T) {
-		common := commonmock.NewMockService(t)
-		boom := errors.New("db down")
-		expectUser(t, common, userModel.User{}, boom)
-		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID), validReq())
-		assert.ErrorIs(t, err, boom)
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no runner registered surfaces submit error and cleans tmp", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID), validReq())
+		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID, role.Admin), validReq())
 		require.Error(t, err)
-		assert.NotEqual(t, "请先结束/清理当前迁移", err.Error())
+		assert.NotEqual(t, "finish or clean up the current migration first", err.Error())
 		assert.ErrorIs(t, err, job.ErrNoRunner)
 	})
 
 	t.Run("already running mapped to friendly message", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusRunning})
 		s := newService(common, repo, nil)
 		s.jobManager.Register(jobModel.Migration, noopRun)
-		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID), validReq())
+		_, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID, role.Admin), validReq())
 		require.Error(t, err)
-		assert.Equal(t, "请先结束/清理当前迁移", err.Error())
+		assert.Equal(t, "finish or clean up the current migration first", err.Error())
 	})
 
 	t.Run("success returns pending DTO with injected created_by", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		s := newService(common, repo, nil)
 		s.jobManager.Register(jobModel.Migration, noopRun)
 
-		dto, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID), validReq())
+		dto, err := s.StartGlobalMigration(helpers.CtxAsUser(adminID, role.Admin), validReq())
 		require.NoError(t, err)
 		assert.Equal(t, 1, dto.Version)
 		assert.Equal(t, migratorModel.MigrationSourceEch0, dto.SourceType)
@@ -178,17 +157,15 @@ func TestStartGlobalMigration(t *testing.T) {
 func TestGetGlobalMigrationStatus(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no job row synthesizes idle sentinel", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		dto, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID))
+		dto, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID, role.Admin))
 		require.NoError(t, err)
 		assert.Equal(t, 1, dto.Version)
 		assert.Equal(t, migratorModel.MigrationStatusIdle, dto.Status)
@@ -196,23 +173,21 @@ func TestGetGlobalMigrationStatus(t *testing.T) {
 
 	t.Run("existing job mapped to DTO", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusSuccess})
 		s := newService(common, repo, nil)
-		dto, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID))
+		dto, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID, role.Admin))
 		require.NoError(t, err)
 		assert.Equal(t, string(jobModel.StatusSuccess), dto.Status)
 	})
 
 	t.Run("repo error propagates", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		boom := errors.New("read fail")
 		repo.getErr = boom
 		s := newService(common, repo, nil)
-		_, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID))
+		_, err := s.GetGlobalMigrationStatus(helpers.CtxAsUser(adminID, role.Admin))
 		assert.ErrorIs(t, err, boom)
 	})
 }
@@ -220,37 +195,33 @@ func TestGetGlobalMigrationStatus(t *testing.T) {
 func TestCancelGlobalMigration(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no job row is invalid request", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID, role.Admin))
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("terminal job cannot be cancelled", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusSuccess})
 		s := newService(common, repo, nil)
-		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		_, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID, role.Admin))
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("running job cancel returns current DTO", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusRunning})
 		s := newService(common, repo, nil)
-		dto, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID))
+		dto, err := s.CancelGlobalMigration(helpers.CtxAsUser(adminID, role.Admin))
 		require.NoError(t, err)
 		assert.Equal(t, string(jobModel.StatusRunning), dto.Status)
 	})
@@ -259,33 +230,29 @@ func TestCancelGlobalMigration(t *testing.T) {
 func TestCleanupGlobalMigration(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		err := s.CleanupGlobalMigration(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no job row is idempotent no-op", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		assert.NoError(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID)))
+		assert.NoError(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID, role.Admin)))
 	})
 
 	t.Run("running job refuses cleanup", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusPending})
 		s := newService(common, repo, nil)
-		err := s.CleanupGlobalMigration(helpers.CtxAsUser(adminID))
+		err := s.CleanupGlobalMigration(helpers.CtxAsUser(adminID, role.Admin))
 		require.Error(t, err)
-		assert.Equal(t, "迁移进行中，无法清理", err.Error())
+		assert.Equal(t, "cannot clean up while a migration is running", err.Error())
 	})
 
 	t.Run("terminal job cleans tmp and deletes row", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{
 			Type:    string(jobModel.Migration),
@@ -293,60 +260,55 @@ func TestCleanupGlobalMigration(t *testing.T) {
 			Payload: `{"source_type":"ech0","source_payload":{"tmp_dir":"artifacts/tmp/ech0_done"}}`,
 		})
 		s := newService(common, repo, nil)
-		require.NoError(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID)))
+		require.NoError(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID, role.Admin)))
 		_, err := repo.GetByType(context.Background(), string(jobModel.Migration))
 		assert.ErrorIs(t, err, job.ErrNotFound)
 	})
 
 	t.Run("repo error propagates", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		boom := errors.New("read fail")
 		repo.getErr = boom
 		s := newService(common, repo, nil)
-		assert.ErrorIs(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID)), boom)
+		assert.ErrorIs(t, s.CleanupGlobalMigration(helpers.CtxAsUser(adminID, role.Admin)), boom)
 	})
 }
 
 func TestStartExport(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no runner surfaces submit error", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
+		_, err := s.StartExport(helpers.CtxAsUser(adminID, role.Admin), migratorModel.StartExportRequest{})
 		require.Error(t, err)
-		assert.NotEqual(t, "导出进行中，请稍候", err.Error())
+		assert.NotEqual(t, "an export is already running", err.Error())
 		assert.ErrorIs(t, err, job.ErrNoRunner)
 	})
 
 	t.Run("already running mapped to friendly message", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Export), Status: jobModel.StatusRunning})
 		s := newService(common, repo, nil)
 		s.jobManager.Register(jobModel.Export, noopRun)
-		_, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
+		_, err := s.StartExport(helpers.CtxAsUser(adminID, role.Admin), migratorModel.StartExportRequest{})
 		require.Error(t, err)
-		assert.Equal(t, "导出进行中，请稍候", err.Error())
+		assert.Equal(t, "an export is already running", err.Error())
 	})
 
 	t.Run("success returns pending export DTO", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		s := newService(common, repo, nil)
 		s.jobManager.Register(jobModel.Export, noopRun)
-		dto, err := s.StartExport(helpers.CtxAsUser(adminID), migratorModel.StartExportRequest{})
+		dto, err := s.StartExport(helpers.CtxAsUser(adminID, role.Admin), migratorModel.StartExportRequest{})
 		require.NoError(t, err)
 		assert.Equal(t, 1, dto.Version)
 		assert.Equal(t, string(jobModel.StatusPending), dto.Status)
@@ -356,24 +318,21 @@ func TestStartExport(t *testing.T) {
 func TestGetExportStatus(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.GetExportStatus(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no job row synthesizes idle sentinel", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		dto, err := s.GetExportStatus(helpers.CtxAsUser(adminID))
+		dto, err := s.GetExportStatus(helpers.CtxAsUser(adminID, role.Admin))
 		require.NoError(t, err)
 		assert.Equal(t, migratorModel.MigrationStatusIdle, dto.Status)
 	})
 
 	t.Run("existing job parses outcome payload", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{
 			Type:    string(jobModel.Export),
@@ -381,7 +340,7 @@ func TestGetExportStatus(t *testing.T) {
 			Payload: `{"file_name":"snap.zip","size":2048}`,
 		})
 		s := newService(common, repo, nil)
-		dto, err := s.GetExportStatus(helpers.CtxAsUser(adminID))
+		dto, err := s.GetExportStatus(helpers.CtxAsUser(adminID, role.Admin))
 		require.NoError(t, err)
 		assert.Equal(t, "snap.zip", dto.FileName)
 		assert.Equal(t, int64(2048), dto.Size)
@@ -389,12 +348,11 @@ func TestGetExportStatus(t *testing.T) {
 
 	t.Run("repo error propagates", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		boom := errors.New("read fail")
 		repo.getErr = boom
 		s := newService(common, repo, nil)
-		_, err := s.GetExportStatus(helpers.CtxAsUser(adminID))
+		_, err := s.GetExportStatus(helpers.CtxAsUser(adminID, role.Admin))
 		assert.ErrorIs(t, err, boom)
 	})
 }
@@ -402,37 +360,33 @@ func TestGetExportStatus(t *testing.T) {
 func TestCancelExport(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.CancelExport(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no job row is invalid request", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.CancelExport(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		_, err := s.CancelExport(helpers.CtxAsUser(adminID, role.Admin))
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("terminal job cannot be cancelled", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Export), Status: jobModel.StatusFailed})
 		s := newService(common, repo, nil)
-		_, err := s.CancelExport(helpers.CtxAsUser(adminID))
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		_, err := s.CancelExport(helpers.CtxAsUser(adminID, role.Admin))
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("running job cancel returns current DTO", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Export), Status: jobModel.StatusRunning})
 		s := newService(common, repo, nil)
-		dto, err := s.CancelExport(helpers.CtxAsUser(adminID))
+		dto, err := s.CancelExport(helpers.CtxAsUser(adminID, role.Admin))
 		require.NoError(t, err)
 		assert.Equal(t, string(jobModel.StatusRunning), dto.Status)
 	})
@@ -460,23 +414,21 @@ func chdirTemp(t *testing.T) string {
 func TestDownloadExport(t *testing.T) {
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		c, _ := newGinCtx(t)
 		err := s.DownloadExport(c, helpers.CtxAsUser(adminID), "")
 		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("no snapshot returns guidance error", func(t *testing.T) {
 		chdirTemp(t)
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		c, _ := newGinCtx(t)
-		err := s.DownloadExport(c, helpers.CtxAsUser(adminID), "")
+		err := s.DownloadExport(c, helpers.CtxAsUser(adminID, role.Admin), "")
 		require.Error(t, err)
-		assert.Equal(t, "暂无可下载的产物，请先创建导出", err.Error())
+		assert.Equal(t, "no artifact to download: create an export first", err.Error())
 	})
 
 	t.Run("streams latest snapshot and emits event", func(t *testing.T) {
@@ -487,12 +439,11 @@ func TestDownloadExport(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(snapDir, "ech0-snapshot-2026-01-01.zip"), content, 0o644))
 
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		bus := helpers.NewTestBus(t)
 		s := newService(common, newFakeJobRepo(), bus)
 
 		c, w := newGinCtx(t)
-		require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID), ""))
+		require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID, role.Admin), ""))
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "application/zip", w.Header().Get("Content-Type"))
 		assert.Contains(t, w.Header().Get("Content-Disposition"), "attachment;")
@@ -519,10 +470,9 @@ func TestDownloadExport(t *testing.T) {
 			{format: "", want: snapshotBytes},
 		} {
 			common := commonmock.NewMockService(t)
-			expectUser(t, common, adminUser(), nil)
 			s := newService(common, newFakeJobRepo(), helpers.NewTestBus(t))
 			c, w := newGinCtx(t)
-			require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID), tc.format))
+			require.NoError(t, s.DownloadExport(c, helpers.CtxAsUser(adminID, role.Admin), tc.format))
 			assert.Equal(t, tc.want, w.Body.Bytes(), "format=%q", tc.format)
 			assert.Contains(t, w.Header().Get("Content-Disposition"), "ech0-")
 		}
@@ -531,10 +481,9 @@ func TestDownloadExport(t *testing.T) {
 	t.Run("unknown format rejected", func(t *testing.T) {
 		chdirTemp(t)
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		c, _ := newGinCtx(t)
-		require.Error(t, s.DownloadExport(c, helpers.CtxAsUser(adminID), "tarball"))
+		require.Error(t, s.DownloadExport(c, helpers.CtxAsUser(adminID, role.Admin), "tarball"))
 	})
 }
 
@@ -571,22 +520,21 @@ func TestUploadSourceZip(t *testing.T) {
 	t.Run("invalid source type rejected first", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.UploadSourceZip(helpers.CtxAsUser(adminID), "bogus", nil)
+		_, err := s.UploadSourceZip(helpers.CtxAsUser(adminID, role.Admin), "bogus", nil)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("nil file rejected", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
 		s := newService(common, newFakeJobRepo(), nil)
-		_, err := s.UploadSourceZip(helpers.CtxAsUser(adminID), migratorModel.MigrationSourceEch0, nil)
+		_, err := s.UploadSourceZip(helpers.CtxAsUser(adminID, role.Admin), migratorModel.MigrationSourceEch0, nil)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("non-admin denied", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, normalUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.UploadSourceZip(
 			helpers.CtxAsUser(adminID),
@@ -594,45 +542,42 @@ func TestUploadSourceZip(t *testing.T) {
 			&multipart.FileHeader{Filename: "src.zip"},
 		)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.NO_PERMISSION_DENIED, err.Error())
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("existing migration row blocks upload", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		repo := newFakeJobRepo()
 		repo.seed(jobModel.Job{Type: string(jobModel.Migration), Status: jobModel.StatusSuccess})
 		s := newService(common, repo, nil)
 		_, err := s.UploadSourceZip(
-			helpers.CtxAsUser(adminID),
+			helpers.CtxAsUser(adminID, role.Admin),
 			migratorModel.MigrationSourceEch0,
 			&multipart.FileHeader{Filename: "src.zip"},
 		)
 		require.Error(t, err)
-		assert.Equal(t, "请先结束/清理当前迁移", err.Error())
+		assert.Equal(t, "finish or clean up the current migration first", err.Error())
 	})
 
 	t.Run("non-zip filename rejected", func(t *testing.T) {
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 		_, err := s.UploadSourceZip(
-			helpers.CtxAsUser(adminID),
+			helpers.CtxAsUser(adminID, role.Admin),
 			migratorModel.MigrationSourceEch0,
 			&multipart.FileHeader{Filename: "src.txt"},
 		)
 		require.Error(t, err)
-		assert.Equal(t, commonModel.INVALID_REQUEST_BODY, err.Error())
+		assert.Equal(t, apperr.ErrInvalidRequestBody.Error(), err.Error())
 	})
 
 	t.Run("success unpacks and returns tmp dir DTO", func(t *testing.T) {
 		chdirTemp(t)
 		common := commonmock.NewMockService(t)
-		expectUser(t, common, adminUser(), nil)
 		s := newService(common, newFakeJobRepo(), nil)
 
 		header := zipFileHeader(t, "ech0-export.zip", minimalZip(t))
-		resp, err := s.UploadSourceZip(helpers.CtxAsUser(adminID), migratorModel.MigrationSourceEch0, header)
+		resp, err := s.UploadSourceZip(helpers.CtxAsUser(adminID, role.Admin), migratorModel.MigrationSourceEch0, header)
 		require.NoError(t, err)
 		assert.Equal(t, migratorModel.MigrationSourceEch0, resp.SourceType)
 		assert.Contains(t, resp.TmpDir, artifact.TmpDir+"/ech0_")

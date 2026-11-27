@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 )
 
@@ -138,7 +138,7 @@ func (r *askRegistry) answer(askID, userID string, answers []AskAnswer) error {
 	p, ok := r.pending[askID]
 	if !ok || p.userID != userID {
 		r.mu.Unlock()
-		return errors.New(commonModel.CHAT_ASK_NOT_PENDING)
+		return apperr.ErrAskNotPending
 	}
 	delete(r.pending, askID)
 	r.mu.Unlock()
@@ -297,7 +297,7 @@ func answerFor(answers []AskAnswer, questionID string) (AskAnswer, bool) {
 func (s *CopilotService) AnswerAsk(ctx context.Context, askID string, answers []AskAnswer) error {
 	askID = strings.TrimSpace(askID)
 	if askID == "" || len(answers) == 0 {
-		return errors.New(commonModel.CHAT_ASK_NOT_PENDING)
+		return apperr.ErrAskNotPending
 	}
 	user, err := s.requireAdmin(ctx)
 	if err != nil {

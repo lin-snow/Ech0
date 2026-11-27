@@ -6,23 +6,21 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
-	"github.com/lin-snow/ech0/internal/storage"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	"github.com/lin-snow/ech0/internal/transaction"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
 	"github.com/lin-snow/ech0/pkg/busen"
-	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
@@ -80,10 +78,11 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 	newEcho.Username = user.Username
 
 	if isEchoEmpty(newEcho) {
-		return nil, errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		return nil, apperr.ErrEchoEmpty
 	}
 
-	if err := echoService.validateSingleFileCategory(ctx, newEcho); err != nil {
+	ids := collectEchoFileIDs(newEcho)
+	if err := echoService.validateSingleFileCategory(ctx, ids); err != nil {
 		return nil, err
 	}
 
@@ -91,7 +90,15 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		if err := echoService.ProcessEchoTags(txCtx, newEcho); err != nil {
 			return err
 		}
-		return echoService.echoRepository.CreateEcho(txCtx, newEcho)
+		if err := echoService.echoRepository.CreateEcho(txCtx, newEcho); err != nil {
+			return err
+		}
+		// Attachments are links, not rows of the echo: writing them in the same
+		// transaction is what makes "echo exists" and "its files are attached"
+		// one fact.
+		return echoService.fileService.Replace(
+			txCtx, ids, fileModel.OwnerKindEcho, newEcho.ID, fileModel.RoleAttachment,
+		)
 	}); err != nil {
 		return nil, err
 	}
@@ -109,9 +116,6 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 		// find it. Return what we wrote so the caller still gets the id.
 		savedEcho = newEcho
 	}
-	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(newEcho)); err != nil {
-		logUtil.GetLogger().Warn("confirm temp files after post echo failed", logUtil.Err(err))
-	}
 
 	return echoService.hydrateEchoReactions(ctx, savedEcho)
 }
@@ -119,7 +123,7 @@ func (echoService *EchoService) PostEcho(ctx context.Context, newEcho *model.Ech
 func (echoService *EchoService) GetEchosByPage(
 	ctx context.Context,
 	pageQueryDto commonModel.PageQueryDto,
-) (commonModel.PageQueryResult[[]model.Echo], error) {
+) (commonModel.List[model.Echo], error) {
 	return echoService.QueryEchos(ctx, commonModel.EchoQueryDto{
 		Page:     pageQueryDto.Page,
 		PageSize: pageQueryDto.PageSize,
@@ -128,46 +132,30 @@ func (echoService *EchoService) GetEchosByPage(
 }
 
 func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
+	p := viewer.MustFromContext(ctx)
+	// The actor feeds the event payload; it plays no part in the decision.
+	actor, err := echoService.commonService.CommonGetUserByUserId(ctx, p.UserID())
 	if err != nil {
 		return err
 	}
 
-	type deletableFileRef struct {
-		key         string
-		storageType string
-	}
-	var deletableFiles []deletableFileRef
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
 		echo, err := echoService.echoRepository.GetEchosById(txCtx, id)
 		if err != nil {
 			return err
 		}
 		if echo == nil {
-			return errors.New(commonModel.ECHO_NOT_FOUND)
+			return apperr.ErrEchoNotFound
 		}
-		if echo.UserID != userid && !user.IsAdmin {
-			return commonModel.NewBizErrorWithMessageKey(
-				commonModel.ErrCodePermissionDenied,
-				commonModel.ECHO_OTHER_USER_FORBIDDEN,
-				commonModel.MsgKeyEchoOtherUserForbidden,
-				nil,
-			)
+		if err := authz.Decide(p, authz.EchoDelete, authz.ForEcho(*echo)); err != nil {
+			return err
 		}
 
-		for _, ef := range echo.EchoFiles {
-			if ef.File.Key != "" && storage.NormalizeStorageType(ef.File.StorageType) != storage.StorageTypeExternal {
-				deletableFiles = append(deletableFiles, deletableFileRef{
-					key:         ef.File.Key,
-					storageType: ef.File.StorageType,
-				})
-			}
-			if ef.File.ID != "" {
-				if err := echoService.fileService.DeleteFileRecord(txCtx, ef.File.ID); err != nil {
-					return err
-				}
-			}
+		// Deleting an echo removes its links, never the files: a file may still
+		// be attached to another echo, and bytes whose last link vanished are
+		// the collector's business, not the delete's.
+		if err := echoService.fileService.ClearOwner(txCtx, fileModel.OwnerKindEcho, id); err != nil {
+			return err
 		}
 
 		return echoService.echoRepository.DeleteEchoById(txCtx, id)
@@ -177,34 +165,19 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 
 	echoService.echoRepository.InvalidateEchoCaches(id)
 
-	eventbus.Notify(context.Background(), echoService.bus, event.EchoDeleted{Echo: model.Echo{ID: id}, User: user})
-
-	for _, file := range deletableFiles {
-		if err := echoService.fileService.DeleteStoredFile(file.storageType, file.key); err != nil {
-			logUtil.GetLogger().Warn(
-				"delete stored file after echo delete failed",
-				slog.String("echo_id", id),
-				slog.String("file_key", file.key),
-				slog.String("storage_type", file.storageType),
-				logUtil.Err(err),
-			)
-		}
-	}
+	eventbus.Notify(context.Background(), echoService.bus, event.EchoDeleted{Echo: model.Echo{ID: id}, User: actor})
 
 	return nil
 }
 
 // privateScope reports whether the caller may read private echoes at all.
-// Private is an audience marker: every signed-in member sees the full
-// timeline, while anonymous visitors never do. Interactive sessions qualify by
-// identity; access tokens also need echo:private, so echo:read alone cannot
-// enumerate private content.
+// Private is an audience marker: every signed-in principal whose role carries
+// echo:private sees the full timeline, while anonymous visitors never do.
+// Sessions derive the scope from their role; access tokens must have been minted
+// with it, so echo:read alone cannot enumerate private content.
 func (echoService *EchoService) privateScope(ctx context.Context) model.PrivateScope {
 	v := viewer.MustFromContext(ctx)
-	if v.UserID() == "" {
-		return model.PrivateScope{}
-	}
-	if v.TokenType() != authModel.TokenTypeSession && !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
+	if viewer.IsAnonymous(v) || !authz.Has(v.Scopes(), authz.ScopeEchoPrivate) {
 		return model.PrivateScope{}
 	}
 	return model.PrivateScope{Authenticated: true}
@@ -236,8 +209,9 @@ func (echoService *EchoService) GetOnThisDayEchos(ctx context.Context, timezone 
 
 // UpdateEcho persists the edit and returns the stored record, mirroring PostEcho.
 func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo) (*model.Echo, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
+	p := viewer.MustFromContext(ctx)
+	// The actor feeds the event payload; it plays no part in the decision.
+	actor, err := echoService.commonService.CommonGetUserByUserId(ctx, p.UserID())
 	if err != nil {
 		return nil, err
 	}
@@ -246,19 +220,21 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return nil, err
 	}
 	if existing == nil {
-		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+		return nil, apperr.ErrEchoNotFound
 	}
-	if existing.UserID != userid && !user.IsAdmin {
-		return nil, commonModel.NewBizErrorWithMessageKey(
-			commonModel.ErrCodePermissionDenied,
-			commonModel.ECHO_OTHER_USER_FORBIDDEN,
-			commonModel.MsgKeyEchoOtherUserForbidden,
-			nil,
-		)
+	if err := authz.Decide(p, authz.EchoWrite, authz.ForEcho(*existing)); err != nil {
+		return nil, err
 	}
 	// An edit never transfers authorship or rewrites the stored author name.
 	echo.UserID = existing.UserID
 	echo.Username = existing.Username
+	// Omitted echo_files means "keep what is attached"; an explicit [] clears.
+	// The attachment set is the union of the explicit ids and the ids the body
+	// references, so a pasted URL is still a link.
+	attachmentsGiven := echo.EchoFiles != nil
+	if echo.EchoFiles == nil {
+		echo.EchoFiles = cloneEchoFiles(existing.EchoFiles)
+	}
 
 	layout := strings.TrimSpace(echo.Layout)
 	if layout == "" || (layout != model.LayoutWaterfall &&
@@ -276,15 +252,12 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 	}
 	echo.Extension = normalizedExt
 
-	for i := range echo.EchoFiles {
-		echo.EchoFiles[i].EchoID = echo.ID
-	}
-
 	if isEchoEmpty(echo) {
-		return nil, errors.New(commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		return nil, apperr.ErrEchoEmpty
 	}
 
-	if err := echoService.validateSingleFileCategory(ctx, echo); err != nil {
+	ids := collectEchoFileIDs(echo)
+	if err := echoService.validateSingleFileCategory(ctx, ids); err != nil {
 		return nil, err
 	}
 
@@ -292,7 +265,15 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		if err := echoService.ProcessEchoTags(txCtx, echo); err != nil {
 			return err
 		}
-		return echoService.echoRepository.UpdateEcho(txCtx, echo)
+		if err := echoService.echoRepository.UpdateEcho(txCtx, echo); err != nil {
+			return err
+		}
+		if !attachmentsGiven {
+			return nil
+		}
+		return echoService.fileService.Replace(
+			txCtx, ids, fileModel.OwnerKindEcho, echo.ID, fileModel.RoleAttachment,
+		)
 	}); err != nil {
 		return nil, err
 	}
@@ -306,10 +287,7 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 	if saved == nil {
 		saved = echo
 	}
-	eventbus.Notify(context.Background(), echoService.bus, event.EchoUpdated{Echo: *saved, User: user})
-	if err := echoService.fileService.ConfirmTempFiles(ctx, collectEchoFileIDs(echo)); err != nil {
-		logUtil.GetLogger().Warn("confirm temp files after update echo failed", logUtil.Err(err))
-	}
+	eventbus.Notify(context.Background(), echoService.bus, event.EchoUpdated{Echo: *saved, User: actor})
 
 	return echoService.hydrateEchoReactions(ctx, saved)
 }
@@ -320,10 +298,10 @@ func (echoService *EchoService) GetEchoById(ctx context.Context, id string) (*mo
 		return nil, err
 	}
 	if echo == nil {
-		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+		return nil, apperr.ErrEchoNotFound
 	}
 	if echo.Private && !echoService.privateScope(ctx).Authenticated {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, apperr.ErrDenied
 	}
 	return echoService.hydrateEchoReactions(ctx, echo)
 }
@@ -338,10 +316,10 @@ func (echoService *EchoService) GetAllTags() ([]model.Tag, error) {
 func (echoService *EchoService) CreateTag(ctx context.Context, name string) (*model.Tag, error) {
 	cleaned := strings.TrimSpace(strings.TrimPrefix(name, "#"))
 	if cleaned == "" {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 	if !isSafeTagName(cleaned) {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 
 	existing, err := echoService.echoRepository.GetTagsByNames(ctx, []string{cleaned})
@@ -364,13 +342,8 @@ func (echoService *EchoService) CreateTag(ctx context.Context, name string) (*mo
 }
 
 func (echoService *EchoService) DeleteTag(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := echoService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.TagManage, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	return echoService.transactor.Run(ctx, func(txCtx context.Context) error {
@@ -388,7 +361,7 @@ func (echoService *EchoService) ProcessEchoTags(ctx context.Context, echo *model
 			continue
 		}
 		if !isSafeTagName(name) {
-			return errors.New(commonModel.INVALID_PARAMS)
+			return apperr.ErrInvalidParams
 		}
 		names = append(names, name)
 	}
@@ -426,7 +399,7 @@ func (echoService *EchoService) GetEchosByTagId(
 	ctx context.Context,
 	tagId string,
 	pageQueryDto commonModel.PageQueryDto,
-) (commonModel.PageQueryResult[[]model.Echo], error) {
+) (commonModel.List[model.Echo], error) {
 	return echoService.QueryEchos(ctx, commonModel.EchoQueryDto{
 		Page:     pageQueryDto.Page,
 		PageSize: pageQueryDto.PageSize,
@@ -438,7 +411,7 @@ func (echoService *EchoService) GetEchosByTagId(
 func (echoService *EchoService) QueryEchos(
 	ctx context.Context,
 	queryDto commonModel.EchoQueryDto,
-) (commonModel.PageQueryResult[[]model.Echo], error) {
+) (commonModel.List[model.Echo], error) {
 	if queryDto.Page < 1 {
 		queryDto.Page = 1
 	}
@@ -455,8 +428,8 @@ func (echoService *EchoService) QueryEchos(
 	if queryDto.Mine {
 		userID := viewer.MustFromContext(ctx).UserID()
 		if userID == "" {
-			return commonModel.PageQueryResult[[]model.Echo]{},
-				commonModel.NewBizError(commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+			return commonModel.List[model.Echo]{},
+				apperr.ErrDenied
 		}
 		queryDto.UserID = userID
 	}
@@ -468,7 +441,7 @@ func (echoService *EchoService) QueryEchos(
 		queryDto.SortOrder = "desc"
 	}
 	if err := normalizeEchoCursor(&queryDto); err != nil {
-		return commonModel.PageQueryResult[[]model.Echo]{}, err
+		return commonModel.List[model.Echo]{}, err
 	}
 
 	cursorMode := queryDto.Cursor != nil
@@ -482,7 +455,7 @@ func (echoService *EchoService) QueryEchos(
 
 	echos, total, err := echoService.echoRepository.QueryEchos(queryDto, echoService.privateScope(ctx))
 	if err != nil {
-		return commonModel.PageQueryResult[[]model.Echo]{}, err
+		return commonModel.List[model.Echo]{}, err
 	}
 
 	hasMore := false
@@ -493,19 +466,19 @@ func (echoService *EchoService) QueryEchos(
 
 	echos, err = echoService.hydrateReactions(ctx, echos)
 	if err != nil {
-		return commonModel.PageQueryResult[[]model.Echo]{}, err
+		return commonModel.List[model.Echo]{}, err
 	}
 
-	result := commonModel.PageQueryResult[[]model.Echo]{
-		Items: echos,
-		Total: total,
-	}
-	if hasMore {
-		last := echos[len(echos)-1]
-		if last.ID != "" {
-			next := model.EncodeCursor(model.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
-			result.NextCursor = &next
+	result := commonModel.List[model.Echo]{Items: echos}
+	if cursorMode {
+		if hasMore {
+			last := echos[len(echos)-1]
+			if last.ID != "" {
+				result.NextCursor = model.EncodeCursor(model.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
+			}
 		}
+	} else {
+		result.Total = &total
 	}
 	return result, nil
 }
@@ -522,12 +495,7 @@ func normalizeEchoCursor(queryDto *commonModel.EchoQueryDto) error {
 	}
 
 	if queryDto.SortBy != "created_at" {
-		return commonModel.NewBizErrorWithMessageKey(
-			commonModel.ErrCodeInvalidQuery,
-			commonModel.ECHO_CURSOR_SORT_UNSUPPORTED,
-			commonModel.MsgKeyEchoCursorSortUnsupported,
-			nil,
-		)
+		return apperr.ErrCursorSortUnsupported
 	}
 
 	cursor := strings.TrimSpace(*queryDto.Cursor)
@@ -545,12 +513,7 @@ func normalizeEchoCursor(queryDto *commonModel.EchoQueryDto) error {
 }
 
 func invalidEchoCursorError() error {
-	return commonModel.NewBizErrorWithMessageKey(
-		commonModel.ErrCodeInvalidQuery,
-		commonModel.INVALID_ECHO_CURSOR,
-		commonModel.MsgKeyEchoInvalidCursor,
-		nil,
-	)
+	return apperr.ErrInvalidCursor
 }
 
 func isSafeTagName(name string) bool {
@@ -683,44 +646,55 @@ func isEchoEmpty(echo *model.Echo) bool {
 	return content == "" && len(echo.EchoFiles) == 0 && echo.Extension == nil
 }
 
-func (echoService *EchoService) validateSingleFileCategory(ctx context.Context, echo *model.Echo) error {
-	ids := collectEchoFileIDs(echo)
+func (echoService *EchoService) validateSingleFileCategory(ctx context.Context, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
 
-	files, err := echoService.fileService.GetFilesByIDs(ctx, ids)
-	if err != nil {
-		return err
-	}
-
-	callerID := viewer.MustFromContext(ctx).UserID()
-	counts := make(map[storage.Category]int, len(files))
-	for _, f := range files {
-		// A file may be attached only by its uploader or by the echo author;
-		// rows written before uploads recorded an owner are grandfathered.
-		if f.UserID != "" && f.UserID != callerID && f.UserID != echo.UserID {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
+	counts := make(map[string]int, len(ids))
+	for _, id := range ids {
+		// Get is the authorization point: a file the caller cannot read is a
+		// file the caller cannot attach.
+		file, err := echoService.fileService.Get(ctx, id)
+		if err != nil {
+			return err
 		}
-		counts[storage.NormalizeCategory(f.Category)]++
+		counts[file.Category]++
 	}
 
 	if len(counts) > 1 {
-		return errors.New(commonModel.ECHO_MIXED_FILE_CATEGORIES)
+		return apperr.ErrEchoMixedFiles
 	}
 	for cat, count := range counts {
-		if (cat == storage.CategoryAudio || cat == storage.CategoryVideo) && count > 1 {
-			return errors.New(commonModel.ECHO_MIXED_FILE_CATEGORIES)
+		if (cat == fileModel.CategoryAudio || cat == fileModel.CategoryVideo) && count > 1 {
+			return apperr.ErrEchoMixedFiles
 		}
 	}
 	return nil
 }
 
+func cloneEchoFiles(files []model.EchoFile) []model.EchoFile {
+	if len(files) == 0 {
+		return nil
+	}
+	cloned := make([]model.EchoFile, len(files))
+	copy(cloned, files)
+	return cloned
+}
+
+var contentFileRef = regexp.MustCompile(`/api/files/([0-9a-fA-F-]{36})/content`)
+
+// collectEchoFileIDs is the attachment set of an echo: the explicit ids, in
+// body order first. A markdown reference to a file is an attachment too, so
+// pasting the URL and sending file_ids must produce the same link rows.
 func collectEchoFileIDs(echo *model.Echo) []string {
-	if echo == nil || len(echo.EchoFiles) == 0 {
+	if echo == nil {
 		return nil
 	}
 	ids := make([]string, 0, len(echo.EchoFiles))
+	for _, match := range contentFileRef.FindAllStringSubmatch(echo.Content, -1) {
+		ids = append(ids, match[1])
+	}
 	for _, ef := range echo.EchoFiles {
 		if strings.TrimSpace(ef.FileID) != "" {
 			ids = append(ids, ef.FileID)

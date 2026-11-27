@@ -353,7 +353,8 @@ func TestListComments_Filters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res, err := repo.ListComments(ctx, tc.query)
 			require.NoError(t, err)
-			assert.Equal(t, tc.wantTotal, res.Total)
+			require.NotNil(t, res.Total)
+			assert.Equal(t, tc.wantTotal, *res.Total)
 			assert.Len(t, res.Items, tc.wantItems)
 		})
 	}
@@ -366,7 +367,8 @@ func TestListComments_PaginationAndOrder(t *testing.T) {
 
 	page1, err := repo.ListComments(ctx, model.ListCommentQuery{Page: 1, PageSize: 2})
 	require.NoError(t, err)
-	assert.Equal(t, int64(5), page1.Total, "Total 是全量而非本页数量")
+	require.NotNil(t, page1.Total)
+	assert.Equal(t, int64(5), *page1.Total, "Total 是全量而非本页数量")
 	require.Len(t, page1.Items, 2)
 	assert.Equal(t, "fifth", page1.Items[0].Content)
 	assert.Equal(t, "fourth", page1.Items[1].Content)

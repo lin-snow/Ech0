@@ -9,6 +9,7 @@ import (
 
 	"github.com/lin-snow/ech0/internal/migrator/spec"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
+	"github.com/lin-snow/ech0/internal/storage"
 )
 
 type ExportOutcome struct {
@@ -19,11 +20,11 @@ type ExportOutcome struct {
 }
 
 type ExportEngine struct {
-	storageManager StorageManager
+	registry *storage.Registry
 }
 
-func NewExportEngine(storageManager StorageManager) *ExportEngine {
-	return &ExportEngine{storageManager: storageManager}
+func NewExportEngine(registry *storage.Registry) *ExportEngine {
+	return &ExportEngine{registry: registry}
 }
 
 func (ex *ExportEngine) Export(
@@ -31,13 +32,15 @@ func (ex *ExportEngine) Export(
 	report func(phase string, snapshot any),
 ) (ExportOutcome, error) {
 	dest := migratorModel.ExportDestFS
-	if ex.storageManager != nil {
-		if sel := ex.storageManager.GetSelector(); sel != nil && sel.ObjectEnabled() {
+	if ex.registry != nil {
+		// The artifact already sits on local disk; only an object-storage
+		// default needs a second copy under snapshots/.
+		if id, _, err := ex.registry.Default(); err == nil && id != storage.DriverLocal {
 			dest = migratorModel.ExportDestS3
 		}
 	}
 
-	exporter, err := BuildExporter(dest, ex.storageManager)
+	exporter, err := BuildExporter(dest, ex.registry)
 	if err != nil {
 		return ExportOutcome{}, err
 	}

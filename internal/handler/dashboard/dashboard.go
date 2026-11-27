@@ -5,11 +5,13 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	service "github.com/lin-snow/ech0/internal/service/dashboard"
 	githubUtil "github.com/lin-snow/ech0/internal/util/github"
@@ -47,41 +49,38 @@ type (
 )
 
 type (
-	CheckUpdateOutput  = commonModel.Result[CheckUpdateResponse]
-	LogsOutput         = commonModel.Result[[]logUtil.LogEntry]
-	VisitorStatsOutput = commonModel.Result[[]visitor.DayStat]
+	CheckUpdateOutput struct{ Body CheckUpdateResponse }
+	LogsOutput        struct {
+		Body commonModel.List[logUtil.LogEntry]
+	}
+	VisitorStatsOutput struct {
+		Body commonModel.List[visitor.DayStat]
+	}
 )
 
-func (dashboardHandler *DashboardHandler) CheckUpdate(ctx context.Context, _ *CheckUpdateInput) (CheckUpdateOutput, error) {
+func (dashboardHandler *DashboardHandler) CheckUpdate(_ context.Context, _ *CheckUpdateInput) (*CheckUpdateOutput, error) {
 	latestVersion, err := githubUtil.GetLatestVersion()
 	if err != nil {
-		return CheckUpdateOutput{}, &commonModel.BizError{
-			Code:       commonModel.ErrCodeInternal,
-			Msg:        commonModel.CHECK_UPDATE_FAILED,
-			MessageKey: commonModel.MsgKeyDashboardCheckUpdateFailed,
-			Err:        err,
-		}
+		return nil, fmt.Errorf("check for updates: %w", err)
 	}
 
 	cur := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(versionPkg.Version), "v"))
 	lat := semver.Canonical("v" + strings.TrimPrefix(strings.TrimSpace(latestVersion), "v"))
 	hasUpdate := cur != "" && lat != "" && semver.Compare(lat, cur) > 0
 
-	return commonModel.OK(CheckUpdateResponse{
+	return &CheckUpdateOutput{Body: CheckUpdateResponse{
 		CurrentVersion: versionPkg.Version,
 		LatestVersion:  latestVersion,
 		HasUpdate:      hasUpdate,
-	}), nil
+	}}, nil
 }
 
-func (dashboardHandler *DashboardHandler) GetSystemLogs(ctx context.Context, in *GetSystemLogsInput) (LogsOutput, error) {
+func (dashboardHandler *DashboardHandler) GetSystemLogs(_ context.Context, in *GetSystemLogsInput) (*LogsOutput, error) {
 	tail := 200
 	if rawTail := strings.TrimSpace(in.Tail); rawTail != "" {
 		n, err := strconv.Atoi(rawTail)
 		if err != nil || n <= 0 {
-			return LogsOutput{}, commonModel.NewBizErrorWithMessageKey(
-				commonModel.ErrCodeInvalidQuery, commonModel.INVALID_QUERY_PARAMS, commonModel.MsgKeyDashboardTailBad, nil,
-			)
+			return nil, apperr.ErrInvalidQuery
 		}
 		tail = n
 	}
@@ -92,15 +91,13 @@ func (dashboardHandler *DashboardHandler) GetSystemLogs(ctx context.Context, in 
 		Keyword: in.Keyword,
 	})
 	if err != nil {
-		return LogsOutput{}, err
+		return nil, err
 	}
-	result := commonModel.OK(logs, "获取系统日志成功")
-	result.MessageKey = commonModel.MsgKeyDashboardLogsOk
-	return result, nil
+	return &LogsOutput{Body: commonModel.List[logUtil.LogEntry]{Items: logs}}, nil
 }
 
-func (dashboardHandler *DashboardHandler) GetVisitorStats(ctx context.Context, _ *GetVisitorStatsInput) (VisitorStatsOutput, error) {
-	return commonModel.OK(dashboardHandler.dashboardService.GetVisitorStats()), nil
+func (dashboardHandler *DashboardHandler) GetVisitorStats(_ context.Context, _ *GetVisitorStatsInput) (*VisitorStatsOutput, error) {
+	return &VisitorStatsOutput{Body: commonModel.List[visitor.DayStat]{Items: dashboardHandler.dashboardService.GetVisitorStats()}}, nil
 }
 
 func (dashboardHandler *DashboardHandler) WSSubscribeSystemLogs() gin.HandlerFunc {
@@ -112,7 +109,7 @@ func (dashboardHandler *DashboardHandler) WSSubscribeSystemLogs() gin.HandlerFun
 		}
 
 		token = strings.Trim(token, `"`)
-		if _, err := jwtUtil.ParseToken(token); err != nil {
+		if _, err := jwtUtil.ParseSessionToken(token); err != nil {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"msg": "invalid token"})
 			return
 		}
@@ -140,7 +137,7 @@ func (dashboardHandler *DashboardHandler) SSESubscribeSystemLogs() gin.HandlerFu
 		}
 
 		token = strings.Trim(token, `"`)
-		if _, err := jwtUtil.ParseToken(token); err != nil {
+		if _, err := jwtUtil.ParseSessionToken(token); err != nil {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"msg": "invalid token"})
 			return
 		}

@@ -5,6 +5,7 @@ package build
 
 import (
 	"fmt"
+	"mime"
 	"path"
 	"sort"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/capsule"
-	"github.com/lin-snow/ech0/internal/storage"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 	versionPkg "github.com/lin-snow/ech0/internal/version"
 )
@@ -26,27 +27,21 @@ func derivedID(kind string, parts ...string) string {
 	return uuidUtil.NewV5(idNamespace, []byte(name)).String()
 }
 
-var mediaSchema = storage.NewFileSchema()
-
 func renderCategory(ref capsule.FileRef) string {
-	if ref.Category != "" {
-		return string(storage.NormalizeCategory(ref.Category))
+	if _, ok := capsule.ValidCategories[ref.Category]; ok {
+		return ref.Category
 	}
-
+	if ref.ContentType != "" {
+		return fileModel.CategoryOf(ref.ContentType)
+	}
 	name := ref.Key
 	if name == "" {
 		name = ref.URL
 	}
-	switch {
-	case strings.HasPrefix(mediaSchema.Resolve(path.Base(name)), "images/"):
-		return string(storage.CategoryImage)
-	case strings.HasPrefix(mediaSchema.Resolve(path.Base(name)), "audios/"):
-		return string(storage.CategoryAudio)
-	case strings.HasPrefix(mediaSchema.Resolve(path.Base(name)), "videos/"):
-		return string(storage.CategoryVideo)
-	default:
-		return string(storage.CategoryFile)
+	if ct := mime.TypeByExtension(path.Ext(name)); ct != "" {
+		return fileModel.CategoryOf(ct)
 	}
+	return fileModel.CategoryFile
 }
 
 type bakeInput struct {
@@ -204,11 +199,8 @@ func bakeFiles(doc *capsule.EchoDoc, createdAt int64, baseURL string) []echoFile
 			CreatedAt:   createdAt,
 		}
 		if ref.Managed() {
-			f.Key = ref.Key
-			f.StorageType = string(storage.StorageTypeLocal)
-			f.URL = baseURL + "api/files/" + mediaSchema.Resolve(ref.Key)
+			f.URL = strings.TrimSuffix(baseURL, "/") + fileModel.ContentPath(fileID)
 		} else {
-			f.StorageType = string(storage.StorageTypeExternal)
 			f.URL = ref.URL
 		}
 

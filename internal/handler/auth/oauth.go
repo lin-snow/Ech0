@@ -5,6 +5,7 @@ package handler
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -27,8 +28,8 @@ type (
 )
 
 type (
-	OAuthBindOutput = commonModel.Result[string]
-	OAuthInfoOutput = commonModel.Result[userModel.OAuthInfoDto]
+	OAuthBindOutput = struct{ Body string }
+	OAuthInfoOutput = struct{ Body userModel.OAuthInfoDto }
 )
 
 func normalizeOAuthProvider(provider string) (string, bool) {
@@ -50,16 +51,16 @@ func (h *AuthHandler) OAuthLogin() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		provider, ok := normalizeOAuthProvider(ctx.Param("provider"))
 		if !ok {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 
 		redirectURI := ctx.Query("redirect_uri")
 		redirectURL, err := h.authService.GetOAuthLoginURL(provider, redirectURI)
 		if err != nil {
-			return res.Response{Err: err}
+			return res.Failed(err)
 		}
-		ctx.Redirect(302, redirectURL)
-		return res.Response{}
+		ctx.Redirect(http.StatusFound, redirectURL)
+		return res.NoContent(http.StatusFound)
 	})
 }
 
@@ -67,36 +68,39 @@ func (h *AuthHandler) OAuthCallback() gin.HandlerFunc {
 	return res.Execute(func(ctx *gin.Context) res.Response {
 		provider, ok := normalizeOAuthProvider(ctx.Param("provider"))
 		if !ok {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 		code := ctx.Query("code")
 		state := ctx.Query("state")
 		if code == "" || state == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS}
+			return res.Failed(errInvalidParams)
 		}
 
 		redirectURL, err := h.authService.HandleOAuthCallback(provider, code, state)
 		if err != nil || redirectURL == "" {
-			return res.Response{Msg: commonModel.INVALID_PARAMS, Err: err}
+			if err == nil {
+				err = errInvalidParams
+			}
+			return res.Failed(err)
 		}
-		ctx.Redirect(302, redirectURL)
-		return res.Response{}
+		ctx.Redirect(http.StatusFound, redirectURL)
+		return res.NoContent(http.StatusFound)
 	})
 }
 
-func (h *AuthHandler) OAuthBind(ctx context.Context, in *OAuthBindInput) (OAuthBindOutput, error) {
+func (h *AuthHandler) OAuthBind(ctx context.Context, in *OAuthBindInput) (*OAuthBindOutput, error) {
 	provider, ok := normalizeOAuthProvider(in.Provider)
 	if !ok {
-		return OAuthBindOutput{}, commonModel.NewBizError(commonModel.ErrCodeInvalidRequest, commonModel.INVALID_PARAMS)
+		return nil, errInvalidParams
 	}
 	bindURL, err := h.authService.BindOAuth(ctx, provider, in.Body.RedirectURI)
 	if err != nil {
-		return OAuthBindOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(bindURL, commonModel.GET_OAUTH_BINGURL_SUCCESS), nil
+	return &OAuthBindOutput{Body: bindURL}, nil
 }
 
-func (h *AuthHandler) GetOAuthInfo(ctx context.Context, in *GetOAuthInfoInput) (OAuthInfoOutput, error) {
+func (h *AuthHandler) GetOAuthInfo(ctx context.Context, in *GetOAuthInfoInput) (*OAuthInfoOutput, error) {
 	provider := in.Provider
 	switch provider {
 	case string(commonModel.OAuth2GITHUB),
@@ -108,5 +112,5 @@ func (h *AuthHandler) GetOAuthInfo(ctx context.Context, in *GetOAuthInfoInput) (
 	}
 
 	oauthInfo, _ := h.authService.GetOAuthInfo(ctx, provider)
-	return commonModel.OK(oauthInfo, commonModel.GET_OAUTH_INFO_SUCCESS), nil
+	return &OAuthInfoOutput{Body: oauthInfo}, nil
 }

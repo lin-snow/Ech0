@@ -29,10 +29,10 @@ const logModule = "capsule"
 var errDryRun = errors.New("capsule import: dry-run rollback")
 
 type Deps struct {
-	DB       *gorm.DB
-	Tx       transaction.Transactor
-	Selector *storage.StorageSelector
-	KV       kvstore.Store
+	DB      *gorm.DB
+	Tx      transaction.Transactor
+	Storage *storage.Registry
+	KV      kvstore.Store
 }
 
 type Options struct {
@@ -42,11 +42,10 @@ type Options struct {
 
 type Result struct {
 	EchoesCreated, EchoesSkipped, SkippedPrivate int
-	FilesCreated, FilesReused, FilesRenamed      int
+	FilesCreated, FilesReused                    int
 	CommentsCreated, CommentsSkipped             int
 	TagsCreated                                  int
 	SiteFieldsFilled                             []string
-	Renames                                      []string
 	OrphanComments                               int
 }
 
@@ -62,8 +61,8 @@ func Run(ctx context.Context, deps Deps, loaded *capsule.Loaded, opts Options) (
 		return nil, errors.New("capsule import: transactor is required")
 	case deps.DB == nil:
 		return nil, errors.New("capsule import: database handle is required")
-	case deps.Selector == nil:
-		return nil, errors.New("capsule import: storage selector is required")
+	case deps.Storage == nil:
+		return nil, errors.New("capsule import: storage registry is required")
 	case deps.KV == nil:
 		return nil, errors.New("capsule import: kv store is required")
 	}
@@ -91,7 +90,6 @@ func Run(ctx context.Context, deps Deps, loaded *capsule.Loaded, opts Options) (
 		slog.Int("skipped_private", result.SkippedPrivate),
 		slog.Int("files_created", result.FilesCreated),
 		slog.Int("files_reused", result.FilesReused),
-		slog.Int("files_renamed", result.FilesRenamed),
 		slog.Int("tags_created", result.TagsCreated),
 		slog.Int("comments_created", result.CommentsCreated),
 		slog.Int("comments_skipped", result.CommentsSkipped),
@@ -101,23 +99,17 @@ func Run(ctx context.Context, deps Deps, loaded *capsule.Loaded, opts Options) (
 }
 
 type session struct {
-	db       *gorm.DB
-	selector *storage.StorageSelector
-	kv       kvstore.Store
-	loaded   *capsule.Loaded
-	opts     Options
-	res      *Result
+	db      *gorm.DB
+	storage *storage.Registry
+	kv      kvstore.Store
+	loaded  *capsule.Loaded
+	opts    Options
+	res     *Result
 
 	ownerID      string
 	userIDByName map[string]string
 	tagIDByName  map[string]string
 	landed       map[string]struct{}
-
-	storageType storage.StorageType
-	provider    string
-	bucket      string
-	keygen      storage.KeyGenerator
-	routeCache  map[string]*fileEntry
 }
 
 func newSession(ctx context.Context, deps Deps, loaded *capsule.Loaded, opts Options, res *Result) *session {
@@ -126,16 +118,9 @@ func newSession(ctx context.Context, deps Deps, loaded *capsule.Loaded, opts Opt
 		db = tx
 	}
 
-	storageType := storage.StorageTypeLocal
-	provider, bucket := "", ""
-	if deps.Selector.ObjectEnabled() {
-		storageType = storage.StorageTypeObject
-		provider, bucket = deps.Selector.ObjectRoute()
-	}
-
 	return &session{
 		db:           db.WithContext(ctx),
-		selector:     deps.Selector,
+		storage:      deps.Storage,
 		kv:           deps.KV,
 		loaded:       loaded,
 		opts:         opts,
@@ -143,11 +128,6 @@ func newSession(ctx context.Context, deps Deps, loaded *capsule.Loaded, opts Opt
 		userIDByName: make(map[string]string),
 		tagIDByName:  make(map[string]string),
 		landed:       make(map[string]struct{}),
-		storageType:  storageType,
-		provider:     provider,
-		bucket:       bucket,
-		keygen:       storage.NewRandomKeyGenerator(),
-		routeCache:   make(map[string]*fileEntry),
 	}
 }
 
@@ -177,7 +157,7 @@ var ErrNoOwner = errors.New("target instance has no owner account")
 
 func (s *session) resolveOwner() error {
 	var owner userModel.User
-	err := s.db.Where("is_admin = ?", true).Order("id ASC").First(&owner).Error
+	err := s.db.Where("role = ?", userModel.RoleOwner).First(&owner).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrNoOwner
 	}
@@ -475,7 +455,7 @@ func (s *session) applySite(ctx context.Context) error {
 		{"custom_js", &current.CustomJS, site.CustomJS},
 		{"privacy_policy", &current.PrivacyPolicy, site.PrivacyPolicy},
 	}
-	pristine := coreSetting.System.Pristine()
+	pristine := coreSetting.System.DefaultValue()
 	defaults := map[string]string{
 		"site_title":     pristine.SiteTitle,
 		"server_logo":    pristine.ServerLogo,

@@ -502,6 +502,16 @@ function emitBurst(key: ReactionKey, from: DOMRect | null) {
   }, lifetime)
 }
 
+// List endpoints answer `{ items }`; tolerate a bare array as well.
+function listItems<T>(body: unknown): T[] {
+  if (Array.isArray(body)) return body as T[]
+  if (body && typeof body === 'object' && 'items' in body) {
+    const items: unknown = body.items
+    if (Array.isArray(items)) return items as T[]
+  }
+  return []
+}
+
 async function request(key: ReactionKey, add: boolean) {
   if (staticMode) {
     theToast.info(String(t('reaction.unavailable')))
@@ -512,12 +522,20 @@ async function request(key: ReactionKey, add: boolean) {
   optimistic(key, add)
 
   try {
-    const next = props.baseUrl
-      ? await callRemote(key, add ? 'PUT' : 'DELETE')
-      : add
-        ? (await fetchReactEcho(props.echo.id, key)).data
-        : (await fetchUnreactEcho(props.echo.id, key)).data
-    items.value = (next ?? []).map((item) => ({ ...item }))
+    if (props.baseUrl) {
+      const next = await callRemote(key, add ? 'PUT' : 'DELETE')
+      items.value = listItems<ReactionCount>(next).map((item) => ({ ...item }))
+      return
+    }
+    const res = add
+      ? await fetchReactEcho(props.echo.id, key)
+      : await fetchUnreactEcho(props.echo.id, key)
+    // The transport already toasted the failure; just roll the UI back.
+    if (!res) {
+      items.value = snapshot
+      return
+    }
+    items.value = listItems<ReactionCount>(res).map((item) => ({ ...item }))
   } catch {
     items.value = snapshot
     if (props.baseUrl) {
@@ -526,7 +544,7 @@ async function request(key: ReactionKey, add: boolean) {
   }
 }
 
-async function callRemote(key: ReactionKey, method: 'PUT' | 'DELETE'): Promise<ReactionCount[]> {
+async function callRemote(key: ReactionKey, method: 'PUT' | 'DELETE'): Promise<unknown> {
   const response = await fetch(
     `${props.baseUrl}/api/echo/${encodeURIComponent(props.echo.id)}/reactions/${encodeURIComponent(key)}`,
     {
@@ -535,11 +553,12 @@ async function callRemote(key: ReactionKey, method: 'PUT' | 'DELETE'): Promise<R
       headers: { 'X-Ech0-Visitor': getVisitorId() },
     },
   )
-  const payload = (await response.json()) as App.Api.Response<ReactionCount[]>
-  if (!response.ok || payload.code !== 1) {
-    throw new Error(payload.msg || 'reaction failed')
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    const problem = body as App.Api.Problem | null
+    throw new Error(problem?.detail || 'reaction failed')
   }
-  return payload.data ?? []
+  return body
 }
 
 function optimistic(key: ReactionKey, add: boolean) {
@@ -571,8 +590,9 @@ function optimistic(key: ReactionKey, add: boolean) {
 void (async () => {
   if (props.baseUrl || staticMode) return
   const res = await fetchReactionCatalog()
-  if (res.code === 1 && res.data?.length) {
-    catalog.value = res.data
+  if (res) {
+    const items = listItems<App.Api.Ech0.ReactionCatalogItem>(res)
+    if (items.length) catalog.value = items
   }
 })()
 </script>

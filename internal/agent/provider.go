@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 )
@@ -30,6 +31,6 @@ func providerFor(setting model.AgentSetting) (Provider, error) {
 	case string(commonModel.Anthropic):
 		return &anthropicProvider{setting: setting}, nil
 	default:
-		return nil, errors.New(commonModel.AGENT_PROTOCOL_NOT_FOUND)
+		return nil, apperr.ErrAgentProtocol
 	}
 }

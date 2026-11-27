@@ -33,13 +33,13 @@ ECH0_DB_PATH=data/ech0.db
 | 生效时机 | 进程启动 | 保存即生效 |
 | 典型项 | 端口、DB、日志、JWT 密钥、事件/Agent 运行时参数 | 站点信息、评论、S3、OAuth2、Passkey、Agent 供应商 |
 
-`ECH0_SETTING_*`、`ECH0_S3_*`、`ECH0_AUTH_WEBAUTHN_*` 这类变量只在
-**对应设置第一次落库前**（全新数据库，或手动删除了该 KV key）充当默认值 —— `setting.Seed` 只写缺失的 key，绝不覆盖管理后台
-已保存的值。已经初始化过的实例，改这些 env 重启也不会生效，请到后台对应页面修改。
+`ECH0_SETTING_*`、`ECH0_S3_*`、`ECH0_AUTH_WEBAUTHN_*` 这类变量只充当**默认值**，启动时不会写入数据库：
+设置块只在管理后台保存过之后才落库，读取时以已存字段覆盖默认值。改这些 env 重启只会影响从未保存过的实例
+（例如全新数据库，或在后台恢复默认、删掉了对应的 KV 记录）；已经保存过的值不会被 env 覆盖。
 
 少数项是「env 直读」而非种子，改了在下次启动时生效：端口/监听地址、DB、日志、JWT、上传大小上限、
 `ECH0_EVENT_*`、`ECH0_AGENT_*`、验证码参数、`ECH0_WEB_CORS_ALLOWED_ORIGINS`（MCP 的 Origin 放行）。
-`ECH0_AUTH_REDIRECT_ALLOWED_RETURN_URLS` 介于两者之间：既是 OAuth2 设置首次落库的默认值，也在设置页白名单为空时
+`ECH0_AUTH_REDIRECT_ALLOWED_RETURN_URLS` 介于两者之间：既是 OAuth2 设置的默认值，也在设置页白名单为空时
 作为运行时回退。
 
 ## 变量一览
@@ -96,8 +96,8 @@ ECH0_DB_PATH=data/ech0.db
 | `ECH0_JWT_REFRESH_EXPIRES` | `604800` | refresh token 有效期（秒） |
 | `ECH0_JWT_ISSUER` | `ech0` | JWT `iss` |
 | `ECH0_JWT_AUDIENCE` | `ech0` | JWT `aud` |
-| `ECH0_AUTH_REDIRECT_ALLOWED_RETURN_URLS` | `(空)` | 逗号分隔；OAuth2 白名单：设置页为空时回退到它，首次落库也取它作默认 |
-| `ECH0_AUTH_WEBAUTHN_RP_ID` | `(空)` | Passkey 设置首次落库的默认 RP ID |
+| `ECH0_AUTH_REDIRECT_ALLOWED_RETURN_URLS` | `(空)` | 逗号分隔；OAuth2 白名单：设置页为空时回退到它，未保存时也取它作默认 |
+| `ECH0_AUTH_WEBAUTHN_RP_ID` | `(空)` | Passkey 默认 RP ID |
 | `ECH0_AUTH_WEBAUTHN_ORIGINS` | `(空)` | 逗号分隔；Passkey 默认允许来源 |
 
 ### 上传

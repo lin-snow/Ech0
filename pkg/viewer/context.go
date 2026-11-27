@@ -26,16 +26,19 @@ func FromContext(ctx context.Context) (Context, bool) {
 	return vc, ok
 }
 
+// MustFromContext returns the principal attached to ctx, or Anonymous when no
+// middleware ran. Missing middleware therefore cannot grant identity: the
+// fallback is the anonymous value, never a synthetic user.
 func MustFromContext(ctx context.Context) Context {
 	if ctx == nil {
-		return NewNoopViewer()
+		return Anonymous
 	}
 	if v := ctx.Value(contextKey{}); v != nil {
 		if vc, ok := v.(Context); ok && vc != nil {
 			return vc
 		}
 	}
-	return NewNoopViewer()
+	return Anonymous
 }
 
 func WithRequest(req *http.Request, v Context) *http.Request {

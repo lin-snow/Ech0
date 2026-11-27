@@ -18,6 +18,7 @@ import (
 	eventsubscriber "github.com/lin-snow/ech0/internal/event/subscriber"
 	"github.com/lin-snow/ech0/internal/handler"
 	webHandler "github.com/lin-snow/ech0/internal/handler/web"
+	"github.com/lin-snow/ech0/internal/i18n"
 	"github.com/lin-snow/ech0/internal/job"
 	jobRunner "github.com/lin-snow/ech0/internal/job/runner"
 	"github.com/lin-snow/ech0/internal/kvstore"
@@ -28,11 +29,13 @@ import (
 	"github.com/lin-snow/ech0/internal/repository"
 	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
 	embeddingRepository "github.com/lin-snow/ech0/internal/repository/embedding"
+	fileRepository "github.com/lin-snow/ech0/internal/repository/file"
 	keyvalueRepository "github.com/lin-snow/ech0/internal/repository/keyvalue"
 	"github.com/lin-snow/ech0/internal/server"
 	"github.com/lin-snow/ech0/internal/service"
 	copilotService "github.com/lin-snow/ech0/internal/service/copilot"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
+	fileService "github.com/lin-snow/ech0/internal/service/file"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	userService "github.com/lin-snow/ech0/internal/service/user"
 	"github.com/lin-snow/ech0/internal/setting"
@@ -59,14 +62,26 @@ func ProvideApp(
 	taskManager *task.Manager,
 	httpServer *server.Server,
 	durableKV kvstore.Store,
+	dbProvider func() *gorm.DB,
+	storages *storage.Registry,
 ) *app.App {
+	_ = storages
 	return app.New(
 		app.Components(jobManager, taskManager, httpServer),
 		app.BeforeStart(func(ctx context.Context) error {
 			if err := config.EnsureJWTSecret(ctx, durableKV); err != nil {
 				return err
 			}
-			if err := setting.Seed(ctx, durableKV); err != nil {
+			// The default locale is a setting; i18n asks through this hook so it
+			// never reads the settings table itself.
+			i18n.SetDefaultLocaleProvider(func() string {
+				system, err := setting.System.Get(context.Background(), durableKV)
+				if err != nil {
+					return ""
+				}
+				return system.DefaultLocale
+			})
+			if err := setting.Migrate(ctx, durableKV); err != nil {
 				return err
 			}
 			return registrar.Register()
@@ -102,9 +117,27 @@ func ProvideTaskManager(
 
 var StorageSet = wire.NewSet(
 	keyvalueRepository.NewKeyValueRepository,
+	repository.FileSet,
 	ProvideStorageKV,
-	storage.ProviderSet,
+	ProvideStorageRegistry,
 )
+
+// ProvideStorageRegistry builds the one registry every writer and reader shares.
+// It starts from the storages table (seeding the configured default when the
+// table is empty), so a boot-time consumer — the snapshot exporter, say — sees
+// the same stores as the first upload.
+func ProvideStorageRegistry(repo *fileRepository.FileRepository) (*storage.Registry, error) {
+	ctx := context.Background()
+	cfgs, err := fileService.LoadStorageConfigs(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+	registry := storage.NewRegistry()
+	if err := registry.Reload(ctx, cfgs); err != nil {
+		return nil, err
+	}
+	return registry, nil
+}
 
 func ProvideStorageKV(repo *keyvalueRepository.KeyValueRepository) kvstore.Store {
 	return kvstore.NewPersistent(repo)
@@ -277,7 +310,7 @@ func BuildHandlers(
 	ebProvider func() *busen.Bus,
 	tracker *visitor.Tracker,
 	jobManager *job.Manager,
-	storageManager *storage.Manager,
+	storages *storage.Registry,
 ) (*handler.Bundle, error) {
 	wire.Build(HandlerSet)
 	return &handler.Bundle{}, nil
@@ -286,7 +319,7 @@ func BuildHandlers(
 func BuildJobManager(
 	dbProvider func() *gorm.DB,
 	appCache *cache.Cache,
-	storageManager *storage.Manager,
+	storages *storage.Registry,
 	ebProvider func() *busen.Bus,
 	tx transaction.Transactor,
 ) (*job.Manager, error) {
@@ -333,7 +366,7 @@ func BuildTasker(
 	tx transaction.Transactor,
 	ebProvider func() *busen.Bus,
 	tracker *visitor.Tracker,
-	storageManager *storage.Manager,
+	storages *storage.Registry,
 ) (*task.Manager, error) {
 	wire.Build(TaskerSet)
 	return &task.Manager{}, nil

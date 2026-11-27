@@ -311,11 +311,8 @@ const handleStartMigration = async () => {
     isUploadingZip.value = true
     theToast.info(String(t('migrationSetting.uploadingRequest')))
     const uploadRes = await fetchUploadMigrationSourceZip(sourceType.value, selectedZip.value)
-    if (uploadRes.code !== 1) {
-      theToast.error(uploadRes.msg || String(t('migrationSetting.uploadFailed')))
-      return
-    }
-    const sourcePayload: Record<string, unknown> = { ...(uploadRes.data?.source_payload ?? {}) }
+    if (!uploadRes) return
+    const sourcePayload: Record<string, unknown> = { ...(uploadRes.source_payload ?? {}) }
     if (sourceType.value === 'capsule') {
       sourcePayload.include_private = capsuleIncludePrivate.value
     }
@@ -326,8 +323,7 @@ const handleStartMigration = async () => {
       source_type: sourceType.value,
       source_payload: sourcePayload,
     })
-    if (res.code !== 1) {
-      theToast.error(res.msg || String(t('migrationSetting.createJobFailed')))
+    if (!res) {
       return
     }
     theToast.success(String(t('migrationSetting.started')))
@@ -363,8 +359,7 @@ const handleCancelJob = async () => {
     return
   }
   const res = await migrationStore.cancelMigration()
-  if (res.code !== 1) {
-    theToast.error(res.msg || String(t('migrationSetting.cancelFailed')))
+  if (!res) {
     return
   }
   theToast.success(String(t('migrationSetting.cancelled')))
@@ -376,8 +371,7 @@ const handleCleanupMigration = async () => {
     return
   }
   const res = await migrationStore.cleanupMigration()
-  if (res.code !== 1) {
-    theToast.error(res.msg || String(t('migrationSetting.cleanupFailed')))
+  if (!res) {
     return
   }
   theToast.success(String(t('migrationSetting.cleaned')))

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/i18n"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -51,7 +52,7 @@ func (s *CopilotService) GetRecent(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if !setting.Enable {
-		return "", errors.New(commonModel.AGENT_NOT_ENABLED)
+		return "", apperr.ErrAgentDisabled
 	}
 	fingerprint := recentFingerprint(setting)
 
@@ -102,7 +103,7 @@ func (s *CopilotService) getRecentFromCache(ctx context.Context, cacheKey, finge
 }
 
 func (s *CopilotService) buildRecentSummary(ctx context.Context, setting settingModel.AgentSetting) (string, error) {
-	systemCtx := viewer.WithContext(ctx, viewer.NewSystemViewer())
+	systemCtx := viewer.WithContext(ctx, viewer.System)
 	echos, err := s.echoService.GetEchosByPage(
 		systemCtx,
 		commonModel.PageQueryDto{

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 )
 
@@ -26,11 +26,11 @@ const (
 )
 
 var (
-	ErrDeviceUnknown  = errors.New(commonModel.DEVICE_CODE_UNKNOWN)
-	ErrDevicePending  = errors.New(commonModel.DEVICE_CODE_PENDING)
-	ErrDeviceSlowDown = errors.New(commonModel.DEVICE_CODE_SLOW_DOWN)
-	ErrDeviceExpired  = errors.New(commonModel.DEVICE_CODE_EXPIRED)
-	ErrDeviceDenied   = errors.New(commonModel.DEVICE_CODE_DENIED)
+	ErrDeviceUnknown  = apperr.ErrDeviceUnknown
+	ErrDevicePending  = apperr.ErrDevicePending
+	ErrDeviceSlowDown = apperr.ErrDeviceSlowDown
+	ErrDeviceExpired  = apperr.ErrDeviceExpired
+	ErrDeviceDenied   = apperr.ErrDeviceDenied
 )
 
 type deviceStatus int

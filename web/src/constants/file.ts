@@ -5,7 +5,8 @@ export const FILE_CATEGORY = {
   IMAGE: 'image',
   AUDIO: 'audio',
   VIDEO: 'video',
-  DOCUMENT: 'document',
+  PDF: 'pdf',
+  MARKDOWN: 'markdown',
   FILE: 'file',
 } as const
 
@@ -13,12 +14,22 @@ export type FileCategory = (typeof FILE_CATEGORY)[keyof typeof FILE_CATEGORY]
 
 export const FILE_CATEGORY_VALUES = Object.values(FILE_CATEGORY) as FileCategory[]
 
-export const FILE_STORAGE_TYPE = {
-  LOCAL: 'local',
-  OBJECT: 'object',
-  EXTERNAL: 'external',
+export const FILE_KIND = {
+  OWNED: 'owned',
+  BLOB: 'blob',
+  REF: 'ref',
 } as const
 
-export type FileStorageType = (typeof FILE_STORAGE_TYPE)[keyof typeof FILE_STORAGE_TYPE]
+export type FileKind = (typeof FILE_KIND)[keyof typeof FILE_KIND]
 
-export const FILE_STORAGE_TYPE_VALUES = Object.values(FILE_STORAGE_TYPE) as FileStorageType[]
+export const FILE_KIND_VALUES = Object.values(FILE_KIND) as FileKind[]
+
+export const FILE_ACCESS = {
+  PUBLIC: 'public',
+  OWNER: 'owner',
+  PRIVATE: 'private',
+} as const
+
+export type FileAccess = (typeof FILE_ACCESS)[keyof typeof FILE_ACCESS]
+
+export const FILE_ACCESS_VALUES = Object.values(FILE_ACCESS) as FileAccess[]

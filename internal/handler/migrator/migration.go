@@ -5,10 +5,11 @@ package handler
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	response "github.com/lin-snow/ech0/internal/handler/response"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	service "github.com/lin-snow/ech0/internal/service/migrator"
 )
@@ -38,90 +39,92 @@ type (
 )
 
 type (
-	GlobalMigrationOutput = commonModel.Result[migratorModel.GlobalMigrationStateDTO]
-	ExportOutput          = commonModel.Result[migratorModel.ExportStateDTO]
-	EmptyOutput           = commonModel.Result[any]
+	GlobalMigrationOutput = struct {
+		Body migratorModel.GlobalMigrationStateDTO
+	}
+	ExportOutput = struct{ Body migratorModel.ExportStateDTO }
+	EmptyOutput  = struct{}
 )
 
-func (h *MigrationHandler) StartMigration(ctx context.Context, in *StartMigrationInput) (GlobalMigrationOutput, error) {
+func (h *MigrationHandler) StartMigration(ctx context.Context, in *StartMigrationInput) (*GlobalMigrationOutput, error) {
 	data, err := h.migrationService.StartGlobalMigration(ctx, in.Body)
 	if err != nil {
-		return GlobalMigrationOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(data), nil
+	return &GlobalMigrationOutput{Body: data}, nil
 }
 
-func (h *MigrationHandler) GetMigrationStatus(ctx context.Context, _ *GetMigrationStatusInput) (GlobalMigrationOutput, error) {
+func (h *MigrationHandler) GetMigrationStatus(ctx context.Context, _ *GetMigrationStatusInput) (*GlobalMigrationOutput, error) {
 	data, err := h.migrationService.GetGlobalMigrationStatus(ctx)
 	if err != nil {
-		return GlobalMigrationOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(data), nil
+	return &GlobalMigrationOutput{Body: data}, nil
 }
 
-func (h *MigrationHandler) CancelMigration(ctx context.Context, _ *CancelMigrationInput) (GlobalMigrationOutput, error) {
+func (h *MigrationHandler) CancelMigration(ctx context.Context, _ *CancelMigrationInput) (*GlobalMigrationOutput, error) {
 	data, err := h.migrationService.CancelGlobalMigration(ctx)
 	if err != nil {
-		return GlobalMigrationOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(data), nil
+	return &GlobalMigrationOutput{Body: data}, nil
 }
 
-func (h *MigrationHandler) CleanupMigration(ctx context.Context, _ *CleanupMigrationInput) (EmptyOutput, error) {
+func (h *MigrationHandler) CleanupMigration(ctx context.Context, _ *CleanupMigrationInput) (*EmptyOutput, error) {
 	if err := h.migrationService.CleanupGlobalMigration(ctx); err != nil {
-		return EmptyOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK[any](nil), nil
+	return &EmptyOutput{}, nil
 }
 
-func (h *MigrationHandler) StartExport(ctx context.Context, in *StartExportInput) (ExportOutput, error) {
+func (h *MigrationHandler) StartExport(ctx context.Context, in *StartExportInput) (*ExportOutput, error) {
 	data, err := h.migrationService.StartExport(ctx, in.Body)
 	if err != nil {
-		return ExportOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(data), nil
+	return &ExportOutput{Body: data}, nil
 }
 
-func (h *MigrationHandler) GetExportStatus(ctx context.Context, _ *GetExportStatusInput) (ExportOutput, error) {
+func (h *MigrationHandler) GetExportStatus(ctx context.Context, _ *GetExportStatusInput) (*ExportOutput, error) {
 	data, err := h.migrationService.GetExportStatus(ctx)
 	if err != nil {
-		return ExportOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(data), nil
+	return &ExportOutput{Body: data}, nil
 }
 
-func (h *MigrationHandler) CancelExport(ctx context.Context, _ *CancelExportInput) (ExportOutput, error) {
+func (h *MigrationHandler) CancelExport(ctx context.Context, _ *CancelExportInput) (*ExportOutput, error) {
 	data, err := h.migrationService.CancelExport(ctx)
 	if err != nil {
-		return ExportOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(data), nil
+	return &ExportOutput{Body: data}, nil
 }
 
 func (h *MigrationHandler) UploadSourceZip() gin.HandlerFunc {
 	return response.Execute(func(ctx *gin.Context) response.Response {
 		sourceType := ctx.PostForm("source_type")
 		if sourceType == "" {
-			return response.Response{Msg: commonModel.INVALID_REQUEST_BODY}
+			return response.Failed(apperr.ErrInvalidRequestBody)
 		}
 		file, err := ctx.FormFile("file")
 		if err != nil {
-			return response.Response{Msg: commonModel.INVALID_REQUEST_BODY, Err: err}
+			return response.Failed(apperr.ErrInvalidRequestBody)
 		}
 
 		data, err := h.migrationService.UploadSourceZip(ctx.Request.Context(), sourceType, file)
 		if err != nil {
-			return response.Response{Msg: "", Err: err}
+			return response.Failed(err)
 		}
-		return response.Response{Msg: commonModel.SUCCESS_MESSAGE, Data: data}
+		return response.Payload(data)
 	})
 }
 
 func (h *MigrationHandler) DownloadExport() gin.HandlerFunc {
 	return response.Execute(func(ctx *gin.Context) response.Response {
 		if err := h.migrationService.DownloadExport(ctx, ctx.Request.Context(), ctx.Query("format")); err != nil {
-			return response.Response{Msg: "", Err: err}
+			return response.Failed(err)
 		}
-		return response.Response{Msg: commonModel.EXPORT_SNAPSHOT_SUCCESS}
+		return response.NoContent(http.StatusOK)
 	})
 }

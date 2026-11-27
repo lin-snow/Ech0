@@ -27,23 +27,33 @@ describe("normalizeBaseUrl", () => {
 });
 
 describe("Client", () => {
-  test("unwraps the envelope and sends auth + locale headers", async () => {
+  test("returns the decoded body and sends auth + locale headers", async () => {
     api = startFakeApi({
-      "GET /api/echo/abc": () => ({ body: { code: 1, msg: "ok", data: { id: "abc", content: "hi" } } }),
+      "GET /api/echo/abc": () => ({ body: { id: "abc", content: "hi" } }),
     });
     const client = new Client({ server: api.baseUrl, token: "tok", lang: "en-US" });
-    const result = await client.call<{ id: string }>({ path: "/echo/abc", query: { page: 2 } });
+    const result = await client.call<{ id: string; content: string }>({ path: "/echo/abc", query: { page: 2 } });
 
-    expect(result.data.id).toBe("abc");
-    expect(result.text).toContain('"code":1');
+    expect(result).toEqual({ id: "abc", content: "hi" });
     const call = api.calls[0];
     expect(call?.headers.get("Authorization")).toBe("Bearer tok");
     expect(call?.headers.get("X-Locale")).toBe("en-US");
   });
 
+  test("keeps the raw body for --json output", async () => {
+    api = startFakeApi({
+      "GET /api/echo/abc": () => ({ body: { id: "abc" } }),
+    });
+    const client = new Client({ server: api.baseUrl });
+    const result = await client.callWithMeta<{ id: string }>({ path: "/echo/abc" });
+
+    expect(result.body.id).toBe("abc");
+    expect(result.text).toBe('{"id":"abc"}');
+  });
+
   test("posts JSON bodies", async () => {
     api = startFakeApi({
-      "POST /api/echo": (request) => ({ body: { code: 1, msg: "ok", data: request.body } }),
+      "POST /api/echo": (request) => ({ body: request.body }),
     });
     const client = new Client({ server: api.baseUrl });
     await client.call({ method: "POST", path: "/echo", body: { content: "hello" } });
@@ -52,11 +62,16 @@ describe("Client", () => {
     expect(api.calls[0]?.headers.get("Content-Type")).toBe("application/json");
   });
 
-  test("maps failure envelopes to Ech0Error with i18n fields", async () => {
+  test("maps problem responses to Ech0Error with i18n fields", async () => {
     api = startFakeApi({
       "GET /api/user": () => ({
         status: 401,
-        body: { code: 0, msg: "token 无效", error_code: "AUTH_INVALID", message_key: "auth.token_invalid" },
+        body: {
+          title: "Unauthorized",
+          status: 401,
+          detail: "token 无效",
+          type: "https://ech0.app/problems/account-disabled",
+        },
       }),
     });
     const client = new Client({ server: api.baseUrl, token: "bad" });
@@ -69,8 +84,7 @@ describe("Client", () => {
       const failure = error as Ech0Error;
       expect(failure.message).toBe("token 无效");
       expect(failure.details.status).toBe(401);
-      expect(failure.details.errorCode).toBe("AUTH_INVALID");
-      expect(failure.details.messageKey).toBe("auth.token_invalid");
+      expect(failure.details.type).toBe("https://ech0.app/problems/account-disabled");
     }
   });
 

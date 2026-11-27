@@ -16,8 +16,7 @@ declare namespace App {
 
       type ChatSourceFile = {
         id: string
-        key?: string
-        storage_type: File.StorageType
+        name?: string
         url: string
         content_type?: string
         category?: File.Category

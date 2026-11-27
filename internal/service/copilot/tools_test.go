@@ -20,16 +20,16 @@ import (
 
 type stubEchoSvc struct {
 	EchoService
-	queryFn   func(dto commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error)
+	queryFn   func(dto commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error)
 	getByIDFn func(id string) (*echoModel.Echo, error)
 	tags      []echoModel.Tag
 }
 
-func (f *stubEchoSvc) QueryEchos(_ context.Context, dto commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
+func (f *stubEchoSvc) QueryEchos(_ context.Context, dto commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
 	if f.queryFn != nil {
 		return f.queryFn(dto)
 	}
-	return commonModel.PageQueryResult[[]echoModel.Echo]{}, nil
+	return commonModel.List[echoModel.Echo]{}, nil
 }
 
 func (f *stubEchoSvc) GetEchoById(_ context.Context, id string) (*echoModel.Echo, error) {
@@ -80,15 +80,15 @@ func (f *stubUserReader) GetUserByID(id string) (userModel.User, error) {
 }
 
 func adminReader() *stubUserReader {
-	return &stubUserReader{user: userModel.User{ID: "u1", Username: "alice", IsAdmin: true}}
+	return &stubUserReader{user: userModel.User{ID: "u1", Username: "alice", Role: userModel.RoleAdmin}}
 }
 
-func singlePage(items []echoModel.Echo, total int64) func(commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
-	return func(dto commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
+func singlePage(items []echoModel.Echo, total int64) func(commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
+	return func(dto commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
 		if dto.Page > 1 {
-			return commonModel.PageQueryResult[[]echoModel.Echo]{Items: nil, Total: total}, nil
+			return commonModel.List[echoModel.Echo]{Items: nil, Total: &total}, nil
 		}
-		return commonModel.PageQueryResult[[]echoModel.Echo]{Items: items, Total: total}, nil
+		return commonModel.List[echoModel.Echo]{Items: items, Total: &total}, nil
 	}
 }
 
@@ -208,15 +208,15 @@ func TestSearchEchosTool_SemanticPath(t *testing.T) {
 // model. None of that may turn into "no such record" when keyword search would
 // find the Echo.
 func TestSearchEchosTool_SemanticShortfallFallsBackToKeyword(t *testing.T) {
-	keywordHits := commonModel.PageQueryResult[[]echoModel.Echo]{
+	keywordHits := commonModel.List[echoModel.Echo]{
 		Items: []echoModel.Echo{
 			{ID: "e1", Content: "both", CreatedAt: ts("2026-02-01")},
 			{ID: "e2", Content: "keyword only", CreatedAt: ts("2026-02-02")},
 		},
-		Total: 2,
+		Total: total(2),
 	}
 	echoSvc := &stubEchoSvc{
-		queryFn: func(commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
+		queryFn: func(commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
 			return keywordHits, nil
 		},
 		getByIDFn: func(id string) (*echoModel.Echo, error) { return &echoModel.Echo{ID: id}, nil },
@@ -250,9 +250,9 @@ func TestSearchEchosTool_SemanticShortfallFallsBackToKeyword(t *testing.T) {
 
 func TestSearchEchosTool_UnknownTagIsAnError(t *testing.T) {
 	queried := false
-	echoSvc := &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
+	echoSvc := &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
 		queried = true
-		return commonModel.PageQueryResult[[]echoModel.Echo]{}, nil
+		return commonModel.List[echoModel.Echo]{}, nil
 	}}
 	s := &CopilotService{echoService: echoSvc, embedding: &stubEmbeddingSvc{}}
 	tool := s.searchEchosTool([]echoModel.Tag{{ID: "t1", Name: "读书"}}, false, "zh-CN", time.UTC, 0, newSearchUser())
@@ -268,11 +268,11 @@ func TestSearchEchosTool_UnknownTagIsAnError(t *testing.T) {
 func TestSearchEchosTool_DefaultSQLFallback(t *testing.T) {
 	var gotSearch string
 	echoSvc := &stubEchoSvc{
-		queryFn: func(dto commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
+		queryFn: func(dto commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
 			gotSearch = dto.Search
-			return commonModel.PageQueryResult[[]echoModel.Echo]{
+			return commonModel.List[echoModel.Echo]{
 				Items: []echoModel.Echo{{ID: "e9", Content: "fallback", CreatedAt: ts("2026-03-01")}},
-				Total: 1,
+				Total: total(1),
 			}, nil
 		},
 		getByIDFn: func(id string) (*echoModel.Echo, error) { return &echoModel.Echo{ID: id}, nil },
@@ -294,8 +294,8 @@ func TestSearchEchosTool_DefaultSQLFallback(t *testing.T) {
 
 func TestSearchEchosTool_QueryErrorPropagates(t *testing.T) {
 	wantErr := errors.New("db down")
-	echoSvc := &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
-		return commonModel.PageQueryResult[[]echoModel.Echo]{}, wantErr
+	echoSvc := &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
+		return commonModel.List[echoModel.Echo]{}, wantErr
 	}}
 	s := &CopilotService{echoService: echoSvc, embedding: &stubEmbeddingSvc{}}
 	tool := s.searchEchosTool(nil, false, "zh-CN", time.UTC, 0, newSearchUser())
@@ -336,8 +336,8 @@ func TestStatsOverviewTool_HappyPath(t *testing.T) {
 
 func TestStatsOverviewTool_CollectErrorPropagates(t *testing.T) {
 	wantErr := errors.New("query boom")
-	s := &CopilotService{echoService: &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
-		return commonModel.PageQueryResult[[]echoModel.Echo]{}, wantErr
+	s := &CopilotService{echoService: &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
+		return commonModel.List[echoModel.Echo]{}, wantErr
 	}}}
 	tool := s.statsOverviewTool(nil, "zh-CN", time.UTC, newSearchUser())
 
@@ -391,8 +391,8 @@ func TestSummarizeEchosTool_HappyPathFitsBudget(t *testing.T) {
 
 func TestSummarizeEchosTool_CollectErrorPropagates(t *testing.T) {
 	wantErr := errors.New("range boom")
-	s := &CopilotService{echoService: &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
-		return commonModel.PageQueryResult[[]echoModel.Echo]{}, wantErr
+	s := &CopilotService{echoService: &stubEchoSvc{queryFn: func(commonModel.EchoQueryDto) (commonModel.List[echoModel.Echo], error) {
+		return commonModel.List[echoModel.Echo]{}, wantErr
 	}}}
 	tool := s.summarizeEchosTool(nil, settingModel.AgentSetting{}, 0, "zh-CN", time.UTC, newSearchUser())
 
@@ -401,3 +401,5 @@ func TestSummarizeEchosTool_CollectErrorPropagates(t *testing.T) {
 		t.Fatalf("want propagated error, got %v", err)
 	}
 }
+
+func total(v int64) *int64 { return &v }

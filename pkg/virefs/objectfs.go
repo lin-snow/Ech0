@@ -290,6 +290,54 @@ func (o *ObjectFS) PresignPut(ctx context.Context, key string, expires time.Dura
 	}, nil
 }
 
+// PresignPutContent signs a PUT with a fixed Content-Type so the object store
+// rejects a body whose type differs from the declared one. size is a hint; S3
+// does not sign Content-Length, so it is not part of the signature.
+func (o *ObjectFS) PresignPutContent(ctx context.Context, key string, expires time.Duration, contentType string, _ int64) (*PresignedRequest, error) {
+	if o.presignClient == nil {
+		return nil, &OpError{Op: "PresignPutContent", Key: key, Err: fmt.Errorf("%w: presign client not configured", ErrNotSupported)}
+	}
+	s3k, err := o.s3Key(key)
+	if err != nil {
+		return nil, &OpError{Op: "PresignPutContent", Key: key, Err: err}
+	}
+	input := &s3.PutObjectInput{
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(s3k),
+	}
+	if contentType != "" {
+		input.ContentType = aws.String(contentType)
+	}
+	req, err := o.presignClient.PresignPutObject(ctx, input, func(opts *s3.PresignOptions) {
+		opts.Expires = expires
+	})
+	if err != nil {
+		return nil, &OpError{Op: "PresignPutContent", Key: key, Err: err}
+	}
+	return &PresignedRequest{URL: req.URL, Method: req.Method, Header: req.SignedHeader}, nil
+}
+
+// OpenRange reads [off, off+n) with one ranged GET instead of downloading the
+// whole object, which is what media seeking needs.
+func (o *ObjectFS) OpenRange(ctx context.Context, key string, off, n int64) (io.ReadCloser, error) {
+	if off < 0 || n <= 0 {
+		return nil, &OpError{Op: "OpenRange", Key: key, Err: ErrInvalidKey}
+	}
+	s3k, err := o.s3Key(key)
+	if err != nil {
+		return nil, &OpError{Op: "OpenRange", Key: key, Err: err}
+	}
+	out, err := o.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(s3k),
+		Range:  aws.String(fmt.Sprintf("bytes=%d-%d", off, off+n-1)),
+	})
+	if err != nil {
+		return nil, &OpError{Op: "OpenRange", Key: key, Err: mapS3Error(err)}
+	}
+	return out.Body, nil
+}
+
 func (o *ObjectFS) Access(ctx context.Context, key string) (*AccessInfo, error) {
 	s3k, err := o.s3Key(key)
 	if err != nil {

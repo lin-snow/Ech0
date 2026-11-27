@@ -54,9 +54,8 @@ function report(error: unknown): number {
   }
   if (error instanceof Ech0Error) {
     const status = error.details.status;
-    const detail = status ? palette.dim(` (HTTP ${status}${error.details.errorCode ? ` · ${error.details.errorCode}` : ""})`) : "";
+    const detail = status ? palette.dim(` (HTTP ${status}${error.details.type ? ` · ${error.details.type}` : ""})`) : "";
     printErr(`${palette.red("错误")} ${error.message}${detail}`);
-    if (error.details.messageKey) printErr(palette.dim(`  key: ${error.details.messageKey}`));
     for (const hint of errorHints(error)) printErr(palette.dim(`  提示：${hint}`));
     return EXIT_ERROR;
   }

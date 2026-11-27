@@ -102,6 +102,7 @@ import { useOWebSocket } from '@/service/request/websocket'
 import { getApiUrl, getWsUrl } from '@/service/request/shared'
 import { useAuthStore } from '@/stores/auth'
 import { theToast } from '@/utils/toast'
+import { listItems } from '@/utils/list'
 
 const logs = ref<App.Api.SystemLog.Entry[]>([])
 const tail = ref(200)
@@ -114,19 +115,20 @@ let es: EventSource | null = null
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-const { onMessage, open, close, status } = useOWebSocket<App.Api.Response<App.Api.SystemLog.Entry>>(
-  {
-    url: getWsUrl('/ws/system/logs'),
-    autoReconnect: {
-      retries: 5,
-      delay: 1000,
-      onFailed: () => {
-        startSSE()
-      },
+/** Log streams push one entry per message, matching the REST shape. */
+type SystemLogStreamPayload = App.Api.SystemLog.Entry
+
+const { onMessage, open, close, status } = useOWebSocket<SystemLogStreamPayload>({
+  url: getWsUrl('/ws/system/logs'),
+  autoReconnect: {
+    retries: 5,
+    delay: 1000,
+    onFailed: () => {
+      startSSE()
     },
-    heartbeat: false,
   },
-)
+  heartbeat: false,
+})
 
 const connectionText = computed(() => {
   if (transport.value === 'sse') return String(t('systemLog.sseFallback'))
@@ -181,10 +183,10 @@ const loadHistory = async () => {
     level: level.value,
     keyword: keyword.value,
   })
-  if (res.code !== 1) {
+  if (!res) {
     return
   }
-  logs.value = Array.isArray(res.data) ? res.data : []
+  logs.value = listItems<App.Api.SystemLog.Entry>(res)
   await scrollToBottom()
 }
 
@@ -233,9 +235,9 @@ const startSSE = () => {
   es = new EventSource(buildSSEUrl())
   es.onmessage = async (event) => {
     try {
-      const payload = JSON.parse(event.data) as App.Api.Response<App.Api.SystemLog.Entry>
-      if (payload.code === 1 && payload.data) {
-        await pushLog(payload.data)
+      const payload = JSON.parse(event.data) as SystemLogStreamPayload | null
+      if (payload) {
+        await pushLog(payload)
       }
     } catch {
       theToast.error(String(t('systemLog.sseParseFailed')))
@@ -262,9 +264,9 @@ onMounted(async () => {
   startWS()
   onMessage(async (payload) => {
     if (transport.value !== 'ws') return
-    if (payload.code !== 1 || !payload.data) return
+    if (!payload) return
     try {
-      await pushLog(payload.data)
+      await pushLog(payload)
     } catch {
       theToast.error(String(t('systemLog.processFailed')))
     }

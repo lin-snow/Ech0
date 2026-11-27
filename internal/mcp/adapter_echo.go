@@ -109,8 +109,8 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 	reg.RegisterTool(ToolDefinition{
 		Name:  "update_post",
 		Title: "Update Post",
-		Description: "Update an existing post. Only supplied fields are changed, except echo_files and extension which fully replace " +
-			"the existing values when provided. Returns {id, message}.",
+		Description: "Update an existing post. echo_files is omitted to keep the current attachments or supplied to replace them " +
+			"([] clears); extension replaces the existing value when provided. Returns {id, message}.",
 		InputSchema: map[string]any{
 			"type":     "object",
 			"required": []string{"id"},
@@ -120,7 +120,7 @@ func (a *Adapter) registerEchoTools(reg *Registry) {
 				"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "New tag name list (replaces all existing tags)"},
 				"private":    map[string]any{"type": "boolean", "description": "Set visibility"},
 				"layout":     map[string]any{"type": "string", "enum": layoutEnum, "description": "Image layout style"},
-				"echo_files": map[string]any{"type": "array", "items": echoFileSchema, "description": "New attached files (replaces all existing attachments)"},
+				"echo_files": map[string]any{"type": "array", "items": echoFileSchema, "description": "New attached files. Omit to keep the current attachments; [] clears them."},
 				"extension":  extensionSchema,
 			},
 		},
@@ -346,7 +346,12 @@ func (a *Adapter) updatePost(ctx context.Context, args map[string]any) (*ToolCal
 	}
 	echo.Layout = stringArg(args, "layout")
 	echo.Tags = buildTags(args)
-	echo.EchoFiles = buildEchoFiles(args)
+	if _, ok := args["echo_files"]; ok {
+		echo.EchoFiles = buildEchoFiles(args)
+		if echo.EchoFiles == nil {
+			echo.EchoFiles = []echoModel.EchoFile{}
+		}
+	}
 	echo.Extension = buildExtension(args)
 
 	if _, err := a.echoSvc.UpdateEcho(ctx, echo); err != nil {

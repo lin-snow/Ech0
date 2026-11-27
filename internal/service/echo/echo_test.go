@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	model "github.com/lin-snow/ech0/internal/model/echo"
-	fileModel "github.com/lin-snow/ech0/internal/model/file"
 )
 
 func TestNormalizeEchoExtension(t *testing.T) {
@@ -99,7 +98,7 @@ func TestIsEchoEmpty(t *testing.T) {
 			name: "whitespace content with files is not empty",
 			echo: &model.Echo{
 				Content: "   ",
-				EchoFiles: []fileModel.EchoFile{
+				EchoFiles: []model.EchoFile{
 					{FileID: "test-file-id"},
 				},
 			},

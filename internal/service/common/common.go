@@ -19,9 +19,9 @@ import (
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
-	"github.com/lin-snow/ech0/internal/storage"
 	mdUtil "github.com/lin-snow/ech0/internal/util/md"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
 	urlUtil "github.com/lin-snow/ech0/internal/util/url"
@@ -51,8 +51,8 @@ func (s *CommonService) CommonGetUserByUserId(ctx context.Context, userId string
 	return s.commonRepository.GetUserByUserId(ctx, userId)
 }
 
-func (s *CommonService) GetPrimaryAdmin() (userModel.User, error) {
-	return s.commonRepository.GetPrimaryAdmin(context.Background())
+func (s *CommonService) GetOwner() (userModel.User, error) {
+	return s.commonRepository.GetOwner(context.Background())
 }
 
 // ListSitemapEntries returns every public echo as an id + timestamp pair. It is
@@ -162,20 +162,21 @@ func (s *CommonService) GenerateRSS(ctx *gin.Context) (RSSDocument, error) {
 				if len(msg.EchoFiles) > 0 {
 					var mediaContent []byte
 					for _, ef := range msg.EchoFiles {
-						if ef.File.URL == "" {
+						if ef.File.ID == "" {
 							continue
 						}
-						// Local storage yields a relative URL; absolutizeFeedHTML
-						// resolves it against the feed origin for readers.
-						url := stdhtml.EscapeString(ef.File.URL)
-						switch storage.NormalizeCategory(ef.File.Category) {
-						case storage.CategoryImage:
+						// Content paths are instance-relative;
+						// absolutizeFeedHTML resolves them against the feed
+						// origin for readers.
+						url := stdhtml.EscapeString(fileModel.ContentPath(ef.File.ID))
+						switch fileModel.CategoryOf(ef.File.ContentType) {
+						case fileModel.CategoryImage:
 							mediaContent = fmt.Appendf(mediaContent,
 								"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />", url)
-						case storage.CategoryVideo:
+						case fileModel.CategoryVideo:
 							mediaContent = fmt.Appendf(mediaContent,
 								"<video controls src=\"%s\" style=\"max-width:100%%;\"><a href=\"%s\">打开视频</a></video>", url, url)
-						case storage.CategoryAudio:
+						case fileModel.CategoryAudio:
 							mediaContent = fmt.Appendf(mediaContent,
 								"<audio controls src=\"%s\"><a href=\"%s\">打开音频</a></audio>", url, url)
 						default:
@@ -243,12 +244,12 @@ func (s *CommonService) GetWebsiteTitle(websiteURL string) (string, error) {
 
 	doc, err := html.Parse(strings.NewReader(string(body)))
 	if err != nil {
-		return "", fmt.Errorf("解析 HTML 失败: %w", err)
+		return "", fmt.Errorf("failed to parse html: %w", err)
 	}
 
 	title := extractTitle(doc)
 	if title == "" {
-		return "", errors.New("未找到网站标题")
+		return "", errors.New("no site title found")
 	}
 
 	return title, nil

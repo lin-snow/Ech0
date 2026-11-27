@@ -24,9 +24,14 @@ func (tx *GormTransactor) Run(ctx context.Context, fn func(ctx context.Context) 
 		ctx = context.Background()
 	}
 
-	return tx.dbProvider().Transaction(func(gormTx *gorm.DB) error {
-		txCtx := context.WithValue(ctx, TxKey, gormTx)
+	// A closure running inside an outer transaction joins it: opening a second
+	// one on the same SQLite file would take its write lock and deadlock
+	// against the first.
+	if HasTx(ctx) {
+		return fn(ctx)
+	}
 
-		return fn(txCtx)
+	return tx.dbProvider().Transaction(func(gormTx *gorm.DB) error {
+		return fn(WithTx(ctx, gormTx))
 	})
 }

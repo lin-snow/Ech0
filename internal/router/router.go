@@ -5,13 +5,11 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/mcp"
 	"github.com/lin-snow/ech0/internal/middleware"
 	openapiCatalog "github.com/lin-snow/ech0/internal/openapi/catalog"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
-	"github.com/lin-snow/ech0/internal/storage"
 )
 
 type AppRouterGroup struct {
@@ -23,9 +21,8 @@ type AppRouterGroup struct {
 	MCPRouterGroup          *gin.RouterGroup
 }
 
-func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
+func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) error {
 	setupTemplateRoutes(r, h)
-	setupStaticFiles(r)
 	setupMiddleware(r)
 	catalogState := newCatalogState()
 	r.Use(catalogState.middleware())
@@ -46,25 +43,7 @@ func SetupRouter(r *gin.Engine, h *handler.Bundle, mwDeps *middleware.Deps) {
 
 	catalogState.build(api)
 	r.GET("/api"+openapiCatalog.RoutePath, catalogState.handle)
-}
-
-// setupStaticFiles serves uploaded media straight off disk. It is deliberately
-// registered outside every API group and without the request budget: media
-// delivery is bandwidth-bounded by the object itself, and the route only
-// exposes the media prefixes (never artifacts, never listings).
-func setupStaticFiles(r *gin.Engine) {
-	root := config.Config().Storage.DataRoot
-	if root == "" {
-		root = "data/files"
-	}
-	registerStaticFiles(r, root)
-}
-
-// registerStaticFiles mounts the unauthenticated media route. Only the storage
-// schema's category directories are served; directories themselves and any
-// other path under the root answer 404.
-func registerStaticFiles(r *gin.Engine, root string) {
-	r.Group("api/files", middleware.StaticFileSecurity()).StaticFS("/", storage.NewPublicFS(root))
+	return api.verify()
 }
 
 func revokerOf(mwDeps *middleware.Deps) authService.TokenRevoker {

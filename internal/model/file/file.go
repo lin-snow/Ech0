@@ -4,83 +4,199 @@
 package model
 
 import (
-	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
-	"gorm.io/gorm"
+	"strings"
+	"time"
 )
 
-const storageTypeExternal = "external"
+// Kind is how a file row locates its bytes. It is set once at creation and
+// never edited: content is immutable, so a file never changes kind.
+type Kind string
 
-var resolveURL func(storageType, key string) string
+const (
+	// KindOwned bytes live in a storage provider, addressed by storage_id +
+	// object_key.
+	KindOwned Kind = "owned"
+	// KindBlob bytes live in file_blobs in the same database transaction.
+	KindBlob Kind = "blob"
+	// KindRef bytes live outside the instance, addressed by ref_url.
+	KindRef Kind = "ref"
+)
 
-func RegisterURLResolver(fn func(storageType, key string) string) {
-	resolveURL = fn
-}
+// Access is the rule that decides who may read the bytes. It is a fact about
+// the file, not about its owner: public is readable by anyone holding the id,
+// owner delegates to the owning domain, private is readable by its uploader
+// (and administrators) only.
+type Access string
 
+const (
+	AccessPublic  Access = "public"
+	AccessOwner   Access = "owner"
+	AccessPrivate Access = "private"
+)
+
+// Status marks whether the bytes are known to be complete. pending exists for
+// direct uploads only; every other creation path inserts ready.
+type Status string
+
+const (
+	StatusPending Status = "pending"
+	StatusReady   Status = "ready"
+)
+
+// File is the single file resource. One row is one byte resource with one
+// stable id; the id is the only thing a business table stores.
 type File struct {
-	ID string `gorm:"type:char(36);primaryKey" json:"id"`
+	ID     string `gorm:"type:char(36);primaryKey" json:"id"`
+	Kind   string `gorm:"type:varchar(10);not null" json:"kind"`
+	Status string `gorm:"type:varchar(10);not null" json:"status"`
+	Access string `gorm:"type:varchar(10);not null" json:"access"`
 
-	Key string `gorm:"type:varchar(500);not null;uniqueIndex:idx_file_route,priority:4" json:"key"`
+	// Owned locator. NULL for blob and ref.
+	StorageID *string `gorm:"type:char(36)" json:"storage_id,omitempty"`
+	ObjectKey *string `gorm:"type:varchar(500)" json:"object_key,omitempty"`
 
-	StorageType string `gorm:"type:varchar(20);not null;uniqueIndex:idx_file_route,priority:1" json:"storage_type"`
-	Provider    string `gorm:"type:varchar(50);uniqueIndex:idx_file_route,priority:2" json:"provider,omitempty"`
-	Bucket      string `gorm:"type:varchar(120);uniqueIndex:idx_file_route,priority:3" json:"bucket,omitempty"`
+	// Blob size mirrors file_blobs.data length so listings never read blobs.
+	BlobBytes *int64 `gorm:"column:blob_bytes" json:"blob_bytes,omitempty"`
 
-	URL         string `gorm:"type:text" json:"url"`
+	// Ref locator. NULL for owned and blob.
+	RefURL *string `gorm:"column:ref_url;type:text" json:"ref_url,omitempty"`
+
 	Name        string `gorm:"type:varchar(255)" json:"name"`
-	ContentType string `gorm:"type:varchar(100)" json:"content_type,omitempty"`
-	Size        int64  `gorm:"default:0" json:"size"`
+	ContentType string `gorm:"type:varchar(100);not null" json:"content_type"`
+	Size        int64  `gorm:"not null;default:0" json:"size"`
 	Width       int    `gorm:"default:0" json:"width,omitempty"`
 	Height      int    `gorm:"default:0" json:"height,omitempty"`
 
-	Category  string `gorm:"type:varchar(20);index" json:"category"`
-	UserID    string `gorm:"type:char(36);index;not null" json:"user_id"`
+	// UploaderID is who may manage the file and who access=private trusts.
+	// Administrator override is a role check, never a second column.
+	UploaderID string `gorm:"column:uploader_id;type:char(36);not null;index" json:"uploader_id"`
+
+	CreatedAt int64 `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt int64 `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// Blob holds the bytes of a kind=blob file. It shares the file's primary key,
+// so "file without bytes" is unrepresentable and the foreign key removes both
+// rows together.
+type Blob struct {
+	FileID string `gorm:"column:file_id;type:char(36);primaryKey" json:"file_id"`
+	Data   []byte `gorm:"type:blob;not null" json:"-"`
+}
+
+func (Blob) TableName() string { return "file_blobs" }
+
+// Link is a reference from an owning domain to a file. It carries role and
+// order — what the domain needs — and nothing else: name, size and type belong
+// to the file.
+type Link struct {
+	FileID    string `gorm:"column:file_id;type:char(36);primaryKey" json:"file_id"`
+	OwnerKind string `gorm:"column:owner_kind;type:varchar(20);primaryKey" json:"owner_kind"`
+	OwnerID   string `gorm:"column:owner_id;type:char(36);primaryKey" json:"owner_id"`
+	Role      string `gorm:"type:varchar(20);primaryKey" json:"role"`
+	SortOrder int    `gorm:"column:sort_order;not null;default:0;primaryKey" json:"sort_order"`
 	CreatedAt int64  `gorm:"autoCreateTime" json:"created_at"`
 }
 
-type EchoFile struct {
-	ID        string `gorm:"type:char(36);primaryKey"                        json:"id" doc:"关联记录 ID，提交时忽略"`
-	EchoID    string `gorm:"type:char(36);uniqueIndex:idx_echo_file;not null" json:"echo_id" doc:"所属 Echo ID，提交时忽略"`
-	FileID    string `gorm:"type:char(36);uniqueIndex:idx_echo_file;not null" json:"file_id" doc:"已上传文件的 ID（上传接口返回）"`
-	File      File   `gorm:"foreignKey:FileID;constraint:OnDelete:CASCADE" json:"file,omitempty" doc:"文件元数据，提交时忽略（服务端按 file_id 填充）"`
-	SortOrder int    `gorm:"default:0"                                   json:"sort_order" doc:"同一 Echo 内的排序，从 0 开始"`
+func (Link) TableName() string { return "file_links" }
+
+// GCTask is one object waiting to be removed. It has no foreign key: the row it
+// refers to is already gone, and the task must outlive it.
+type GCTask struct {
+	ID        string `gorm:"type:char(36);primaryKey" json:"id"`
+	StorageID string `gorm:"column:storage_id;type:char(36);not null" json:"storage_id"`
+	ObjectKey string `gorm:"column:object_key;type:varchar(500);not null" json:"object_key"`
+	Attempts  int    `gorm:"not null;default:0" json:"attempts"`
+	LastError string `gorm:"column:last_error;type:text" json:"last_error,omitempty"`
+	NextTryAt int64  `gorm:"column:next_try_at;not null;index" json:"next_try_at"`
+	CreatedAt int64  `gorm:"autoCreateTime" json:"created_at"`
 }
 
-type TempFile struct {
-	ID         string `gorm:"type:char(36);primaryKey"               json:"id"`
-	FileID     string `gorm:"type:char(36);not null;uniqueIndex"     json:"file_id"`
-	File       File   `gorm:"foreignKey:FileID;constraint:OnDelete:CASCADE" json:"file,omitempty"`
-	UploaderID string `gorm:"type:char(36);index;not null"            json:"uploader_id"`
-	ExpireAt   int64  `gorm:"index;not null"                          json:"expire_at"`
-	CreatedAt  int64  `gorm:"autoCreateTime;index"                    json:"created_at"`
+func (GCTask) TableName() string { return "file_gc" }
+
+// StorageConfig is one configured storage instance. Its config map holds
+// driver-specific keys; the file model never interprets them.
+type StorageConfig struct {
+	ID        string            `gorm:"column:id;type:char(36);primaryKey" json:"id"`
+	Driver    string            `gorm:"type:varchar(20);not null" json:"driver"`
+	Name      string            `gorm:"type:varchar(100);not null" json:"name"`
+	Config    map[string]string `gorm:"serializer:json;type:text;not null" json:"config"`
+	IsDefault bool              `gorm:"column:is_default;not null;default:false" json:"is_default"`
+	CreatedAt int64             `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt int64             `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-func (f *File) BeforeCreate(_ *gorm.DB) error {
-	if f.ID == "" {
-		f.ID = uuidUtil.NewV7()
+func (StorageConfig) TableName() string { return "storages" }
+
+// The owner kinds and roles the core domains write. They are vocabulary, not
+// policy: the file system stores them and never branches on them.
+const (
+	OwnerKindEcho     = "echo"
+	OwnerKindUser     = "user"
+	OwnerKindInstance = "instance"
+
+	RoleAttachment = "attachment"
+	RoleAvatar     = "avatar"
+	RoleCover      = "cover"
+	RoleLogo       = "logo"
+	RoleFavicon    = "favicon"
+	RoleOGImage    = "og_image"
+)
+
+// The media families a client groups by. They are projections of content_type,
+// never stored.
+const (
+	CategoryImage    = "image"
+	CategoryVideo    = "video"
+	CategoryAudio    = "audio"
+	CategoryPDF      = "pdf"
+	CategoryMarkdown = "markdown"
+	CategoryFile     = "file"
+)
+
+// CategoryOf derives the coarse media family a client groups by. It is a
+// projection of content_type, never a stored column: two facts, one value.
+func CategoryOf(contentType string) string {
+	switch {
+	case strings.HasPrefix(contentType, "image/"):
+		return CategoryImage
+	case strings.HasPrefix(contentType, "video/"):
+		return CategoryVideo
+	case strings.HasPrefix(contentType, "audio/"), contentType == "application/ogg":
+		return CategoryAudio
+	case contentType == "application/pdf":
+		return CategoryPDF
+	case strings.HasPrefix(contentType, "text/markdown"), contentType == "text/plain":
+		return CategoryMarkdown
+	default:
+		return CategoryFile
 	}
-	return nil
 }
 
-func (f *File) AfterFind(_ *gorm.DB) error {
-	if resolveURL == nil || f.Key == "" || f.StorageType == storageTypeExternal {
-		return nil
-	}
-	if url := resolveURL(f.StorageType, f.Key); url != "" {
-		f.URL = url
-	}
-	return nil
+func (f File) IsOwned() bool { return f.Kind == string(KindOwned) }
+func (f File) IsBlob() bool  { return f.Kind == string(KindBlob) }
+func (f File) IsRef() bool   { return f.Kind == string(KindRef) }
+
+// ContentPath is the single public address of a file's bytes. It is not stored:
+// a stored URL is a second truth that rots when the route changes.
+func ContentPath(fileID string) string { return "/api/files/" + fileID + "/content" }
+
+// Age reports how long ago the row was created, used by the pending janitor.
+func (f File) Age(now time.Time) time.Duration {
+	return now.Sub(time.Unix(f.CreatedAt, 0))
 }
 
-func (e *EchoFile) BeforeCreate(_ *gorm.DB) error {
-	if e.ID == "" {
-		e.ID = uuidUtil.NewV7()
-	}
-	return nil
-}
-
-func (t *TempFile) BeforeCreate(_ *gorm.DB) error {
-	if t.ID == "" {
-		t.ID = uuidUtil.NewV7()
-	}
-	return nil
+// ListFilter is the repository query shape of the file browser and of owner
+// listings. It lives in the model so the service can declare a repository
+// interface without importing the repository package.
+type ListFilter struct {
+	UploaderID string
+	OwnerKind  string
+	OwnerID    string
+	Role       string
+	Kind       string
+	Status     string
+	Access     string
+	Search     string
+	Page       int
+	PageSize   int
 }

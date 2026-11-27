@@ -18,12 +18,12 @@ const queryMock = vi.mocked(fetchQueryEchos)
 const echo = (id: string): App.Api.Ech0.Echo =>
   ({ id, content: id, created_at: 1 }) as App.Api.Ech0.Echo
 
-type EchoPageResponse = App.Api.Response<App.Api.Ech0.PaginationResult>
+type EchoPageResponse = App.Api.Ech0.PaginationResult
 
 const page = (ids: string[], total: number, nextCursor: string | null): EchoPageResponse => ({
-  code: 1,
-  msg: '',
-  data: { items: ids.map(echo), total, nextCursor },
+  items: ids.map(echo),
+  total,
+  nextCursor,
 })
 
 describe('echoStore cursor stream', () => {
@@ -88,7 +88,7 @@ describe('echoStore cursor stream', () => {
   })
 
   it('retries a failed first page', async () => {
-    queryMock.mockResolvedValueOnce({ code: 0, msg: 'boom', data: null })
+    queryMock.mockResolvedValueOnce(null)
     const store = useEchoStore()
     await store.refreshEchos()
     expect(store.loadError).toBe('first')
@@ -101,7 +101,7 @@ describe('echoStore cursor stream', () => {
   })
 
   it('retries a failed deep first page at the depth it was opened with', async () => {
-    queryMock.mockResolvedValueOnce({ code: 0, msg: 'boom', data: null })
+    queryMock.mockResolvedValueOnce(null)
     const store = useEchoStore()
     await store.refreshEchos(21)
     expect(store.loadError).toBe('first')

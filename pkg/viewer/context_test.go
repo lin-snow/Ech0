@@ -11,7 +11,7 @@ import (
 
 func TestWithAndFromContext(t *testing.T) {
 	ctx := context.Background()
-	v := NewUserViewer("u1")
+	v := NewSession("u1", "", nil)
 	ctx = WithContext(ctx, v)
 
 	got, ok := FromContext(ctx)
@@ -35,7 +35,7 @@ func TestWithRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new request failed: %v", err)
 	}
-	req = WithRequest(req, NewUserViewer("u1"))
+	req = WithRequest(req, NewSession("u1", "", nil))
 
 	got := MustFromContext(req.Context())
 	if got.UserID() != "u1" {
@@ -48,7 +48,7 @@ func TestAttachToRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new request failed: %v", err)
 	}
-	AttachToRequest(&req, NewUserViewer("u2"))
+	AttachToRequest(&req, NewSession("u2", "", nil))
 
 	got := MustFromContext(req.Context())
 	if got.UserID() != "u2" {

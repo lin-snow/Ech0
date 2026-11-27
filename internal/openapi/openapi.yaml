@@ -327,38 +327,6 @@ components:
         website:
           type: string
       type: object
-    CreateCommentResult:
-      additionalProperties: true
-      properties:
-        id:
-          type: string
-        status:
-          type: string
-      type: object
-    CreateExternalFileDto:
-      additionalProperties: true
-      properties:
-        category:
-          description: "File category: image, video, audio, pdf, markdown, or file"
-          type: string
-        content_type:
-          description: MIME type; inferred from the URL when omitted
-          type: string
-        height:
-          description: Pixel height, for images
-          format: int64
-          type: integer
-        name:
-          description: Display name; defaults to the URL's last segment
-          type: string
-        url:
-          description: Public HTTP(S) URL to register; no bytes are uploaded
-          type: string
-        width:
-          description: Pixel width, for images
-          format: int64
-          type: integer
-      type: object
     CreateIntegrationCommentDto:
       additionalProperties: true
       properties:
@@ -405,6 +373,9 @@ components:
         created_at:
           format: int64
           type: integer
+        deleted_at:
+          format: date-time
+          type: string
         echo_files:
           items:
             $ref: "#/components/schemas/EchoFile"
@@ -469,20 +440,11 @@ components:
     EchoFile:
       additionalProperties: true
       properties:
-        echo_id:
-          description: 所属 Echo ID，提交时忽略
-          type: string
         file:
           $ref: "#/components/schemas/File"
-          description: 文件元数据，提交时忽略（服务端按 file_id 填充）
         file_id:
-          description: 已上传文件的 ID（上传接口返回）
-          type: string
-        id:
-          description: 关联记录 ID，提交时忽略
           type: string
         sort_order:
-          description: 同一 Echo 内的排序，从 0 开始
           format: int64
           type: integer
       type: object
@@ -548,12 +510,10 @@ components:
           format: int64
           type: integer
         echo_files:
-          description: Attachments as {file_id, sort_order}; upload files first to get file_id
+          description: Attachments as {file_id, sort_order}; upload files first to get file_id. Omit on update to keep existing attachments; send [] to clear
           items:
             $ref: "#/components/schemas/EchoFile"
-          type:
-            - array
-            - "null"
+          type: array
         extension:
           $ref: "#/components/schemas/EchoExtensionDto"
           description: "Card payload: {type, payload}"
@@ -629,27 +589,56 @@ components:
         model:
           type: string
       type: object
-    ErrorBody:
+    ErrorDetail:
       additionalProperties: true
       properties:
-        code:
-          description: 业务状态码，失败为 0
+        location:
+          description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          type: string
+        message:
+          description: Error message text
+          type: string
+        value:
+          description: The value at the given location
+      type: object
+    ErrorModel:
+      additionalProperties: true
+      properties:
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          examples:
+            - Property foo is required but is missing.
+          type: string
+        errors:
+          description: Optional list of individual error details
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+          type:
+            - array
+            - "null"
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          examples:
+            - https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          examples:
+            - 400
           format: int64
           type: integer
-        data:
-          description: 失败时为 null
-        error_code:
-          description: 稳定的业务错误码
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          examples:
+            - Bad Request
           type: string
-        message_key:
-          description: i18n 翻译 key
-          type: string
-        message_params:
-          additionalProperties: {}
-          description: i18n 模板参数
-          type: object
-        msg:
-          description: 状态描述（回退文案）
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          examples:
+            - https://example.com/errors/example
+          format: uri
           type: string
       type: object
     ExportStateDTO:
@@ -684,7 +673,49 @@ components:
     File:
       additionalProperties: true
       properties:
-        bucket:
+        access:
+          type: string
+        blob_bytes:
+          format: int64
+          type: integer
+        content_type:
+          type: string
+        created_at:
+          format: int64
+          type: integer
+        height:
+          format: int64
+          type: integer
+        id:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        object_key:
+          type: string
+        ref_url:
+          type: string
+        size:
+          format: int64
+          type: integer
+        status:
+          type: string
+        storage_id:
+          type: string
+        updated_at:
+          format: int64
+          type: integer
+        uploader_id:
+          type: string
+        width:
+          format: int64
+          type: integer
+      type: object
+    FileDTO:
+      additionalProperties: true
+      properties:
+        access:
           type: string
         category:
           type: string
@@ -698,120 +729,28 @@ components:
           type: integer
         id:
           type: string
-        key:
+        kind:
           type: string
+        links:
+          items:
+            $ref: "#/components/schemas/LinkDTO"
+          type:
+            - array
+            - "null"
         name:
-          type: string
-        provider:
           type: string
         size:
           format: int64
           type: integer
-        storage_type:
+        status:
+          type: string
+        uploader_id:
           type: string
         url:
-          type: string
-        user_id:
           type: string
         width:
           format: int64
           type: integer
-      type: object
-    FileDto:
-      additionalProperties: true
-      properties:
-        category:
-          type: string
-        content_type:
-          type: string
-        height:
-          format: int64
-          type: integer
-        id:
-          type: string
-        key:
-          type: string
-        name:
-          type: string
-        size:
-          format: int64
-          type: integer
-        storage_type:
-          type: string
-        url:
-          type: string
-        user_id:
-          type: string
-        width:
-          format: int64
-          type: integer
-      type: object
-    FileListItemDto:
-      additionalProperties: true
-      properties:
-        content_type:
-          type: string
-        created_at:
-          format: int64
-          type: integer
-        id:
-          type: string
-        key:
-          type: string
-        name:
-          type: string
-        size:
-          format: int64
-          type: integer
-        storage_type:
-          type: string
-        url:
-          type: string
-      type: object
-    FileListResultDto:
-      additionalProperties: true
-      properties:
-        items:
-          items:
-            $ref: "#/components/schemas/FileListItemDto"
-          type:
-            - array
-            - "null"
-        total:
-          format: int64
-          type: integer
-      type: object
-    FileTreeNodeDto:
-      additionalProperties: true
-      properties:
-        content_type:
-          type: string
-        file_id:
-          type: string
-        has_children:
-          type: boolean
-        modified_at:
-          format: int64
-          type: integer
-        name:
-          type: string
-        node_type:
-          type: string
-        path:
-          type: string
-        size:
-          format: int64
-          type: integer
-      type: object
-    FileTreeResultDto:
-      additionalProperties: true
-      properties:
-        items:
-          items:
-            $ref: "#/components/schemas/FileTreeNodeDto"
-          type:
-            - array
-            - "null"
       type: object
     FormMeta:
       additionalProperties: true
@@ -827,16 +766,6 @@ components:
         min_submit_ms:
           format: int64
           type: integer
-      type: object
-    GetPresignURLDto:
-      additionalProperties: true
-      properties:
-        content_type:
-          type: string
-        file_name:
-          type: string
-        storage_type:
-          type: string
       type: object
     GlobalMigrationStateDTO:
       additionalProperties: true
@@ -907,6 +836,307 @@ components:
           type: string
         username:
           type: string
+      type: object
+    LinkDTO:
+      additionalProperties: true
+      properties:
+        owner_id:
+          type: string
+        owner_kind:
+          type: string
+        role:
+          type: string
+        sort_order:
+          format: int64
+          type: integer
+      type: object
+    ListAccessTokenSetting:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/AccessTokenSetting"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListComment:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Comment"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListConnect:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Connect"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListConnected:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Connected"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListConnectedHealth:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/ConnectedHealth"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListDayStat:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/DayStat"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListEcho:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Echo"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListFileDTO:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/FileDTO"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListHeatmap:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Heatmap"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListLogEntry:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/LogEntry"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListPublicComment:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/PublicComment"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListReactionCount:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/ReactionCount"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListReactionEmoji:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/ReactionEmoji"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListTag:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Tag"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListUser:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/User"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
+      type: object
+    ListWebhook:
+      additionalProperties: true
+      properties:
+        items:
+          description: 当前页数据
+          items:
+            $ref: "#/components/schemas/Webhook"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          description: 下一页游标，仅游标分页返回；为空表示没有更多
+          type: string
+        total:
+          description: 符合查询条件的总条数，仅偏移分页返回
+          format: int64
+          type: integer
       type: object
     LogEntry:
       additionalProperties: true
@@ -1017,24 +1247,6 @@ components:
             - array
             - "null"
         title:
-          type: string
-      type: object
-    ModelResultCommentSystemSetting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/ModelSystemSetting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
           type: string
       type: object
     ModelSystemSetting:
@@ -1180,34 +1392,6 @@ components:
         search:
           type: string
       type: object
-    PageQueryResultListEcho:
-      additionalProperties: true
-      properties:
-        items:
-          items:
-            $ref: "#/components/schemas/Echo"
-          type:
-            - array
-            - "null"
-        nextCursor:
-          type: string
-        total:
-          format: int64
-          type: integer
-      type: object
-    PageResultComment:
-      additionalProperties: true
-      properties:
-        items:
-          items:
-            $ref: "#/components/schemas/Comment"
-          type:
-            - array
-            - "null"
-        total:
-          format: int64
-          type: integer
-      type: object
     PasskeyDeviceDto:
       additionalProperties: true
       properties:
@@ -1258,22 +1442,6 @@ components:
       additionalProperties: true
       properties:
         device_name:
-          type: string
-      type: object
-    PresignDto:
-      additionalProperties: true
-      properties:
-        content_type:
-          type: string
-        file_name:
-          type: string
-        file_url:
-          type: string
-        id:
-          type: string
-        key:
-          type: string
-        presign_url:
           type: string
       type: object
     PublicComment:
@@ -1362,931 +1530,11 @@ components:
             - running
           type: string
       type: object
-    ResultAgentSetting:
+    RenameFileInputBody:
       additionalProperties: true
       properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/AgentSetting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultCheckUpdateResponse:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/CheckUpdateResponse"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultComment:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/Comment"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultConnect:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/Connect"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultCreateCommentResult:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/CreateCommentResult"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultEcho:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/Echo"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultEmbeddingSetting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/EmbeddingSetting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultExportStateDTO:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/ExportStateDTO"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultFileDto:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/FileDto"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultFileListResultDto:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/FileListResultDto"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultFileTreeResultDto:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/FileTreeResultDto"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultFormMeta:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/FormMeta"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultGlobalMigrationStateDTO:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/GlobalMigrationStateDTO"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultHelloResponse:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/HelloResponse"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultInterface {}:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data: {}
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListAccessTokenSetting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/AccessTokenSetting"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListChatMessage:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/ChatMessage"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListConnect:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/Connect"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListConnected:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/Connected"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListConnectedHealth:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/ConnectedHealth"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListDayStat:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/DayStat"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListEcho:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/Echo"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListHeatmap:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/Heatmap"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListLogEntry:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/LogEntry"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListPasskeyDeviceDto:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/PasskeyDeviceDto"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListPublicComment:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/PublicComment"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListReactionCount:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/ReactionCount"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListReactionEmoji:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/ReactionEmoji"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListTag:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/Tag"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListUser:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/User"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultListWebhook:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          items:
-            $ref: "#/components/schemas/Webhook"
-          type:
-            - array
-            - "null"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultManifest:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/Manifest"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultOAuth2Setting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/OAuth2Setting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultOAuth2Status:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/OAuth2Status"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultOAuthInfoDto:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/OAuthInfoDto"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultPageQueryResultListEcho:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/PageQueryResultListEcho"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultPageResultComment:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/PageResultComment"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultPasskeySetting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/PasskeySetting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultPasskeyStatus:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/PasskeyStatus"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultPresignDto:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/PresignDto"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultReindexStatusResponse:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/ReindexStatusResponse"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultS3Setting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/S3Setting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultSnapshotSchedule:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/SnapshotSchedule"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultStatus:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/Status"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultString:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          type: string
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultSystemSetting:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/SystemSetting"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultTag:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/Tag"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
-          type: string
-      type: object
-    ResultUser:
-      additionalProperties: true
-      properties:
-        code:
-          format: int64
-          type: integer
-        data:
-          $ref: "#/components/schemas/User"
-        error_code:
-          type: string
-        message_key:
-          type: string
-        message_params:
-          additionalProperties: {}
-          type: object
-        msg:
+        name:
+          description: 展示名称（可为空）
           type: string
       type: object
     S3Setting:
@@ -2423,7 +1671,7 @@ components:
           type: string
         default_locale:
           type: string
-        disable_agent_discovery:
+        enable_agent_discovery:
           type: boolean
         footer_content:
           type: string
@@ -2434,6 +1682,8 @@ components:
         privacy_policy:
           type: string
         server_logo:
+          type: string
+        server_logo_file_id:
           type: string
         server_name:
           type: string
@@ -2457,7 +1707,7 @@ components:
           type: string
         default_locale:
           type: string
-        disable_agent_discovery:
+        enable_agent_discovery:
           type: boolean
         footer_content:
           type: string
@@ -2516,20 +1766,12 @@ components:
         status:
           type: string
       type: object
-    UpdateFileMetaDto:
+    UpdateUserRoleInputBody:
       additionalProperties: true
       properties:
-        content_type:
+        role:
+          description: 目标角色：admin 或 member
           type: string
-        height:
-          format: int64
-          type: integer
-        size:
-          format: int64
-          type: integer
-        width:
-          format: int64
-          type: integer
       type: object
     UpdateUserStatusInputBody:
       additionalProperties: true
@@ -2543,13 +1785,15 @@ components:
       properties:
         avatar:
           type: string
+        avatar_file_id:
+          type: string
         email:
           type: string
         id:
           type: string
-        is_admin:
-          type: boolean
         locale:
+          type: string
+        role:
           type: string
         status:
           type: string
@@ -2565,8 +1809,6 @@ components:
           type: string
         email:
           type: string
-        is_admin:
-          type: boolean
         locale:
           type: string
         password:
@@ -2634,13 +1876,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListAccessTokenSetting"
+                $ref: "#/components/schemas/ListAccessTokenSetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []
@@ -2656,17 +1898,17 @@ paths:
               $ref: "#/components/schemas/AccessTokenSettingDto"
         required: true
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultString"
-          description: OK
+                type: string
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []
@@ -2686,17 +1928,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []
@@ -2705,38 +1943,40 @@ paths:
         - Setting
   /agent/info:
     get:
+      description: publishes the assistant identity and enabled capabilities
       operationId: agent-info
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultAgentSetting"
+                $ref: "#/components/schemas/AgentSetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取 Agent 公开信息
       tags:
         - Setting
   /agent/recent:
     get:
+      description: public digest of the author's recent posts
       operationId: copilot-recent
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultString"
+                type: string
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取作者近况的 AI 总结
       tags:
@@ -2749,13 +1989,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultAgentSetting"
+                $ref: "#/components/schemas/AgentSetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -2772,17 +2012,13 @@ paths:
               $ref: "#/components/schemas/AgentSettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -2800,17 +2036,13 @@ paths:
               $ref: "#/components/schemas/AgentSettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -2828,17 +2060,13 @@ paths:
               $ref: "#/components/schemas/AnswerAskInputBody"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -2850,17 +2078,13 @@ paths:
     delete:
       operationId: copilot-session-clear
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -2875,13 +2099,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListChatMessage"
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+                type:
+                  - array
+                  - "null"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -2906,18 +2134,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListPublicComment"
+                $ref: "#/components/schemas/ListPublicComment"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 按 echo 列出评论
       tags:
         - Comment
     post:
+      description: anonymous commenting is an instance policy; the service enforces captcha and moderation
       operationId: comment-create
       requestBody:
         content:
@@ -2926,36 +2157,37 @@ paths:
               $ref: "#/components/schemas/CreateCommentDto"
         required: true
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultCreateCommentResult"
-          description: OK
+                $ref: "#/components/schemas/Comment"
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 创建公开评论
       tags:
         - Comment
   /comments/form:
     get:
+      description: anonymous readers need captcha and field metadata before commenting
       operationId: comment-form-meta
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultFormMeta"
+                $ref: "#/components/schemas/FormMeta"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取评论表单元信息
       tags:
@@ -2970,17 +2202,17 @@ paths:
               $ref: "#/components/schemas/CreateIntegrationCommentDto"
         required: true
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultCreateCommentResult"
-          description: OK
+                $ref: "#/components/schemas/Comment"
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3006,51 +2238,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListPublicComment"
+                $ref: "#/components/schemas/ListPublicComment"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 列出最新评论
       tags:
         - Comment
   /connect:
     get:
+      description: peer directory metadata this instance shares with other instances
       operationId: connect-self
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultConnect"
+                $ref: "#/components/schemas/Connect"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取当前实例的连接信息
       tags:
         - Connect
   /connect/list:
     get:
+      description: peer directory listing is public by design
       operationId: connect-list
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListConnected"
+                $ref: "#/components/schemas/ListConnected"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取当前实例添加的所有连接
       tags:
@@ -3065,17 +2301,13 @@ paths:
               $ref: "#/components/schemas/AddConnectDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "201":
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3091,13 +2323,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListConnectedHealth"
+                $ref: "#/components/schemas/ListConnectedHealth"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3107,19 +2339,20 @@ paths:
         - Connect
   /connects/info:
     get:
+      description: peer directory details are public by design
       operationId: connect-info
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListConnect"
+                $ref: "#/components/schemas/ListConnect"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取所有已添加连接的详细信息
       tags:
@@ -3137,17 +2370,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3165,17 +2394,21 @@ paths:
               $ref: "#/components/schemas/EchoUpsertDto"
         required: true
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultEcho"
-          description: OK
+                $ref: "#/components/schemas/Echo"
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3196,13 +2429,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultEcho"
+                $ref: "#/components/schemas/Echo"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3228,14 +2461,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 获取热门 Echo
       tags:
         - Echo
@@ -3254,14 +2489,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 那年今日
       tags:
         - Echo
@@ -3291,14 +2528,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPageQueryResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 分页获取 Echo（Deprecated）
       tags:
         - Echo
@@ -3315,14 +2554,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPageQueryResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 分页获取 Echo（Deprecated）
       tags:
         - Echo
@@ -3340,14 +2581,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPageQueryResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 分页/筛选 Echo 列表
       tags:
         - Echo
@@ -3359,14 +2602,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultEcho"
+                $ref: "#/components/schemas/Echo"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 随机返回一篇 Echo
       tags:
         - Echo
@@ -3404,14 +2649,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPageQueryResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 按标签获取 Echo（Deprecated）
       tags:
         - Echo
@@ -3430,14 +2677,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListEcho"
+                $ref: "#/components/schemas/ListEcho"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 获取今天的 Echo
       tags:
         - Echo
@@ -3454,17 +2703,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3488,14 +2733,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultEcho"
+                $ref: "#/components/schemas/Echo"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 获取指定 ID 的 Echo
       tags:
         - Echo
@@ -3531,14 +2778,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListReactionCount"
+                $ref: "#/components/schemas/ListReactionCount"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 取消 Echo 的表情反应（幂等）
       tags:
         - Reaction
@@ -3573,14 +2822,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListReactionCount"
+                $ref: "#/components/schemas/ListReactionCount"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
+      security:
+        - bearerAuth: []
       summary: 为 Echo 添加表情反应（幂等）
       tags:
         - Reaction
@@ -3593,13 +2844,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultReindexStatusResponse"
+                $ref: "#/components/schemas/ReindexStatusResponse"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3616,13 +2867,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultReindexStatusResponse"
+                $ref: "#/components/schemas/ReindexStatusResponse"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3639,13 +2890,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultReindexStatusResponse"
+                $ref: "#/components/schemas/ReindexStatusResponse"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3661,13 +2912,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultEmbeddingSetting"
+                $ref: "#/components/schemas/EmbeddingSetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3684,17 +2935,13 @@ paths:
               $ref: "#/components/schemas/EmbeddingSettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3702,67 +2949,120 @@ paths:
       summary: 更新 Embedding 设置
       tags:
         - Setting
-  /file/tree:
+  /files:
     get:
-      operationId: file-tree
+      operationId: file-list
       parameters:
-        - description: "Storage type: local or object (s3 maps to object)"
+        - description: 页码，从 1 开始
           explode: false
           in: query
-          name: storage_type
-          required: true
+          name: page
           schema:
-            description: "Storage type: local or object (s3 maps to object)"
+            description: 页码，从 1 开始
+            format: int64
+            type: integer
+        - description: 每页数量，1-100
+          explode: false
+          in: query
+          name: pageSize
+          schema:
+            description: 每页数量，1-100
+            format: int64
+            type: integer
+        - description: 文件名称模糊匹配
+          explode: false
+          in: query
+          name: search
+          schema:
+            description: 文件名称模糊匹配
             type: string
-        - description: Path prefix to list under
+        - description: owned / blob / ref
           explode: false
           in: query
-          name: prefix
+          name: kind
           schema:
-            description: Path prefix to list under
+            description: owned / blob / ref
+            type: string
+        - description: pending / ready
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: pending / ready
+            type: string
+        - description: public / owner / private
+          explode: false
+          in: query
+          name: access
+          schema:
+            description: public / owner / private
+            type: string
+        - description: 引用方类型，如 echo
+          explode: false
+          in: query
+          name: ownerKind
+          schema:
+            description: 引用方类型，如 echo
+            type: string
+        - description: 引用方 ID
+          explode: false
+          in: query
+          name: ownerId
+          schema:
+            description: 引用方 ID
+            type: string
+        - description: 引用角色，如 attachment
+          explode: false
+          in: query
+          name: role
+          schema:
+            description: 引用角色，如 attachment
             type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultFileTreeResultDto"
+                $ref: "#/components/schemas/ListFileDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
             - file:read
-      summary: 获取文件树
+      summary: 分页获取文件列表
       tags:
         - File
-  /file/{id}:
+  /files/{id}:
     delete:
       operationId: file-delete
       parameters:
-        - description: File ID
+        - description: 文件 ID
           in: path
           name: id
           required: true
           schema:
-            description: File ID
+            description: 文件 ID
             type: string
+        - description: 管理员强制删除仍有引用的文件
+          explode: false
+          in: query
+          name: force
+          schema:
+            description: 管理员强制删除仍有引用的文件
+            type: boolean
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -3773,179 +3073,103 @@ paths:
     get:
       operationId: file-get
       parameters:
-        - description: File ID
+        - description: 文件 ID
           in: path
           name: id
           required: true
           schema:
-            description: File ID
+            description: 文件 ID
             type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultFileDto"
+                $ref: "#/components/schemas/FileDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
-        - bearerAuth:
-            - file:read
+        - bearerAuth: []
       summary: 获取文件元信息
       tags:
         - File
-  /file/{id}/meta:
-    put:
-      operationId: file-update-meta
+    patch:
+      operationId: file-rename
       parameters:
-        - description: File ID
+        - description: 文件 ID
           in: path
           name: id
           required: true
           schema:
-            description: File ID
+            description: 文件 ID
             type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateFileMetaDto"
+              $ref: "#/components/schemas/RenameFileInputBody"
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultFileDto"
+                $ref: "#/components/schemas/FileDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
             - file:write
-      summary: 更新对象存储文件元信息
+      summary: 修改文件展示名称
       tags:
         - File
-  /files:
-    get:
-      operationId: file-list
-      parameters:
-        - description: Page number, 1-based (default 1)
-          explode: false
-          in: query
-          name: page
-          schema:
-            description: Page number, 1-based (default 1)
-            format: int64
-            type: integer
-        - description: Items per page, 1-100 (default 20)
-          explode: false
-          in: query
-          name: pageSize
-          schema:
-            description: Items per page, 1-100 (default 20)
-            format: int64
-            type: integer
-        - description: Substring match on file name
-          explode: false
-          in: query
-          name: search
-          schema:
-            description: Substring match on file name
-            type: string
-        - description: "Storage type: local or object (s3 maps to object)"
-          explode: false
-          in: query
-          name: storage_type
-          schema:
-            description: "Storage type: local or object (s3 maps to object)"
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultFileListResultDto"
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          description: Error
-      security:
-        - bearerAuth:
-            - file:read
-      summary: 分页获取文件列表
-      tags:
-        - File
-  /files/external:
+  /files/{id}/commit:
     post:
-      operationId: file-external
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateExternalFileDto"
-        required: true
+      operationId: file-commit
+      parameters:
+        - description: 文件 ID
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 文件 ID
+            type: string
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultFileDto"
-          description: OK
+                $ref: "#/components/schemas/FileDTO"
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
             - file:write
-      summary: 登记外链文件
-      tags:
-        - File
-  /files/presign:
-    put:
-      operationId: file-presign
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GetPresignURLDto"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultPresignDto"
-          description: OK
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          description: Error
-      security:
-        - bearerAuth:
-            - file:write
-      summary: 获取对象存储直传预签名 URL
+      summary: 确认直传完成
       tags:
         - File
   /heatmap:
     get:
+      description: public activity graph of the timeline
       operationId: common-heatmap
       parameters:
         - description: 客户端时区（IANA 名），用于按本地日界对齐热力图
@@ -3959,32 +3183,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListHeatmap"
+                $ref: "#/components/schemas/ListHeatmap"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取发布热力图
       tags:
         - Common
   /hello:
     get:
+      description: liveness and version probe
       operationId: common-hello
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultHelloResponse"
+                $ref: "#/components/schemas/HelloResponse"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Hello / 版本信息
       tags:
@@ -4000,17 +3225,13 @@ paths:
               $ref: "#/components/schemas/InitOwnerDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "201":
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 初始化站点管理员
       tags:
@@ -4024,13 +3245,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultStatus"
+                $ref: "#/components/schemas/Status"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取系统初始化状态
       tags:
@@ -4043,13 +3264,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultManifest"
+                $ref: "#/components/schemas/Manifest"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4065,13 +3286,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultGlobalMigrationStateDTO"
+                $ref: "#/components/schemas/GlobalMigrationStateDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4083,17 +3304,13 @@ paths:
     post:
       operationId: migration-cleanup
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4115,13 +3332,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultExportStateDTO"
+                $ref: "#/components/schemas/ExportStateDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4137,13 +3354,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultExportStateDTO"
+                $ref: "#/components/schemas/ExportStateDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4159,13 +3376,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultExportStateDTO"
+                $ref: "#/components/schemas/ExportStateDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4187,13 +3404,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultGlobalMigrationStateDTO"
+                $ref: "#/components/schemas/GlobalMigrationStateDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4209,13 +3426,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultGlobalMigrationStateDTO"
+                $ref: "#/components/schemas/GlobalMigrationStateDTO"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4239,13 +3456,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultOAuthInfoDto"
+                $ref: "#/components/schemas/OAuthInfoDto"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4275,13 +3492,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultString"
+                type: string
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []
@@ -4296,13 +3513,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultOAuth2Setting"
+                $ref: "#/components/schemas/OAuth2Setting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4319,17 +3536,13 @@ paths:
               $ref: "#/components/schemas/OAuth2SettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4339,19 +3552,20 @@ paths:
         - Setting
   /oauth2/status:
     get:
+      description: clients must know whether social login is enabled before authenticating
       operationId: oauth2-status
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultOAuth2Status"
+                $ref: "#/components/schemas/OAuth2Status"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取 OAuth2 状态
       tags:
@@ -4401,13 +3615,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPageResultComment"
+                $ref: "#/components/schemas/ListComment"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4425,17 +3639,13 @@ paths:
               $ref: "#/components/schemas/BatchCommentActionDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4451,13 +3661,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ModelResultCommentSystemSetting"
+                $ref: "#/components/schemas/ModelSystemSetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4474,17 +3684,13 @@ paths:
               $ref: "#/components/schemas/ModelSystemSetting"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4502,17 +3708,13 @@ paths:
               $ref: "#/components/schemas/TestEmailRequest"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4532,17 +3734,13 @@ paths:
             description: 评论 ID
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4565,13 +3763,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultComment"
+                $ref: "#/components/schemas/Comment"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4597,17 +3795,13 @@ paths:
               $ref: "#/components/schemas/UpdateCommentHotDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4633,17 +3827,13 @@ paths:
               $ref: "#/components/schemas/UpdateCommentStatusDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4659,13 +3849,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPasskeySetting"
+                $ref: "#/components/schemas/PasskeySetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4682,17 +3872,13 @@ paths:
               $ref: "#/components/schemas/PasskeySettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4702,19 +3888,20 @@ paths:
         - Setting
   /passkey/status:
     get:
+      description: clients must know whether passkey login is available
       operationId: passkey-status
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultPasskeyStatus"
+                $ref: "#/components/schemas/PasskeyStatus"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取 Passkey 状态
       tags:
@@ -4727,13 +3914,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListPasskeyDeviceDto"
+                items:
+                  $ref: "#/components/schemas/PasskeyDeviceDto"
+                type:
+                  - array
+                  - "null"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4754,17 +3945,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []
@@ -4789,17 +3976,13 @@ paths:
               $ref: "#/components/schemas/PasskeyUpdateDeviceNameReq"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []
@@ -4808,25 +3991,27 @@ paths:
         - Auth
   /reactions:
     get:
+      description: "presentation data: the emoji set offered to readers"
       operationId: reaction-catalog
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListReactionEmoji"
+                $ref: "#/components/schemas/ListReactionEmoji"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取可用的表情反应
       tags:
         - Reaction
   /register:
     post:
+      description: registration is open until the instance reaches its member limit
       operationId: user-register
       requestBody:
         content:
@@ -4835,17 +4020,13 @@ paths:
               $ref: "#/components/schemas/RegisterDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "201":
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 用户注册
       tags:
@@ -4858,13 +4039,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultS3Setting"
+                $ref: "#/components/schemas/S3Setting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4881,17 +4062,13 @@ paths:
               $ref: "#/components/schemas/S3SettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4909,17 +4086,13 @@ paths:
               $ref: "#/components/schemas/S3SettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4929,19 +4102,20 @@ paths:
         - Setting
   /settings:
     get:
+      description: public settings expose only non-secret presentation fields
       operationId: settings-get
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultSystemSetting"
+                $ref: "#/components/schemas/SystemSetting"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取系统全局设置
       tags:
@@ -4955,17 +4129,13 @@ paths:
               $ref: "#/components/schemas/SystemSettingDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -4981,13 +4151,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultSnapshotSchedule"
+                $ref: "#/components/schemas/SnapshotSchedule"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5004,17 +4174,13 @@ paths:
               $ref: "#/components/schemas/SnapshotScheduleDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5030,13 +4196,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultCheckUpdateResponse"
+                $ref: "#/components/schemas/CheckUpdateResponse"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5074,13 +4240,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListLogEntry"
+                $ref: "#/components/schemas/ListLogEntry"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5096,13 +4262,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListDayStat"
+                $ref: "#/components/schemas/ListDayStat"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5120,17 +4286,17 @@ paths:
               $ref: "#/components/schemas/CreateTagDto"
         required: true
       responses:
-        "200":
+        "201":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultTag"
-          description: OK
+                $ref: "#/components/schemas/Tag"
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5151,17 +4317,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5171,19 +4333,20 @@ paths:
         - Echo
   /tags:
     get:
+      description: "public navigation: readers browse by tag"
       operationId: tag-list
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListTag"
+                $ref: "#/components/schemas/ListTag"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: 获取所有标签
       tags:
@@ -5196,13 +4359,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultUser"
+                $ref: "#/components/schemas/User"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5219,17 +4382,13 @@ paths:
               $ref: "#/components/schemas/UserInfoDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5237,9 +4396,36 @@ paths:
       summary: 更新当前用户信息
       tags:
         - User
-  /user/admin/{id}:
+  /user/owner/{id}:
     put:
-      operationId: user-set-admin
+      operationId: user-transfer-owner
+      parameters:
+        - description: 接任所有者的用户 ID（UUID）
+          in: path
+          name: id
+          required: true
+          schema:
+            description: 接任所有者的用户 ID（UUID）
+            format: uuid
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearerAuth:
+            - admin:user
+      summary: 转让空间所有权
+      tags:
+        - User
+  /user/role/{id}:
+    put:
+      operationId: user-set-role
       parameters:
         - description: 用户 ID（UUID）
           in: path
@@ -5249,23 +4435,25 @@ paths:
             description: 用户 ID（UUID）
             format: uuid
             type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRoleInputBody"
+        required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
             - admin:user
-      summary: 切换用户管理员权限
+      summary: 设置用户角色（admin 或 member）
       tags:
         - User
   /user/status/{id}:
@@ -5287,17 +4475,13 @@ paths:
               $ref: "#/components/schemas/UpdateUserStatusInputBody"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5318,17 +4502,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5344,13 +4524,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListUser"
+                $ref: "#/components/schemas/ListUser"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5366,13 +4546,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultListWebhook"
+                $ref: "#/components/schemas/ListWebhook"
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5389,17 +4569,13 @@ paths:
               $ref: "#/components/schemas/WebhookDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "201":
+          description: Created
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5420,17 +4596,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5456,17 +4628,13 @@ paths:
               $ref: "#/components/schemas/WebhookDto"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5487,17 +4655,13 @@ paths:
             format: uuid
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResultInterface {}"
-          description: OK
+        "204":
+          description: No Content
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth:
@@ -5522,13 +4686,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResultString"
+                type: string
           description: OK
         default:
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/ErrorBody"
+                $ref: "#/components/schemas/ErrorModel"
           description: Error
       security:
         - bearerAuth: []

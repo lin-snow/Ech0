@@ -5,7 +5,6 @@ import { Command } from "commander";
 
 import { COMMAND_NAMES, ECHO_COMPOSE_OPERATIONS, inScope } from "../catalog/scope.ts";
 import { confirmDestructive } from "./confirm.ts";
-import { assertUploadStorage, categoryForFile, UPLOAD_OPERATION } from "./files.ts";
 import { editPayload, readPayload } from "./payload.ts";
 import type { Catalog, CatalogOp } from "../catalog/types.ts";
 import { exampleFor, pathOf, setCommandExamples, setCommandHints, setCommandOp } from "../help/model.ts";
@@ -204,6 +203,9 @@ function echoQueryExamples(id: string): string[] | undefined {
   }
 }
 
+/** Upload operation the CLI calls when a file must become a server file id. */
+const UPLOAD_OPERATION = "file.upload";
+
 function echoQueryHints(id: string): string[] {
   if (id === "echo.list") {
     return [
@@ -221,10 +223,15 @@ function echoQueryHints(id: string): string[] {
 
 /** Server schemas stay generic; these distinctions are command-level UX. */
 function fileHints(id: string): string[] {
-  if (id === "file.upload") return ["只上传本地字节；已有 URL 的资源用 ech0 file external 登记，不下载不复制"];
-  if (id === "file.external") return ["只登记 URL，不上传字节；本地文件用 ech0 file upload"];
-  if (id === "file.list") return ["--storage-type 取 local / s3 / object；不传时包含 external 记录"];
-  if (id === "file.tree") return ["--storage-type 取 local / s3 / object，需与实例存储配置一致"];
+  if (id === "file.upload") {
+    return [
+      "只上传本地字节；已有 URL 的资源用 --external-url 登记，不下载不复制",
+      "--profile 决定上限与可见性：attachment（默认）/ draft / avatar / instance",
+      "--mode direct 只对 attachment 生效，返回预签名地址由客户端自行直传",
+    ];
+  }
+  if (id === "file.list") return ["--kind 取 owned / blob / ref；--access 取 public / owner / private"];
+  if (id === "file.content") return ["二进制内容网关；私有文件需要登录且具备访问权"];
   return [];
 }
 
@@ -514,16 +521,6 @@ export function registerCatalogCommands(program: Command, catalog: Catalog, opti
       for (const field of fields) {
         const value = parsed[field.optionKey];
         if (value !== undefined) values[field.field] = value;
-      }
-      // The upload API infers a category from the filename when none is given;
-      // do the same here so `ech0 file upload --file a.png` just works.
-      if (id === UPLOAD_OPERATION) {
-        if (values.category === undefined && typeof values.file === "string") {
-          values.category = categoryForFile(values.file);
-        }
-        if (typeof values.storage_type === "string") {
-          assertUploadStorage(values.storage_type);
-        }
       }
       const missing = fields
         .filter((field) => field.required && values[field.field] === undefined)

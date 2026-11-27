@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
@@ -22,9 +22,9 @@ import (
 )
 
 func echoWithFileIDs(ids ...string) *echoModel.Echo {
-	files := make([]fileModel.EchoFile, 0, len(ids))
+	files := make([]echoModel.EchoFile, 0, len(ids))
 	for i, id := range ids {
-		files = append(files, fileModel.EchoFile{FileID: id, SortOrder: i})
+		files = append(files, echoModel.EchoFile{FileID: id, SortOrder: i})
 	}
 	e := helpers.NewEcho(func(e *echoModel.Echo) {
 		e.ID = echoID
@@ -34,30 +34,36 @@ func echoWithFileIDs(ids ...string) *echoModel.Echo {
 	return &e
 }
 
-func fileDto(id, category string) commonModel.FileDto {
-	return commonModel.FileDto{ID: id, Category: category}
+func fileDto(id, category string) fileModel.FileDTO {
+	return fileModel.FileDTO{ID: id, Category: category}
+}
+
+func expectFiles(file *filemock.MockService, files []fileModel.FileDTO) {
+	for _, f := range files {
+		file.EXPECT().Get(mock.Anything, f.ID).Return(f, nil).Once()
+	}
 }
 
 func TestValidateSingleFileCategory_Reject(t *testing.T) {
 	cases := []struct {
 		name  string
-		files []commonModel.FileDto
+		files []fileModel.FileDTO
 	}{
 		{
 			name:  "image mixed with audio rejected",
-			files: []commonModel.FileDto{fileDto("f1", "image"), fileDto("f2", "audio")},
+			files: []fileModel.FileDTO{fileDto("f1", fileModel.CategoryImage), fileDto("f2", fileModel.CategoryAudio)},
 		},
 		{
 			name:  "image mixed with video rejected",
-			files: []commonModel.FileDto{fileDto("f1", "image"), fileDto("f2", "video")},
+			files: []fileModel.FileDTO{fileDto("f1", fileModel.CategoryImage), fileDto("f2", fileModel.CategoryVideo)},
 		},
 		{
 			name:  "two audios rejected",
-			files: []commonModel.FileDto{fileDto("f1", "audio"), fileDto("f2", "audio")},
+			files: []fileModel.FileDTO{fileDto("f1", fileModel.CategoryAudio), fileDto("f2", fileModel.CategoryAudio)},
 		},
 		{
 			name:  "two videos rejected",
-			files: []commonModel.FileDto{fileDto("f1", "video"), fileDto("f2", "video")},
+			files: []fileModel.FileDTO{fileDto("f1", fileModel.CategoryVideo), fileDto("f2", fileModel.CategoryVideo)},
 		},
 	}
 
@@ -70,10 +76,7 @@ func TestValidateSingleFileCategory_Reject(t *testing.T) {
 				CommonGetUserByUserId(mock.Anything, adminID).
 				Return(helpers.NewUser(helpers.AsAdmin), nil).
 				Once()
-			file.EXPECT().
-				GetFilesByIDs(mock.Anything, mock.Anything).
-				Return(tc.files, nil).
-				Once()
+			expectFiles(file, tc.files)
 
 			svc := echoService.NewEchoService(nil, common, file, repo, nilBus)
 			ids := make([]string, len(tc.files))
@@ -82,7 +85,7 @@ func TestValidateSingleFileCategory_Reject(t *testing.T) {
 			}
 			_, err := svc.PostEcho(helpers.CtxAsUser(adminID), echoWithFileIDs(ids...))
 
-			require.EqualError(t, err, commonModel.ECHO_MIXED_FILE_CATEGORIES)
+			require.EqualError(t, err, apperr.ErrEchoMixedFiles.Error())
 		})
 	}
 }
@@ -98,10 +101,10 @@ func TestValidateSingleFileCategory_MultipleImagesAllowed(t *testing.T) {
 		CommonGetUserByUserId(mock.Anything, adminID).
 		Return(helpers.NewUser(helpers.AsAdmin), nil).
 		Once()
-	file.EXPECT().
-		GetFilesByIDs(mock.Anything, mock.Anything).
-		Return([]commonModel.FileDto{fileDto("f1", "image"), fileDto("f2", "image")}, nil).
-		Once()
+	expectFiles(file, []fileModel.FileDTO{
+		fileDto("f1", fileModel.CategoryImage),
+		fileDto("f2", fileModel.CategoryImage),
+	})
 
 	tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 	repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
@@ -109,13 +112,16 @@ func TestValidateSingleFileCategory_MultipleImagesAllowed(t *testing.T) {
 	var created echoModel.Echo
 	repo.EXPECT().
 		CreateEcho(mock.Anything, mock.Anything).
-		Run(func(_ context.Context, e *echoModel.Echo) { created = *e }).
+		Run(func(_ context.Context, e *echoModel.Echo) { e.ID = "saved-1"; created = *e }).
 		Return(nil).
 		Once()
 	repo.EXPECT().InvalidateEchoCaches().Once()
 	saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = "saved-1" })
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(&saved, nil).Once()
-	file.EXPECT().ConfirmTempFiles(mock.Anything, mock.Anything).Return(nil).Once()
+	file.EXPECT().
+		Replace(mock.Anything, []string{"f1", "f2"}, fileModel.OwnerKindEcho, "saved-1", fileModel.RoleAttachment).
+		Return(nil).
+		Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
 	_, err := svc.PostEcho(helpers.CtxAsUser(adminID), echoWithFileIDs("f1", "f2"))
@@ -136,13 +142,13 @@ func TestUpdateEcho_MixedFileCategoriesRejected(t *testing.T) {
 	existing := echoWithFileIDs("f1", "f2")
 	existing.UserID = adminID
 	repo.EXPECT().GetEchosById(mock.Anything, mock.Anything).Return(existing, nil).Once()
-	file.EXPECT().
-		GetFilesByIDs(mock.Anything, mock.Anything).
-		Return([]commonModel.FileDto{fileDto("f1", "image"), fileDto("f2", "audio")}, nil).
-		Once()
+	expectFiles(file, []fileModel.FileDTO{
+		fileDto("f1", fileModel.CategoryImage),
+		fileDto("f2", fileModel.CategoryAudio),
+	})
 
 	svc := echoService.NewEchoService(nil, common, file, repo, nilBus)
 	_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), echoWithFileIDs("f1", "f2"))
 
-	require.EqualError(t, err, commonModel.ECHO_MIXED_FILE_CATEGORIES)
+	require.EqualError(t, err, apperr.ErrEchoMixedFiles.Error())
 }

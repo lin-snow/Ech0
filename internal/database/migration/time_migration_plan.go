@@ -35,8 +35,6 @@ func StorageTimeColumnPlans() []TimeColumnPlan {
 		{Table: "echo_extensions", Column: "updated_at"},
 		{Table: "tags", Column: "created_at"},
 		{Table: "files", Column: "created_at"},
-		{Table: "temp_files", Column: "expire_at"},
-		{Table: "temp_files", Column: "created_at"},
 		{Table: "comments", Column: "created_at"},
 		{Table: "comments", Column: "updated_at"},
 		{Table: "webhooks", Column: "last_trigger"},

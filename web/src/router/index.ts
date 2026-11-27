@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useInitStore } from '@/stores/init'
 import { useUserStore } from '@/stores/user'
 import { useEchoStore } from '@/stores/echo'
+import { isAdminRole } from '@/utils/role'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,7 +38,7 @@ const router = createRouter({
       path: '/panel',
       name: 'panel',
       component: () => import('../views/panel/PanelView.vue'),
-      redirect: () => (useUserStore().user?.is_admin === true ? '/panel/dashboard' : '/panel/user'),
+      redirect: () => (isAdminRole(useUserStore().user?.role) ? '/panel/dashboard' : '/panel/user'),
       meta: {
         title: 'Panel',
         description: 'Ech0 management panel.',
@@ -261,7 +262,7 @@ router.beforeEach(async (to) => {
 
   const needRedirect = localStorage.getItem('needLoginRedirect')
 
-  if (to.meta.requiresAdmin === true && userStore.isLogin && userStore.user?.is_admin !== true) {
+  if (to.meta.requiresAdmin === true && userStore.isLogin && !isAdminRole(userStore.user?.role)) {
     return { name: 'panel-user' }
   }
 

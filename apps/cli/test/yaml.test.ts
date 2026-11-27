@@ -88,15 +88,11 @@ async function run(
 describe("yaml output", () => {
   test("a rendered document parses back to the same value", () => {
     const value = {
-      code: 1,
-      msg: "ok",
-      data: {
-        items: [{ id: "e1", content: "hi", tags: ["a", "y"] }],
-        empty: [],
-        none: null,
-        text: "line1\nline2",
-        ratio: 0.5,
-      },
+      items: [{ id: "e1", content: "hi", tags: ["a", "y"] }],
+      empty: [],
+      none: null,
+      text: "line1\nline2",
+      ratio: 0.5,
     };
     expect(Bun.YAML.parse(yamlOf(value))).toEqual(value);
   });
@@ -109,7 +105,7 @@ describe("yaml output", () => {
     api = startFakeApi({
       "GET /api/_catalog": () => ({ body: CATALOG }),
       "POST /api/echo/query": () => ({
-        body: { code: 1, msg: "ok", data: { items: [{ id: "e1" }], total: 1 } },
+        body: { items: [{ id: "e1" }], total: 1 },
       }),
     });
     const env = {

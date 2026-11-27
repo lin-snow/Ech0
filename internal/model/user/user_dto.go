@@ -10,8 +10,6 @@ type UserInfoDto struct {
 
 	Email string `json:"email"`
 
-	IsAdmin bool `json:"is_admin"`
-
 	Avatar string `json:"avatar"`
 
 	AvatarFileID string `json:"avatar_file_id"`

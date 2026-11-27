@@ -45,19 +45,19 @@ export const useReindexStore = defineStore('reindexStore', () => {
 
   async function fetchStatus() {
     const res = await fetchReindexStatus()
-    if (res.code !== 1) {
+    if (!res) {
       return false
     }
-    applyState(res.data as App.Api.Embedding.ReindexStatus)
+    applyState(res)
     return true
   }
 
   async function start() {
     const res = await fetchReindexEmbeddings()
-    if (res.code !== 1) {
-      return res
+    if (!res) {
+      return null
     }
-    applyState(res.data as App.Api.Embedding.ReindexStatus)
+    applyState(res)
     if (isRunning.value) {
       startPolling()
     }
@@ -66,8 +66,8 @@ export const useReindexStore = defineStore('reindexStore', () => {
 
   async function cancel() {
     const res = await fetchCancelReindex()
-    if (res.code === 1) {
-      applyState(res.data as App.Api.Embedding.ReindexStatus)
+    if (res) {
+      applyState(res)
       if (isRunning.value) {
         startPolling()
       } else {

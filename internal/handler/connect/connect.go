@@ -35,56 +35,62 @@ type (
 )
 
 type (
-	ConnectOutput       = commonModel.Result[connectModel.Connect]
-	ConnectedListOutput = commonModel.Result[[]connectModel.Connected]
-	ConnectListOutput   = commonModel.Result[[]connectModel.Connect]
-	ConnectHealthOutput = commonModel.Result[[]connectModel.ConnectedHealth]
-	EmptyOutput         = commonModel.Result[any]
+	ConnectOutput       = struct{ Body connectModel.Connect }
+	ConnectedListOutput = struct {
+		Body commonModel.List[connectModel.Connected]
+	}
+	ConnectListOutput = struct {
+		Body commonModel.List[connectModel.Connect]
+	}
+	ConnectHealthOutput = struct {
+		Body commonModel.List[connectModel.ConnectedHealth]
+	}
+	EmptyOutput = struct{}
 )
 
-func (connectHandler *ConnectHandler) GetConnect(ctx context.Context, _ *GetConnectInput) (ConnectOutput, error) {
+func (connectHandler *ConnectHandler) GetConnect(_ context.Context, _ *GetConnectInput) (*ConnectOutput, error) {
 	connect, err := connectHandler.connectService.GetConnect()
 	if err != nil {
-		return ConnectOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(connect, commonModel.CONNECT_SUCCESS), nil
+	return &ConnectOutput{Body: connect}, nil
 }
 
-func (connectHandler *ConnectHandler) GetConnects(ctx context.Context, _ *GetConnectsInput) (ConnectedListOutput, error) {
+func (connectHandler *ConnectHandler) GetConnects(_ context.Context, _ *GetConnectsInput) (*ConnectedListOutput, error) {
 	connects, err := connectHandler.connectService.GetConnects()
 	if err != nil {
-		return ConnectedListOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(connects, commonModel.GET_CONNECTED_LIST_SUCCESS), nil
+	return &ConnectedListOutput{Body: commonModel.List[connectModel.Connected]{Items: connects}}, nil
 }
 
-func (connectHandler *ConnectHandler) GetConnectsInfo(ctx context.Context, _ *GetConnectsInfoInput) (ConnectListOutput, error) {
+func (connectHandler *ConnectHandler) GetConnectsInfo(_ context.Context, _ *GetConnectsInfoInput) (*ConnectListOutput, error) {
 	connects, err := connectHandler.connectService.GetConnectsInfo()
 	if err != nil {
-		return ConnectListOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(connects, commonModel.GET_CONNECT_INFO_SUCCESS), nil
+	return &ConnectListOutput{Body: commonModel.List[connectModel.Connect]{Items: connects}}, nil
 }
 
-func (connectHandler *ConnectHandler) GetConnectsHealth(ctx context.Context, _ *GetConnectsHealthIn) (ConnectHealthOutput, error) {
+func (connectHandler *ConnectHandler) GetConnectsHealth(_ context.Context, _ *GetConnectsHealthIn) (*ConnectHealthOutput, error) {
 	rows, err := connectHandler.connectService.GetConnectsHealth()
 	if err != nil {
-		return ConnectHealthOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(rows, commonModel.GET_CONNECT_HEALTH_SUCCESS), nil
+	return &ConnectHealthOutput{Body: commonModel.List[connectModel.ConnectedHealth]{Items: rows}}, nil
 }
 
-func (connectHandler *ConnectHandler) AddConnect(ctx context.Context, in *AddConnectInput) (EmptyOutput, error) {
+func (connectHandler *ConnectHandler) AddConnect(ctx context.Context, in *AddConnectInput) (*EmptyOutput, error) {
 	connected := connectModel.Connected{ConnectURL: in.Body.ConnectURL}
 	if err := connectHandler.connectService.AddConnect(ctx, connected); err != nil {
-		return EmptyOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK[any](nil, commonModel.ADD_CONNECT_SUCCESS), nil
+	return &EmptyOutput{}, nil
 }
 
-func (connectHandler *ConnectHandler) DeleteConnect(ctx context.Context, in *DeleteConnectInput) (EmptyOutput, error) {
+func (connectHandler *ConnectHandler) DeleteConnect(ctx context.Context, in *DeleteConnectInput) (*EmptyOutput, error) {
 	if err := connectHandler.connectService.DeleteConnect(ctx, in.ID); err != nil {
-		return EmptyOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK[any](nil, commonModel.DELETE_CONNECT_SUCCESS), nil
+	return &EmptyOutput{}, nil
 }

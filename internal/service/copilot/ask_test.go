@@ -6,14 +6,13 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/agent"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 )
 
@@ -322,7 +321,7 @@ func existingEcho() *echoModel.Echo {
 		Private:   false,
 		Tags:      []echoModel.Tag{{ID: "t1", Name: "日常"}},
 		CreatedAt: ts("2026-01-02"),
-		EchoFiles: []echoModel.EchoFile{{ID: "f1"}},
+		EchoFiles: []echoModel.EchoFile{{FileID: "f1"}},
 		Layout:    echoModel.LayoutGrid,
 		Extension: &echoModel.EchoExtension{
 			ID:      "x1",
@@ -481,7 +480,7 @@ func TestDeleteEchoTool_ExpiryLeavesTheEchoAlone(t *testing.T) {
 func TestDeleteEchoTool_UnknownEchoNeverAsks(t *testing.T) {
 	echoSvc := &recordingEchoSvc{}
 	echoSvc.getByIDFn = func(string) (*echoModel.Echo, error) {
-		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+		return nil, apperr.ErrEchoNotFound
 	}
 	s := &CopilotService{echoService: echoSvc, asks: newAskRegistry()}
 	a, events := newTestAsker(time.Second)
@@ -565,7 +564,7 @@ func TestUpdateEchoTool_CarriesUnshownFieldsThrough(t *testing.T) {
 	if got.Content != "改过的内容" {
 		t.Fatalf("content = %q, want the new text", got.Content)
 	}
-	if len(got.EchoFiles) != 1 || got.EchoFiles[0].ID != "f1" {
+	if len(got.EchoFiles) != 1 || got.EchoFiles[0].FileID != "f1" {
 		t.Fatalf("files = %+v, want the existing file carried through", got.EchoFiles)
 	}
 	// UpdateEcho deletes and re-creates the extension row from what it is handed,

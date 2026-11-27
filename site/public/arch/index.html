@@ -821,7 +821,7 @@
     <div class="h c">webhook<small>同步</small></div><div class="h c">embedding<small>AsyncParallel</small></div><div class="h c">agent<small>AsyncParallel</small></div><div class="h c">snapshot<small>AsyncSequential</small></div>
 
     <div class="ev">UserCreated</div><div>user.created</div><div>User.ID</div><div>service/user · InitOwner · Register</div><div class="m">●</div><div class="m"></div><div class="m"></div><div class="m"></div>
-    <div class="ev">UserUpdated</div><div>user.updated</div><div>User.ID</div><div>service/user · UpdateUser · UpdateUserAdmin</div><div class="m">●</div><div class="m"></div><div class="m"></div><div class="m"></div>
+    <div class="ev">UserUpdated</div><div>user.updated</div><div>User.ID</div><div>service/user · UpdateUser · UpdateUserRole</div><div class="m">●</div><div class="m"></div><div class="m"></div><div class="m"></div>
     <div class="ev">UserDeleted</div><div>user.deleted</div><div>User.ID</div><div>service/user · DeleteUser</div><div class="m">●</div><div class="m"></div><div class="m">●</div><div class="m"></div>
     <div class="ev">EchoCreated</div><div>echo.created</div><div>Echo.ID</div><div>service/echo · PostEcho</div><div class="m">●</div><div class="m">●</div><div class="m">●</div><div class="m"></div>
     <div class="ev">EchoUpdated</div><div>echo.updated</div><div>Echo.ID</div><div>service/echo · UpdateEcho</div><div class="m">●</div><div class="m">●</div><div class="m">●</div><div class="m"></div>
@@ -1285,7 +1285,7 @@
   </div>
   <div class="node" id="vw-mw" style="left:3160px; top:5280px; width:400px; height:72px">
     <img class="mono" src="icons/authz.svg" alt="">
-    <div><div class="name">RequireAuth / OptionalAuth</div><div class="sub">JWT → 撤销检查 → NewUserViewerWithToken</div></div>
+    <div><div class="name">RequireAuth / OptionalAuth</div><div class="sub">JWT 校验 → 撤销检查 → 角色直读 → Principal (Kind/Role/Scopes)</div></div>
   </div>
   <div class="node" id="vw-ctx" style="left:3610px; top:5280px; width:420px; height:72px">
     <img class="mono" src="icons/identity.svg" alt="">

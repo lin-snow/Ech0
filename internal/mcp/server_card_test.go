@@ -121,7 +121,7 @@ func TestGetServerCard(t *testing.T) {
 		},
 		{
 			name:       "disabled",
-			kv:         func(t *testing.T) kvstore.Store { return settingsStore(t, `{"disable_agent_discovery":true}`) },
+			kv:         func(t *testing.T) kvstore.Store { return settingsStore(t, `{"enable_agent_discovery":false}`) },
 			wantStatus: http.StatusNotFound,
 		},
 		{

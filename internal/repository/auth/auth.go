@@ -5,14 +5,13 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/cache"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/transaction"
 	"gorm.io/gorm"
@@ -69,20 +68,20 @@ func (authRepository *AuthRepository) StoreOAuthCode(code string, pair *authMode
 
 func (authRepository *AuthRepository) GetAndDeleteOAuthCode(code string) (*authModel.TokenPair, error) {
 	if code == "" {
-		return nil, errors.New(commonModel.EXCHANGE_CODE_INVALID)
+		return nil, apperr.ErrExchangeCodeInvalid
 	}
 
 	key := oauthCodePrefix + code
 	val, found, _ := authRepository.cache.Get(key)
 	if !found {
-		return nil, errors.New(commonModel.EXCHANGE_CODE_INVALID)
+		return nil, apperr.ErrExchangeCodeInvalid
 	}
 
 	authRepository.cache.Delete(key)
 
 	pair, ok := val.(*authModel.TokenPair)
 	if !ok {
-		return nil, errors.New(commonModel.EXCHANGE_CODE_INVALID)
+		return nil, apperr.ErrExchangeCodeInvalid
 	}
 	return pair, nil
 }

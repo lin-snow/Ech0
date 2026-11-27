@@ -4,14 +4,15 @@
 package auth
 
 import (
-	"errors"
 	"net/url"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -90,14 +91,14 @@ func TestGetOAuthLoginURL(t *testing.T) {
 	t.Run("provider not configured returns OAUTH2_NOT_CONFIGURED", func(t *testing.T) {
 		svc, _, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 		out, err := svc.GetOAuthLoginURL(string(commonModel.OAuth2GOOGLE), "")
-		require.EqualError(t, err, commonModel.OAUTH2_NOT_CONFIGURED)
+		require.EqualError(t, err, apperr.ErrOAuthNotConfigured.Error())
 		assert.Empty(t, out)
 	})
 
 	t.Run("invalid client redirect is rejected before state issuance", func(t *testing.T) {
 		svc, _, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 		out, err := svc.GetOAuthLoginURL(string(commonModel.OAuth2GITHUB), "/relative/path")
-		require.EqualError(t, err, commonModel.INVALID_PARAMS)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 		assert.Empty(t, out)
 	})
 
@@ -115,40 +116,22 @@ func TestGetOAuthLoginURL(t *testing.T) {
 
 func TestGetOAuthInfo_NonAdminRejected(t *testing.T) {
 	ctx := helpers.CtxAsUser("u-1")
-	svc, repo, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
-	repo.EXPECT().
-		GetUserByID(mock.Anything, "u-1").
-		Return(userModel.User{ID: "u-1", IsAdmin: false}, nil).
-		Once()
+	svc, _, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
 
 	out, err := svc.GetOAuthInfo(ctx, string(commonModel.OAuth2GITHUB))
-	require.EqualError(t, err, commonModel.NO_PERMISSION_BINDING_GITHUB)
-	assert.Equal(t, userModel.OAuthInfoDto{}, out)
-}
-
-func TestGetOAuthInfo_GetUserError(t *testing.T) {
-	ctx := helpers.CtxAsUser("u-1")
-	svc, repo, _, _ := newSvc(t, seedOAuth2KV(t, fullOAuth2Setting(string(commonModel.OAuth2GITHUB))))
-	lookupErr := errors.New("user lookup failed")
-	repo.EXPECT().
-		GetUserByID(mock.Anything, "u-1").
-		Return(userModel.User{}, lookupErr).
-		Once()
-
-	out, err := svc.GetOAuthInfo(ctx, string(commonModel.OAuth2GITHUB))
-	require.ErrorIs(t, err, lookupErr)
+	require.EqualError(t, err, apperr.ErrBindGitHub.Error())
 	assert.Equal(t, userModel.OAuthInfoDto{}, out)
 }
 
 func TestGetOAuthInfo_OAuth2Branch(t *testing.T) {
-	ctx := helpers.CtxAsUser("admin-1")
+	ctx := helpers.CtxAsUser("admin-1", role.Admin)
 	setting := fullOAuth2Setting(string(commonModel.OAuth2GITHUB))
 	setting.IsOIDC = false
 	svc, repo, _, _ := newSvc(t, seedOAuth2KV(t, setting))
 
 	repo.EXPECT().
 		GetUserByID(mock.Anything, "admin-1").
-		Return(userModel.User{ID: "admin-1", IsAdmin: true}, nil).
+		Return(userModel.User{ID: "admin-1", Role: userModel.RoleAdmin}, nil).
 		Once()
 	repo.EXPECT().
 		GetOAuthInfo("admin-1", string(commonModel.OAuth2GITHUB)).
@@ -168,7 +151,7 @@ func TestGetOAuthInfo_OAuth2Branch(t *testing.T) {
 }
 
 func TestGetOAuthInfo_OIDCBranch(t *testing.T) {
-	ctx := helpers.CtxAsUser("admin-1")
+	ctx := helpers.CtxAsUser("admin-1", role.Admin)
 	setting := fullOAuth2Setting(string(commonModel.OAuth2CUSTOM))
 	setting.IsOIDC = true
 	setting.Issuer = "https://idp.example.com"
@@ -176,7 +159,7 @@ func TestGetOAuthInfo_OIDCBranch(t *testing.T) {
 
 	repo.EXPECT().
 		GetUserByID(mock.Anything, "admin-1").
-		Return(userModel.User{ID: "admin-1", IsAdmin: true}, nil).
+		Return(userModel.User{ID: "admin-1", Role: userModel.RoleAdmin}, nil).
 		Once()
 	repo.EXPECT().
 		GetOAuthOIDCInfo("admin-1", string(commonModel.OAuth2CUSTOM), "https://idp.example.com").

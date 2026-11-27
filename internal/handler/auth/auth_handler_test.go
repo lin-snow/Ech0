@@ -15,9 +15,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	cookieUtil "github.com/lin-snow/ech0/internal/util/cookie"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
@@ -27,14 +27,14 @@ type fakeAuthService struct {
 	isTokenRevokedFn    func(jti string) bool
 	revokeTokenFn       func(jti string, ttl time.Duration)
 	exchangeOAuthCodeFn func(code string) (*authModel.TokenPair, error)
-	isAccountActiveFn   func(userID string) (bool, error)
+	accountStateFn      func(userID string) (userModel.AccountState, error)
 }
 
-func (f *fakeAuthService) IsAccountActive(_ context.Context, userID string) (bool, error) {
-	if f.isAccountActiveFn != nil {
-		return f.isAccountActiveFn(userID)
+func (f *fakeAuthService) AccountState(_ context.Context, userID string) (userModel.AccountState, error) {
+	if f.accountStateFn != nil {
+		return f.accountStateFn(userID)
 	}
-	return true, nil
+	return userModel.AccountState{Found: true, Role: userModel.RoleMember, Status: userModel.StatusActive}, nil
 }
 
 func (f *fakeAuthService) IsTokenRevoked(jti string) bool {
@@ -135,7 +135,11 @@ func (f *fakeUserService) Register(*authModel.RegisterDto) error  { panic("not c
 func (f *fakeUserService) UpdateUser(context.Context, userModel.UserInfoDto) error {
 	panic("not called")
 }
-func (f *fakeUserService) UpdateUserAdmin(context.Context, string) error { panic("not called") }
+
+func (f *fakeUserService) UpdateUserRole(context.Context, string, userModel.Role) error {
+	panic("not called")
+}
+func (f *fakeUserService) TransferOwnership(context.Context, string) error { panic("not called") }
 func (f *fakeUserService) UpdateUserStatus(context.Context, string, userModel.Status) error {
 	panic("not called")
 }
@@ -143,7 +147,7 @@ func (f *fakeUserService) UpdateUserStatus(context.Context, string, userModel.St
 func (f *fakeUserService) GetAllUsers(context.Context) ([]userModel.User, error) {
 	panic("not called")
 }
-func (f *fakeUserService) GetPrimaryAdmin() (userModel.User, error) { panic("not called") }
+func (f *fakeUserService) GetOwner() (userModel.User, error) { panic("not called") }
 func (f *fakeUserService) DeleteUser(context.Context, string) error {
 	panic("not called")
 }
@@ -186,19 +190,17 @@ func addRefreshCookie(req *http.Request, token string) {
 	})
 }
 
-type apiResult struct {
-	Code       int             `json:"code"`
-	Msg        string          `json:"msg"`
-	ErrorCode  string          `json:"error_code"`
-	MessageKey string          `json:"message_key"`
-	Data       json.RawMessage `json:"data"`
+type problemDoc struct {
+	Status int    `json:"status"`
+	Code   string `json:"code"`
+	Detail string `json:"detail"`
 }
 
-func parseBody(t *testing.T, rec *httptest.ResponseRecorder) apiResult {
+func parseProblem(t *testing.T, rec *httptest.ResponseRecorder) problemDoc {
 	t.Helper()
-	var r apiResult
+	var r problemDoc
 	if err := json.Unmarshal(rec.Body.Bytes(), &r); err != nil {
-		t.Fatalf("failed to parse response body: %v\nbody: %s", err, rec.Body.String())
+		t.Fatalf("failed to parse problem document: %v\nbody: %s", err, rec.Body.String())
 	}
 	return r
 }
@@ -225,12 +227,12 @@ func TestRefresh_NoCookie(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeRefreshTokenInvalid {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeRefreshTokenInvalid, res.ErrorCode)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
-	if res.MessageKey != commonModel.MsgKeyAuthRefreshTokenInvalid {
-		t.Fatalf("expected message_key %s, got %s", commonModel.MsgKeyAuthRefreshTokenInvalid, res.MessageKey)
+	if res.Detail == "" {
+		t.Fatal("problem document carries no detail")
 	}
 }
 
@@ -247,9 +249,9 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeRefreshTokenInvalid {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeRefreshTokenInvalid, res.ErrorCode)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -270,20 +272,19 @@ func TestRefresh_TokenRevoked(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeTokenRevoked {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeTokenRevoked, res.ErrorCode)
-	}
-	if res.MessageKey != commonModel.MsgKeyAuthTokenRevoked {
-		t.Fatalf("expected message_key %s, got %s", commonModel.MsgKeyAuthTokenRevoked, res.MessageKey)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrTokenRevoked.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrTokenRevoked.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
 
 func TestRefresh_AccountDisabled(t *testing.T) {
 	auth := &fakeAuthService{
-		isTokenRevokedFn:  func(_ string) bool { return false },
-		isAccountActiveFn: func(_ string) (bool, error) { return false, nil },
+		isTokenRevokedFn: func(_ string) bool { return false },
+		accountStateFn: func(_ string) (userModel.AccountState, error) {
+			return userModel.AccountState{Found: true, Status: userModel.StatusDisabled}, nil
+		},
 	}
 	user := &fakeUserService{
 		getUserByIDFn: func(_ string) (userModel.User, error) {
@@ -302,20 +303,19 @@ func TestRefresh_AccountDisabled(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeAccountDisabled {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeAccountDisabled, res.ErrorCode)
-	}
-	if res.MessageKey != commonModel.MsgKeyAuthAccountDisabled {
-		t.Fatalf("expected message_key %s, got %s", commonModel.MsgKeyAuthAccountDisabled, res.MessageKey)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrAccountDisabled.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrAccountDisabled.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
 
 func TestRefresh_AccountStatusReadFailureFailsClosed(t *testing.T) {
 	auth := &fakeAuthService{
-		isTokenRevokedFn:  func(_ string) bool { return false },
-		isAccountActiveFn: func(_ string) (bool, error) { return false, errors.New("db down") },
+		isTokenRevokedFn: func(_ string) bool { return false },
+		accountStateFn: func(_ string) (userModel.AccountState, error) {
+			return userModel.AccountState{}, errors.New("db down")
+		},
 	}
 	user := &fakeUserService{
 		getUserByIDFn: func(_ string) (userModel.User, error) {
@@ -334,9 +334,9 @@ func TestRefresh_AccountStatusReadFailureFailsClosed(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected %d, got %d", http.StatusInternalServerError, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeInternal {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeInternal, res.ErrorCode)
+	res := parseProblem(t, rec)
+	if res.Detail != "internal server error" {
+		t.Fatalf("expected detail %q, got %q", "internal server error", res.Detail)
 	}
 }
 
@@ -361,9 +361,9 @@ func TestRefresh_UserNotFound(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeRefreshTokenInvalid {
-		t.Fatalf("expected error_code %s (not USER_NOTFOUND), got %s", commonModel.ErrCodeRefreshTokenInvalid, res.ErrorCode)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -397,20 +397,17 @@ func TestRefresh_Success(t *testing.T) {
 	}
 
 	var body struct {
-		Code int `json:"code"`
-		Data struct {
-			AccessToken string `json:"access_token"`
-			ExpiresIn   int    `json:"expires_in"`
-		} `json:"data"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
-	if body.Data.AccessToken == "" {
+	if body.AccessToken == "" {
 		t.Fatal("expected non-empty access_token")
 	}
-	if body.Data.ExpiresIn != config.Config().Auth.Jwt.Expires {
-		t.Fatalf("expected expires_in %d, got %d", config.Config().Auth.Jwt.Expires, body.Data.ExpiresIn)
+	if body.ExpiresIn != config.Config().Auth.Jwt.Expires {
+		t.Fatalf("expected expires_in %d, got %d", config.Config().Auth.Jwt.Expires, body.ExpiresIn)
 	}
 
 	var renewed string
@@ -451,9 +448,9 @@ func TestRefresh_AccessTokenCookie_Rejected(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("access token should be rejected by refresh endpoint, got status %d", rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeRefreshTokenInvalid {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeRefreshTokenInvalid, res.ErrorCode)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrRefreshTokenInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrRefreshTokenInvalid.Error(), res.Detail)
 	}
 	assertRefreshCookieCleared(t, rec)
 }
@@ -531,13 +528,13 @@ func TestLogout_WithBothTokens_RevokesBoth(t *testing.T) {
 	}
 }
 
-func TestLogout_LegacyNeverExpireAccessToken_DoesNotPanic(t *testing.T) {
+// A token without an expiry cannot be verified any more (expiry is required),
+// so logout ignores it instead of panicking or revoking an unverified JTI.
+func TestLogout_TokenWithoutExpiryIsIgnored(t *testing.T) {
 	var revoked []string
-	var revokedTTL time.Duration
 	auth := &fakeAuthService{
-		revokeTokenFn: func(jti string, ttl time.Duration) {
+		revokeTokenFn: func(jti string, _ time.Duration) {
 			revoked = append(revoked, jti)
-			revokedTTL = ttl
 		},
 	}
 	h := NewAuthHandler(auth, &fakeUserService{})
@@ -545,9 +542,10 @@ func TestLogout_LegacyNeverExpireAccessToken_DoesNotPanic(t *testing.T) {
 	r.POST("/api/auth/logout", h.Logout())
 
 	legacy := jwt.NewWithClaims(jwt.SigningMethodHS256, authModel.MyClaims{
-		Userid:   "u",
-		Username: "u",
-		Type:     authModel.TokenTypeAccess,
+		Type:     authModel.TokenTypeSession,
+		Issuer:   config.Config().Auth.Jwt.Issuer,
+		Subject:  "u",
+		Audience: jwt.ClaimStrings{config.Config().Auth.Jwt.Audience},
 		ID:       "legacy-jti",
 	})
 	signed, err := legacy.SignedString(config.Config().Security.JWTSecret)
@@ -563,11 +561,8 @@ func TestLogout_LegacyNeverExpireAccessToken_DoesNotPanic(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 (no panic), got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if len(revoked) != 1 || revoked[0] != "legacy-jti" {
-		t.Fatalf("expected JTI 'legacy-jti' to be revoked, got %v", revoked)
-	}
-	if revokedTTL <= 0 {
-		t.Fatalf("revoke TTL must be positive so blacklist actually persists, got %v", revokedTTL)
+	if len(revoked) != 0 {
+		t.Fatalf("unverifiable token must not revoke a JTI, got %v", revoked)
 	}
 }
 
@@ -601,12 +596,9 @@ func TestExchange_InvalidBody(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected %d, got %d", http.StatusBadRequest, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeInvalidRequest {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeInvalidRequest, res.ErrorCode)
-	}
-	if res.MessageKey == "" {
-		t.Fatal("expected non-empty message_key for i18n")
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrInvalidRequestBody.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrInvalidRequestBody.Error(), res.Detail)
 	}
 }
 
@@ -626,15 +618,12 @@ func TestExchange_InvalidCode(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, rec.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, rec.Code)
 	}
-	res := parseBody(t, rec)
-	if res.ErrorCode != commonModel.ErrCodeExchangeCodeInvalid {
-		t.Fatalf("expected error_code %s, got %s", commonModel.ErrCodeExchangeCodeInvalid, res.ErrorCode)
-	}
-	if res.MessageKey != commonModel.MsgKeyAuthExchangeCodeInvalid {
-		t.Fatalf("expected message_key %s, got %s", commonModel.MsgKeyAuthExchangeCodeInvalid, res.MessageKey)
+	res := parseProblem(t, rec)
+	if res.Detail != apperr.ErrExchangeCodeInvalid.Error() {
+		t.Fatalf("expected detail %q, got %q", apperr.ErrExchangeCodeInvalid.Error(), res.Detail)
 	}
 }
 
@@ -663,19 +652,17 @@ func TestExchange_Success(t *testing.T) {
 	}
 
 	var resp struct {
-		Data struct {
-			AccessToken string `json:"access_token"`
-			ExpiresIn   int    `json:"expires_in"`
-		} `json:"data"`
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("parse response: %v", err)
 	}
-	if resp.Data.AccessToken != "new-access-token" {
-		t.Fatalf("expected access_token 'new-access-token', got %q", resp.Data.AccessToken)
+	if resp.AccessToken != "new-access-token" {
+		t.Fatalf("expected access_token 'new-access-token', got %q", resp.AccessToken)
 	}
-	if resp.Data.ExpiresIn != 900 {
-		t.Fatalf("expected expires_in 900, got %d", resp.Data.ExpiresIn)
+	if resp.ExpiresIn != 900 {
+		t.Fatalf("expected expires_in 900, got %d", resp.ExpiresIn)
 	}
 
 	foundCookie := false
@@ -729,7 +716,7 @@ func TestExchange_CodeReuse_Rejected(t *testing.T) {
 	req2.Header.Set("Content-Type", "application/json")
 	rec2 := httptest.NewRecorder()
 	r.ServeHTTP(rec2, req2)
-	if rec2.Code != http.StatusBadRequest {
+	if rec2.Code != http.StatusUnauthorized {
 		t.Fatalf("second exchange (code reuse) should fail, got %d", rec2.Code)
 	}
 }

@@ -14,8 +14,8 @@ import (
 	"github.com/lin-snow/ech0/internal/agent"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
-	"github.com/lin-snow/ech0/internal/storage"
 )
 
 const (
@@ -116,7 +116,9 @@ func (s *CopilotService) collectRange(
 		if qErr != nil {
 			return nil, 0, false, qErr
 		}
-		total = res.Total
+		if res.Total != nil {
+			total = *res.Total
+		}
 		for i := range res.Items {
 			echos = append(echos, res.Items[i])
 			if len(echos) >= maxAggregateEchos {
@@ -260,7 +262,7 @@ func tagLabels(tags []echoModel.Tag) string {
 func imageCountOf(e echoModel.Echo) int {
 	n := 0
 	for _, ef := range e.EchoFiles {
-		if storage.NormalizeCategory(ef.File.Category).IsImageLike() {
+		if fileModel.CategoryOf(ef.File.ContentType) == fileModel.CategoryImage {
 			n++
 		}
 	}

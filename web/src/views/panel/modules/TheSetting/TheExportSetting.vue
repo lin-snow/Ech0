@@ -183,9 +183,6 @@ const handleExport = async () => {
     theToast.info(String(t('exportSetting.exporting')), { duration: 4000 })
     const res = await startSnapshotTask(exportFormat.value, exportIncludePrivate.value)
     if (!res) return
-    if (res.code !== 1) {
-      theToast.error(res.msg || String(t('exportSetting.exportFailed')))
-    }
   } catch (error) {
     console.error(String(t('exportSetting.exportFailed')), error)
     theToast.error(String(t('exportSetting.exportFailed')))

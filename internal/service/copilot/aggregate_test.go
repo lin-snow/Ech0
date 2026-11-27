@@ -25,7 +25,7 @@ const serverMaxPageSize = 40
 func (f *pagingEchoSvc) QueryEchos(
 	_ context.Context,
 	dto commonModel.EchoQueryDto,
-) (commonModel.PageQueryResult[[]echoModel.Echo], error) {
+) (commonModel.List[echoModel.Echo], error) {
 	f.gotUserID = dto.UserID
 	ps := dto.PageSize
 	if ps < 1 || ps > serverMaxPageSize {
@@ -35,10 +35,10 @@ func (f *pagingEchoSvc) QueryEchos(
 	start := (page - 1) * ps
 	total := int64(len(f.all))
 	if start >= len(f.all) {
-		return commonModel.PageQueryResult[[]echoModel.Echo]{Items: nil, Total: total}, nil
+		return commonModel.List[echoModel.Echo]{Items: nil, Total: &total}, nil
 	}
 	end := min(start+ps, len(f.all))
-	return commonModel.PageQueryResult[[]echoModel.Echo]{Items: f.all[start:end], Total: total}, nil
+	return commonModel.List[echoModel.Echo]{Items: f.all[start:end], Total: &total}, nil
 }
 
 func makeEchos(n int) []echoModel.Echo {

@@ -5,10 +5,9 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/authz"
 	model "github.com/lin-snow/ech0/internal/model/setting"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -21,8 +20,8 @@ func (settingService *SettingService) ListAccessTokens(
 	if err != nil {
 		return nil, err
 	}
-	if !user.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.TokenManage, authz.Instance()); err != nil {
+		return nil, err
 	}
 
 	tokens, err := settingService.settingRepository.ListAccessTokens(ctx, user.ID)
@@ -56,13 +55,8 @@ func (settingService *SettingService) CreateAccessToken(
 }
 
 func (settingService *SettingService) DeleteAccessToken(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
-	user, err := settingService.commonService.CommonGetUserByUserId(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.TokenManage, authz.Instance()); err != nil {
 		return err
-	}
-	if !user.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
 	}
 
 	if settingService.tokenRevoker != nil {

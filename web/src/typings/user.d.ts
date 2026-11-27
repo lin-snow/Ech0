@@ -9,7 +9,7 @@ declare namespace App {
         username: string
         email?: string
         password?: string
-        is_admin: boolean
+        role: 'owner' | 'admin' | 'member'
         status: 'ACTIVE' | 'DISABLED'
         avatar?: string
         locale: string
@@ -19,7 +19,6 @@ declare namespace App {
         username: string
         password: string
         email?: string
-        is_admin: boolean
         avatar: string
         avatar_file_id?: string
         locale: string

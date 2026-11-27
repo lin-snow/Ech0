@@ -5,14 +5,17 @@ package ech0
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
+	"uuid"
 
 	"github.com/lin-snow/ech0/internal/database"
 	"github.com/lin-snow/ech0/internal/migrator/spec"
@@ -28,10 +31,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type Importer struct{}
+type Importer struct {
+	registry *storage.Registry
+}
 
-func New() *Importer {
-	return &Importer{}
+// New builds the snapshot importer. The registry is where migrated bytes are
+// written: a snapshot only carries bytes, never a target storage binding.
+func New(registry *storage.Registry) *Importer {
+	return &Importer{registry: registry}
 }
 
 func (e *Importer) Import(ctx context.Context, req spec.ImportRequest) (spec.ImportResult, error) {
@@ -81,7 +88,7 @@ func (e *Importer) Import(ctx context.Context, req spec.ImportRequest) (spec.Imp
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := migrateEchos(ctx, tx, sourceDB, sourceRoot); err != nil {
+		if err := migrateEchos(ctx, tx, sourceDB, sourceRoot, e.registry); err != nil {
 			return err
 		}
 		if req.UpdateProgress != nil {
@@ -156,7 +163,7 @@ func resolveSourceDBPath(payload map[string]any) (string, string, error) {
 	return dbPath, sourceRoot, nil
 }
 
-func migrateEchos(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB, sourceRoot string) error {
+func migrateEchos(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB, sourceRoot string, registry *storage.Registry) error {
 	sourceEchos, err := loadRows[echoModel.Echo](ctx, sourceDB, "echos")
 	if err != nil {
 		return fmt.Errorf("load source echos: %w", err)
@@ -189,7 +196,7 @@ func migrateEchos(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB, sourceRoo
 	if err := migrateTags(ctx, tx, sourceDB); err != nil {
 		return err
 	}
-	if err := migrateFiles(ctx, tx, sourceDB, sourceRoot); err != nil {
+	if err := migrateFiles(ctx, tx, sourceDB, sourceRoot, registry); err != nil {
 		return err
 	}
 	if err := migrateComments(ctx, tx, sourceDB); err != nil {
@@ -284,121 +291,292 @@ func migrateTags(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB) error {
 	return nil
 }
 
-func migrateFiles(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB, sourceRoot string) error {
-	sourceFiles, err := loadRows[fileModel.File](ctx, sourceDB, "files")
+// legacyFile is the pre-rewrite files row. It is read as a bare table because
+// the current file model no longer has these columns.
+type legacyFile struct {
+	ID          string
+	Key         string
+	StorageType string
+	Provider    string
+	Bucket      string
+	URL         string
+	Name        string
+	ContentType string
+	Size        int64
+	Width       int
+	Height      int
+	UserID      string
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+// legacyEchoFile is the pre-rewrite attachment row; it becomes a file_link.
+type legacyEchoFile struct {
+	EchoID    string
+	FileID    string
+	SortOrder int
+}
+
+func migrateFiles(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB, sourceRoot string, registry *storage.Registry) error {
+	if !sourceDB.Migrator().HasTable("files") {
+		return nil
+	}
+	sourceFiles, err := loadRows[legacyFile](ctx, sourceDB, "files")
 	if err != nil {
 		return fmt.Errorf("load source files: %w", err)
 	}
-	sourceEchoFiles, err := loadRows[fileModel.EchoFile](ctx, sourceDB, "echo_files")
-	if err != nil {
-		return fmt.Errorf("load source echo_files: %w", err)
-	}
-	if len(sourceFiles) == 0 || len(sourceEchoFiles) == 0 {
+	if len(sourceFiles) == 0 {
 		return nil
 	}
 
-	routeKeyToID := make(map[string]string, len(sourceFiles))
-	newFiles := make([]fileModel.File, 0, len(sourceFiles))
-	for i := range sourceFiles {
-		file := sourceFiles[i]
-		key := fileRouteKey(file.StorageType, file.Provider, file.Bucket, file.Key)
-		routeKeyToID[key] = file.ID
-		if strings.TrimSpace(file.ID) == "" {
-			file.ID = uuidUtil.NewV7()
-			routeKeyToID[key] = file.ID
-		}
-		newFiles = append(newFiles, file)
-	}
-	if len(newFiles) > 0 {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(newFiles, dbBatchSize).Error; err != nil {
-			return fmt.Errorf("create files: %w", err)
+	// Snapshots written before attachments were links have no echo_files
+	// table; their files still import, they just arrive without links.
+	var sourceEchoFiles []legacyEchoFile
+	if sourceDB.Migrator().HasTable("echo_files") {
+		sourceEchoFiles, err = loadRows[legacyEchoFile](ctx, sourceDB, "echo_files")
+		if err != nil {
+			return fmt.Errorf("load source echo_files: %w", err)
 		}
 	}
 
-	var existingFiles []fileModel.File
-	if err := tx.WithContext(ctx).Where("id IN ?", mapValues(routeKeyToID)).Find(&existingFiles).Error; err != nil {
-		return fmt.Errorf("load existing files by id: %w", err)
-	}
-	if len(existingFiles) != len(routeKeyToID) {
-		for routeKey := range routeKeyToID {
-			storageType, provider, bucket, key := splitRouteKey(routeKey)
-			var f fileModel.File
-			if err := tx.WithContext(ctx).Where(
-				"storage_type = ? AND provider = ? AND bucket = ? AND key = ?",
-				storageType,
-				provider,
-				bucket,
-				key,
-			).Take(&f).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					continue
-				}
-				return fmt.Errorf("load existing file by route: %w", err)
-			}
-			routeKeyToID[routeKey] = f.ID
-		}
-	} else {
-		for i := range existingFiles {
-			file := existingFiles[i]
-			routeKeyToID[fileRouteKey(file.StorageType, file.Provider, file.Bucket, file.Key)] = file.ID
-		}
-	}
-
-	legacyFileIDToRoute := make(map[string]string, len(sourceFiles))
-	for i := range sourceFiles {
-		file := sourceFiles[i]
-		legacyFileIDToRoute[file.ID] = fileRouteKey(file.StorageType, file.Provider, file.Bucket, file.Key)
-	}
-
-	newEchoFiles := make([]fileModel.EchoFile, 0, len(sourceEchoFiles))
+	// A file attached to an echo is an attachment (access=owner); everything
+	// else the snapshot carried is an instance asset (access=public).
+	attachments := make(map[string]bool, len(sourceEchoFiles))
 	for i := range sourceEchoFiles {
-		row := sourceEchoFiles[i]
-		routeKey, ok := legacyFileIDToRoute[row.FileID]
-		if !ok {
-			continue
-		}
-		mappedFileID, ok := routeKeyToID[routeKey]
-		if !ok || strings.TrimSpace(mappedFileID) == "" {
-			continue
-		}
-		if strings.TrimSpace(row.ID) == "" {
-			row.ID = uuidUtil.NewV7()
-		}
-		row.FileID = mappedFileID
-		newEchoFiles = append(newEchoFiles, row)
-	}
-	if len(newEchoFiles) > 0 {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(newEchoFiles, dbBatchSize).Error; err != nil {
-			return fmt.Errorf("create echo_files: %w", err)
+		if id := strings.TrimSpace(sourceEchoFiles[i].FileID); id != "" {
+			attachments[id] = true
 		}
 	}
 
-	localCopyFailed := 0
+	// Locators are the dedupe keys: object_key for owned bytes, ref_url for
+	// external references. A locator that already exists is reused, so a
+	// repeated import writes no second row and no second copy of the bytes.
+	locators, err := loadFileLocators(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	importedID := make(map[string]string, len(sourceFiles))
+	skipped := 0
 	for i := range sourceFiles {
-		file := sourceFiles[i]
-		if !isLocalStorageType(file.StorageType) {
+		src := sourceFiles[i]
+		legacyID := strings.TrimSpace(src.ID)
+		if legacyID == "" {
+			skipped++
 			continue
 		}
-		if err := copySourceLocalFileToTargetRoot(sourceRoot, file.Key); err != nil {
-			localCopyFailed++
-			logUtil.GetLogger().Warn("migration ech0 local file copy skipped",
+		row, locator, srcPath, err := prepareFile(src, sourceRoot, attachments[legacyID])
+		if err != nil {
+			skipped++
+			logUtil.GetLogger().Warn("migration ech0 file skipped",
 				slog.String("module", "migration"),
-				slog.String("file_key", file.Key),
+				slog.String("file_id", legacyID),
+				slog.String("file_key", src.Key),
 				logUtil.Err(err),
 			)
 			continue
 		}
+		if existingID, ok := locators[locator]; ok {
+			importedID[legacyID] = existingID
+			continue
+		}
+		if srcPath != "" {
+			if err := putFileBytes(ctx, &row, srcPath, registry); err != nil {
+				skipped++
+				logUtil.GetLogger().Warn("migration ech0 file skipped",
+					slog.String("module", "migration"),
+					slog.String("file_id", legacyID),
+					slog.String("file_key", src.Key),
+					logUtil.Err(err),
+				)
+				continue
+			}
+		}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+			return fmt.Errorf("create file: %w", err)
+		}
+		locators[locator] = row.ID
+		importedID[legacyID] = row.ID
 	}
+
+	newLinks := make([]fileModel.Link, 0, len(sourceEchoFiles))
+	seenLinks := make(map[string]bool, len(sourceEchoFiles))
+	for i := range sourceEchoFiles {
+		src := sourceEchoFiles[i]
+		fileID := importedID[strings.TrimSpace(src.FileID)]
+		ownerID := strings.TrimSpace(src.EchoID)
+		if fileID == "" || ownerID == "" {
+			continue
+		}
+		locator := fileID + "|" + ownerID + "|" + strconv.Itoa(src.SortOrder)
+		if seenLinks[locator] {
+			continue
+		}
+		seenLinks[locator] = true
+		newLinks = append(newLinks, fileModel.Link{
+			FileID:    fileID,
+			OwnerKind: fileModel.OwnerKindEcho,
+			OwnerID:   ownerID,
+			Role:      fileModel.RoleAttachment,
+			SortOrder: src.SortOrder,
+		})
+	}
+	if len(newLinks) > 0 {
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(newLinks, dbBatchSize).Error; err != nil {
+			return fmt.Errorf("create file_links: %w", err)
+		}
+	}
+
 	logUtil.GetLogger().Info("migration ech0 phase completed",
 		slog.String("module", "migration"),
 		slog.String("phase", "files"),
 		slog.Int("source_files", len(sourceFiles)),
 		slog.Int("source_echo_files", len(sourceEchoFiles)),
-		slog.Int("created_files", len(newFiles)),
-		slog.Int("created_echo_files", len(newEchoFiles)),
-		slog.Int("local_copy_failed", localCopyFailed),
+		slog.Int("created_files", len(importedID)),
+		slog.Int("created_links", len(newLinks)),
+		slog.Int("skipped", skipped),
 	)
 	return nil
+}
+
+// prepareFile turns one legacy row into a new file row without touching any
+// store, so the caller can dedupe on the returned locator first. The locator is
+// the object key for owned bytes and "ref|<url>" for external references.
+func prepareFile(src legacyFile, sourceRoot string, attachment bool) (fileModel.File, string, string, error) {
+	row := fileModel.File{
+		Kind:        string(fileModel.KindOwned),
+		Status:      string(fileModel.StatusReady),
+		Access:      string(fileModel.AccessPublic),
+		Name:        strings.TrimSpace(src.Name),
+		ContentType: strings.TrimSpace(src.ContentType),
+		Size:        src.Size,
+		Width:       src.Width,
+		Height:      src.Height,
+		UploaderID:  strings.TrimSpace(src.UserID),
+		CreatedAt:   src.CreatedAt,
+		UpdatedAt:   src.UpdatedAt,
+	}
+	if attachment {
+		row.Access = string(fileModel.AccessOwner)
+	}
+	if row.Name == "" {
+		row.Name = filepath.Base(strings.TrimSpace(src.Key))
+	}
+	if row.ContentType == "" {
+		row.ContentType = "application/octet-stream"
+	}
+	if row.CreatedAt <= 0 {
+		row.CreatedAt = time.Now().UTC().Unix()
+	}
+	if row.UpdatedAt <= 0 {
+		row.UpdatedAt = row.CreatedAt
+	}
+
+	srcPath := ""
+	if isLocalStorageType(src.StorageType) {
+		srcPath = findSourceLocalFile(sourceRoot, src.Key)
+	}
+
+	if srcPath != "" {
+		ext := strings.TrimPrefix(filepath.Ext(row.Name), ".")
+		if ext == "" {
+			ext = strings.TrimPrefix(filepath.Ext(src.Key), ".")
+		}
+		fileID := stableFileID(strings.TrimSpace(src.ID), row.CreatedAt)
+		key, err := storage.KeyFor(fileID, ext)
+		if err != nil {
+			return fileModel.File{}, "", "", err
+		}
+		row.ID = fileID
+		row.ObjectKey = &key
+		return row, key, srcPath, nil
+	}
+
+	if refURL := strings.TrimSpace(src.URL); refURL != "" {
+		row.ID = stableFileID("url:"+refURL, row.CreatedAt)
+		row.Kind = string(fileModel.KindRef)
+		row.RefURL = &refURL
+		return row, "ref|" + refURL, "", nil
+	}
+	return fileModel.File{}, "", "", errors.New("snapshot carried no bytes and no url")
+}
+
+// putFileBytes writes an owned row's bytes through the registry's default
+// store and fills the storage columns from what the driver reports.
+func putFileBytes(ctx context.Context, row *fileModel.File, srcPath string, registry *storage.Registry) error {
+	if registry == nil {
+		return errors.New("storage registry is required to import file bytes")
+	}
+	if row.ObjectKey == nil {
+		return errors.New("owned file row has no object key")
+	}
+	f, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	storageID, store, err := registry.Default()
+	if err != nil {
+		return err
+	}
+	put, err := store.Put(ctx, *row.ObjectKey, f, info.Size())
+	if err != nil {
+		return err
+	}
+	row.StorageID = &storageID
+	row.Size = put.Size
+	if put.ContentType != "" && row.ContentType == "application/octet-stream" {
+		row.ContentType = put.ContentType
+	}
+	return nil
+}
+
+// stableFileID gives one legacy identity one target id. A legacy id that is
+// already UUIDv7 is reused as-is; anything else is mapped to a v7-shaped id
+// derived from the legacy identity, so re-importing a snapshot rewrites the
+// same object keys instead of a fresh copy under a minted id.
+func stableFileID(legacyID string, createdAt int64) string {
+	if _, err := storage.KeyFor(legacyID, ""); err == nil {
+		return legacyID
+	}
+	sum := sha256.Sum256([]byte("ech0.migrator.file:" + legacyID))
+	var raw [16]byte
+	copy(raw[:], sum[:16])
+	if createdAt > 0 {
+		ms := uint64(createdAt) * 1000
+		raw[0] = byte(ms >> 40)
+		raw[1] = byte(ms >> 32)
+		raw[2] = byte(ms >> 24)
+		raw[3] = byte(ms >> 16)
+		raw[4] = byte(ms >> 8)
+		raw[5] = byte(ms)
+	}
+	raw[6] = raw[6]&0x0f | 0x70
+	raw[8] = raw[8]&0x3f | 0x80
+	return uuid.UUID(raw).String()
+}
+
+// loadFileLocators maps every existing locator to its file id so an import
+// that runs twice reuses the rows it created the first time.
+func loadFileLocators(ctx context.Context, tx *gorm.DB) (map[string]string, error) {
+	var rows []fileModel.File
+	if err := tx.WithContext(ctx).Where("object_key IS NOT NULL OR ref_url IS NOT NULL").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load existing file locators: %w", err)
+	}
+	locators := make(map[string]string, len(rows))
+	for i := range rows {
+		if rows[i].ObjectKey != nil && *rows[i].ObjectKey != "" {
+			locators[*rows[i].ObjectKey] = rows[i].ID
+		}
+		if rows[i].RefURL != nil && *rows[i].RefURL != "" {
+			locators["ref|"+*rows[i].RefURL] = rows[i].ID
+		}
+	}
+	return locators, nil
 }
 
 func migrateComments(ctx context.Context, tx *gorm.DB, sourceDB *gorm.DB) error {
@@ -449,72 +627,34 @@ func isLocalStorageType(storageType string) bool {
 	return st == "" || st == "local"
 }
 
-func copySourceLocalFileToTargetRoot(sourceRoot string, key string) error {
-	relativePath := resolveLocalStoragePathByKey(key)
-	if relativePath == "" {
-		return errors.New("empty local file path")
-	}
+// legacyMediaRoutes are the top-level directories the pre-rewrite local store
+// filed bytes under. Snapshots keep that layout verbatim, and older rows may
+// carry a bare key, so both the prefixed and the bare shape are tried.
+var legacyMediaRoutes = []string{"images", "audios", "videos", "documents", "files"}
 
-	targetRoot := filepath.Join("data", "files")
-	targetPath := filepath.Join(targetRoot, filepath.FromSlash(relativePath))
-	if info, err := os.Stat(targetPath); err == nil && !info.IsDir() {
-		return nil
-	}
-
-	sourceCandidates := []string{
-		filepath.Join(sourceRoot, "files", filepath.FromSlash(relativePath)),
-		filepath.Join(sourceRoot, filepath.FromSlash(relativePath)),
-	}
-	if cleanKey := strings.Trim(strings.TrimSpace(key), "/"); cleanKey != "" {
-		sourceCandidates = append(sourceCandidates, filepath.Join(sourceRoot, "files", filepath.FromSlash(cleanKey)))
-		sourceCandidates = append(sourceCandidates, filepath.Join(sourceRoot, filepath.FromSlash(cleanKey)))
-	}
-
-	var srcPath string
-	for _, candidate := range sourceCandidates {
-		info, err := os.Stat(candidate)
-		if err == nil && !info.IsDir() {
-			srcPath = candidate
-			break
-		}
-	}
-	if srcPath == "" {
-		return errors.New("source local file not found")
-	}
-
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return err
-	}
-
-	src, err := os.Open(srcPath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = src.Close() }()
-
-	dst, err := os.Create(targetPath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = dst.Close() }()
-
-	if _, err := io.Copy(dst, src); err != nil {
-		return err
-	}
-	return dst.Sync()
-}
-
-func resolveLocalStoragePathByKey(key string) string {
+// findSourceLocalFile resolves a legacy key inside the snapshot.
+func findSourceLocalFile(sourceRoot, key string) string {
 	cleanKey := strings.Trim(strings.TrimSpace(key), "/")
 	if cleanKey == "" {
 		return ""
 	}
-	for _, route := range []string{"images/", "audios/", "videos/", "documents/", "files/"} {
-		if strings.HasPrefix(cleanKey, route) {
-			return cleanKey
+	native := filepath.FromSlash(cleanKey)
+	candidates := []string{
+		filepath.Join(sourceRoot, "files", native),
+		filepath.Join(sourceRoot, native),
+	}
+	for _, route := range legacyMediaRoutes {
+		candidates = append(candidates,
+			filepath.Join(sourceRoot, "files", route, native),
+			filepath.Join(sourceRoot, route, native),
+		)
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
 		}
 	}
-	return storage.NewFileSchema().Resolve(cleanKey)
+	return ""
 }
 
 func appendSettingToReport(sourceDB *gorm.DB, report map[string]any, key string, reportKey string) {
@@ -536,26 +676,6 @@ func appendSettingToReport(sourceDB *gorm.DB, report map[string]any, key string,
 		return
 	}
 	report[reportKey] = payload
-}
-
-func fileRouteKey(storageType string, provider string, bucket string, key string) string {
-	return strings.TrimSpace(storageType) + "|" + strings.TrimSpace(provider) + "|" + strings.TrimSpace(bucket) + "|" + strings.TrimSpace(key)
-}
-
-func splitRouteKey(route string) (string, string, string, string) {
-	parts := strings.SplitN(route, "|", 4)
-	for len(parts) < 4 {
-		parts = append(parts, "")
-	}
-	return parts[0], parts[1], parts[2], parts[3]
-}
-
-func mapValues(m map[string]string) []string {
-	out := make([]string, 0, len(m))
-	for _, value := range m {
-		out = append(out, value)
-	}
-	return out
 }
 
 func loadRows[T any](ctx context.Context, db *gorm.DB, table string) ([]T, error) {

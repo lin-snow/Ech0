@@ -12,28 +12,29 @@ import (
 
 	"github.com/lin-snow/ech0/internal/migrator/spec"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	migratorModel "github.com/lin-snow/ech0/internal/model/migrator"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
 	echoRepository "github.com/lin-snow/ech0/internal/repository/echo"
+	coreSetting "github.com/lin-snow/ech0/internal/setting"
+	"github.com/lin-snow/ech0/internal/storage"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 type ImportEngine struct {
-	durableKV      KVStore
-	storageManager StorageManager
-	appCache       AppCache
+	durableKV KVStore
+	registry  *storage.Registry
+	appCache  AppCache
 }
 
 func NewImportEngine(
 	durableKV KVStore,
-	storageManager StorageManager,
+	registry *storage.Registry,
 	appCache AppCache,
 ) *ImportEngine {
 	return &ImportEngine{
-		durableKV:      durableKV,
-		storageManager: storageManager,
-		appCache:       appCache,
+		durableKV: durableKV,
+		registry:  registry,
+		appCache:  appCache,
 	}
 }
 
@@ -55,9 +56,9 @@ func (im *ImportEngine) Import(
 		}
 	}()
 
-	importer, err := BuildImporter(payload.SourceType)
+	importer, err := BuildImporter(payload.SourceType, im.registry)
 	if err != nil {
-		return nil, fmt.Errorf("构建导入器失败: %v", err)
+		return nil, fmt.Errorf("failed to build importer: %v", err)
 	}
 
 	report(migratorModel.MigrationPhaseExtracting, nil)
@@ -78,7 +79,7 @@ func (im *ImportEngine) Import(
 	}
 
 	if err := im.applyMigratedSettings(context.Background(), result.Report); err != nil {
-		return nil, fmt.Errorf("应用迁移配置失败: %v", err)
+		return nil, fmt.Errorf("failed to apply migration config: %v", err)
 	}
 	im.invalidateEchoCachesAfterMigration()
 	report(migratorModel.MigrationPhaseCompleted, nil)
@@ -110,24 +111,17 @@ func (im *ImportEngine) applyMigratedSettings(ctx context.Context, report map[st
 		return nil
 	}
 
-	if _, err := applyMigratedSettingValue(ctx, im.durableKV, report, "source_system_setting", commonModel.SystemSettingsKey, parseMigratedSystemSetting); err != nil {
+	if err := applyMigratedSetting(ctx, im.durableKV, report, "source_system_setting", coreSetting.System, parseMigratedSystemSetting); err != nil {
 		return err
 	}
-	if _, err := applyMigratedSettingValue(ctx, im.durableKV, report, "source_comment_setting", commentModel.CommentSystemSettingKey, parseMigratedCommentSetting); err != nil {
+	if err := applyMigratedSetting(ctx, im.durableKV, report, "source_comment_setting", coreSetting.Comment, parseMigratedCommentSetting); err != nil {
 		return err
 	}
-	updatedS3, err := applyMigratedSettingValue(ctx, im.durableKV, report, "source_s3_setting", commonModel.S3SettingKey, parseMigratedS3Setting)
-	if err != nil {
+	if err := applyMigratedSetting(ctx, im.durableKV, report, "source_s3_setting", coreSetting.S3, parseMigratedS3Setting); err != nil {
 		return err
 	}
-	if _, err := applyMigratedSettingValue(ctx, im.durableKV, report, "source_oauth2_setting", commonModel.OAuth2SettingKey, parseMigratedOAuth2Setting); err != nil {
+	if err := applyMigratedSetting(ctx, im.durableKV, report, "source_oauth2_setting", coreSetting.OAuth2, parseMigratedOAuth2Setting); err != nil {
 		return err
-	}
-
-	if updatedS3 && im.storageManager != nil {
-		if err := im.storageManager.ReloadFromConfigAndDB(context.Background()); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -163,29 +157,30 @@ func parseMigratedOAuth2Setting(report map[string]any) (*settingModel.OAuth2Sett
 	return parseSettingFromReport[settingModel.OAuth2Setting](report, "source_oauth2_setting")
 }
 
-func applyMigratedSettingValue[T any](
+// applyMigratedSetting persists one block decoded from the source instance.
+// Restore normalizes but does not validate: the source ran with this
+// configuration, and a stricter rule on the target must not fail an otherwise
+// valid import.
+func applyMigratedSetting[T any](
 	ctx context.Context,
 	durableKV KVStore,
 	report map[string]any,
 	reportKey string,
-	storeKey string,
+	spec coreSetting.Spec[T],
 	parser func(map[string]any) (*T, bool, error),
-) (bool, error) {
+) error {
 	parsed, ok, err := parser(report)
-	if err != nil {
-		return false, nil
+	if err != nil || !ok || parsed == nil {
+		return nil
 	}
-	if !ok || parsed == nil {
-		return false, nil
+	if err := spec.Restore(ctx, durableKV, *parsed); err != nil {
+		return err
 	}
-	raw, err := json.Marshal(parsed)
-	if err != nil {
-		return false, nil
-	}
-	if err := durableKV.Set(ctx, storeKey, string(raw)); err != nil {
-		return false, err
-	}
-	return reportKey == "source_s3_setting", nil
+	logUtil.GetLogger().Info("migrated setting applied",
+		slog.String("module", "migration"),
+		slog.String("setting", reportKey),
+	)
+	return nil
 }
 
 func parseSettingFromReport[T any](report map[string]any, key string) (*T, bool, error) {

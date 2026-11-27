@@ -16,13 +16,14 @@ import BaseSegmented from '@/components/common/BaseSegmented.vue'
 import TheUserSetting from './TheSetting/TheUserSetting.vue'
 import TheUserManager from './TheSetting/TheUserManager.vue'
 import { useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 
 const { t } = useI18n()
 const userStore = useUserStore()
 const tab = ref('account')
 const tabOptions = computed(() => {
   const options = [{ label: String(t('userManagement.tabAccount')), value: 'account' }]
-  if (userStore.user?.is_admin) {
+  if (isAdminRole(userStore.user?.role)) {
     options.push({ label: String(t('userManagement.tabManage')), value: 'manage' })
   }
   return options

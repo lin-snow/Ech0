@@ -18,6 +18,7 @@ STEPS=(
   "go-fmt|$C_HDR|后端：格式化 (golangci-lint fmt)|golangci-lint fmt"
   "go-lint|$C_HDR|后端：Lint (golangci-lint run)|golangci-lint run"
   "openapi|$C_HDR|后端：OpenAPI 规格生成 (Huma, just openapi)|go run ./cmd/openapi-gen"
+  "api-breaking|$C_HDR|后端：API 破坏性变更 (oasdiff breaking)|bash scripts/api-breaking.sh"
   "web-format|$C_HDR_WEB|前端 web：格式化 (prettier --write src/)|(cd web && pnpm format)"
   "web-lint|$C_HDR_WEB|前端 web：Lint (eslint . --fix)|(cd web && pnpm lint)"
   "web-style|$C_HDR_WEB|前端 web：Stylelint (stylelint --fix)|(cd web && pnpm lint:style)"

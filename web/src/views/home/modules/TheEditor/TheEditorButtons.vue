@@ -165,11 +165,9 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import TagSetting from '@/components/icons/tagsetting.vue'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
 import { Mode, ExtensionType } from '@/enums/enums'
-import { FILE_STORAGE_TYPE } from '@/constants/file'
 import { storeToRefs } from 'pinia'
 import { useEditorStore, useEchoStore } from '@/stores'
 import { theToast } from '@/utils/toast'
-import { localStg } from '@/utils/storage'
 import { computed, onMounted, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -178,7 +176,6 @@ const {
   currentMode,
   isUpdateMode,
   echoToAdd,
-  fileToAdd,
   tagToAdd,
   hasContent,
   hasFile,
@@ -241,13 +238,6 @@ const handleChangeMode = () => {
 }
 
 const handleAddMediaMode = () => {
-  fileToAdd.value.storage_type = FILE_STORAGE_TYPE.LOCAL
-
-  const rememberedSource = localStg.getItem<App.Api.File.StorageType>('file_storage_type')
-  if (rememberedSource) {
-    fileToAdd.value.storage_type = rememberedSource
-  }
-
   editorStore.setMode(Mode.Media)
 }
 

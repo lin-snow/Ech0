@@ -92,6 +92,7 @@ const openMenuId = vueRef<string | null>(null)
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { isAdminRole } from '@/utils/role'
 import EditEcho from '@/components/icons/editecho.vue'
 import Lock from '@/components/icons/lock.vue'
 import More from '@/components/icons/more.vue'
@@ -129,7 +130,7 @@ let openedWithKeyboard = false
 const canManage = computed(() => {
   const me = userStore.user
   if (!me) return false
-  return me.is_admin === true || (props.echo.user_id !== '' && me.id === props.echo.user_id)
+  return isAdminRole(me.role) || (props.echo.user_id !== '' && me.id === props.echo.user_id)
 })
 
 const PANEL_WIDTH = 144
@@ -302,11 +303,10 @@ const onDelete = () => {
     title: String(t('echoCard.deleteConfirmTitle')),
     description: String(t('echoCard.deleteConfirmDesc')),
     onConfirm: () => {
-      // request() resolves on business failures too (it toasts the error
-      // itself), so the success path must check the envelope before the row is
-      // optimistically removed.
+      // request() resolves `null` on failure (it toasts the error itself); a
+      // delete answers 204, so success is the empty (undefined) body.
       fetchDeleteEcho(echoId).then((res) => {
-        if (res.code !== 1) return
+        if (res === null) return
         theToast.success(String(t('echoCard.deleteSuccess')))
         echoStore.removeEcho(echoId)
       })

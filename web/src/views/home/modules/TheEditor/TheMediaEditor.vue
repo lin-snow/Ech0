@@ -18,31 +18,6 @@
       />
     </div>
 
-    <div v-if="!fileUploading" class="flex items-center gap-2 mb-3">
-      <div class="flex items-center gap-2">
-        <span class="text-[var(--color-text-secondary)]">{{ t('editor.imageAddMethod') }}</span>
-        <BaseButton
-          :icon="Url"
-          class="w-7 h-7 sm:w-7 sm:h-7 rounded-md"
-          @click="handleSetFileSource(FILE_STORAGE_TYPE.EXTERNAL)"
-          :tooltip="t('editor.imageSourceExternal')"
-        />
-        <BaseButton
-          :icon="Upload"
-          class="w-7 h-7 sm:w-7 sm:h-7 rounded-md"
-          @click="handleSetFileSource(FILE_STORAGE_TYPE.LOCAL)"
-          :tooltip="t('editor.imageSourceLocal')"
-        />
-        <BaseButton
-          v-if="S3Setting.enable"
-          :icon="Bucket"
-          class="w-7 h-7 sm:w-7 sm:h-7 rounded-md"
-          @click="handleSetFileSource(FILE_STORAGE_TYPE.OBJECT)"
-          :tooltip="t('editor.imageSourceObject')"
-        />
-      </div>
-    </div>
-
     <div v-if="effectiveCategory === FILE_CATEGORY.IMAGE" class="mb-2 flex items-center gap-2">
       <span class="text-[var(--color-text-secondary)]">{{ t('editor.imageLayout') }}</span>
       <BaseSelect
@@ -53,36 +28,15 @@
       />
     </div>
 
-    <div
-      v-if="
-        effectiveCategory === FILE_CATEGORY.IMAGE &&
-        fileToAdd.storage_type !== FILE_STORAGE_TYPE.EXTERNAL
-      "
-      class="mb-3 flex items-center"
-    >
+    <div v-if="effectiveCategory === FILE_CATEGORY.IMAGE" class="mb-3 flex items-center">
       <span class="text-[var(--color-text-secondary)]">{{ t('editor.imageSmartCompress') }}</span>
       <BaseSwitch v-model="enableCompressor" />
     </div>
 
-    <div class="text-[var(--color-text-muted)] text-sm mb-2">
-      {{ t('editor.currentUploadMode') }}
-      <span class="font-bold">
-        {{
-          fileToAdd.storage_type === FILE_STORAGE_TYPE.EXTERNAL
-            ? t('editor.imageSourceExternal')
-            : fileToAdd.storage_type === FILE_STORAGE_TYPE.LOCAL
-              ? t('editor.imageSourceLocal')
-              : t('editor.imageSourceObject')
-        }}</span
-      >
-      {{ !fileUploading ? '' : t('editor.uploadingSuffix') }}
-    </div>
-
     <div class="my-1">
       <TheUploader
-        v-if="fileToAdd.storage_type !== FILE_STORAGE_TYPE.EXTERNAL && !singleClipFull"
+        v-if="!singleClipFull"
         :key="effectiveCategory"
-        :fileStorageType="fileToAdd.storage_type"
         :fileCategory="effectiveCategory"
         :allowedFileTypes="acceptedTypes"
         :EnableCompressor="enableCompressor && effectiveCategory === FILE_CATEGORY.IMAGE"
@@ -90,17 +44,11 @@
         :maxFiles="maxFiles"
       />
 
-      <div
-        v-else-if="singleClipFull && fileToAdd.storage_type !== FILE_STORAGE_TYPE.EXTERNAL"
-        class="text-[var(--color-text-muted)] text-sm px-1 py-2"
-      >
+      <div v-else class="text-[var(--color-text-muted)] text-sm px-1 py-2">
         {{ t('editor.singleMediaLimit') }}
       </div>
 
-      <div
-        v-if="fileToAdd.storage_type === FILE_STORAGE_TYPE.EXTERNAL"
-        class="flex items-center gap-2"
-      >
+      <div class="flex items-center gap-2">
         <BaseInput
           v-model="fileToAdd.url"
           class="rounded-lg h-auto flex-1"
@@ -120,13 +68,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useEditorStore, useSettingStore } from '@/stores'
+import { useEditorStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { ImageLayout } from '@/enums/enums'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE, type FileCategory } from '@/constants/file'
-import Url from '@/components/icons/url.vue'
-import Upload from '@/components/icons/upload.vue'
-import Bucket from '@/components/icons/bucket.vue'
+import { FILE_CATEGORY, type FileCategory } from '@/constants/file'
 import Addmore from '@/components/icons/addmore.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseSegmented from '@/components/common/BaseSegmented.vue'
@@ -134,7 +79,6 @@ import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import TheUploader from '@/components/advanced/TheUploader.vue'
-import { localStg } from '@/utils/storage'
 import { useI18n } from 'vue-i18n'
 
 const IMAGE_MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -142,8 +86,7 @@ const AUDIO_MAX_FILE_SIZE = 20 * 1024 * 1024
 const VIDEO_MAX_FILE_SIZE = 64 * 1024 * 1024
 
 const editorStore = useEditorStore()
-const { fileToAdd, filesToAdd, fileUploading, echoToAdd, effectiveCategory } =
-  storeToRefs(editorStore)
+const { fileToAdd, filesToAdd, echoToAdd, effectiveCategory } = storeToRefs(editorStore)
 
 const singleClipFull = computed(
   () =>
@@ -151,16 +94,8 @@ const singleClipFull = computed(
       effectiveCategory.value === FILE_CATEGORY.VIDEO) &&
     filesToAdd.value.length > 0,
 )
-const settingStore = useSettingStore()
-const { S3Setting } = storeToRefs(settingStore)
 const enableCompressor = ref<boolean>(false)
 const { t } = useI18n()
-
-const handleSetFileSource = (source: App.Api.File.StorageType) => {
-  fileToAdd.value.storage_type = source
-
-  localStg.setItem('file_storage_type', source)
-}
 
 const mediaTypeOptions = computed<{ label: string; value: FileCategory }[]>(() => [
   { label: String(t('editor.mediaTypeImage')), value: FILE_CATEGORY.IMAGE },

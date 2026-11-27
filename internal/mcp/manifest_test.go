@@ -87,10 +87,10 @@ func TestGetManifestHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Data.Tools) == 0 {
+	if len(result.Body.Tools) == 0 {
 		t.Errorf("handler returned no tools")
 	}
-	if result.Data.Path != MCPEndpointPath {
-		t.Errorf("path = %q, want %q", result.Data.Path, MCPEndpointPath)
+	if result.Body.Path != MCPEndpointPath {
+		t.Errorf("path = %q, want %q", result.Body.Path, MCPEndpointPath)
 	}
 }

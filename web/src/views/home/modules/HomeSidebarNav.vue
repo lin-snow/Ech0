@@ -45,6 +45,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 import { storeToRefs } from 'pinia'
 import Search from '@/components/icons/search.vue'
 import Chat from '@/components/icons/chat.vue'
@@ -60,7 +61,7 @@ const { isLogin } = storeToRefs(userStore)
 const { searchingMode, isFilteringMode } = storeToRefs(echoStore)
 const { AgentSetting } = storeToRefs(settingStore)
 const chatAvailable = computed(
-  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+  () => isLogin.value && isAdminRole(userStore.user?.role) && AgentSetting.value.enable,
 )
 const props = defineProps<{
   mobileSearchOpen?: boolean
@@ -137,7 +138,7 @@ const visibleItems = computed(() =>
 )
 
 const panelTarget = computed(() =>
-  userStore.user?.is_admin ? { name: 'panel-dashboard' } : { name: 'panel-user' },
+  isAdminRole(userStore.user?.role) ? { name: 'panel-dashboard' } : { name: 'panel-user' },
 )
 
 const isItemActive = (item: (typeof items)[number]) => {

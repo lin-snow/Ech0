@@ -21,7 +21,7 @@ import (
 const (
 	oldEchoID = "11111111-1111-4111-8111-111111111111"
 	newEchoID = "22222222-2222-4222-8222-222222222222"
-	imageKey  = "cover.png"
+	imageKey  = "2026/02/cover.png"
 )
 
 var (
@@ -199,15 +199,18 @@ func TestRunBakesDataset(t *testing.T) {
 
 	require.Len(t, ds.Echos[0].EchoFiles, 1)
 	ef := ds.Echos[0].EchoFiles[0]
-	assert.Equal(t, "/api/files/images/"+imageKey, ef.File.URL)
-	assert.Equal(t, "local", ef.File.StorageType)
-	assert.Equal(t, imageKey, ef.File.Key)
+	bakedURL := "/api/files/" + derivedID("file", "key", imageKey) + "/content"
+	assert.Equal(t, bakedURL, ef.File.URL)
+	assert.Equal(t, "cover.png", ef.File.Name)
+	assert.Equal(t, "image/png", ef.File.ContentType)
+	assert.Equal(t, "image", ef.File.Category)
+	assert.Equal(t, int64(len(imageBytes)), ef.File.Size)
 	assert.Equal(t, 0, ef.SortOrder)
 	assert.Equal(t, newEchoID, ef.EchoID)
 	assert.NotEmpty(t, ef.ID)
 	assert.Equal(t, ef.File.ID, ef.FileID)
 
-	got, err := os.ReadFile(filepath.Join(dir, "api", "files", "images", imageKey))
+	got, err := os.ReadFile(filepath.Join(dir, "api", "files", ef.File.ID, "content"))
 	require.NoError(t, err)
 	assert.Equal(t, imageBytes, got)
 
@@ -220,14 +223,14 @@ func TestRunBakesDataset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, index, notFound)
 
-	envRaw, err := os.ReadFile(filepath.Join(dir, "api", "connect"))
+	connectRaw, err := os.ReadFile(filepath.Join(dir, "api", "connect"))
 	require.NoError(t, err)
-	env := resultEnvelope{}
-	require.NoError(t, json.Unmarshal(envRaw, &env))
-	assert.Equal(t, 1, env.Code)
-	assert.Equal(t, 2, env.Data.TotalEchos)
-	assert.Equal(t, "tester", env.Data.SysUsername)
-	assert.Equal(t, env.Data, ds.Connect)
+	var gotConnect connectInfo
+	require.NoError(t, json.Unmarshal(connectRaw, &gotConnect))
+	assert.Equal(t, 2, gotConnect.TotalEchos)
+	assert.Equal(t, "tester", gotConnect.SysUsername)
+	assert.Equal(t, ds.Connect, gotConnect)
+	assert.NotContains(t, string(connectRaw), `"code"`, "static connect body is the resource, not an envelope")
 
 	assert.Equal(t, "/api/files/images/logo.png", ds.Settings.ServerLogo,
 		"站内渲染仍用相对路径")
@@ -289,7 +292,7 @@ func TestRunWithBaseURL(t *testing.T) {
 	assert.Equal(t, "/blog/", ds.BaseURL)
 	require.Len(t, ds.Echos, 2)
 	require.Len(t, ds.Echos[0].EchoFiles, 1)
-	assert.Equal(t, "/blog/api/files/images/"+imageKey, ds.Echos[0].EchoFiles[0].File.URL)
+	assert.Equal(t, "/blog/api/files/"+derivedID("file", "key", imageKey)+"/content", ds.Echos[0].EchoFiles[0].File.URL)
 	assert.Equal(t, "/blog/api/files/images/logo.png", ds.Settings.ServerLogo)
 
 	index := string(mustRead(t, filepath.Join(dir, "index.html")))

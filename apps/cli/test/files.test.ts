@@ -28,32 +28,20 @@ function baseOp(overrides: Partial<CatalogOp>): CatalogOp {
 const FILE_OPS: Catalog = {
   ops: {
     "file.upload": baseOp({
-      summary: "上传文件（multipart）",
+      summary: "上传文件",
       method: "POST",
-      path: "/files/upload",
+      path: "/files",
       effect: "write",
       input: {
         type: "object",
         properties: {
           file: { type: "string", format: "binary" },
-          category: { type: "string" },
-          storage_type: { type: "string" },
+          profile: { type: "string" },
+          external_url: { type: "string" },
+          mode: { type: "string" },
         },
-        required: ["file"],
       },
-      bind: { file: "form", category: "form", storage_type: "form" },
-    }),
-    "file.external": baseOp({
-      summary: "登记外链文件",
-      method: "POST",
-      path: "/files/external",
-      effect: "write",
-      input: {
-        type: "object",
-        properties: { url: { type: "string" }, category: { type: "string" } },
-        required: ["url"],
-      },
-      bind: { url: "body", category: "body" },
+      bind: { file: "form", profile: "form", external_url: "form", mode: "form" },
     }),
     "file.list": baseOp({
       summary: "分页获取文件列表",
@@ -64,14 +52,14 @@ const FILE_OPS: Catalog = {
           page: { type: "integer" },
           pageSize: { type: "integer" },
           search: { type: "string" },
-          storage_type: { type: "string" },
+          kind: { type: "string" },
         },
       },
-      bind: { page: "query", pageSize: "query", search: "query", storage_type: "query" },
+      bind: { page: "query", pageSize: "query", search: "query", kind: "query" },
     }),
     "file.get": baseOp({
       summary: "获取文件元信息",
-      path: "/file/{id}",
+      path: "/files/{id}",
       input: {
         type: "object",
         properties: { id: { type: "string" } },
@@ -79,19 +67,21 @@ const FILE_OPS: Catalog = {
       },
       bind: { id: "path" },
     }),
-    "file.tree": baseOp({
-      summary: "获取文件树",
-      path: "/file/tree",
+    "file.rename": baseOp({
+      summary: "重命名文件",
+      method: "PATCH",
+      path: "/files/{id}",
+      effect: "write",
       input: {
         type: "object",
-        properties: { storage_type: { type: "string" }, prefix: { type: "string" } },
-        required: ["storage_type"],
+        properties: { id: { type: "string" }, body: { type: "object" } },
+        required: ["id", "body"],
       },
-      bind: { storage_type: "query", prefix: "query" },
+      bind: { id: "path", body: "body" },
     }),
-    "file.stream.by_id": baseOp({
-      summary: "按文件 ID 读取内容（二进制）",
-      path: "/file/{id}/stream",
+    "file.content": baseOp({
+      summary: "读取文件内容（二进制）",
+      path: "/files/{id}/content",
       kind: "binary",
       input: {
         type: "object",
@@ -99,25 +89,12 @@ const FILE_OPS: Catalog = {
         required: ["id"],
       },
       bind: { id: "path" },
-      transport: { response: { kind: "binary" } },
-    }),
-    // Present in the catalog but deliberately not exposed by the CLI.
-    "file.stream": baseOp({
-      summary: "按存储路径读取文件内容（二进制）",
-      path: "/file/stream",
-      kind: "binary",
-      input: {
-        type: "object",
-        properties: { path: { type: "string" }, storage_type: { type: "string" } },
-        required: ["path", "storage_type"],
-      },
-      bind: { path: "query", storage_type: "query" },
       transport: { response: { kind: "binary" } },
     }),
     "file.delete": baseOp({
       summary: "删除文件",
       method: "DELETE",
-      path: "/file/{id}",
+      path: "/files/{id}",
       effect: "destructive",
       input: {
         type: "object",
@@ -157,11 +134,11 @@ describe("file command surface", () => {
     const file = program.commands.find((command) => command.name() === "file");
 
     expect(file?.commands.map((command) => command.name()).sort()).toEqual([
+      "delete",
       "download",
-      "external",
       "get",
       "list",
-      "tree",
+      "rename",
       "upload",
     ]);
   });
@@ -191,28 +168,23 @@ describe("file command surface", () => {
     expect(invoked[0]?.values).toEqual({ id: "f1" });
   });
 
-  test("file tree requires --storage-type", async () => {
+  test("file list forwards kind as a query filter", async () => {
     const invoked: Invocation[] = [];
     const program = programWith(invoked);
 
-    await expect(program.parseAsync(["file", "tree"], { from: "user" })).rejects.toThrow(
-      "缺少必填参数 --storage-type",
-    );
-
-    await program.parseAsync(["file", "tree", "--storage-type", "local"], { from: "user" });
-    expect(invoked[0]?.values).toEqual({ storage_type: "local" });
+    await program.parseAsync(["file", "list", "--kind", "blob"], { from: "user" });
+    expect(invoked[0]?.values).toEqual({ kind: "blob" });
   });
 
-  test("file download maps to the binary stream-by-id operation with --output", async () => {
+  test("file download maps to the binary content gateway with --output", async () => {
     const invoked: Invocation[] = [];
     const program = programWith(invoked);
 
-    await program.parseAsync(
-      ["file", "download", "--id", "f1", "--output", "/tmp/out.bin"],
-      { from: "user" },
-    );
+    await program.parseAsync(["file", "download", "--id", "f1", "--output", "/tmp/out.bin"], {
+      from: "user",
+    });
 
-    expect(invoked[0]?.op.path).toBe("/file/{id}/stream");
+    expect(invoked[0]?.op.path).toBe("/files/{id}/content");
     expect(invoked[0]?.values).toEqual({ id: "f1" });
     expect(invoked[0]?.extra.output).toBe("/tmp/out.bin");
   });

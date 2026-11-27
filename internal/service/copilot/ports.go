@@ -10,6 +10,7 @@ import (
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	embeddingService "github.com/lin-snow/ech0/internal/service/embedding"
+	fileService "github.com/lin-snow/ech0/internal/service/file"
 )
 
 type SummaryService interface {
@@ -26,6 +27,7 @@ type ChatService interface {
 type (
 	EchoService      = echoService.Service
 	EmbeddingService = embeddingService.Service
+	FileService      = fileService.Service
 )
 
 type UserReader interface {

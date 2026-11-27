@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	dashboardHandler "github.com/lin-snow/ech0/internal/handler/dashboard"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/httperr"
 	dashboardService "github.com/lin-snow/ech0/internal/service/dashboard"
 	dashboardmock "github.com/lin-snow/ech0/internal/test/mocks/dashboardmock"
 	"github.com/lin-snow/ech0/internal/visitor"
@@ -63,9 +64,8 @@ func TestGetSystemLogs_TailParsing(t *testing.T) {
 			out, err := h.GetSystemLogs(context.Background(), &tc.input)
 
 			require.NoError(t, err)
-			assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-			assert.Equal(t, commonModel.MsgKeyDashboardLogsOk, out.MessageKey)
-			assert.Equal(t, want, out.Data)
+			require.NotNil(t, out)
+			assert.Equal(t, want, out.Body.Items)
 		})
 	}
 }
@@ -86,12 +86,9 @@ func TestGetSystemLogs_InvalidTail(t *testing.T) {
 
 			out, err := h.GetSystemLogs(context.Background(), &dashboardHandler.GetSystemLogsInput{Tail: tc.tail})
 
-			require.Error(t, err)
-			var biz *commonModel.BizError
-			require.ErrorAs(t, err, &biz)
-			assert.Equal(t, commonModel.ErrCodeInvalidQuery, biz.Code)
-			assert.Equal(t, commonModel.MsgKeyDashboardTailBad, biz.MessageKey)
-			assert.Equal(t, dashboardHandler.LogsOutput{}, out)
+			require.ErrorIs(t, err, apperr.ErrInvalidQuery)
+			assert.Equal(t, http.StatusBadRequest, httperr.From(err).Status)
+			assert.Nil(t, out)
 		})
 	}
 }
@@ -105,7 +102,7 @@ func TestGetSystemLogs_ServiceError(t *testing.T) {
 	out, err := h.GetSystemLogs(context.Background(), &dashboardHandler.GetSystemLogsInput{})
 
 	require.ErrorIs(t, err, sentinel)
-	assert.Equal(t, dashboardHandler.LogsOutput{}, out)
+	assert.Nil(t, out)
 }
 
 func TestGetVisitorStats(t *testing.T) {
@@ -120,8 +117,8 @@ func TestGetVisitorStats(t *testing.T) {
 	out, err := h.GetVisitorStats(context.Background(), &dashboardHandler.GetVisitorStatsInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, want, out.Data)
+	require.NotNil(t, out)
+	assert.Equal(t, want, out.Body.Items)
 }
 
 func TestStreamSubscribe_AuthGuard(t *testing.T) {

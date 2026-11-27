@@ -2,6 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { getApiUrl, buildCommonHeaders } from './shared'
+import { problemMessage } from './problem'
 
 export interface SSEStreamOptions {
   path: string
@@ -93,18 +94,17 @@ export function sseStream(opts: SSEStreamOptions): () => void {
 }
 
 /**
- * A request refused before the stream opened comes back as the usual JSON
- * envelope; its localized `msg` says why, where a bare status code would not.
+ * A request refused before the stream opened comes back as an `App.Api.Problem`;
+ * the client picks the text from its status, exactly like the JSON transport.
  */
 async function failureMessage(resp: Response): Promise<string> {
   try {
     const body: unknown = await resp.json()
-    if (body !== null && typeof body === 'object') {
-      const msg = (body as Record<string, unknown>).msg
-      if (typeof msg === 'string' && msg.length > 0) return msg
+    if (body !== null && typeof body === 'object' && 'status' in body) {
+      return problemMessage(body as App.Api.Problem)
     }
   } catch {
     // Not JSON: fall back to the status line.
   }
-  return `HTTP ${resp.status}`
+  return problemMessage({ status: resp.status })
 }

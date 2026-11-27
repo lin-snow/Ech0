@@ -20,7 +20,17 @@ import (
 	oauthserverService "github.com/lin-snow/ech0/internal/service/oauthserver"
 	settingService "github.com/lin-snow/ech0/internal/service/setting"
 	userService "github.com/lin-snow/ech0/internal/service/user"
+	"github.com/lin-snow/ech0/internal/transaction"
 )
+
+// ProvideFileAuthorizers registers every domain authorizer at build time. It
+// constructs the registry itself so wire cannot prune the registration as an
+// unused side effect.
+func ProvideFileAuthorizers(echo *echoService.EchoFileAuthorizer) *fileService.AuthorizerRegistry {
+	registry := fileService.NewAuthorizerRegistry()
+	registry.Register(echo)
+	return registry
+}
 
 var (
 	AuthSet        = authService.ProviderSet
@@ -38,7 +48,13 @@ var (
 		echoService.NewEchoService,
 		wire.Bind(new(echoService.Service), new(*echoService.EchoService)),
 	)
+	// The authorizer registry is built from the very domains that own the
+	// visibility rules, so the file domain never imports one of them.
 	FileSet = wire.NewSet(
+		echoService.NewEchoFileAuthorizer,
+		ProvideFileAuthorizers,
+		transaction.NewGormTransactor,
+		wire.Bind(new(fileService.Transactor), new(*transaction.GormTransactor)),
 		fileService.NewFileService,
 		wire.Bind(new(fileService.Service), new(*fileService.FileService)),
 	)

@@ -6,7 +6,7 @@
 // authorization server all decide access through this package.
 package authz
 
-import "strings"
+import "github.com/lin-snow/ech0/pkg/role"
 
 const (
 	// Content scopes. Write covers create/update; delete is a separate,
@@ -144,12 +144,64 @@ func IsValidAudience(audience string) bool {
 	return ok
 }
 
-// HasAdminScope reports whether the set contains any administrative
-// capability. Admin scopes share the `admin:` prefix by construction; using
-// the prefix keeps this check correct when a new admin domain is added.
+// ScopesForRole is the capability set of an interactive session. Access tokens
+// are never expanded: their scopes were fixed at mint time. Owner equals admin
+// on purpose — the owner's extra power is managing administrators and
+// transferring ownership, which are rank questions inside user management, not
+// a larger capability set.
+func ScopesForRole(r role.Role) []string {
+	switch r {
+	case role.Owner:
+		return append([]string(nil), adminScopes...)
+	case role.Admin:
+		return append([]string(nil), adminScopes...)
+	case role.Member:
+		return append([]string(nil), memberScopes...)
+	default:
+		return nil
+	}
+}
+
+// memberScopes is the baseline every signed-in member holds. It covers creating
+// and reading content plus the visibility modifier for private rows; nothing
+// governed by rank is included.
+var memberScopes = []string{
+	ScopeEchoRead, ScopeEchoWrite, ScopeEchoDelete, ScopeEchoPrivate,
+	ScopeCommentRead, ScopeCommentWrite,
+	ScopeFileRead, ScopeFileWrite, ScopeFileDelete,
+	ScopeConnectRead,
+	ScopeProfileRead, ScopeProfileWrite,
+	ScopeMCPRead,
+}
+
+// adminScopes is memberScopes plus every management domain. Splitting by blast
+// radius means granting one admin surface never grants the others.
+var adminScopes = append(append([]string(nil), memberScopes...),
+	ScopeCommentReview, ScopeCommentDelete, ScopeCommentSettings,
+	ScopeConnectWrite, ScopeConnectDelete,
+	ScopeAdminSite, ScopeAdminStorage, ScopeAdminAuth, ScopeAdminWebhook,
+	ScopeAdminAgent, ScopeAdminData, ScopeAdminOps, ScopeAdminUser,
+)
+
+// MinimumRole reports the lowest role whose session scope set contains scope.
+// It is the single source of truth for "is this an administrative
+// capability?", so endpoint declarations and transport rules cannot drift from
+// the role derivation above. An unknown scope returns the empty role.
+func MinimumRole(scope string) role.Role {
+	for _, candidate := range []role.Role{role.Member, role.Admin, role.Owner} {
+		if Allows(ScopesForRole(candidate), []string{scope}) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+// HasAdminScope reports whether the set contains any capability that only an
+// administrator holds. It is derived from the role scope sets, not from a
+// naming convention: a new management scope cannot silently escape the gate.
 func HasAdminScope(scopes []string) bool {
 	for _, scope := range scopes {
-		if strings.HasPrefix(scope, "admin:") {
+		if MinimumRole(scope).AtLeast(role.Admin) {
 			return true
 		}
 	}

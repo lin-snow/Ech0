@@ -15,27 +15,29 @@ const (
 )
 
 type SystemSetting struct {
-	SiteTitle     string `json:"site_title"`
-	ServerLogo    string `json:"server_logo"`
-	ServerName    string `json:"server_name"`
-	ServerURL     string `json:"server_url"`
-	AllowRegister bool   `json:"allow_register"`
-	DefaultLocale string `json:"default_locale"`
-	ICPNumber     string `json:"ICP_number"`
-	FooterContent string `json:"footer_content"`
-	FooterLink    string `json:"footer_link"`
-	MetingAPI     string `json:"meting_api"`
-	CustomCSS     string `json:"custom_css"`
-	CustomJS      string `json:"custom_js"`
+	SiteTitle        string `json:"site_title"`
+	ServerLogo       string `json:"server_logo"`
+	ServerLogoFileID string `json:"server_logo_file_id,omitempty"`
+	ServerName       string `json:"server_name"`
+	ServerURL        string `json:"server_url"`
+	AllowRegister    bool   `json:"allow_register"`
+	DefaultLocale    string `json:"default_locale"`
+	ICPNumber        string `json:"ICP_number"`
+	FooterContent    string `json:"footer_content"`
+	FooterLink       string `json:"footer_link"`
+	MetingAPI        string `json:"meting_api"`
+	CustomCSS        string `json:"custom_css"`
+	CustomJS         string `json:"custom_js"`
 	// PrivacyPolicy is Markdown served on the public /privacy page. Empty means
 	// the page is not configured and answers 404.
 	PrivacyPolicy string `json:"privacy_policy"`
 	// ShowPrivacyFooter only controls the footer link; the page itself stays
 	// reachable whenever PrivacyPolicy is non-empty.
 	ShowPrivacyFooter bool `json:"show_privacy_footer"`
-	// DisableAgentDiscovery opts out of the discovery documents; stored inverted,
-	// so a settings blob written before the field existed keeps them enabled.
-	DisableAgentDiscovery bool `json:"disable_agent_discovery"`
+	// EnableAgentDiscovery publishes the agent discovery documents. Default-on,
+	// and stored positively: older blobs without the key read as enabled, and
+	// the one that stored the old opt-out field is migrated at boot.
+	EnableAgentDiscovery bool `json:"enable_agent_discovery"`
 }
 
 type S3Setting struct {

@@ -13,8 +13,8 @@ import (
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
+	fileRepository "github.com/lin-snow/ech0/internal/repository/file"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
-	"github.com/lin-snow/ech0/internal/storage"
 	"gorm.io/gorm"
 )
 
@@ -34,7 +34,7 @@ func collect(ctx context.Context, deps Deps, opts Options) (*dataset, error) {
 	db := deps.DB.WithContext(ctx)
 	data := &dataset{}
 
-	if err := collectEchoes(db, opts, data); err != nil {
+	if err := collectEchoes(ctx, db, opts, data); err != nil {
 		return nil, err
 	}
 	if err := collectFiles(db, opts, data); err != nil {
@@ -52,12 +52,8 @@ func collect(ctx context.Context, deps Deps, opts Options) (*dataset, error) {
 	return data, collectConnects(db, data)
 }
 
-func collectEchoes(db *gorm.DB, opts Options, data *dataset) error {
+func collectEchoes(ctx context.Context, db *gorm.DB, opts Options, data *dataset) error {
 	query := db.
-		Preload("EchoFiles", func(d *gorm.DB) *gorm.DB {
-			return d.Order("echo_files.sort_order ASC")
-		}).
-		Preload("EchoFiles.File").
 		Preload("Extension").
 		Preload("Tags").
 		Order("created_at ASC")
@@ -66,6 +62,9 @@ func collectEchoes(db *gorm.DB, opts Options, data *dataset) error {
 	}
 	if err := query.Find(&data.echoes).Error; err != nil {
 		return fmt.Errorf("capsule export: load echoes: %w", err)
+	}
+	if err := fileRepository.HydrateEchoAttachments(ctx, db, data.echoes); err != nil {
+		return fmt.Errorf("capsule export: load echo attachments: %w", err)
 	}
 
 	if !opts.IncludePrivate {
@@ -99,11 +98,6 @@ func collectFiles(db *gorm.DB, opts Options, data *dataset) error {
 		files = kept
 	}
 
-	for i := range files {
-		if storage.NormalizeStorageType(files[i].StorageType) == storage.StorageTypeExternal {
-			data.externalFiles++
-		}
-	}
 	data.files = files
 	return nil
 }
@@ -113,9 +107,9 @@ func privateOnlyFiles(db *gorm.DB) (map[string]struct{}, error) {
 		FileID  string
 		Private bool
 	}
-	if err := db.Model(&fileModel.EchoFile{}).
-		Select("echo_files.file_id AS file_id, echos.private AS private").
-		Joins("JOIN echos ON echos.id = echo_files.echo_id").
+	if err := db.Table("file_links").
+		Select("file_links.file_id AS file_id, echos.private AS private").
+		Joins("JOIN echos ON echos.id = file_links.owner_id AND file_links.owner_kind = ?", fileModel.OwnerKindEcho).
 		Scan(&refs).Error; err != nil {
 		return nil, fmt.Errorf("capsule export: resolve file visibility: %w", err)
 	}
@@ -195,7 +189,7 @@ func collectSite(ctx context.Context, deps Deps, data *dataset) error {
 
 func collectOwner(db *gorm.DB, data *dataset) error {
 	var owner userModel.User
-	if err := db.Where("is_admin = ?", true).Order("id ASC").First(&owner).Error; err != nil {
+	if err := db.Where("role = ?", userModel.RoleOwner).First(&owner).Error; err != nil {
 		return fmt.Errorf("capsule export: load primary admin: %w", err)
 	}
 	data.owner = capsule.Owner{Username: owner.Username}

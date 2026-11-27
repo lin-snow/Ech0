@@ -165,18 +165,18 @@ const gotoOAuth2URL = () => {
 
 const getOAuth2Status = async () => {
   const res = await fetchGetOAuth2Status()
-  if (res.code === 1) {
-    oauth2Status.value = res.data
-    oauthURL.value = res.data.provider
-      ? `${baseURL}/oauth/${res.data.provider}/login?redirect_uri=${window.location.origin}/auth`
+  if (res) {
+    oauth2Status.value = res
+    oauthURL.value = res.provider
+      ? `${baseURL}/oauth/${res.provider}/login?redirect_uri=${window.location.origin}/auth`
       : ''
   }
 }
 
 const getPasskeyStatus = async () => {
   const res = await fetchGetPasskeyStatus()
-  if (res.code === 1) {
-    passkeyStatus.value = res.data
+  if (res) {
+    passkeyStatus.value = res
   }
 }
 
@@ -252,17 +252,17 @@ const handlePasskeyLogin = async () => {
   if (!passkeySupported) return
   try {
     const begin = await fetchPasskeyLoginBegin()
-    if (begin.code !== 1) return
+    if (!begin) return
 
-    const options = normalizeRequestOptions(begin.data.publicKey)
+    const options = normalizeRequestOptions(begin.publicKey)
     const got = await navigator.credentials.get({ publicKey: options })
     if (!got) throw new Error(String(t('authPage.getCredentialFailed')))
     const cred = got as PublicKeyCredential
 
-    const finish = await fetchPasskeyLoginFinish(begin.data.nonce, credentialToJSON(cred))
-    if (finish.code !== 1 || !finish.data?.access_token) return
+    const finish = await fetchPasskeyLoginFinish(begin.nonce, credentialToJSON(cred))
+    if (!finish?.access_token) return
 
-    await userStore.loginWithTokenPair(finish.data)
+    await userStore.loginWithTokenPair(finish)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(t('authPage.passkeyLoginFailed'))
     theToast.error(msg)

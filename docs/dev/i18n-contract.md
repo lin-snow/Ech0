@@ -19,15 +19,13 @@
 
 ## 2. API Contract
 
-- API responses keep `msg` for backward compatibility.
-- For i18n-aware clients, responses may include:
-  - `error_code`: stable machine-readable error code.
-  - `message_key`: translation key.
-  - `message_params`: interpolation parameters.
-- Preferred client rendering order:
-  1. `message_key` + `message_params`
-  2. `msg`
-  3. local fallback text
+- Failures are RFC 9457 `application/problem+json` documents (see [api-contract-design.md](api-contract-design.md)); there is no success envelope and no server-sent `msg` for successful calls.
+- The server produces **no user-facing text**. A problem document carries only:
+  - `status`: the only signal a client branches on.
+  - `type`: a URI, present only where two errors share a status (account disabled; the four device-flow states).
+  - `detail`: English, for developers, logs and `curl`. Clients must never parse or display it as-is.
+- Client rendering is chosen by status (`web/src/service/request/problem.ts`): 400/422 invalid request, 401 session expired, 403 forbidden, 404 not found, 409/412 conflict, 429 too many requests, 5xx server error.
+- Diagnostics endpoints (connectivity tests for S3, agent, SMTP, webhook) opt into `onProblem` and show `detail` verbatim: there the English text *is* the answer.
 
 ## 3. Key Naming Rules
 
@@ -40,18 +38,19 @@
 
 ## 4. Backend Rules
 
-- New business errors should use stable `error_code`.
-- If the message is user-facing, attach `message_key`.
+- A business error is an `internal/apperr` sentinel. `httperr.From` is the only place that turns it into a status and a developer-facing English `detail`. The status is the whole contract.
+- Never write Chinese into an error message that can reach the wire. OpenAPI `Summary`/`Description`, LLM prompts and panic messages are not wire text and may stay in Chinese.
+- The server has no translation catalog. `internal/i18n` only resolves which locale to use (default settings, user preference, `X-Locale`) and passes it to the copilot so the LLM answers in the user's language.
 - Keep logs and telemetry machine-oriented; do not localize log field names.
 
 ## 5. Frontend Rules
 
 - New UI text should be added to locale JSON and rendered via `t()`.
-- API error display should prefer `message_key` from server.
-- Send `X-Locale` on API requests to allow server-side localization.
+- API error display is derived from `status` (see §2); never from `detail`.
+- `X-Locale` is still sent; the server uses it only to pick the copilot answer language and to validate `default_locale`.
 - User settings should persist personal locale to backend (`user.locale`) and switch UI locale immediately after save.
 
 ## 6. Content/Template Rules
 
 - User-generated content is not auto-translated by backend.
-- System-generated content (notification templates, built-in prompts) should come from locale resources keyed by `message_key`.
+- System-generated content (built-in prompts) stays server-side and is not localized by key; it is not user-facing UI text.

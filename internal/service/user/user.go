@@ -6,10 +6,11 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/mail"
 	"strings"
 
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
 	eventbus "github.com/lin-snow/ech0/internal/event/bus"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
@@ -17,7 +18,9 @@ import (
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	model "github.com/lin-snow/ech0/internal/model/user"
+	fileService "github.com/lin-snow/ech0/internal/service/file"
 	coreSetting "github.com/lin-snow/ech0/internal/setting"
 	"github.com/lin-snow/ech0/internal/transaction"
 	cryptoUtil "github.com/lin-snow/ech0/internal/util/crypto"
@@ -58,21 +61,21 @@ func NewUserService(
 
 func ensurePasswordLength(password string) error {
 	if len(password) > cryptoUtil.MaxPasswordBytes {
-		return errors.New(commonModel.PASSWORD_TOO_LONG)
+		return apperr.ErrPasswordTooLong
 	}
 	return nil
 }
 
 func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) error {
 	if registerDto.Username == "" || registerDto.Password == "" {
-		return errors.New(commonModel.USERNAME_OR_PASSWORD_NOT_BE_EMPTY)
+		return apperr.ErrCredentialsEmpty
 	}
 	email := strings.TrimSpace(registerDto.Email)
 	if email == "" {
-		return errors.New("邮箱不能为空")
+		return apperr.ErrEmailRequired
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
-		return errors.New("邮箱格式无效")
+		return apperr.ErrInvalidEmail
 	}
 
 	ownerLocale := string(commonModel.DefaultLocale)
@@ -97,7 +100,7 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			return err
 		}
 		if initialized {
-			return commonModel.NewBizError(commonModel.ErrCodeInitAlreadyDone, commonModel.SYSTEM_ALREADY_INITED)
+			return apperr.ErrAlreadyInitialized
 		}
 
 		users, err := userService.userRepository.GetAllUsers(ctx)
@@ -105,33 +108,29 @@ func (userService *UserService) InitOwner(registerDto *authModel.RegisterDto) er
 			return err
 		}
 		if len(users) > 0 {
-			return commonModel.NewBizError(commonModel.ErrCodeInitOwnerExists, commonModel.OWNER_ALREADY_EXISTS)
+			return apperr.ErrOwnerExists
 		}
 
 		existingUser, err := userService.userRepository.GetUserByUsername(ctx, registerDto.Username)
 		if err == nil && existingUser.ID != model.USER_NOT_EXISTS_ID {
-			return errors.New(commonModel.USERNAME_HAS_EXISTS)
+			return apperr.ErrUsernameExists
 		}
 
 		owner = model.User{
 			Username: registerDto.Username,
 			Email:    email,
-			IsAdmin:  true,
+			Role:     model.RoleOwner,
 			Locale:   ownerLocale,
 		}
 
 		if err := userService.userRepository.CreateUser(ctx, &owner); err != nil {
 			return err
 		}
-		if err := userService.userRepository.UpsertLocalAuth(ctx, &model.UserLocalAuth{
+		return userService.userRepository.UpsertLocalAuth(ctx, &model.UserLocalAuth{
 			UserID:       owner.ID,
 			PasswordHash: passwordHash,
 			PasswordAlgo: cryptoUtil.AlgoBcrypt,
-		}); err != nil {
-			return err
-		}
-
-		return userService.userRepository.MarkInitialized(ctx)
+		})
 	}); err != nil {
 		return err
 	}
@@ -147,7 +146,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		return err
 	}
 	if !initialized {
-		return commonModel.NewBizError(commonModel.ErrCodeInitInvalidState, commonModel.SIGNUP_FIRST)
+		return apperr.ErrSignupFirst
 	}
 
 	users, err := userService.userRepository.GetAllUsers(context.Background())
@@ -155,7 +154,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		return err
 	}
 	if len(users) > authModel.MAX_USER_COUNT {
-		return errors.New(commonModel.USER_COUNT_EXCEED_LIMIT)
+		return apperr.ErrUserLimit
 	}
 
 	if err := ensurePasswordLength(registerDto.Password); err != nil {
@@ -168,20 +167,20 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 	email := strings.TrimSpace(registerDto.Email)
 	if email != "" {
 		if _, err := mail.ParseAddress(email); err != nil {
-			return errors.New("邮箱格式无效")
+			return apperr.ErrInvalidEmail
 		}
 	}
 
 	newUser := model.User{
 		Username: registerDto.Username,
 		Email:    email,
-		IsAdmin:  false,
+		Role:     model.RoleMember,
 		Locale:   string(commonModel.DefaultLocale),
 	}
 
 	user, err := userService.userRepository.GetUserByUsername(context.Background(), newUser.Username)
 	if err == nil && user.ID != model.USER_NOT_EXISTS_ID {
-		return errors.New(commonModel.USERNAME_HAS_EXISTS)
+		return apperr.ErrUsernameExists
 	}
 
 	sysSetting, err := coreSetting.System.Get(context.Background(), userService.durableKV)
@@ -189,7 +188,7 @@ func (userService *UserService) Register(registerDto *authModel.RegisterDto) err
 		return err
 	}
 	if !sysSetting.AllowRegister {
-		return errors.New(commonModel.USER_REGISTER_NOT_ALLOW)
+		return apperr.ErrRegistrationDisabled
 	}
 	if err := userService.transactor.Run(context.Background(), func(ctx context.Context) error {
 		if err := userService.userRepository.CreateUser(ctx, &newUser); err != nil {
@@ -219,7 +218,7 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	if userdto.Username != "" && userdto.Username != user.Username {
 		existingUser, err := userService.userRepository.GetUserByUsername(ctx, userdto.Username)
 		if err == nil && existingUser.ID != user.ID {
-			return errors.New(commonModel.USERNAME_ALREADY_EXISTS)
+			return apperr.ErrUsernameExists
 		}
 		user.Username = userdto.Username
 	}
@@ -237,8 +236,21 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	}
 
 	avatarChanged := false
-	if userdto.Avatar != "" && userdto.Avatar != user.Avatar {
+	oldAvatarFileID := user.AvatarFileID
+	newAvatarFileID := strings.TrimSpace(userdto.AvatarFileID)
+	if newAvatarFileID != "" {
+		// Get is the authorization point: an avatar must be a file the caller
+		// may read, which a stranger's private upload is not.
+		avatarDTO, err := userService.fileService.Get(ctx, newAvatarFileID)
+		if err != nil {
+			return err
+		}
+		user.Avatar = avatarDTO.URL
+		user.AvatarFileID = newAvatarFileID
+		avatarChanged = avatarDTO.URL != ""
+	} else if userdto.Avatar != "" && userdto.Avatar != user.Avatar {
 		user.Avatar = userdto.Avatar
+		user.AvatarFileID = ""
 		avatarChanged = true
 	}
 	if userdto.Locale != "" {
@@ -246,7 +258,7 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	}
 	if strings.TrimSpace(userdto.Email) != "" {
 		if _, err := mail.ParseAddress(strings.TrimSpace(userdto.Email)); err != nil {
-			return errors.New("邮箱格式无效")
+			return apperr.ErrInvalidEmail
 		}
 		user.Email = strings.TrimSpace(userdto.Email)
 	}
@@ -255,19 +267,34 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 			return err
 		}
 		if newPasswordHash != "" {
-			return userService.userRepository.UpsertLocalAuth(txCtx, &model.UserLocalAuth{
+			if err := userService.userRepository.UpsertLocalAuth(txCtx, &model.UserLocalAuth{
 				UserID:       user.ID,
 				PasswordHash: newPasswordHash,
 				PasswordAlgo: cryptoUtil.AlgoBcrypt,
-			})
+			}); err != nil {
+				return err
+			}
 		}
-		return nil
+		if newAvatarFileID == "" {
+			return nil
+		}
+		// The avatar slot holds one file: replacing it drops the old link in
+		// the same statement group that adds the new one.
+		return userService.fileService.Replace(
+			txCtx, []string{newAvatarFileID},
+			fileModel.OwnerKindUser, user.ID, fileModel.RoleAvatar,
+		)
 	}); err != nil {
 		return err
 	}
-	if avatarChanged && strings.TrimSpace(userdto.AvatarFileID) != "" {
-		if err := userService.fileService.ConfirmTempFiles(ctx, []string{userdto.AvatarFileID}); err != nil {
-			logUtil.GetLogger().Warn("confirm temp avatar file failed", logUtil.Err(err))
+	if avatarChanged && oldAvatarFileID != "" && oldAvatarFileID != newAvatarFileID {
+		// The replaced avatar is the uploader's own file with no other reader;
+		// a file someone else still links refuses and stays.
+		if _, err := userService.fileService.Delete(ctx, oldAvatarFileID, false); err != nil {
+			var conflict *fileService.ConflictError
+			if !errors.As(err, &conflict) {
+				logUtil.GetLogger().Warn("delete replaced avatar file failed", logUtil.Err(err))
+			}
 		}
 	}
 
@@ -276,56 +303,81 @@ func (userService *UserService) UpdateUser(ctx context.Context, userdto model.Us
 	return nil
 }
 
-func (userService *UserService) UpdateUserAdmin(ctx context.Context, id string) error {
+// UpdateUserRole promotes a member to admin or demotes an admin to member.
+// Assigning a role requires standing above it, so only the owner can do either.
+// The owner's row is not a valid target: ownership changes only through
+// TransferOwnership.
+func (userService *UserService) UpdateUserRole(ctx context.Context, id string, newRole model.Role) error {
+	if newRole != model.RoleAdmin && newRole != model.RoleMember {
+		return apperr.ErrInvalidParams
+	}
+	target, err := userService.userRepository.GetUserByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if target.Role == newRole {
+		return nil
+	}
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.UserManage,
+		authz.ForUser(target, newRole)); err != nil {
+		return err
+	}
+
+	if err := userService.transactor.Run(ctx, func(txCtx context.Context) error {
+		return userService.userRepository.UpdateUserRole(txCtx, id, newRole)
+	}); err != nil {
+		return err
+	}
+
+	target.Role = newRole
+	eventbus.Notify(context.Background(), userService.bus, event.UserUpdated{User: target})
+
+	return nil
+}
+
+// TransferOwnership hands the space to another account. It is the one
+// operation not derived from the rank rule: the current owner names an active admin
+// as successor and keeps acting as an admin afterwards.
+func (userService *UserService) TransferOwnership(ctx context.Context, newOwnerID string) error {
 	userid := viewer.MustFromContext(ctx).UserID()
 	operator, err := userService.userRepository.GetUserByID(ctx, userid)
 	if err != nil {
 		return err
 	}
-	if !operator.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	if operator.ID == newOwnerID {
+		return authz.ErrDenied
 	}
-
-	user, err := userService.userRepository.GetUserByID(ctx, id)
+	if err := authz.Decide(viewer.NewSession(operator.ID, operator.Role, authz.ScopesForRole(operator.Role)), authz.UserTransfer,
+		authz.Instance()); err != nil {
+		return err
+	}
+	target, err := userService.userRepository.GetUserByID(ctx, newOwnerID)
 	if err != nil {
 		return err
 	}
-
-	if userid == user.ID {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+	if target.Role != model.RoleAdmin || !target.IsActive() {
+		return apperr.ErrInvalidParams
 	}
 
-	if user.IsAdmin {
-		admins, err := userService.countAdmins(ctx)
-		if err != nil {
-			return err
-		}
-		if admins <= 1 {
-			return lastAdminRequiredError()
-		}
-	}
-
-	user.IsAdmin = !user.IsAdmin
-
-	if err := userService.transactor.Run(ctx, func(txCtx context.Context) error {
-		return userService.userRepository.UpdateUser(txCtx, &user)
-	}); err != nil {
+	if err := userService.userRepository.TransferOwnership(ctx, operator.ID, target.ID); err != nil {
 		return err
 	}
 
-	eventbus.Notify(context.Background(), userService.bus, event.UserUpdated{User: user})
+	target.Role = model.RoleOwner
+	operator.Role = model.RoleAdmin
+	eventbus.Notify(context.Background(), userService.bus, event.UserUpdated{User: target})
+	eventbus.Notify(context.Background(), userService.bus, event.UserUpdated{User: operator})
 
 	return nil
 }
 
 func (userService *UserService) GetAllUsers(ctx context.Context) ([]model.User, error) {
-	userid := viewer.MustFromContext(ctx).UserID()
-	caller, err := userService.userRepository.GetUserByID(ctx, userid)
-	if err != nil {
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.UserList, authz.Instance()); err != nil {
 		return nil, err
 	}
-	if !caller.IsAdmin {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+	caller, err := userService.userRepository.GetUserByID(ctx, viewer.MustFromContext(ctx).UserID())
+	if err != nil {
+		return nil, err
 	}
 
 	allUsers, err := userService.userRepository.GetAllUsers(ctx)
@@ -345,50 +397,29 @@ func (userService *UserService) GetAllUsers(ctx context.Context) ([]model.User, 
 	return users, nil
 }
 
-func (userService *UserService) GetPrimaryAdmin() (model.User, error) {
-	return userService.userRepository.GetPrimaryAdmin(context.Background())
+func (userService *UserService) GetOwner() (model.User, error) {
+	return userService.userRepository.GetOwner(context.Background())
 }
 
-func (userService *UserService) countAdmins(ctx context.Context) (int, error) {
-	users, err := userService.userRepository.GetAllUsers(ctx)
-	if err != nil {
-		return 0, err
-	}
-	admins := 0
-	for i := range users {
-		if users[i].IsAdmin {
-			admins++
-		}
-	}
-	return admins, nil
-}
-
-func lastAdminRequiredError() error {
-	return commonModel.NewBizErrorWithMessageKey(
-		commonModel.ErrCodePermissionDenied,
-		commonModel.LAST_ADMIN_REQUIRED,
-		commonModel.MsgKeyUserLastAdminRequired,
-		nil,
-	)
-}
-
-// UpdateUserStatus disables or restores an account. Administrators cannot
-// change their own status: the last step of a lockout must be taken by a peer.
+// UpdateUserStatus disables or restores an account. It cannot reach an account
+// of equal or higher standing, which is why an administrator cannot lock out
+// another administrator and nobody can lock out the owner.
 func (userService *UserService) UpdateUserStatus(ctx context.Context, id string, status model.Status) error {
 	if !status.Valid() {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 	userid := viewer.MustFromContext(ctx).UserID()
 	if userid == id {
-		return errors.New(commonModel.INVALID_PARAMS_BODY)
+		return apperr.ErrInvalidParams
 	}
 
-	operator, err := userService.userRepository.GetUserByID(ctx, userid)
+	target, err := userService.userRepository.GetUserByID(ctx, id)
 	if err != nil {
 		return err
 	}
-	if !operator.IsAdmin {
-		return errors.New(commonModel.NO_PERMISSION_DENIED)
+	if err := authz.Decide(viewer.MustFromContext(ctx), authz.UserManage,
+		authz.ForUser(target, "")); err != nil {
+		return err
 	}
 
 	return userService.userRepository.UpdateUserStatus(ctx, id, status)
@@ -397,35 +428,17 @@ func (userService *UserService) UpdateUserStatus(ctx context.Context, id string,
 // DeleteUser permanently removes a user and everything addressed to them. It
 // is the only deletion path: there is no soft-delete state to restore from.
 func (userService *UserService) DeleteUser(ctx context.Context, id string) error {
-	userid := viewer.MustFromContext(ctx).UserID()
 	var deletedUser model.User
 	var purge model.PurgeResult
 	err := userService.transactor.Run(ctx, func(txCtx context.Context) error {
-		operator, err := userService.userRepository.GetUserByID(txCtx, userid)
-		if err != nil {
-			return err
-		}
-		if !operator.IsAdmin {
-			return errors.New(commonModel.NO_PERMISSION_DENIED)
-		}
-
 		user, err := userService.userRepository.GetUserByID(txCtx, id)
 		if err != nil {
 			return err
 		}
 
-		if userid == user.ID {
-			return errors.New(commonModel.INVALID_PARAMS_BODY)
-		}
-
-		if user.IsAdmin {
-			admins, err := userService.countAdmins(txCtx)
-			if err != nil {
-				return err
-			}
-			if admins <= 1 {
-				return lastAdminRequiredError()
-			}
+		if err := authz.Decide(viewer.MustFromContext(txCtx), authz.UserManage,
+			authz.ForUser(user, "")); err != nil {
+			return err
 		}
 
 		deletedUser = user
@@ -433,10 +446,11 @@ func (userService *UserService) DeleteUser(ctx context.Context, id string) error
 		if err != nil {
 			return err
 		}
-		for _, file := range purge.Files {
-			if err := userService.fileService.DeleteFileRecord(txCtx, file.ID); err != nil {
-				return err
-			}
+		// Only the files nobody links to any more go away with the account:
+		// an image someone else attached to their echo keeps its link, and its row
+		// with it.
+		if _, err := userService.fileService.PurgeUploader(txCtx, id); err != nil {
+			return err
 		}
 		for _, echoID := range purge.EchoIDs {
 			if err := userService.embeddingPurger.Delete(txCtx, echoID); err != nil {
@@ -449,19 +463,6 @@ func (userService *UserService) DeleteUser(ctx context.Context, id string) error
 		return err
 	}
 
-	// Object storage is not transactional: deleting after commit keeps a
-	// failed transaction from leaving rows that point at missing objects.
-	for _, file := range purge.Files {
-		if err := userService.fileService.DeleteStoredFile(file.StorageType, file.Key); err != nil {
-			logUtil.GetLogger().Warn(
-				"delete stored file after user delete failed",
-				slog.String("user_id", id),
-				slog.String("file_key", file.Key),
-				slog.String("storage_type", file.StorageType),
-				logUtil.Err(err),
-			)
-		}
-	}
 	userService.echoCache.InvalidateEchoCaches(purge.EchoIDs...)
 
 	eventbus.Notify(context.Background(), userService.bus, event.UserDeleted{User: deletedUser})

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/feeds"
-	"github.com/lin-snow/ech0/internal/storage"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	mdUtil "github.com/lin-snow/ech0/internal/util/md"
 )
 
@@ -68,14 +68,14 @@ func renderAtom(ds *dataset, l links, generatedAt time.Time) (string, error) {
 					continue
 				}
 				url := stdhtml.EscapeString(l.resolve(ef.File.URL))
-				switch storage.NormalizeCategory(ef.File.Category) {
-				case storage.CategoryImage:
+				switch ef.File.Category {
+				case fileModel.CategoryImage:
 					mediaContent = fmt.Appendf(mediaContent,
 						"<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />", url)
-				case storage.CategoryVideo:
+				case fileModel.CategoryVideo:
 					mediaContent = fmt.Appendf(mediaContent,
 						"<video controls src=\"%s\" style=\"max-width:100%%;\"><a href=\"%s\">打开视频</a></video>", url, url)
-				case storage.CategoryAudio:
+				case fileModel.CategoryAudio:
 					mediaContent = fmt.Appendf(mediaContent,
 						"<audio controls src=\"%s\"><a href=\"%s\">打开音频</a></audio>", url, url)
 				default:

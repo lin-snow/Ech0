@@ -2,6 +2,7 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import type { User } from "../api/generated/types.gen.ts";
+import { isAdminRole } from "../role.ts";
 import { Client } from "../api/http.ts";
 import {
   REFRESH_COOKIE_NAME,
@@ -40,6 +41,12 @@ export const DEFAULT_CLI_SCOPES = [
   "admin:webhook",
 ];
 const DEVICE_CLIENT_NAME = "ech0-cli";
+
+// RFC 9457 problem types of the device flow, minted by internal/httperr.
+const DEVICE_PENDING = "https://ech0.app/problems/device-authorization-pending";
+const DEVICE_SLOW_DOWN = "https://ech0.app/problems/device-slow-down";
+const DEVICE_EXPIRED = "https://ech0.app/problems/device-code-expired";
+const DEVICE_DENIED = "https://ech0.app/problems/device-access-denied";
 
 interface TokenPair {
   access_token?: string;
@@ -89,7 +96,7 @@ async function persistLogin(ctx: CliContext, options: PersistOptions): Promise<s
     withProfile(ctx.config, options.profile, {
       server: options.server,
       user: options.user.username,
-      isAdmin: options.user.is_admin,
+      role: options.user.role,
     }),
     ctx.configPath,
   );
@@ -115,16 +122,16 @@ export async function login(ctx: CliContext, args: LoginArgs): Promise<CommandOu
   const profile = resolveProfile(ctx, args.profile);
   const server = resolveLoginServer(ctx, args.server, profile);
   const client = new Client({ server, token: args.token, lang: language(ctx) });
-  const result = await client.call<User>({ path: "/user" });
+  const result = await client.callWithMeta<User>({ path: "/user" });
   const source = await persistLogin(ctx, {
     profile,
     server,
     token: args.token,
-    user: result.data,
+    user: result.body,
   });
 
   return {
-    human: loginMessage("access token", result.data, server, profile, source),
+    human: loginMessage("access token", result.body, server, profile, source),
     json: result.text,
   };
 }
@@ -151,24 +158,24 @@ export async function loginWithPassword(
   const lang = language(ctx);
   const client = new Client({ server, lang });
 
-  const loginResult = await client.call<TokenPair>({
+  const loginResult = await client.callWithMeta<TokenPair>({
     method: "POST",
     path: "/login",
     body: { username: args.username, password: args.password },
   });
-  const sessionToken = loginResult.data.access_token ?? "";
+  const sessionToken = loginResult.body.access_token ?? "";
   if (sessionToken === "") {
     throw new Ech0Error("登录响应缺少 access_token");
   }
   const cookie = setCookieValue(loginResult.headers, REFRESH_COOKIE_NAME);
 
   const authed = new Client({ server, token: sessionToken, lang });
-  const user = (await authed.call<User>({ path: "/user" })).data;
+  const user = await authed.call<User>({ path: "/user" });
 
   let token = sessionToken;
   let storedCookie = cookie;
   let kind = "会话令牌（refresh cookie）";
-  if (user.is_admin) {
+  if (isAdminRole(user.role)) {
     const minted = await authed.call<string>({
       method: "POST",
       path: "/access-tokens",
@@ -179,8 +186,8 @@ export async function loginWithPassword(
         audience: "cli",
       },
     });
-    if (typeof minted.data === "string" && minted.data !== "") {
-      token = minted.data;
+    if (typeof minted === "string" && minted !== "") {
+      token = minted;
       storedCookie = undefined;
       kind = "CLI 令牌（1 个月）";
     }
@@ -189,7 +196,7 @@ export async function loginWithPassword(
   const source = await persistLogin(ctx, { profile, server, token, cookie: storedCookie, user });
   return {
     human: loginMessage(kind, user, server, profile, source),
-    json: JSON.stringify({ profile, server, user: user.username ?? null, is_admin: user.is_admin ?? null }, null, 2),
+    json: JSON.stringify({ profile, server, user: user.username ?? null, role: user.role ?? null }, null, 2),
   };
 }
 
@@ -225,7 +232,7 @@ export async function loginWithDevice(ctx: CliContext, args: DeviceLoginArgs): P
   const client = new Client({ server, lang });
   const sleep = args.sleep ?? defaultSleep;
 
-  const started = await client.call<DeviceCodeInfo>({
+  const code = await client.call<DeviceCodeInfo>({
     method: "POST",
     path: "/auth/device/code",
     body: {
@@ -233,7 +240,6 @@ export async function loginWithDevice(ctx: CliContext, args: DeviceLoginArgs): P
       scopes: args.scopes && args.scopes.length > 0 ? args.scopes : DEFAULT_CLI_SCOPES,
     },
   });
-  const code = started.data;
   args.onCode(code);
 
   let interval = Math.max(code.interval, 1) * 1000;
@@ -245,16 +251,16 @@ export async function loginWithDevice(ctx: CliContext, args: DeviceLoginArgs): P
     }
     await sleep(interval);
     try {
-      const granted = await client.call<{ access_token?: string }>({
+      const granted = await client.callWithMeta<{ access_token?: string }>({
         method: "POST",
         path: "/auth/device/token",
         body: { device_code: code.device_code },
       });
-      const token = granted.data.access_token ?? "";
+      const token = granted.body.access_token ?? "";
       if (token === "") throw new Ech0Error("授权响应缺少 access_token");
 
       const authed = new Client({ server, token, lang });
-      const user = (await authed.call<User>({ path: "/user" })).data;
+      const user = await authed.call<User>({ path: "/user" });
       const source = await persistLogin(ctx, { profile, server, token, user });
       return {
         human: loginMessage("设备授权令牌（1 个月）", user, server, profile, source),
@@ -262,15 +268,15 @@ export async function loginWithDevice(ctx: CliContext, args: DeviceLoginArgs): P
       };
     } catch (error) {
       if (!(error instanceof Ech0Error)) throw error;
-      switch (error.details.errorCode) {
-        case "DEVICE_AUTHORIZATION_PENDING":
+      switch (error.details.type) {
+        case DEVICE_PENDING:
           continue;
-        case "DEVICE_SLOW_DOWN":
+        case DEVICE_SLOW_DOWN:
           interval += 5000;
           continue;
-        case "DEVICE_EXPIRED":
+        case DEVICE_EXPIRED:
           throw new Ech0Error("设备码已过期，请重新登录");
-        case "DEVICE_ACCESS_DENIED":
+        case DEVICE_DENIED:
           throw new Ech0Error("设备授权已被拒绝");
         default:
           throw error;
@@ -300,7 +306,7 @@ export async function status(ctx: CliContext, args: StatusArgs): Promise<Command
     token_source: tokenSource,
     refresh_cookie: cookie?.source ?? null,
     user: cached?.user ?? null,
-    is_admin: cached?.isAdmin ?? null,
+    role: cached?.role ?? null,
   };
 
   if (!args.verify) {
@@ -312,7 +318,7 @@ export async function status(ctx: CliContext, args: StatusArgs): Promise<Command
         `${bold("token")}      ${tokenSource}`,
         `${bold("refresh")}    ${cookie?.source ?? "-"}`,
         `${bold("user")}       ${cached?.user ?? "-"}`,
-        `${bold("admin")}      ${cached?.isAdmin ? "yes" : "no"}`,
+        `${bold("role")}       ${cached?.role ?? "-"}`,
       ].join("\n"),
       json: JSON.stringify(payload, null, 2),
     };
@@ -321,9 +327,9 @@ export async function status(ctx: CliContext, args: StatusArgs): Promise<Command
   const token = ctx.flags.token ?? ctx.env.ECH0_TOKEN ?? stored?.value;
   if (!token) throw new UsageError(`profile "${target.profile}" 没有可用 token`);
   const client = new Client({ server: target.server, token, lang: language(ctx) });
-  const result = await client.call<User>({ path: "/user" });
+  const result = await client.callWithMeta<User>({ path: "/user" });
   return {
-    human: JSON.stringify(result.data, null, 2),
+    human: JSON.stringify(result.body, null, 2),
     json: result.text,
   };
 }

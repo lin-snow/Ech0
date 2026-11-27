@@ -8,9 +8,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	"github.com/lin-snow/ech0/internal/test/helpers"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -165,44 +168,53 @@ func TestGetCommentByID(t *testing.T) {
 	t.Run("anonymous is denied before any IO", func(t *testing.T) {
 		d := newDeps(t)
 		_, err := d.service().GetCommentByID(helpers.CtxAnonymous(), "c-1")
-		assertBiz(t, err, commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("admin gets the comment passed through", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		want := commentModel.Comment{ID: "c-1", Content: "hi"}
 		d.repo.EXPECT().
 			GetCommentByID(mock.Anything, "c-1").
 			Return(want, nil).
 			Once()
-		got, err := d.service().GetCommentByID(helpers.CtxAsUser("admin-1"), "c-1")
+		got, err := d.service().GetCommentByID(helpers.CtxAsUser("admin-1", role.Admin), "c-1")
 		require.NoError(t, err)
 		assert.Equal(t, want, got)
 	})
 
 	t.Run("repo error is propagated", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		d.repo.EXPECT().
 			GetCommentByID(mock.Anything, "c-1").
 			Return(commentModel.Comment{}, errRepoBoom).
 			Once()
-		_, err := d.service().GetCommentByID(helpers.CtxAsUser("admin-1"), "c-1")
+		_, err := d.service().GetCommentByID(helpers.CtxAsUser("admin-1", role.Admin), "c-1")
 		require.ErrorIs(t, err, errRepoBoom)
 	})
+}
+
+func TestGetSystemSettingForAdmin_RequiresAdministrator(t *testing.T) {
+	d := newDeps(t)
+	_, err := d.service().GetSystemSettingForAdmin(helpers.CtxAsUser("member-1"))
+	require.ErrorIs(t, err, authz.ErrDenied)
+
+	d = newDeps(t)
+	d.expectSetting(t, enabledSetting())
+	setting, err := d.service().GetSystemSettingForAdmin(helpers.CtxAsUser("admin-1", role.Admin))
+	require.NoError(t, err)
+	assert.True(t, setting.EnableComment)
 }
 
 func TestUpdateSystemSetting(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().UpdateSystemSetting(helpers.CtxAnonymous(), commentModel.SystemSetting{})
-		assertBiz(t, err, commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("applies port default and preserves blank password before persist", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		current := enabledSetting()
 		current.EmailNotify.SMTPPassword = "old-secret"
 		d.expectSetting(t, current)
@@ -221,7 +233,7 @@ func TestUpdateSystemSetting(t *testing.T) {
 				SMTPPassword: "",
 			},
 		}
-		err := d.service().UpdateSystemSetting(helpers.CtxAsUser("admin-1"), in)
+		err := d.service().UpdateSystemSetting(helpers.CtxAsUser("admin-1", role.Admin), in)
 		require.NoError(t, err)
 
 		var saved commentModel.SystemSetting
@@ -232,7 +244,6 @@ func TestUpdateSystemSetting(t *testing.T) {
 
 	t.Run("kv set error is propagated", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
 		d.kv.EXPECT().
 			Set(mock.Anything, commentModel.CommentSystemSettingKey, mock.Anything).
@@ -241,7 +252,7 @@ func TestUpdateSystemSetting(t *testing.T) {
 		in := commentModel.SystemSetting{
 			EmailNotify: commentModel.EmailNotifySetting{SMTPPort: 25, SMTPPassword: "keep"},
 		}
-		err := d.service().UpdateSystemSetting(helpers.CtxAsUser("admin-1"), in)
+		err := d.service().UpdateSystemSetting(helpers.CtxAsUser("admin-1", role.Admin), in)
 		require.ErrorIs(t, err, errRepoBoom)
 	})
 }
@@ -261,56 +272,53 @@ func TestSendTestEmail(t *testing.T) {
 	t.Run("anonymous is denied", func(t *testing.T) {
 		d := newDeps(t)
 		err := d.service().SendTestEmail(helpers.CtxAnonymous(), commentModel.SystemSetting{})
-		assertBiz(t, err, commonModel.ErrCodePermissionDenied, commonModel.NO_PERMISSION_DENIED)
+		assertFail(t, err, apperr.ErrDenied)
 	})
 
 	t.Run("missing admin email fails before sending", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
 		d.common.EXPECT().
-			GetPrimaryAdmin().
+			GetOwner().
 			Return(helpers.NewUser(), nil).
 			Once()
-		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1"), commentModel.SystemSetting{
+		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1", role.Admin), commentModel.SystemSetting{
 			EmailNotify: validEmailNotify(),
 		})
 		require.Error(t, err)
 	})
 
-	t.Run("invalid smtp config returns biz error", func(t *testing.T) {
+	t.Run("invalid smtp config is a bad request", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
 		admin := helpers.NewUser()
 		admin.Email = "owner@example.com"
-		d.common.EXPECT().GetPrimaryAdmin().Return(admin, nil).Once()
+		d.common.EXPECT().GetOwner().Return(admin, nil).Once()
 		d.kv.EXPECT().
-			Get(mock.Anything, commonModel.ServerURLKey).
-			Return("https://example.com", nil)
+			Get(mock.Anything, commonModel.SystemSettingsKey).
+			Return(`{"server_url":"https://example.com"}`, nil)
 		bad := validEmailNotify()
 		bad.SMTPHost = ""
-		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1"), commentModel.SystemSetting{
+		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1", role.Admin), commentModel.SystemSetting{
 			EmailNotify: bad,
 		})
-		assertBiz(t, err, commonModel.ErrCodeInvalidRequest, "")
+		assertFail(t, err, apperr.ErrSMTPHost)
 	})
 
 	t.Run("happy path delivers via mailer", func(t *testing.T) {
 		d := newDeps(t)
-		expectAdmin(t, d, "admin-1")
 		d.expectSetting(t, enabledSetting())
 		admin := helpers.NewUser()
 		admin.Email = "owner@example.com"
-		d.common.EXPECT().GetPrimaryAdmin().Return(admin, nil).Once()
+		d.common.EXPECT().GetOwner().Return(admin, nil).Once()
 		d.kv.EXPECT().
-			Get(mock.Anything, commonModel.ServerURLKey).
-			Return("https://example.com", nil)
+			Get(mock.Anything, commonModel.SystemSettingsKey).
+			Return(`{"server_url":"https://example.com"}`, nil)
 		d.mailer.EXPECT().
 			Send(mock.Anything, mock.Anything, mock.Anything).
 			Return(nil).
 			Once()
-		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1"), commentModel.SystemSetting{
+		err := d.service().SendTestEmail(helpers.CtxAsUser("admin-1", role.Admin), commentModel.SystemSetting{
 			EmailNotify: validEmailNotify(),
 		})
 		require.NoError(t, err)

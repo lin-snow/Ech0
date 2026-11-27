@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/job"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 	jobRepository "github.com/lin-snow/ech0/internal/repository/job"
 	"github.com/lin-snow/ech0/internal/test/helpers"
@@ -94,9 +93,9 @@ func TestReindexStatus_NoJobSynthesizesIdle(t *testing.T) {
 	out, err := h.ReindexStatus(context.Background(), &ReindexStatusInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, reindexStatusIdle, out.Data.Status)
-	assert.Nil(t, out.Data.Payload)
+	require.NotNil(t, out)
+	assert.Equal(t, reindexStatusIdle, out.Body.Status)
+	assert.Nil(t, out.Body.Payload)
 }
 
 func TestReindexStatus_ExistingJobMapped(t *testing.T) {
@@ -112,12 +111,12 @@ func TestReindexStatus_ExistingJobMapped(t *testing.T) {
 	out, err := h.ReindexStatus(context.Background(), &ReindexStatusInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, string(jobModel.StatusRunning), out.Data.Status)
-	assert.Equal(t, "embedding", out.Data.Phase)
-	require.NotNil(t, out.Data.StartedAt)
-	assert.Equal(t, int64(1234), *out.Data.StartedAt)
-	assert.JSONEq(t, `{"total":10}`, string(out.Data.Payload))
+	require.NotNil(t, out)
+	assert.Equal(t, string(jobModel.StatusRunning), out.Body.Status)
+	assert.Equal(t, "embedding", out.Body.Phase)
+	require.NotNil(t, out.Body.StartedAt)
+	assert.Equal(t, int64(1234), *out.Body.StartedAt)
+	assert.JSONEq(t, `{"total":10}`, string(out.Body.Payload))
 }
 
 func TestCancelReindex_NoJobSynthesizesIdle(t *testing.T) {
@@ -126,8 +125,8 @@ func TestCancelReindex_NoJobSynthesizesIdle(t *testing.T) {
 	out, err := h.CancelReindex(context.Background(), &CancelReindexInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, reindexStatusIdle, out.Data.Status)
+	require.NotNil(t, out)
+	assert.Equal(t, reindexStatusIdle, out.Body.Status)
 }
 
 func TestCancelReindex_TerminalRowMapped(t *testing.T) {
@@ -141,9 +140,9 @@ func TestCancelReindex_TerminalRowMapped(t *testing.T) {
 	out, err := h.CancelReindex(context.Background(), &CancelReindexInput{})
 
 	require.NoError(t, err)
-	assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-	assert.Equal(t, string(jobModel.StatusSuccess), out.Data.Status)
-	assert.Equal(t, "done", out.Data.Phase)
+	require.NotNil(t, out)
+	assert.Equal(t, string(jobModel.StatusSuccess), out.Body.Status)
+	assert.Equal(t, "done", out.Body.Phase)
 }
 
 func TestReindex_NoRunnerReturnsErrNoRunner(t *testing.T) {
@@ -152,5 +151,5 @@ func TestReindex_NoRunnerReturnsErrNoRunner(t *testing.T) {
 	out, err := h.Reindex(context.Background(), &ReindexInput{})
 
 	require.ErrorIs(t, err, job.ErrNoRunner)
-	assert.Equal(t, ReindexOutput{}, out)
+	assert.Nil(t, out)
 }

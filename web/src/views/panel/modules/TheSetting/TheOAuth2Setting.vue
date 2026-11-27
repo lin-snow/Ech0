@@ -439,6 +439,7 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import BaseEditCapsule from '@/components/common/BaseEditCapsule.vue'
 import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { i18n } from '@/locales'
 import { useSettingStore } from '@/stores'
 import { theToast } from '@/utils/toast'
 import { OAuth2Provider } from '@/enums/enums'
@@ -503,8 +504,8 @@ const handleUpdateOAuth2Setting = async () => {
   saving.value = true
   await fetchUpdateOAuth2Settings(OAuth2Setting.value)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
       }
     })
     .finally(async () => {
@@ -514,8 +515,8 @@ const handleUpdateOAuth2Setting = async () => {
       await refreshHealthCheck()
       if (OAuth2Setting.value.provider) {
         const infoRes = await fetchGetOAuthInfo(OAuth2Setting.value.provider)
-        if (infoRes.code === 1) {
-          oauthInfo.value = infoRes.data
+        if (infoRes) {
+          oauthInfo.value = infoRes
         }
       }
     })
@@ -523,11 +524,8 @@ const handleUpdateOAuth2Setting = async () => {
 
 const handleBindOAuth2 = async () => {
   const res = await fetchBindOAuth2(OAuth2Setting.value.provider, `${window.location.origin}/panel`)
-  if (res.code !== 1) {
-    theToast.error(res.msg)
-  } else {
-    window.location.href = res.data
-  }
+  if (!res) return
+  window.location.href = res
 }
 
 const oauthInfo = ref<App.Api.Setting.OAuthInfo | null>(null)
@@ -537,8 +535,8 @@ const missingBoundaryItems = ref<string[]>([])
 
 const refreshHealthCheck = async () => {
   const statusRes = await fetchGetOAuth2Status()
-  if (statusRes.code === 1) {
-    oauthRuntimeStatus.value = statusRes.data
+  if (statusRes) {
+    oauthRuntimeStatus.value = statusRes
   }
   const missing: string[] = []
   if ((OAuth2Setting.value.auth_redirect_allowed_return_urls || []).length === 0) {
@@ -633,8 +631,8 @@ onMounted(async () => {
   await refreshHealthCheck()
   if (OAuth2Setting.value.provider) {
     const res = await fetchGetOAuthInfo(OAuth2Setting.value.provider)
-    if (res.code === 1) {
-      oauthInfo.value = res.data
+    if (res) {
+      oauthInfo.value = res
 
       if (
         oauthInfo.value.auth_type === 'oidc' &&

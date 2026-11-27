@@ -15,7 +15,7 @@ type CreateTagDto struct {
 type EchoUpsertDto struct {
 	ID        string            `json:"id,omitempty" doc:"Echo ID to update; ignored on create"`
 	Content   string            `json:"content" doc:"Markdown body; supply at least one of content, files, or extension"`
-	EchoFiles []EchoFile        `json:"echo_files,omitempty" swaggertype:"array,object" doc:"Attachments as {file_id, sort_order}; upload files first to get file_id"`
+	EchoFiles *[]EchoFile       `json:"echo_files,omitempty" swaggertype:"array,object" doc:"Attachments as {file_id, sort_order}; upload files first to get file_id. Omit on update to keep existing attachments; send [] to clear"`
 	Layout    string            `json:"layout,omitempty" doc:"Layout: waterfall / grid / horizontal / carousel / stack / none"`
 	Private   bool              `json:"private" doc:"Hidden from anonymous visitors; visible to all signed-in users"`
 	Extension *EchoExtensionDto `json:"extension,omitempty" doc:"Card payload: {type, payload}"`
@@ -25,12 +25,14 @@ type EchoUpsertDto struct {
 
 func (dto *EchoUpsertDto) ToModel() *Echo {
 	echo := &Echo{
-		ID:        dto.ID,
-		Content:   dto.Content,
-		EchoFiles: dto.EchoFiles,
-		Layout:    dto.Layout,
-		Private:   dto.Private,
-		Tags:      dto.Tags,
+		ID:      dto.ID,
+		Content: dto.Content,
+		Layout:  dto.Layout,
+		Private: dto.Private,
+		Tags:    dto.Tags,
+	}
+	if dto.EchoFiles != nil {
+		echo.EchoFiles = *dto.EchoFiles
 	}
 	if dto.CreatedAt != nil {
 		echo.CreatedAt = *dto.CreatedAt

@@ -10,7 +10,6 @@ import (
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
 	"github.com/lin-snow/ech0/internal/middleware"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
 func setupMigrationRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
@@ -26,8 +25,8 @@ func setupMigrationRoutes(appRouterGroup *AppRouterGroup, h *handler.Bundle) {
 	)
 }
 
-func registerMigration(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	admin := secured(revoker, authz.ScopeAdminData)
+func registerMigration(api *apiRegistry, h *handler.Bundle) {
+	admin := scoped(authz.ScopeAdminData)
 
 	api.route(admin, huma.Operation{
 		OperationID: "migration-start",

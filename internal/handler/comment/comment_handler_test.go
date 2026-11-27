@@ -31,9 +31,9 @@ func TestCommentHandler_GetFormMeta(t *testing.T) {
 		out, err := h.GetFormMeta(bg(), &handler.GetFormMetaInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, "tok", out.Data.FormToken)
-		assert.True(t, out.Data.EnableComment)
+		require.NotNil(t, out)
+		assert.Equal(t, "tok", out.Body.FormToken)
+		assert.True(t, out.Body.EnableComment)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCommentHandler_GetFormMeta(t *testing.T) {
 		out, err := h.GetFormMeta(bg(), &handler.GetFormMetaInput{})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.FormMetaOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -59,7 +59,7 @@ func TestCommentHandler_ListCommentsByEchoID(t *testing.T) {
 		out, err := h.ListCommentsByEchoID(bg(), &handler.ListCommentsByEchoInput{EchoID: "  echo-1  "})
 
 		require.NoError(t, err)
-		assert.Len(t, out.Data, 1)
+		assert.Len(t, out.Body.Items, 1)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestCommentHandler_ListPublicComments(t *testing.T) {
 		out, err := h.ListPublicComments(bg(), &handler.ListPublicCommentsInput{Limit: 30})
 
 		require.NoError(t, err)
-		assert.Len(t, out.Data, 2)
+		assert.Len(t, out.Body.Items, 2)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -105,26 +105,27 @@ func TestCommentHandler_CreateComment(t *testing.T) {
 			CreateComment(mock.Anything, "", "", mock.MatchedBy(func(d *model.CreateCommentDto) bool {
 				return d != nil && d.EchoID == "e1" && d.Content == "hi"
 			})).
-			Return(model.CreateCommentResult{ID: "c1", Status: model.StatusPending}, nil).Once()
+			Return(&model.Comment{ID: "c1", Status: model.StatusPending}, nil).Once()
 
 		h := handler.NewCommentHandler(svc)
 		out, err := h.CreateComment(bg(), &handler.CreateCommentInput{Body: dto})
 
 		require.NoError(t, err)
-		assert.Equal(t, "c1", out.Data.ID)
-		assert.Equal(t, model.StatusPending, out.Data.Status)
+		require.NotNil(t, out)
+		assert.Equal(t, "c1", out.Body.ID)
+		assert.Equal(t, model.StatusPending, out.Body.Status)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := commentmock.NewMockService(t)
 		svc.EXPECT().CreateComment(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(model.CreateCommentResult{}, errBoom).Once()
+			Return(nil, errBoom).Once()
 
 		h := handler.NewCommentHandler(svc)
 		out, err := h.CreateComment(bg(), &handler.CreateCommentInput{})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.CreateCommentOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -136,20 +137,21 @@ func TestCommentHandler_CreateIntegrationComment(t *testing.T) {
 			CreateIntegrationComment(mock.Anything, "", "", mock.MatchedBy(func(d *model.CreateIntegrationCommentDto) bool {
 				return d != nil && d.EchoID == "e1" && d.Content == "via token"
 			})).
-			Return(model.CreateCommentResult{ID: "c9", Status: model.StatusApproved}, nil).Once()
+			Return(&model.Comment{ID: "c9", Status: model.StatusApproved}, nil).Once()
 
 		h := handler.NewCommentHandler(svc)
 		out, err := h.CreateIntegrationComment(bg(), &handler.CreateIntegrationCommentInput{Body: dto})
 
 		require.NoError(t, err)
-		assert.Equal(t, "c9", out.Data.ID)
-		assert.Equal(t, model.StatusApproved, out.Data.Status)
+		require.NotNil(t, out)
+		assert.Equal(t, "c9", out.Body.ID)
+		assert.Equal(t, model.StatusApproved, out.Body.Status)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := commentmock.NewMockService(t)
 		svc.EXPECT().CreateIntegrationComment(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(model.CreateCommentResult{}, errBoom).Once()
+			Return(nil, errBoom).Once()
 
 		h := handler.NewCommentHandler(svc)
 		_, err := h.CreateIntegrationComment(bg(), &handler.CreateIntegrationCommentInput{})
@@ -172,13 +174,14 @@ func TestCommentHandler_ListPanelComments(t *testing.T) {
 	}
 	for _, tc := range hotCases {
 		t.Run(tc.name, func(t *testing.T) {
+			total := int64(3)
 			svc := commentmock.NewMockService(t)
 			svc.EXPECT().
 				ListPanelComments(mock.Anything, mock.MatchedBy(func(q model.ListCommentQuery) bool {
 					return q.Page == 1 && q.PageSize == 20 && q.Keyword == "k" &&
 						q.Status == "approved" && q.EchoID == "e1" && eqBoolPtr(q.Hot, tc.wantHot)
 				})).
-				Return(model.PageResult[model.Comment]{Total: 3}, nil).Once()
+				Return(commonModel.List[model.Comment]{Total: &total}, nil).Once()
 
 			h := handler.NewCommentHandler(svc)
 			out, err := h.ListPanelComments(bg(), &handler.ListPanelCommentsInput{
@@ -186,14 +189,15 @@ func TestCommentHandler_ListPanelComments(t *testing.T) {
 			})
 
 			require.NoError(t, err)
-			assert.Equal(t, int64(3), out.Data.Total)
+			require.NotNil(t, out.Body.Total)
+			assert.Equal(t, int64(3), *out.Body.Total)
 		})
 	}
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := commentmock.NewMockService(t)
 		svc.EXPECT().ListPanelComments(mock.Anything, mock.Anything).
-			Return(model.PageResult[model.Comment]{}, errBoom).Once()
+			Return(commonModel.List[model.Comment]{}, errBoom).Once()
 
 		h := handler.NewCommentHandler(svc)
 		_, err := h.ListPanelComments(bg(), &handler.ListPanelCommentsInput{Page: 1})
@@ -212,7 +216,8 @@ func TestCommentHandler_GetCommentByID(t *testing.T) {
 		out, err := h.GetCommentByID(bg(), &handler.GetCommentByIDInput{ID: "  c1 "})
 
 		require.NoError(t, err)
-		assert.Equal(t, "c1", out.Data.ID)
+		require.NotNil(t, out)
+		assert.Equal(t, "c1", out.Body.ID)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -224,7 +229,7 @@ func TestCommentHandler_GetCommentByID(t *testing.T) {
 		out, err := h.GetCommentByID(bg(), &handler.GetCommentByIDInput{ID: "c1"})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.CommentOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -240,7 +245,7 @@ func TestCommentHandler_UpdateCommentStatus(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -269,7 +274,7 @@ func TestCommentHandler_UpdateCommentHot(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -295,7 +300,7 @@ func TestCommentHandler_DeleteComment(t *testing.T) {
 		out, err := h.DeleteComment(bg(), &handler.DeleteCommentInput{ID: "  c1  "})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DELETE_SUCCESS, out.Message)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -321,7 +326,7 @@ func TestCommentHandler_BatchAction(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -340,26 +345,27 @@ func TestCommentHandler_BatchAction(t *testing.T) {
 func TestCommentHandler_GetCommentSetting(t *testing.T) {
 	t.Run("success returns system setting", func(t *testing.T) {
 		svc := commentmock.NewMockService(t)
-		svc.EXPECT().GetSystemSetting(mock.Anything).
+		svc.EXPECT().GetSystemSettingForAdmin(mock.Anything).
 			Return(model.SystemSetting{EnableComment: true, RequireApproval: true}, nil).Once()
 
 		h := handler.NewCommentHandler(svc)
 		out, err := h.GetCommentSetting(bg(), &handler.GetCommentSettingInput{})
 
 		require.NoError(t, err)
-		assert.True(t, out.Data.EnableComment)
-		assert.True(t, out.Data.RequireApproval)
+		require.NotNil(t, out)
+		assert.True(t, out.Body.EnableComment)
+		assert.True(t, out.Body.RequireApproval)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
 		svc := commentmock.NewMockService(t)
-		svc.EXPECT().GetSystemSetting(mock.Anything).Return(model.SystemSetting{}, errBoom).Once()
+		svc.EXPECT().GetSystemSettingForAdmin(mock.Anything).Return(model.SystemSetting{}, errBoom).Once()
 
 		h := handler.NewCommentHandler(svc)
 		out, err := h.GetCommentSetting(bg(), &handler.GetCommentSettingInput{})
 
 		require.ErrorIs(t, err, errBoom)
-		assert.Equal(t, handler.CommentSettingOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -373,7 +379,7 @@ func TestCommentHandler_UpdateCommentSetting(t *testing.T) {
 		out, err := h.UpdateCommentSetting(bg(), &handler.UpdateCommentSettingInput{Body: setting})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.UPDATE_SETTINGS_SUCCESS, out.Message)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {
@@ -399,7 +405,7 @@ func TestCommentHandler_TestCommentEmail(t *testing.T) {
 		})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
+		assert.NotNil(t, out)
 	})
 
 	t.Run("service error is propagated", func(t *testing.T) {

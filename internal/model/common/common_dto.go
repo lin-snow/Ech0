@@ -36,29 +36,16 @@ type FileDto struct {
 	URL         string `json:"url"`
 	ContentType string `json:"content_type,omitempty"`
 	Category    string `json:"category,omitempty"`
+	Class       string `json:"class,omitempty"`
 	Size        int64  `json:"size,omitempty"`
 	Width       int    `json:"width,omitempty"`
 	Height      int    `json:"height,omitempty"`
 	UserID      string `json:"user_id,omitempty"`
+	ExpiresAt   *int64 `json:"expires_at,omitempty"`
 }
 
 type FileDeleteDto struct {
 	ID string `json:"id" binding:"required"`
-}
-
-type PresignDto struct {
-	ID          string `json:"id"`
-	FileName    string `json:"file_name"`
-	ContentType string `json:"content_type"`
-	Key         string `json:"key"`
-	PresignURL  string `json:"presign_url"`
-	FileURL     string `json:"file_url"`
-}
-
-type GetPresignURLDto struct {
-	FileName    string `json:"file_name" binding:"required"`
-	ContentType string `json:"content_type"`
-	StorageType string `json:"storage_type,omitempty"`
 }
 
 type CreateExternalFileDto struct {
@@ -91,6 +78,8 @@ type FileListItemDto struct {
 	StorageType string `json:"storage_type"`
 	URL         string `json:"url"`
 	ContentType string `json:"content_type,omitempty"`
+	Category    string `json:"category,omitempty"`
+	Class       string `json:"class,omitempty"`
 	Size        int64  `json:"size,omitempty"`
 	CreatedAt   int64  `json:"created_at"`
 }
@@ -103,13 +92,6 @@ type FileListResultDto struct {
 type FileTreeQueryDto struct {
 	StorageType string `json:"storage_type" form:"storage_type" binding:"required"`
 	Prefix      string `json:"prefix" form:"prefix"`
-}
-
-type FilePathStreamQueryDto struct {
-	StorageType string `json:"storage_type" form:"storage_type" binding:"required"`
-	Path        string `json:"path" form:"path" binding:"required"`
-	Name        string `json:"name" form:"name"`
-	ContentType string `json:"content_type" form:"content_type"`
 }
 
 type FileTreeNodeDto struct {

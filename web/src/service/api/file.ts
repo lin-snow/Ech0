@@ -2,68 +2,61 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { downloadFile, request } from '../request'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
 
-export function fetchUploadFile(
-  file: File,
-  storageType: App.Api.File.StorageType = FILE_STORAGE_TYPE.LOCAL,
-  category: App.Api.File.Category = FILE_CATEGORY.IMAGE,
-) {
+function uploadForm(dto: App.Api.File.UploadFileDto | App.Api.File.RegisterExternalFileDto) {
   const formData = new FormData()
-  formData.append('file', file)
-  formData.append('storage_type', storageType)
-  formData.append('category', category)
+  if ('file' in dto) {
+    formData.append('file', dto.file)
+    if (dto.profile) formData.append('profile', dto.profile)
+  }
+  if ('url' in dto) {
+    formData.append('external_url', dto.url)
+    if (dto.content_type) formData.append('content_type', dto.content_type)
+  }
+  if (dto.name) formData.append('name', dto.name)
+  if ('width' in dto && dto.width) formData.append('width', String(dto.width))
+  if ('height' in dto && dto.height) formData.append('height', String(dto.height))
+  return formData
+}
 
-  return request<App.Api.File.FileDto>({
-    url: `/files/upload`,
+export function fetchUploadFile(dto: App.Api.File.UploadFileDto) {
+  return request<App.Api.File.UploadResult>({
+    url: `/files`,
     method: 'POST',
-    data: formData,
+    data: uploadForm(dto),
   })
 }
 
-export function fetchCreateExternalFile(dto: App.Api.File.CreateExternalFileDto) {
-  return request<App.Api.File.FileDto>({
-    url: `/files/external`,
+export function fetchRegisterExternalFile(dto: App.Api.File.RegisterExternalFileDto) {
+  return request<App.Api.File.UploadResult>({
+    url: `/files`,
     method: 'POST',
-    data: dto,
+    data: uploadForm(dto),
   })
 }
 
 export function fetchDeleteFile(file: App.Api.File.FileDeleteDto) {
+  const searchParams = new URLSearchParams()
+  if (file.force) searchParams.set('force', 'true')
+  const query = searchParams.toString()
   return request({
-    url: `/file/${file.id}`,
+    url: `/files/${file.id}${query ? `?${query}` : ''}`,
     method: 'DELETE',
   })
 }
 
 export function fetchGetFileById(id: string) {
   return request<App.Api.File.FileDto>({
-    url: `/file/${id}`,
+    url: `/files/${id}`,
     method: 'GET',
   })
 }
 
-export function fetchUpdateFileMeta(id: string, dto: App.Api.File.UpdateFileMetaDto) {
+export function fetchRenameFile(id: string, dto: App.Api.File.RenameFileDto) {
   return request<App.Api.File.FileDto>({
-    url: `/file/${id}/meta`,
-    method: 'PUT',
+    url: `/files/${id}`,
+    method: 'PATCH',
     data: dto,
-  })
-}
-
-export function fetchGetPresignedUrl(
-  fileName: string,
-  contentType?: string,
-  storageType: App.Api.File.StorageType = FILE_STORAGE_TYPE.OBJECT,
-) {
-  return request<App.Api.Ech0.PresignResult>({
-    url: `/files/presign`,
-    method: 'PUT',
-    data: {
-      file_name: fileName,
-      content_type: contentType,
-      storage_type: storageType,
-    },
   })
 }
 
@@ -73,8 +66,11 @@ export function fetchListFiles(query: App.Api.File.FileListQuery) {
     pageSize: String(query.pageSize),
     search: query.search || '',
   })
-  if (query.storage_type) {
-    searchParams.set('storage_type', query.storage_type)
+  if (query.kind) {
+    searchParams.set('kind', query.kind)
+  }
+  if (query.access) {
+    searchParams.set('access', query.access)
   }
   return request<App.Api.File.FileListResult>({
     url: `/files?${searchParams.toString()}`,
@@ -82,39 +78,9 @@ export function fetchListFiles(query: App.Api.File.FileListQuery) {
   })
 }
 
-export function fetchFileTree(query: App.Api.File.FileTreeQuery) {
-  const searchParams = new URLSearchParams({
-    storage_type: query.storage_type,
-  })
-  if (query.prefix) {
-    searchParams.set('prefix', query.prefix)
-  }
-  return request<App.Api.File.FileTreeResult>({
-    url: `/file/tree?${searchParams.toString()}`,
-    method: 'GET',
-  })
-}
-
 export function fetchDownloadFileById(id: string) {
   return downloadFile({
-    url: `/file/${id}/stream`,
-    method: 'GET',
-  })
-}
-
-export function fetchDownloadFileByPath(query: App.Api.File.FilePathStreamQuery) {
-  const searchParams = new URLSearchParams({
-    storage_type: query.storage_type,
-    path: query.path,
-  })
-  if (query.name) {
-    searchParams.set('name', query.name)
-  }
-  if (query.content_type) {
-    searchParams.set('content_type', query.content_type)
-  }
-  return downloadFile({
-    url: `/file/stream?${searchParams.toString()}`,
+    url: `/files/${id}/content`,
     method: 'GET',
   })
 }

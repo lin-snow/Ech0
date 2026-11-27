@@ -5,9 +5,8 @@ package service
 
 import (
 	"context"
-	"errors"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	actorUtil "github.com/lin-snow/ech0/internal/util/actor"
 	"github.com/lin-snow/ech0/pkg/viewer"
@@ -36,7 +35,7 @@ func (echoService *EchoService) setReaction(
 	add bool,
 ) ([]model.ReactionCount, error) {
 	if _, ok := model.ReactionEmojiByKey(emoji); !ok {
-		return nil, errors.New(commonModel.INVALID_PARAMS)
+		return nil, apperr.ErrInvalidParams
 	}
 
 	echo, err := echoService.echoRepository.GetEchosById(ctx, id)
@@ -44,10 +43,10 @@ func (echoService *EchoService) setReaction(
 		return nil, err
 	}
 	if echo == nil {
-		return nil, errors.New(commonModel.ECHO_NOT_FOUND)
+		return nil, apperr.ErrEchoNotFound
 	}
 	if echo.Private && !echoService.privateScope(ctx).Authenticated {
-		return nil, errors.New(commonModel.NO_PERMISSION_DENIED)
+		return nil, apperr.ErrDenied
 	}
 
 	actor := reactionActor(ctx)

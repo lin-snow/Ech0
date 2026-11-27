@@ -309,10 +309,10 @@ describe("invokeOperation", () => {
         if (attempts === 1) {
           return {
             status: 412,
-            body: { code: 0, msg: "catalog stale", error_code: "catalog_stale" },
+            body: { title: "Precondition Failed", status: 412, detail: "catalog stale", code: "CATALOG_STALE" },
           };
         }
-        return { body: { code: 1, msg: "ok", data: { id: "e1" } } };
+        return { body: { id: "e1" } };
       },
     });
     api = fake;
@@ -339,7 +339,7 @@ describe("invokeOperation", () => {
 
   test("does not retry ordinary failures", async () => {
     const fake = startFakeApi({
-      "POST /api/echo": () => ({ status: 403, body: { code: 0, msg: "forbidden" } }),
+      "POST /api/echo": () => ({ status: 403, body: { title: "Forbidden", status: 403, detail: "forbidden", code: "FORBIDDEN" } }),
     });
     api = fake;
     const configPath = join(mkdtempSync(join(tmpdir(), "ech0-cli-403-")), "config.json");

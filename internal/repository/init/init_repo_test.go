@@ -7,7 +7,6 @@ import (
 	"errors"
 	"testing"
 
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	"github.com/stretchr/testify/assert"
@@ -22,54 +21,47 @@ func newInitRepo(t *testing.T) (*InitRepository, *gorm.DB) {
 }
 
 func TestInitRepository_IsInitialized(t *testing.T) {
-	cases := []struct {
-		name  string
-		seed  bool
-		value string
-		want  bool
-	}{
-		{name: "missing key is treated as not initialized", seed: false, want: false},
-		{name: "value 'true' is initialized", seed: true, value: "true", want: true},
-		{name: "any other value is not initialized", seed: true, value: "false", want: false},
-		{name: "garbage value is not initialized", seed: true, value: "yes", want: false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			repo, db := newInitRepo(t)
-			if tc.seed {
-				require.NoError(t, db.Create(&commonModel.KeyValue{
-					Key:   commonModel.InstallInitializedKey,
-					Value: tc.value,
-				}).Error)
-			}
+	t.Run("no owner is not initialized", func(t *testing.T) {
+		repo, db := newInitRepo(t)
+		require.NoError(t, db.Create(&userModel.User{ID: "u-member", Username: "member"}).Error)
 
-			got, err := repo.IsInitialized()
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
-		})
-	}
+		got, err := repo.IsInitialized()
+		require.NoError(t, err)
+		assert.False(t, got)
+	})
+
+	t.Run("owner presence is initialization", func(t *testing.T) {
+		repo, db := newInitRepo(t)
+		require.NoError(t, db.Create(&userModel.User{
+			ID: "u-owner", Username: "owner", Role: userModel.RoleOwner,
+		}).Error)
+
+		got, err := repo.IsInitialized()
+		require.NoError(t, err)
+		assert.True(t, got)
+	})
 }
 
-func TestInitRepository_GetPrimaryAdmin(t *testing.T) {
+func TestInitRepository_GetOwner(t *testing.T) {
 	repo, db := newInitRepo(t)
 
-	t.Run("no admin returns record-not-found", func(t *testing.T) {
-		_, err := repo.GetPrimaryAdmin()
+	t.Run("no owner returns record-not-found", func(t *testing.T) {
+		_, err := repo.GetOwner()
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 	})
 
-	t.Run("returns the admin ignoring regular users", func(t *testing.T) {
+	t.Run("returns the owner ignoring regular users", func(t *testing.T) {
 		require.NoError(t, db.Create(&userModel.User{ID: "u-normal", Username: "normal"}).Error)
 		require.NoError(t, db.Create(&userModel.User{
-			ID:       "u-admin",
-			Username: "admin",
-			IsAdmin:  true,
+			ID:       "u-owner",
+			Username: "owner",
+			Role:     userModel.RoleOwner,
 		}).Error)
 
-		admin, err := repo.GetPrimaryAdmin()
+		owner, err := repo.GetOwner()
 		require.NoError(t, err)
-		assert.Equal(t, "u-admin", admin.ID)
-		assert.True(t, admin.IsAdmin)
+		assert.Equal(t, "u-owner", owner.ID)
+		assert.Equal(t, userModel.RoleOwner, owner.Role)
 	})
 }

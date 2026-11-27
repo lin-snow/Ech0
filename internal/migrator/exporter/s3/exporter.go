@@ -18,14 +18,24 @@ import (
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
-const uploadTimeout = 60 * time.Minute
+const (
+	uploadTimeout = 60 * time.Minute
+	snapshotKey   = "snapshots/"
+)
 
-type Exporter struct {
-	storageManager *storage.Manager
+// uploader is the one thing this exporter needs from the storage layer: the
+// default instance an artifact is uploaded to. The registry owns driver choice
+// and configuration; there is no second decision to make here.
+type uploader interface {
+	Default() (string, storage.Store, error)
 }
 
-func New(storageManager *storage.Manager) *Exporter {
-	return &Exporter{storageManager: storageManager}
+type Exporter struct {
+	uploader uploader
+}
+
+func New(up uploader) *Exporter {
+	return &Exporter{uploader: up}
 }
 
 func (e *Exporter) Export(_ context.Context, req spec.ExportRequest) (spec.ExportResult, error) {
@@ -40,36 +50,57 @@ func (e *Exporter) Export(_ context.Context, req spec.ExportRequest) (spec.Expor
 		size = info.Size()
 	}
 
-	go e.uploadToS3(path, fileName)
+	go e.upload(path, fileName)
 
 	emit(req, migratorModel.ExportPhaseCompleted)
 	return spec.ExportResult{ArtifactPath: path, FileName: fileName, Size: size}, nil
 }
 
-func (e *Exporter) uploadToS3(artifactPath, fileName string) {
-	if e.storageManager == nil {
-		return
-	}
-	selector := e.storageManager.GetSelector()
-	if selector == nil || !selector.ObjectEnabled() {
+func (e *Exporter) upload(artifactPath, fileName string) {
+	if e.uploader == nil {
 		return
 	}
 
 	uploadCtx, cancel := context.WithTimeout(context.Background(), uploadTimeout)
 	defer cancel()
 
-	cfg := e.storageManager.GetStorageConfig(uploadCtx)
-	if err := snapshot.UploadToS3(uploadCtx, artifactPath, fileName, cfg); err != nil {
+	if err := e.put(uploadCtx, artifactPath, fileName); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			logUtil.GetLogger().Warn("Failed to upload snapshot to S3: upload timeout reached",
+			logUtil.GetLogger().Warn("Failed to upload snapshot: upload timeout reached",
 				slog.Duration("timeout", uploadTimeout), logUtil.Err(err))
 		case errors.Is(err, context.Canceled):
-			logUtil.GetLogger().Warn("Failed to upload snapshot to S3: upload context canceled", logUtil.Err(err))
+			logUtil.GetLogger().Warn("Failed to upload snapshot: upload context canceled", logUtil.Err(err))
 		default:
-			logUtil.GetLogger().Warn("Failed to upload snapshot to S3", logUtil.Err(err))
+			logUtil.GetLogger().Warn("Failed to upload snapshot", logUtil.Err(err))
 		}
 	}
+}
+
+func (e *Exporter) put(ctx context.Context, artifactPath, fileName string) error {
+	f, err := os.Open(artifactPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	_, store, err := e.uploader.Default()
+	if err != nil {
+		return err
+	}
+
+	key := snapshotKey + fileName
+	if _, err := store.Put(ctx, key, f, info.Size()); err != nil {
+		return err
+	}
+
+	logUtil.GetLogger().Info("Snapshot uploaded to storage", slog.String("key", key))
+	return nil
 }
 
 func emit(req spec.ExportRequest, phase string) {

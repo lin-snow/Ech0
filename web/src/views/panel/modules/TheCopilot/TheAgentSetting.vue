@@ -143,6 +143,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fetchUpdateAgentSettings, fetchTestAgentConnection } from '@/service/api'
 import { theToast } from '@/utils/toast'
+import { i18n } from '@/locales'
 import { useSettingStore } from '@/stores'
 import { storeToRefs } from 'pinia'
 import { AgentProtocol } from '@/enums/enums'
@@ -204,8 +205,8 @@ const agentProtocolOptions = computed<{ label: string; value: AgentProtocol }[]>
 const save = async () => {
   await fetchUpdateAgentSettings(settingStore.AgentSetting)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
       }
     })
     .finally(() => {
@@ -220,10 +221,8 @@ const handleTestAgentConnection = async () => {
   agentTesting.value = true
   try {
     const res = await fetchTestAgentConnection(settingStore.AgentSetting)
-    if (res.code === 1) {
+    if (res) {
       theToast.success(t('agentSetting.testSuccess'))
-    } else {
-      theToast.error(t('agentSetting.testFailed', { detail: res.msg }))
     }
   } finally {
     agentTesting.value = false

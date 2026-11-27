@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	initService "github.com/lin-snow/ech0/internal/service/init"
@@ -34,16 +34,14 @@ func (f *fakeInitRepo) IsInitialized() (bool, error) {
 	return f.initialized, f.initializedErr
 }
 
-func (f *fakeInitRepo) GetPrimaryAdmin() (userModel.User, error) {
+func (f *fakeInitRepo) GetOwner() (userModel.User, error) {
 	f.getOwnerCalls++
 	return f.owner, f.getOwnerErr
 }
 
-func asBizError(t *testing.T, err error) *commonModel.BizError {
+func asSentinel(t *testing.T, err, want error) {
 	t.Helper()
-	var biz *commonModel.BizError
-	require.True(t, errors.As(err, &biz), "expected *commonModel.BizError, got %T (%v)", err, err)
-	return biz
+	require.ErrorIs(t, err, want)
 }
 
 func TestInitService_GetStatus(t *testing.T) {
@@ -136,7 +134,7 @@ func TestInitService_InitOwner(t *testing.T) {
 		assert.Equal(t, 1, repo.isInitCalls)
 	})
 
-	t.Run("already initialized returns INIT_ALREADY_DONE biz error", func(t *testing.T) {
+	t.Run("already initialized returns a bad request", func(t *testing.T) {
 		t.Parallel()
 
 		repo := &fakeInitRepo{initialized: true}
@@ -146,9 +144,7 @@ func TestInitService_InitOwner(t *testing.T) {
 
 		err := svc.InitOwner(dto)
 
-		biz := asBizError(t, err)
-		assert.Equal(t, commonModel.ErrCodeInitAlreadyDone, biz.Code)
-		assert.Equal(t, commonModel.SYSTEM_ALREADY_INITED, biz.Msg)
+		asSentinel(t, err, apperr.ErrAlreadyInitialized)
 	})
 
 	t.Run("user service InitOwner error is propagated, locale not bootstrapped", func(t *testing.T) {

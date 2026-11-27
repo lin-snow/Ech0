@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -41,7 +42,7 @@ func TestGetEchoById_Visibility(t *testing.T) {
 		got, err := svc.GetEchoById(helpers.CtxAnonymous(), echoID)
 
 		require.Error(t, err)
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		require.EqualError(t, err, apperr.ErrDenied.Error())
 		assert.Nil(t, got)
 	})
 
@@ -103,7 +104,7 @@ func TestGetEchoById_Visibility(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		got, err := svc.GetEchoById(ctx, echoID)
 
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		require.EqualError(t, err, apperr.ErrDenied.Error())
 		assert.Nil(t, got)
 	})
 
@@ -136,7 +137,7 @@ func TestGetEchoById_Visibility(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		got, err := svc.GetEchoById(helpers.CtxAnonymous(), echoID)
 
-		require.EqualError(t, err, commonModel.ECHO_NOT_FOUND)
+		require.EqualError(t, err, apperr.ErrEchoNotFound.Error())
 		assert.Nil(t, got)
 	})
 
@@ -179,7 +180,7 @@ func TestReactions_Visibility(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.ReactToEcho(helpers.CtxAnonymous(), echoID, "angry")
 
-		require.EqualError(t, err, commonModel.INVALID_PARAMS)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 	})
 
 	t.Run("anonymous cannot react to private echo", func(t *testing.T) {
@@ -191,7 +192,7 @@ func TestReactions_Visibility(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.ReactToEcho(helpers.CtxAnonymous(), echoID, "like")
 
-		require.EqualError(t, err, commonModel.NO_PERMISSION_DENIED)
+		require.EqualError(t, err, apperr.ErrDenied.Error())
 	})
 
 	t.Run("member can react to private echo", func(t *testing.T) {
@@ -254,7 +255,7 @@ func TestReactions_Visibility(t *testing.T) {
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.ReactToEcho(helpers.CtxAnonymous(), echoID, "like")
 
-		require.EqualError(t, err, commonModel.ECHO_NOT_FOUND)
+		require.EqualError(t, err, apperr.ErrEchoNotFound.Error())
 	})
 }
 

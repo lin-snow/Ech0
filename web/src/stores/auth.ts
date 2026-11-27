@@ -28,12 +28,13 @@ export const useAuthStore = defineStore('authStore', () => {
     }
     refreshPromise = (async () => {
       try {
-        const res = await ofetch<App.Api.Response<App.Api.Auth.TokenPairResponse>>(
-          `${getApiUrl()}/auth/refresh`,
-          { method: 'POST', credentials: 'include', ignoreResponseError: true },
-        )
-        if (res.code === 1 && res.data?.access_token) {
-          setToken(res.data.access_token)
+        const res = await ofetch<App.Api.Auth.TokenPairResponse>(`${getApiUrl()}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          ignoreResponseError: true,
+        })
+        if (res?.access_token) {
+          setToken(res.access_token)
           return true
         }
         clearToken()

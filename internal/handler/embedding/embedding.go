@@ -9,7 +9,6 @@ import (
 	"errors"
 
 	"github.com/lin-snow/ech0/internal/job"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	jobModel "github.com/lin-snow/ech0/internal/model/job"
 )
 
@@ -40,7 +39,7 @@ type (
 	CancelReindexInput struct{}
 )
 
-type ReindexOutput = commonModel.Result[ReindexStatusResponse]
+type ReindexOutput struct{ Body ReindexStatusResponse }
 
 func mapJobToReindexStatus(jb jobModel.Job) ReindexStatusResponse {
 	resp := ReindexStatusResponse{
@@ -56,33 +55,33 @@ func mapJobToReindexStatus(jb jobModel.Job) ReindexStatusResponse {
 	return resp
 }
 
-func (embeddingHandler *EmbeddingHandler) Reindex(ctx context.Context, _ *ReindexInput) (ReindexOutput, error) {
+func (embeddingHandler *EmbeddingHandler) Reindex(ctx context.Context, _ *ReindexInput) (*ReindexOutput, error) {
 	jb, err := embeddingHandler.jobManager.Submit(ctx, jobModel.Reindex, struct{}{})
 	if err != nil {
-		return ReindexOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(mapJobToReindexStatus(jb)), nil
+	return &ReindexOutput{Body: mapJobToReindexStatus(jb)}, nil
 }
 
-func (embeddingHandler *EmbeddingHandler) ReindexStatus(ctx context.Context, _ *ReindexStatusInput) (ReindexOutput, error) {
+func (embeddingHandler *EmbeddingHandler) ReindexStatus(ctx context.Context, _ *ReindexStatusInput) (*ReindexOutput, error) {
 	jb, err := embeddingHandler.jobManager.Get(ctx, jobModel.Reindex)
 	if errors.Is(err, job.ErrNotFound) {
-		return commonModel.OK(ReindexStatusResponse{Status: reindexStatusIdle}), nil
+		return &ReindexOutput{Body: ReindexStatusResponse{Status: reindexStatusIdle}}, nil
 	}
 	if err != nil {
-		return ReindexOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(mapJobToReindexStatus(jb)), nil
+	return &ReindexOutput{Body: mapJobToReindexStatus(jb)}, nil
 }
 
-func (embeddingHandler *EmbeddingHandler) CancelReindex(ctx context.Context, _ *CancelReindexInput) (ReindexOutput, error) {
+func (embeddingHandler *EmbeddingHandler) CancelReindex(ctx context.Context, _ *CancelReindexInput) (*ReindexOutput, error) {
 	_ = embeddingHandler.jobManager.Cancel(jobModel.Reindex)
 	jb, err := embeddingHandler.jobManager.Get(ctx, jobModel.Reindex)
 	if errors.Is(err, job.ErrNotFound) {
-		return commonModel.OK(ReindexStatusResponse{Status: reindexStatusIdle}), nil
+		return &ReindexOutput{Body: ReindexStatusResponse{Status: reindexStatusIdle}}, nil
 	}
 	if err != nil {
-		return ReindexOutput{}, err
+		return nil, err
 	}
-	return commonModel.OK(mapJobToReindexStatus(jb)), nil
+	return &ReindexOutput{Body: mapJobToReindexStatus(jb)}, nil
 }

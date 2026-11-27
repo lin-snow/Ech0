@@ -297,6 +297,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute } from 'vue-router'
 import { fetchCreateComment, fetchGetCommentFormMeta, fetchGetComments } from '@/service/api'
 import { useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 import { theToast } from '@/utils/toast'
 import { formatDate, safeExternalUrl } from '@/utils/other'
 import BaseAvatar from '@/components/common/BaseAvatar.vue'
@@ -442,7 +443,7 @@ const cancelReply = () => {
 
 const isPrivilegedUser = computed(() => {
   const user = userStore.user
-  return Boolean(user && user.is_admin)
+  return Boolean(user && isAdminRole(user.role))
 })
 
 const canSubmit = computed(() => {
@@ -621,12 +622,12 @@ const loadData = async () => {
       fetchGetCommentFormMeta(),
       fetchGetComments(echoId),
     ])
-    if (metaRes.code === 1) {
-      formMeta.value = metaRes.data
-      form.form_token = metaRes.data.form_token
+    if (metaRes) {
+      formMeta.value = metaRes
+      form.form_token = metaRes.form_token
     }
-    if (commentsRes.code === 1) {
-      comments.value = commentsRes.data || []
+    if (commentsRes) {
+      comments.value = commentsRes
     }
   } finally {
     loading.value = false
@@ -654,8 +655,8 @@ const submitComment = async () => {
   try {
     const submittedContent = form.content.trim()
     const res = await fetchCreateComment(form)
-    if (res.code === 1) {
-      const status = res.data?.status || 'pending'
+    if (res) {
+      const status = res.status || 'pending'
       saveGuestProfile()
       submitNotice.value = {
         status,

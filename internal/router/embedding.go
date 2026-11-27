@@ -9,11 +9,10 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/handler"
-	authService "github.com/lin-snow/ech0/internal/service/auth"
 )
 
-func registerEmbedding(api *apiRegistry, h *handler.Bundle, revoker authService.TokenRevoker) {
-	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+func registerEmbedding(api *apiRegistry, h *handler.Bundle) {
+	api.route(scoped(authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "embedding-reindex",
 		Method:      http.MethodPost,
 		Path:        "/embedding/reindex",
@@ -22,7 +21,7 @@ func registerEmbedding(api *apiRegistry, h *handler.Bundle, revoker authService.
 		Tags:        []string{"Embedding"},
 	}, h.EmbeddingHandler.Reindex)
 
-	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(scoped(authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "embedding-reindex-status",
 		Method:      http.MethodGet,
 		Path:        "/embedding/reindex/status",
@@ -31,7 +30,7 @@ func registerEmbedding(api *apiRegistry, h *handler.Bundle, revoker authService.
 		Tags:        []string{"Embedding"},
 	}, h.EmbeddingHandler.ReindexStatus)
 
-	api.route(secured(revoker, authz.ScopeAdminAgent), huma.Operation{
+	api.route(scoped(authz.ScopeAdminAgent), huma.Operation{
 		OperationID: "embedding-reindex-cancel",
 		Method:      http.MethodPost,
 		Path:        "/embedding/reindex/cancel",

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/config"
 	dbMigration "github.com/lin-snow/ech0/internal/database/migration"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
@@ -30,7 +31,7 @@ import (
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	visitorModel "github.com/lin-snow/ech0/internal/model/visitor"
 	webhookModel "github.com/lin-snow/ech0/internal/model/webhook"
-	util "github.com/lin-snow/ech0/internal/util/err"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -70,7 +71,7 @@ func buildGormConfig(logLevel logger.LogLevel) *gorm.Config {
 	}
 }
 
-const sqliteConnParams = "_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_txlock=immediate"
+const sqliteConnParams = "_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_txlock=immediate&_foreign_keys=on"
 
 func openSQLite(dbPath string, logLevel logger.LogLevel) (*gorm.DB, error) {
 	return gorm.Open(sqlite.Open(dbPath+"?"+sqliteConnParams), buildGormConfig(logLevel))
@@ -133,41 +134,27 @@ func InitDatabase() {
 	dbPath := config.Config().Database.Path
 
 	if dbType != "sqlite" {
-		util.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_DATABASE_PANIC,
-			Err: errors.New("unsupported ECH0_DB_TYPE " + strconv.Quote(dbType) + ` (only "sqlite" is supported)`),
-		})
+		unsupported := errors.New("unsupported ECH0_DB_TYPE " + strconv.Quote(dbType) + ` (only "sqlite" is supported)`)
+		logUtil.Panic(commonModel.INIT_DATABASE_PANIC, logUtil.Err(unsupported))
 	}
 
 	if err := ensureDBDir(dbPath); err != nil {
-		util.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.CREATE_DB_PATH_PANIC,
-			Err: err,
-		})
+		logUtil.Panic(commonModel.CREATE_DB_PATH_PANIC, logUtil.Err(err))
 	}
 
 	if err := ensureWritable(filepath.Dir(dbPath)); err != nil {
-		util.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_DATABASE_PANIC,
-			Err: err,
-		})
+		logUtil.Panic(commonModel.INIT_DATABASE_PANIC, logUtil.Err(err))
 	}
 
 	sqlite_vec.Auto()
 	SQLiteDB, err := openSQLite(dbPath, configLogLevel())
 	if err != nil {
-		util.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.INIT_DATABASE_PANIC,
-			Err: err,
-		})
+		logUtil.Panic(commonModel.INIT_DATABASE_PANIC, logUtil.Err(err))
 	}
 	SetDB(SQLiteDB)
 
 	if err := MigrateDB(); err != nil {
-		util.HandlePanicError(&commonModel.ServerError{
-			Msg: commonModel.MIGRATE_DB_PANIC,
-			Err: err,
-		})
+		logUtil.Panic(commonModel.MIGRATE_DB_PANIC, logUtil.Err(err))
 	}
 
 	dbMigration.Migrate(
@@ -186,9 +173,11 @@ func InitDatabase() {
 			dbMigration.NewUserLocalAuthBackfillMigrator(),
 			dbMigration.NewUsersPasswordDropMigrator(),
 			dbMigration.NewOwnerRoleCollapseMigrator(),
+			dbMigration.NewUsersRoleMigrator(),
 			dbMigration.NewEchoExtensionOrphansMigrator(),
 			dbMigration.NewEchosFavCountDropMigrator(),
 			dbMigration.NewEchosPrivateCreatedIndexDropMigrator(),
+			dbMigration.NewFileResourceMigrator(),
 		),
 	)
 }
@@ -204,8 +193,10 @@ func MigrateDB() error {
 		&echoModel.Reaction{},
 		&embeddingModel.EchoEmbedding{},
 		&fileModel.File{},
-		&fileModel.EchoFile{},
-		&fileModel.TempFile{},
+		&fileModel.Blob{},
+		&fileModel.Link{},
+		&fileModel.GCTask{},
+		&fileModel.StorageConfig{},
 		&commonModel.KeyValue{},
 		&connectModel.Connected{},
 		&echoModel.Tag{},
@@ -259,5 +250,5 @@ func CloseDatabaseFully(db *gorm.DB) error {
 		return nil
 	}
 
-	return errors.New(commonModel.DATABASE_CLOSE_FAILED)
+	return apperr.ErrDatabaseClose
 }

@@ -4,12 +4,12 @@
 package oauthserver
 
 import (
-	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
-	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
+	res "github.com/lin-snow/ech0/internal/handler/response"
+	"github.com/lin-snow/ech0/internal/httperr"
 	oauthserverModel "github.com/lin-snow/ech0/internal/model/oauthserver"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
@@ -27,32 +27,30 @@ type approveRequest struct {
 }
 
 func (h *Handler) Consent() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		userID, ok := requireSession(ctx)
-		if !ok {
-			return
+	return res.Execute(func(ctx *gin.Context) res.Response {
+		userID, err := requireSession(ctx)
+		if err != nil {
+			return res.Failed(err)
 		}
 		consent, oauthErr := h.service.Consent(
 			ctx.Request.Context(), requestOrigin(ctx), ctx.Request.URL.Query(), userID)
 		if oauthErr != nil {
-			writeConsentError(ctx, oauthErr)
-			return
+			return writeConsentError(ctx, oauthErr)
 		}
 		ctx.Header("Cache-Control", "no-store")
-		ctx.JSON(http.StatusOK, commonModel.OK(consent))
-	}
+		return res.Payload(consent)
+	})
 }
 
 func (h *Handler) Approve() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		userID, ok := requireSession(ctx)
-		if !ok {
-			return
+	return res.Execute(func(ctx *gin.Context) res.Response {
+		userID, err := requireSession(ctx)
+		if err != nil {
+			return res.Failed(err)
 		}
 		var request approveRequest
 		if err := ctx.ShouldBindJSON(&request); err != nil {
-			writeConsentError(ctx, oauthserverModel.ErrInvalidRequest("request body must be JSON"))
-			return
+			return writeConsentError(ctx, oauthserverModel.ErrInvalidRequest("request body must be JSON"))
 		}
 		query := approveQuery(request)
 
@@ -66,16 +64,14 @@ func (h *Handler) Approve() gin.HandlerFunc {
 		case "deny":
 			redirect, oauthErr = h.service.Deny(ctx.Request.Context(), requestOrigin(ctx), query)
 		default:
-			writeConsentError(ctx, oauthserverModel.ErrInvalidRequest("decision must be approve or deny"))
-			return
+			return writeConsentError(ctx, oauthserverModel.ErrInvalidRequest("decision must be approve or deny"))
 		}
 		if oauthErr != nil {
-			writeConsentError(ctx, oauthErr)
-			return
+			return writeConsentError(ctx, oauthErr)
 		}
 		ctx.Header("Cache-Control", "no-store")
-		ctx.JSON(http.StatusOK, commonModel.OK(gin.H{"redirect_url": redirect}))
-	}
+		return res.Payload(gin.H{"redirect_url": redirect})
+	})
 }
 
 func approveQuery(request approveRequest) url.Values {
@@ -91,30 +87,26 @@ func approveQuery(request approveRequest) url.Values {
 	}
 }
 
-func requireSession(ctx *gin.Context) (string, bool) {
+func requireSession(ctx *gin.Context) (string, error) {
 	current := viewer.MustFromContext(ctx.Request.Context())
 	if current.UserID() == "" {
-		ctx.JSON(http.StatusUnauthorized, commonModel.Fail[any]("authentication required"))
-		ctx.Abort()
-		return "", false
+		return "", apperr.ErrAuthenticationRequired
 	}
 	// Consent must never be grantable with an API token: that would let a
 	// token mint another, broader token.
-	if current.TokenType() != authModel.TokenTypeSession {
-		ctx.JSON(http.StatusForbidden, commonModel.Fail[any]("a browser session is required"))
-		ctx.Abort()
-		return "", false
+	if current.Kind() != viewer.KindSession {
+		return "", apperr.ErrSessionRequired
 	}
-	return current.UserID(), true
+	return current.UserID(), nil
 }
 
-// writeConsentError keeps the SPA on Ech0's result envelope while preserving
-// the OAuth error code for diagnostics.
-func writeConsentError(ctx *gin.Context, oauthErr *oauthserverModel.Error) {
+// writeConsentError renders the OAuth protocol error as an RFC 9457 problem
+// document. The status comes from the protocol error; its description is the
+// developer-facing detail.
+func writeConsentError(ctx *gin.Context, oauthErr *oauthserverModel.Error) res.Response {
 	if oauthErr == nil {
 		oauthErr = oauthserverModel.ErrInvalidRequest("request failed")
 	}
 	ctx.Header("Cache-Control", "no-store")
-	ctx.JSON(oauthErr.Status, commonModel.FailWithLocalized[any](
-		oauthErr.Description, oauthErr.Code, "", nil))
+	return res.Failed(httperr.Edge(oauthErr.Status, oauthErr.Description))
 }

@@ -59,10 +59,10 @@ export const useMigrationStore = defineStore('migrationStore', () => {
 
   async function fetchStatus() {
     const res = await fetchGetMigrationStatus()
-    if (res.code !== 1) {
+    if (!res) {
       return false
     }
-    applyState(res.data as Partial<MigrationStatusPayload>)
+    applyState(res)
     return true
   }
 
@@ -70,10 +70,10 @@ export const useMigrationStore = defineStore('migrationStore', () => {
     loading.value = true
     try {
       const res = await fetchStartMigration(payload)
-      if (res.code !== 1) {
-        return res
+      if (!res) {
+        return null
       }
-      applyState(res.data as Partial<MigrationStatusPayload>)
+      applyState(res as Partial<MigrationStatusPayload>)
       if (isRunning.value) {
         startPolling()
       }
@@ -85,8 +85,8 @@ export const useMigrationStore = defineStore('migrationStore', () => {
 
   async function cancelMigration() {
     const res = await fetchCancelMigration()
-    if (res.code === 1) {
-      applyState(res.data as Partial<MigrationStatusPayload>)
+    if (res) {
+      applyState(res)
       if (isRunning.value) {
         startPolling()
       } else {
@@ -105,7 +105,7 @@ export const useMigrationStore = defineStore('migrationStore', () => {
 
   async function cleanupMigration() {
     const res = await fetchCleanupMigration()
-    if (res.code === 1) {
+    if (res) {
       state.value = {
         version: 1,
         source_type: 'ech0',

@@ -92,6 +92,7 @@ import CronScheduleEditor from './components/CronScheduleEditor.vue'
 import JobProgressCard from './components/JobProgressCard.vue'
 import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { i18n } from '@/locales'
 import { humanizeCron } from '@/utils/cron'
 import { fetchUpdateSnapshotScheduleSetting } from '@/service/api'
 import { theToast } from '@/utils/toast'
@@ -137,9 +138,6 @@ const handleCreateNow = async () => {
   try {
     const res = await startSnapshotTask()
     if (!res) return
-    if (res.code !== 1) {
-      theToast.error(res.msg || String(t('snapshotScheduleSetting.createFailed')))
-    }
   } catch (error) {
     console.error(String(t('snapshotScheduleSetting.createFailed')), error)
     theToast.error(String(t('snapshotScheduleSetting.createFailed')))
@@ -163,8 +161,8 @@ const handleUpdateSnapshotSchedule = async () => {
   saving.value = true
   try {
     const res = await fetchUpdateSnapshotScheduleSetting(SnapshotSchedule.value)
-    if (res.code === 1) {
-      theToast.success(res.msg)
+    if (res) {
+      theToast.success(String(i18n.global.t('common.success')))
     }
   } finally {
     saving.value = false

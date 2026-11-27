@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/config"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	errUtil "github.com/lin-snow/ech0/internal/util/err"
+	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
 
 type Server struct {
@@ -68,10 +68,7 @@ func (s *Server) Start(context.Context) error {
 	go func() {
 		if err := s.httpServer.Serve(listener); err != nil &&
 			!errors.Is(err, http.ErrServerClosed) {
-			errUtil.HandlePanicError(&commonModel.ServerError{
-				Msg: commonModel.GIN_RUN_FAILED,
-				Err: err,
-			})
+			logUtil.Panic(commonModel.GIN_RUN_FAILED, logUtil.Err(err))
 		}
 	}()
 

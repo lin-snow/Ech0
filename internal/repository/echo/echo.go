@@ -13,6 +13,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	model "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	fileRepository "github.com/lin-snow/ech0/internal/repository/file"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/transaction"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
@@ -69,7 +70,7 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 	pageResult, err := echoRepository.cache.ReadThrough(
 		cacheKey,
 		1,
-		func() (commonModel.PageQueryResult[[]model.Echo], error) {
+		func() (commonModel.List[model.Echo], error) {
 			offset := (page - 1) * pageSize
 			var echos []model.Echo
 			var total int64
@@ -80,30 +81,34 @@ func (echoRepository *EchoRepository) GetEchosByPage(
 			}
 
 			if dbErr := query.Count(&total).
-				Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-					return db.Order("echo_files.sort_order ASC")
-				}).
-				Preload("EchoFiles.File").
 				Preload("Extension").
 				Preload("Tags").
 				Limit(pageSize).
 				Offset(offset).
 				Order("created_at DESC, id DESC").
 				Find(&echos).Error; dbErr != nil {
-				return commonModel.PageQueryResult[[]model.Echo]{}, dbErr
+				return commonModel.List[model.Echo]{}, dbErr
+			}
+			if dbErr := fileRepository.HydrateEchoAttachments(
+				context.Background(), echoRepository.db(), echos,
+			); dbErr != nil {
+				return commonModel.List[model.Echo]{}, dbErr
 			}
 
 			TrackEchoPageCacheKey(cacheKey)
-			return commonModel.PageQueryResult[[]model.Echo]{
+			return commonModel.List[model.Echo]{
 				Items: echos,
-				Total: total,
+				Total: &total,
 			}, nil
 		},
 	)
 	if err != nil {
 		return []model.Echo{}, 0
 	}
-	return pageResult.Items, pageResult.Total
+	if pageResult.Total == nil {
+		return pageResult.Items, 0
+	}
+	return pageResult.Items, *pageResult.Total
 }
 
 func (echoRepository *EchoRepository) GetEchosById(ctx context.Context, id string) (*model.Echo, error) {
@@ -115,10 +120,6 @@ func (echoRepository *EchoRepository) GetEchosById(ctx context.Context, id strin
 		func(ctx context.Context) (*model.Echo, error) {
 			var row model.Echo
 			result := echoRepository.getDB(ctx).
-				Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-					return db.Order("echo_files.sort_order ASC")
-				}).
-				Preload("EchoFiles.File").
 				Preload("Extension").
 				Preload("Tags").
 				Where("id = ?", id).
@@ -126,15 +127,17 @@ func (echoRepository *EchoRepository) GetEchosById(ctx context.Context, id strin
 			if result.Error != nil {
 				return nil, result.Error
 			}
-			return &row, nil
+			rows := []model.Echo{row}
+			if hydrateErr := fileRepository.HydrateEchoAttachments(
+				ctx, echoRepository.getDB(ctx), rows,
+			); hydrateErr != nil {
+				return nil, hydrateErr
+			}
+			return &rows[0], nil
 		},
 		func() (*model.Echo, error) {
 			var row model.Echo
 			result := echoRepository.db().
-				Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-					return db.Order("echo_files.sort_order ASC")
-				}).
-				Preload("EchoFiles.File").
 				Preload("Extension").
 				Preload("Tags").
 				Where("id = ?", id).
@@ -142,7 +145,13 @@ func (echoRepository *EchoRepository) GetEchosById(ctx context.Context, id strin
 			if result.Error != nil {
 				return nil, result.Error
 			}
-			return &row, nil
+			rows := []model.Echo{row}
+			if hydrateErr := fileRepository.HydrateEchoAttachments(
+				context.Background(), echoRepository.db(), rows,
+			); hydrateErr != nil {
+				return nil, hydrateErr
+			}
+			return &rows[0], nil
 		})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -154,9 +163,13 @@ func (echoRepository *EchoRepository) GetEchosById(ctx context.Context, id strin
 }
 
 func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id string) error {
-	var echo model.Echo
-	echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&fileModel.EchoFile{})
-
+	// Links belong to the echo's lifetime: the files they name outlive them as
+	// orphans for the collector to decide about.
+	if err := echoRepository.getDB(ctx).
+		Where("owner_kind = ? AND owner_id = ?", fileModel.OwnerKindEcho, id).
+		Delete(&fileModel.Link{}).Error; err != nil {
+		return err
+	}
 	if err := echoRepository.getDB(ctx).Where("echo_id = ?", id).Delete(&model.EchoExtension{}).Error; err != nil {
 		return err
 	}
@@ -167,7 +180,7 @@ func (echoRepository *EchoRepository) DeleteEchoById(ctx context.Context, id str
 		return err
 	}
 
-	result := echoRepository.getDB(ctx).Where("id = ?", id).Delete(&echo)
+	result := echoRepository.getDB(ctx).Where("id = ?", id).Delete(&model.Echo{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -209,14 +222,13 @@ func (echoRepository *EchoRepository) GetTodayEchos(scope model.PrivateScope, ti
 			query := applyPrivateScope(echoRepository.db().Model(&model.Echo{}), scope, "private")
 			query = query.Where("created_at >= ? AND created_at < ?", startOfDayUTC, endOfDayUTC)
 			if err := query.
-				Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-					return db.Order("echo_files.sort_order ASC")
-				}).
-				Preload("EchoFiles.File").
 				Preload("Extension").
 				Preload("Tags").
 				Order("created_at DESC").
 				Find(&echos).Error; err != nil {
+				return nil, err
+			}
+			if err := fileRepository.HydrateEchoAttachments(context.Background(), echoRepository.db(), echos); err != nil {
 				return nil, err
 			}
 
@@ -229,10 +241,6 @@ func (echoRepository *EchoRepository) GetTodayEchos(scope model.PrivateScope, ti
 }
 
 func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *model.Echo) error {
-	if err := echoRepository.getDB(ctx).Where("echo_id = ?", echo.ID).Delete(&fileModel.EchoFile{}).Error; err != nil {
-		return err
-	}
-
 	updates := map[string]any{
 		"content": echo.Content,
 		"private": echo.Private,
@@ -253,17 +261,6 @@ func (echoRepository *EchoRepository) UpdateEcho(ctx context.Context, echo *mode
 	if echo.Extension != nil {
 		echo.Extension.EchoID = echo.ID
 		if err := echoRepository.getDB(ctx).Create(echo.Extension).Error; err != nil {
-			return err
-		}
-	}
-
-	if len(echo.EchoFiles) > 0 {
-		var echoFiles []fileModel.EchoFile
-		for _, ef := range echo.EchoFiles {
-			ef.EchoID = echo.ID
-			echoFiles = append(echoFiles, ef)
-		}
-		if err := echoRepository.getDB(ctx).Create(&echoFiles).Error; err != nil {
 			return err
 		}
 	}
@@ -326,7 +323,7 @@ func (echoRepository *EchoRepository) GetTagsByNames(ctx context.Context, names 
 func (echoRepository *EchoRepository) CreateTag(ctx context.Context, tag *model.Tag) error {
 	tag.Name = strings.TrimSpace(tag.Name)
 	if tag.Name == "" {
-		return errors.New("标签名称不能为空")
+		return errors.New("tag name must not be empty")
 	}
 
 	result := echoRepository.getDB(ctx).Create(tag)
@@ -462,10 +459,6 @@ func (echoRepository *EchoRepository) QueryEchos(
 		}
 		if err := withReactionStats(echoRepository.db().Model(&model.Echo{})).
 			Where("echos.id IN ?", echoIDs).
-			Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-				return db.Order("echo_files.sort_order ASC")
-			}).
-			Preload("EchoFiles.File").
 			Preload("Extension").
 			Preload("Tags").
 			Order(orderClause).
@@ -475,10 +468,6 @@ func (echoRepository *EchoRepository) QueryEchos(
 	} else {
 		query := applyCursor(withReactionStats(applyFilters(echoRepository.db().Model(&model.Echo{}))))
 		if err := query.
-			Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-				return db.Order("echo_files.sort_order ASC")
-			}).
-			Preload("EchoFiles.File").
 			Preload("Extension").
 			Preload("Tags").
 			Limit(queryDto.PageSize).
@@ -487,6 +476,10 @@ func (echoRepository *EchoRepository) QueryEchos(
 			Find(&echos).Error; err != nil {
 			return nil, 0, err
 		}
+	}
+
+	if err := fileRepository.HydrateEchoAttachments(context.Background(), echoRepository.db(), echos); err != nil {
+		return nil, 0, err
 	}
 
 	return echos, total, nil
@@ -541,14 +534,14 @@ func (echoRepository *EchoRepository) GetEchosByTagId(
 
 	if err := echoRepository.db().
 		Where("id IN ?", echoIDs).
-		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-			return db.Order("echo_files.sort_order ASC")
-		}).
-		Preload("EchoFiles.File").
 		Preload("Extension").
 		Preload("Tags").
 		Order("created_at DESC").
 		Find(&echos).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := fileRepository.HydrateEchoAttachments(context.Background(), echoRepository.db(), echos); err != nil {
 		return nil, 0, err
 	}
 
@@ -600,13 +593,13 @@ func (echoRepository *EchoRepository) GetHotEchos(limit int, scope model.Private
 	var echos []model.Echo
 	if err := echoRepository.db().
 		Where("id IN ?", ids).
-		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-			return db.Order("echo_files.sort_order ASC")
-		}).
-		Preload("EchoFiles.File").
 		Preload("Extension").
 		Preload("Tags").
 		Find(&echos).Error; err != nil {
+		return nil, err
+	}
+
+	if err := fileRepository.HydrateEchoAttachments(context.Background(), echoRepository.db(), echos); err != nil {
 		return nil, err
 	}
 
@@ -632,15 +625,15 @@ func (echoRepository *EchoRepository) GetRandomEcho(scope model.PrivateScope) (*
 
 	var echos []model.Echo
 	if err := query.
-		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-			return db.Order("echo_files.sort_order ASC")
-		}).
-		Preload("EchoFiles.File").
 		Preload("Extension").
 		Preload("Tags").
 		Order(randomExpr).
 		Limit(1).
 		Find(&echos).Error; err != nil {
+		return nil, err
+	}
+
+	if err := fileRepository.HydrateEchoAttachments(context.Background(), echoRepository.db(), echos); err != nil {
 		return nil, err
 	}
 
@@ -685,14 +678,13 @@ func (echoRepository *EchoRepository) GetOnThisDayEchos(scope model.PrivateScope
 	var echos []model.Echo
 	if err := echoRepository.db().
 		Where(where, args...).
-		Preload("EchoFiles", func(db *gorm.DB) *gorm.DB {
-			return db.Order("echo_files.sort_order ASC")
-		}).
-		Preload("EchoFiles.File").
 		Preload("Extension").
 		Preload("Tags").
 		Order("created_at DESC").
 		Find(&echos).Error; err != nil {
+		return []model.Echo{}
+	}
+	if err := fileRepository.HydrateEchoAttachments(context.Background(), echoRepository.db(), echos); err != nil {
 		return []model.Echo{}
 	}
 	return echos

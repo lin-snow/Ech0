@@ -33,7 +33,7 @@
                 {{ t('userManager.email') }}
               </th>
               <th class="w-[72px] px-2 py-2 text-center whitespace-nowrap">
-                {{ t('userManager.isAdmin') }}
+                {{ t('userManager.role') }}
               </th>
               <th class="w-[104px] px-2 py-2 text-center whitespace-nowrap">
                 {{ t('userManager.status') }}
@@ -57,7 +57,22 @@
                 {{ user.email || '—' }}
               </td>
               <td class="px-2 py-2 text-center">
-                <BaseSwitch v-model="user.is_admin" @click="handleUpdateUserPermission(user.id)" />
+                <BaseSelect
+                  v-if="canAssignRoles && user.role !== 'owner'"
+                  :model-value="user.role"
+                  :options="roleOptions"
+                  class="h-8 min-w-24 mx-auto"
+                  @update:model-value="
+                    (role) => handleUpdateUserRole(user, role === 'admin' ? 'admin' : 'member')
+                  "
+                />
+                <span v-else-if="user.role === 'admin'" class="text-xs">
+                  {{ t('userManager.roleAdmin') }}
+                </span>
+                <span v-else-if="user.role === 'owner'" class="text-xs">
+                  {{ t('userManager.roleOwner') }}
+                </span>
+                <span v-else class="text-xs">{{ t('userManager.roleMember') }}</span>
               </td>
               <td class="px-2 py-2 text-center">
                 <BaseSwitch
@@ -78,7 +93,15 @@
                   </span>
                 </BaseSwitch>
               </td>
-              <td class="px-2 py-2 text-right">
+              <td class="px-2 py-2 text-right whitespace-nowrap">
+                <BaseButton
+                  v-if="canAssignRoles && user.role === 'admin'"
+                  class="h-8 px-2 text-xs mr-1"
+                  @click="handleTransferOwner(user)"
+                  :tooltip="t('userManager.transferOwner')"
+                >
+                  {{ t('userManager.transferOwner') }}
+                </BaseButton>
                 <BaseButton
                   class="h-8 w-8 !p-1.5"
                   :icon="Deluser"
@@ -96,13 +119,17 @@
 
 <script setup lang="ts">
 import PanelCard from '@/layout/PanelCard.vue'
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { i18n } from '@/locales'
 import BaseButton from '@/components/common/BaseButton.vue'
 import TheLoadingIndicator from '@/components/common/TheLoadingIndicator.vue'
 import BaseSwitch from '@/components/common/BaseSwitch.vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
 import Deluser from '@/components/icons/deluser.vue'
 import { theToast } from '@/utils/toast'
+import { isOwnerRole } from '@/utils/role'
+import { useUserStore } from '@/stores'
 import { useBaseDialog } from '@/composables/useBaseDialog'
 const { openConfirm } = useBaseDialog()
 const { t } = useI18n()
@@ -111,11 +138,18 @@ const loading = ref<boolean>(true)
 
 import {
   fetchGetAllUsers,
-  fetchUpdateUserPermission,
+  fetchUpdateUserRole,
+  fetchTransferOwnership,
   fetchUpdateUserStatus,
   fetchDeleteUser,
 } from '@/service/api'
 
+const userStore = useUserStore()
+const canAssignRoles = computed(() => isOwnerRole(userStore.user?.role))
+const roleOptions = computed(() => [
+  { label: String(t('userManager.roleMember')), value: 'member' },
+  { label: String(t('userManager.roleAdmin')), value: 'admin' },
+])
 const allusers = ref<App.Api.User.User[]>([])
 
 const handleDeleteUser = async (user: App.Api.User.User) => {
@@ -126,7 +160,7 @@ const handleDeleteUser = async (user: App.Api.User.User) => {
     requireTextHint: String(t('userManager.deleteConfirmHint', { username: user.username })),
     onConfirm: () => {
       fetchDeleteUser(user.id).then((res) => {
-        if (res.code === 1) {
+        if (res) {
           getAllUsers()
         }
       })
@@ -138,8 +172,8 @@ const handleUpdateUserStatus = async (user: App.Api.User.User, active: boolean) 
   if (active === (user.status === 'ACTIVE')) return
   fetchUpdateUserStatus(user.id, active ? 'ACTIVE' : 'DISABLED')
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
       }
     })
     .finally(() => {
@@ -147,24 +181,45 @@ const handleUpdateUserStatus = async (user: App.Api.User.User, active: boolean) 
     })
 }
 
-const handleUpdateUserPermission = async (userId: string) => {
-  fetchUpdateUserPermission(userId)
+const handleUpdateUserRole = async (user: App.Api.User.User, role: 'admin' | 'member') => {
+  fetchUpdateUserRole(user.id, role)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
       }
     })
     .finally(() => {
       getAllUsers()
     })
+}
+
+const handleTransferOwner = (user: App.Api.User.User) => {
+  openConfirm({
+    title: String(t('userManager.transferOwnerTitle')),
+    description: String(t('userManager.transferOwnerDesc', { username: user.username })),
+    requireText: user.username,
+    requireTextHint: String(t('userManager.transferOwnerHint', { username: user.username })),
+    onConfirm: () => {
+      fetchTransferOwnership(user.id)
+        .then((res) => {
+          if (res) {
+            theToast.success(String(i18n.global.t('common.success')))
+            userStore.init()
+          }
+        })
+        .finally(() => {
+          getAllUsers()
+        })
+    },
+  })
 }
 
 const getAllUsers = async () => {
   loading.value = true
   try {
     const res = await fetchGetAllUsers()
-    if (res.code === 1) {
-      allusers.value = res.data
+    if (res) {
+      allusers.value = res
     }
     loading.value = false
   } finally {

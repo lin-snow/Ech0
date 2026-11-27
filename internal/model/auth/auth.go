@@ -13,11 +13,8 @@ import (
 )
 
 type MyClaims struct {
-	Userid   string   `json:"user_id"`
-	Username string   `json:"username"`
-	Type     string   `json:"typ"`
-	Scopes   []string `json:"scope,omitempty"`
-	IsAdmin  bool     `json:"is_admin,omitempty"`
+	Type   string   `json:"typ"`
+	Scopes []string `json:"scope,omitempty"`
 	jwt.RegisteredClaims
 }
 

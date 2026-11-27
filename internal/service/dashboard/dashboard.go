@@ -80,16 +80,7 @@ func (s *DashboardService) WSSubscribeSystemLogs(
 				if !matchesSystemLogFilter(entry, level, keyword) {
 					continue
 				}
-				resp := struct {
-					Code int              `json:"code"`
-					Msg  string           `json:"msg"`
-					Data logUtil.LogEntry `json:"data"`
-				}{
-					Code: 1,
-					Msg:  "system log update",
-					Data: entry,
-				}
-				payload, _ := json.Marshal(resp)
+				payload, _ := json.Marshal(entry)
 				if writeErr := conn.WriteMessage(websocket.TextMessage, payload); writeErr != nil {
 					return
 				}
@@ -137,16 +128,7 @@ func (s *DashboardService) SSESubscribeSystemLogs(
 			if !matchesSystemLogFilter(entry, level, keyword) {
 				continue
 			}
-			resp := struct {
-				Code int              `json:"code"`
-				Msg  string           `json:"msg"`
-				Data logUtil.LogEntry `json:"data"`
-			}{
-				Code: 1,
-				Msg:  "system log update",
-				Data: entry,
-			}
-			payload, _ := json.Marshal(resp)
+			payload, _ := json.Marshal(entry)
 			_, _ = fmt.Fprintf(w, "data: %s\n\n", payload)
 			flusher.Flush()
 		}

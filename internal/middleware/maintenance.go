@@ -7,9 +7,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/database"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
-	errUtil "github.com/lin-snow/ech0/internal/util/err"
+	"github.com/lin-snow/ech0/internal/httperr"
 )
 
 var readOnlySafeMethods = map[string]struct{}{
@@ -31,12 +31,6 @@ func WriteGuard() gin.HandlerFunc {
 		}
 
 		c.Header("Retry-After", "30")
-		c.AbortWithStatusJSON(
-			http.StatusServiceUnavailable,
-			commonModel.Fail[any](errUtil.HandleError(&commonModel.ServerError{
-				Msg: "服务维护中，暂时不可写入",
-				Err: nil,
-			})),
-		)
+		httperr.Abort(c, apperr.ErrMaintenance)
 	}
 }

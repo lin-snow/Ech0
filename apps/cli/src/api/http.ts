@@ -2,18 +2,10 @@
 // Copyright (C) 2025-2026 lin-snow
 
 import { Ech0Error } from "../output/console.ts";
+import type { ErrorModel } from "./generated/types.gen.ts";
 
-/** `commonModel.DEFAULT_SUCCESS_CODE` — every non-failed response uses it. */
-export const SUCCESS_CODE = 1;
-
-export interface Envelope<T> {
-  code: number;
-  msg?: string;
-  error_code?: string;
-  message_key?: string;
-  message_params?: Record<string, unknown>;
-  data: T;
-}
+/** The spec's RFC 9457 model, aliased to what this module calls it. */
+type Problem = ErrorModel;
 
 export type QueryValue = string | number | boolean | readonly string[] | undefined;
 
@@ -47,11 +39,10 @@ export interface RawResponse {
 }
 
 export interface CallResult<T> {
-  data: T;
+  /** Decoded body; `undefined` for `204 No Content`. */
+  body: T;
   /** Response headers, e.g. Set-Cookie after login/refresh. */
   headers: Headers;
-  /** Envelope message, e.g. the success text for a body-less operation. */
-  message: string;
   /** Response body as received. `--json` prints this verbatim (no re-encoding). */
   text: string;
   status: number;
@@ -89,24 +80,32 @@ function buildQuery(query: Record<string, QueryValue> | undefined): string {
   return encoded === "" ? "" : `?${encoded}`;
 }
 
-export function parseEnvelope(text: string): Envelope<unknown> | undefined {
+/** RFC 9457 body of a failed response; `undefined` when the body is not JSON. */
+export function parseProblem(text: string): Problem | undefined {
   if (text.trim() === "") return undefined;
   try {
-    return JSON.parse(text) as Envelope<unknown>;
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null ? (parsed as Problem) : undefined;
   } catch {
     return undefined;
   }
 }
 
-export function toEch0Error(status: number, envelope: Envelope<unknown> | undefined, text: string): Ech0Error {
+/** Maps a failed response onto the CLI's error type. */
+export function toEch0Error(status: number, problem: Problem | undefined, text: string): Ech0Error {
   const fallback = text.trim() === "" ? `HTTP ${status}` : text.trim();
-  const message = envelope?.msg?.trim() || fallback;
-  return new Ech0Error(message, {
-    status,
-    errorCode: envelope?.error_code,
-    messageKey: envelope?.message_key,
-    messageParams: envelope?.message_params,
-  });
+  const message = problem?.detail?.trim() || problem?.title?.trim() || fallback;
+  return new Ech0Error(message, { status, type: problem?.type });
+}
+
+/** Success bodies are resources themselves; an empty body (`204`) decodes to `undefined`. */
+function decodeBody(text: string): unknown {
+  if (text.trim() === "") return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
 }
 
 /** Thin JSON client for a single Ech0 instance. */
@@ -185,17 +184,21 @@ export class Client {
     };
   }
 
-  async call<T>(spec: RequestSpec): Promise<CallResult<T>> {
+  /** Decodes the body of a successful response; any non-2xx throws `Ech0Error`. */
+  async call<T>(spec: RequestSpec): Promise<T> {
+    return (await this.callWithMeta<T>(spec)).body;
+  }
+
+  /** `call`, plus the metadata `--json`, cookie rotation and catalog headers need. */
+  async callWithMeta<T>(spec: RequestSpec): Promise<CallResult<T>> {
     const response = await this.request(spec);
     const text = await response.text();
-    const envelope = parseEnvelope(text);
-    if (!response.ok || envelope === undefined || envelope.code !== SUCCESS_CODE) {
-      throw toEch0Error(response.status, envelope, text);
+    if (!response.ok) {
+      throw toEch0Error(response.status, parseProblem(text), text);
     }
     return {
-      data: envelope.data as T,
+      body: decodeBody(text) as T,
       headers: response.headers,
-      message: envelope.msg ?? "",
       text,
       status: response.status,
     };

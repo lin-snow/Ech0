@@ -95,7 +95,7 @@ function hideTooltip() {
 
 onMounted(() => {
   fetchGetHeatMap().then((res) => {
-    heatmapData.value = res.data
+    if (res) heatmapData.value = res
   })
 })
 </script>

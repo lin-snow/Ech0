@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
+import { theToast } from '@/utils/toast'
+import { i18n } from '@/locales'
+
 declare global {
   interface Window {
     __ECH0_STATIC__?: boolean
@@ -32,13 +35,9 @@ let datasetPromise: Promise<StaticDataset> | null = null
 const DEFAULT_PAGE_SIZE = 10
 const MAX_PAGE_SIZE = 100
 
-const ok = <T>(data: unknown): App.Api.Response<T> => ({ code: 1, msg: '', data: data as T })
+const ok = <T>(data: unknown): T => data as T
 
-const unavailable = <T>(msg = 'Not available in static mode'): App.Api.Response<T> => ({
-  code: 0,
-  msg,
-  data: null as T,
-})
+const unavailable = <T>(): T | null => null
 
 function loadDataset(): Promise<StaticDataset> {
   if (!datasetPromise) {
@@ -182,20 +181,15 @@ function cursorBoundary(
   return low
 }
 
-function invalidQuery<T>(msg: string, messageKey: string): App.Api.Response<T> {
-  return {
-    code: 0,
-    msg,
-    error_code: 'INVALID_QUERY',
-    message_key: messageKey,
-    data: null as T,
-  }
+function invalidQuery<T>(messageKey: string): T | null {
+  theToast.error(String(i18n.global.t(messageKey)))
+  return null
 }
 
 function queryEchos(
   dataset: StaticDataset,
   body: EchoQueryBody,
-): App.Api.Response<App.Api.Ech0.PaginationResult> {
+): App.Api.Ech0.PaginationResult | null {
   const search = (body.search ?? '').trim().toLowerCase()
   const tagIds = (body.tagIds ?? []).filter((id) => typeof id === 'string' && id !== '')
   const { dateFrom, dateTo } = body
@@ -248,17 +242,14 @@ function queryEchos(
 
   if (cursorMode) {
     if (byReactions) {
-      return invalidQuery<App.Api.Ech0.PaginationResult>(
-        'Cursor pagination requires sortBy=created_at',
-        'echo.cursor_sort_unsupported',
-      )
+      return invalidQuery<App.Api.Ech0.PaginationResult>('echo.cursor_sort_unsupported')
     }
 
     let start = 0
     if (body.cursor) {
       const cursor = decodeEchoCursor(body.cursor)
       if (!cursor) {
-        return invalidQuery<App.Api.Ech0.PaginationResult>('Invalid cursor', 'echo.invalid_cursor')
+        return invalidQuery<App.Api.Ech0.PaginationResult>('echo.invalid_cursor')
       }
       start = cursorBoundary(sorted, cursor, ascending)
     }
@@ -310,7 +301,7 @@ function route<T>(
   path: string,
   query: URLSearchParams,
   body: unknown,
-): App.Api.Response<T> {
+): T | null {
   const key = `${method} ${path}`
 
   switch (key) {
@@ -327,7 +318,7 @@ function route<T>(
     case 'GET /passkey/status':
       return ok<T>({ passkey_ready: false })
     case 'POST /echo/query':
-      return queryEchos(dataset, (body ?? {}) as EchoQueryBody) as App.Api.Response<T>
+      return queryEchos(dataset, (body ?? {}) as EchoQueryBody) as unknown as T | null
     case 'GET /echo/today':
       return ok<T>(echosOnThisDay(dataset, true))
     case 'GET /echo/onthisday':
@@ -373,7 +364,7 @@ function route<T>(
   const echoMatch = method === 'GET' ? /^\/echo\/([^/]+)$/.exec(path) : null
   if (echoMatch) {
     const echo = publicEchos(dataset).find((item) => item.id === echoMatch[1])
-    return echo ? ok<T>(echo) : unavailable<T>('Echo not found')
+    return echo ? ok<T>(echo) : unavailable<T>()
   }
 
   return unavailable<T>()
@@ -383,7 +374,7 @@ export async function handleStaticRequest<T>(
   url: string,
   method: string,
   body: unknown,
-): Promise<App.Api.Response<T>> {
+): Promise<T | null> {
   const { path, query } = normalizeUrl(url)
   const upperMethod = String(method ?? 'GET').toUpperCase()
 
@@ -392,7 +383,7 @@ export async function handleStaticRequest<T>(
     dataset = await loadDataset()
   } catch (error) {
     console.error('[ech0-static] failed to load dataset.json:', error)
-    return unavailable<T>('Static dataset unavailable')
+    return unavailable<T>()
   }
 
   return route<T>(dataset, upperMethod, path, query, body)

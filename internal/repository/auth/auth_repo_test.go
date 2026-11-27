@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/cache"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	"github.com/stretchr/testify/assert"
@@ -377,7 +377,7 @@ func TestAuthRepository_OAuthCode_SingleUse(t *testing.T) {
 	assert.Equal(t, "rt", got.RefreshToken)
 
 	_, err = repo.GetAndDeleteOAuthCode("code-1")
-	require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
+	require.EqualError(t, err, apperr.ErrExchangeCodeInvalid.Error())
 }
 
 func TestAuthRepository_GetAndDeleteOAuthCode_Errors(t *testing.T) {
@@ -385,18 +385,18 @@ func TestAuthRepository_GetAndDeleteOAuthCode_Errors(t *testing.T) {
 
 	t.Run("empty code", func(t *testing.T) {
 		_, err := repo.GetAndDeleteOAuthCode("")
-		require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
+		require.EqualError(t, err, apperr.ErrExchangeCodeInvalid.Error())
 	})
 
 	t.Run("missing code", func(t *testing.T) {
 		_, err := repo.GetAndDeleteOAuthCode("ghost")
-		require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
+		require.EqualError(t, err, apperr.ErrExchangeCodeInvalid.Error())
 	})
 
 	t.Run("type mismatch is rejected and key consumed", func(t *testing.T) {
 		c.SetWithTTL(oauthCodePrefix+"weird", "not-a-pair", 1, time.Minute)
 		_, err := repo.GetAndDeleteOAuthCode("weird")
-		require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
+		require.EqualError(t, err, apperr.ErrExchangeCodeInvalid.Error())
 		_, found, _ := c.Get(oauthCodePrefix + "weird")
 		assert.False(t, found)
 	})
@@ -424,7 +424,7 @@ func TestAuthRepository_StoreOAuthCode_Guards(t *testing.T) {
 				key = "c"
 			}
 			_, err := repo.GetAndDeleteOAuthCode(key)
-			require.EqualError(t, err, commonModel.EXCHANGE_CODE_INVALID)
+			require.EqualError(t, err, apperr.ErrExchangeCodeInvalid.Error())
 		})
 	}
 }

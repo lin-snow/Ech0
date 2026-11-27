@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-type DedupeKey = 'id' | 'key' | 'url'
+type DedupeKey = 'id' | 'url'
 
-export type FileSelectorOptions<T extends { category?: unknown; storage_type?: unknown }> = {
+export type FileSelectorOptions<T extends { category?: unknown }> = {
   categories?: App.Api.File.Category[]
-  storageTypes?: App.Api.File.StorageType[]
   predicate?: (file: T, index: number, files: T[]) => boolean
   dedupeBy?: DedupeKey
 }
@@ -18,12 +17,6 @@ function passCategory(category: unknown, categories?: App.Api.File.Category[]): 
   if (!categories || categories.length === 0) return true
   const allowed = new Set(categories.map((item) => normalize(item)))
   return allowed.has(normalize(category))
-}
-
-function passStorageType(storageType: unknown, storageTypes?: App.Api.File.StorageType[]): boolean {
-  if (!storageTypes || storageTypes.length === 0) return true
-  const allowed = new Set(storageTypes.map((item) => normalize(item)))
-  return allowed.has(normalize(storageType))
 }
 
 function dedupeFiles<T>(files: T[], dedupeBy?: DedupeKey): T[] {
@@ -43,13 +36,12 @@ function dedupeFiles<T>(files: T[], dedupeBy?: DedupeKey): T[] {
   return result
 }
 
-export function filterFiles<T extends { category?: unknown; storage_type?: unknown }>(
+export function filterFiles<T extends { category?: unknown }>(
   files: T[] = [],
   options: FileSelectorOptions<T> = {},
 ): T[] {
   const filtered = files.filter((file, index, arr) => {
     if (!passCategory(file.category, options.categories)) return false
-    if (!passStorageType(file.storage_type, options.storageTypes)) return false
     if (options.predicate && !options.predicate(file, index, arr)) return false
     return true
   })

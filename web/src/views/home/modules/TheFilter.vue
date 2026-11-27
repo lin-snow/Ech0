@@ -115,6 +115,7 @@
 <script setup lang="ts">
 import BaseInput from '@/components/common/BaseInput.vue'
 import { useEchoStore, useSettingStore, useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -169,7 +170,7 @@ const searchContent = ref<string>(searchValue.value)
 const shortcutBadge = computed(() => (isMac ? '⌘K' : 'Ctrl+K'))
 
 const chatAvailable = computed(
-  () => isLogin.value && userStore.user?.is_admin === true && AgentSetting.value.enable,
+  () => isLogin.value && isAdminRole(userStore.user?.role) && AgentSetting.value.enable,
 )
 const chatTooltip = computed(() => `${t('chatLauncher.title')} · ${isMac ? '⌘J' : 'Ctrl+J'}`)
 

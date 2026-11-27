@@ -520,13 +520,11 @@ const handleAddAccessToken = async () => {
       scopes: accessTokenToAdd.value.scopes,
       audience: accessTokenToAdd.value.audience,
     })
-    if (res.code === 1) {
+    if (res) {
       theToast.success(String(t('accessTokenSetting.createSuccess')))
       resetAccessTokenForm()
       await useSetting.getAllAccessTokens()
       accessTokenEdit.value = false
-    } else {
-      theToast.error(res.msg || String(t('accessTokenSetting.createFailed')))
     }
   } catch (error) {
     console.error(error)
@@ -573,7 +571,7 @@ const handleDeleteAccessToken = async (item: App.Api.Setting.AccessToken) => {
     description: `${String(t('accessTokenSetting.name'))}：${item.name}`,
     onConfirm: async () => {
       const res = await fetchDeleteAccessToken(item.id)
-      if (res.code === 1) {
+      if (res) {
         theToast.success(String(t('accessTokenSetting.deleteSuccess')))
         await useSetting.getAllAccessTokens()
       }

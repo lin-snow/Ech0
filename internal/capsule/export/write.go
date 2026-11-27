@@ -8,13 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/lin-snow/ech0/internal/capsule"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
-	"github.com/lin-snow/ech0/internal/storage"
 	"github.com/lin-snow/ech0/pkg/virefs"
 )
 
@@ -130,7 +130,7 @@ func extension(ext *echoModel.EchoExtension) *capsule.Extension {
 	return &capsule.Extension{Type: ext.Type, Payload: ext.Payload}
 }
 
-func fileRefs(links []fileModel.EchoFile) []capsule.FileRef {
+func fileRefs(links []echoModel.EchoFile) []capsule.FileRef {
 	if len(links) == 0 {
 		return nil
 	}
@@ -144,17 +144,24 @@ func fileRefs(links []fileModel.EchoFile) []capsule.FileRef {
 func fileRef(file fileModel.File) capsule.FileRef {
 	ref := capsule.FileRef{
 		ID:          file.ID,
-		Category:    file.Category,
+		Category:    fileModel.CategoryOf(file.ContentType),
 		Name:        file.Name,
 		ContentType: file.ContentType,
 		Size:        file.Size,
 		Width:       file.Width,
 		Height:      file.Height,
 	}
-	if storage.NormalizeStorageType(file.StorageType) == storage.StorageTypeExternal {
-		ref.URL = file.URL
-	} else {
-		ref.Key = file.Key
+	switch {
+	case file.IsRef():
+		if file.RefURL != nil {
+			ref.URL = *file.RefURL
+		}
+	case file.IsBlob():
+		ref.Key = blobKey(file.ID)
+	case file.IsOwned():
+		if file.ObjectKey != nil {
+			ref.Key = *file.ObjectKey
+		}
 	}
 	return ref
 }
@@ -181,9 +188,8 @@ func unattachedRefs(data *dataset) []capsule.FileRef {
 }
 
 type mediaFailure struct {
-	key         string
-	storageType string
-	err         error
+	key string
+	err error
 }
 
 func writeMedia(ctx context.Context, deps Deps, stage virefs.FS, data *dataset) ([]string, error) {
@@ -192,26 +198,32 @@ func writeMedia(ctx context.Context, deps Deps, stage virefs.FS, data *dataset) 
 
 	for i := range data.files {
 		file := &data.files[i]
-		if storage.NormalizeStorageType(file.StorageType) == storage.StorageTypeExternal {
-			continue
-		}
-		if err := capsule.ValidateKey(file.Key); err != nil {
-			failures = append(failures, mediaFailure{key: file.Key, storageType: file.StorageType, err: err})
+		if file.IsRef() {
+			data.externalFiles++
 			continue
 		}
 
-		reader, err := deps.Selector.Get(ctx, storage.StorageType(file.StorageType), file.Key)
+		key, reader, err := openMedia(ctx, deps, file)
 		if err != nil {
-			failures = append(failures, mediaFailure{key: file.Key, storageType: file.StorageType, err: err})
+			if reader != nil {
+				_ = reader.Close()
+			}
+			failures = append(failures, mediaFailure{key: key, err: err})
 			continue
 		}
-		key := capsule.MediaPath(file.Key)
-		err = stage.Put(ctx, key, reader)
+		if err := capsule.ValidateKey(key); err != nil {
+			_ = reader.Close()
+			failures = append(failures, mediaFailure{key: key, err: err})
+			continue
+		}
+
+		path := capsule.MediaPath(key)
+		err = stage.Put(ctx, path, reader)
 		_ = reader.Close()
 		if err != nil {
-			return nil, fmt.Errorf("capsule export: write %s: %w", key, err)
+			return nil, fmt.Errorf("capsule export: write %s: %w", path, err)
 		}
-		keys = append(keys, key)
+		keys = append(keys, path)
 	}
 
 	if len(failures) > 0 {
@@ -220,11 +232,41 @@ func writeMedia(ctx context.Context, deps Deps, stage virefs.FS, data *dataset) 
 	return keys, nil
 }
 
+func openMedia(ctx context.Context, deps Deps, file *fileModel.File) (string, io.ReadCloser, error) {
+	switch {
+	case file.IsOwned():
+		if file.StorageID == nil || file.ObjectKey == nil {
+			return file.ID, nil, errors.New("owned file is missing its storage locator")
+		}
+		store, err := deps.Storage.For(*file.StorageID)
+		if err != nil {
+			return *file.ObjectKey, nil, err
+		}
+		reader, _, err := store.Open(ctx, *file.ObjectKey)
+		return *file.ObjectKey, reader, err
+	case file.IsBlob():
+		key := blobKey(file.ID)
+		var data []byte
+		if err := deps.DB.WithContext(ctx).
+			Raw("SELECT data FROM file_blobs WHERE file_id = ?", file.ID).
+			Row().Scan(&data); err != nil {
+			return key, nil, fmt.Errorf("read file_blobs: %w", err)
+		}
+		return key, io.NopCloser(bytes.NewReader(data)), nil
+	default:
+		return file.ID, nil, fmt.Errorf("file kind %q has no managed bytes", file.Kind)
+	}
+}
+
+func blobKey(fileID string) string {
+	return "blob/" + fileID
+}
+
 func unreadableMediaError(failures []mediaFailure) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "capsule export: %d managed file(s) unreadable, capsule would not be self-contained:", len(failures))
 	for _, f := range failures {
-		fmt.Fprintf(&b, "\n  - key=%q storage=%s: %v", f.key, f.storageType, f.err)
+		fmt.Fprintf(&b, "\n  - key=%q: %v", f.key, f.err)
 	}
 	return errors.New(b.String())
 }

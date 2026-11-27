@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	copilotService "github.com/lin-snow/ech0/internal/service/copilot"
 	copilotmock "github.com/lin-snow/ech0/internal/test/mocks/copilotmock"
 	timezoneUtil "github.com/lin-snow/ech0/internal/util/timezone"
@@ -35,9 +34,8 @@ func TestGetRecent(t *testing.T) {
 		out, err := h.GetRecent(context.Background(), &GetRecentInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.AGENT_GET_RECENT_SUCCESS, out.Message)
-		assert.Equal(t, "近期总结文本", out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, "近期总结文本", out.Body)
 	})
 
 	t.Run("service-error-passthrough", func(t *testing.T) {
@@ -50,7 +48,7 @@ func TestGetRecent(t *testing.T) {
 		out, err := h.GetRecent(context.Background(), &GetRecentInput{})
 
 		require.ErrorIs(t, err, sentinel)
-		assert.Equal(t, RecentOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -68,9 +66,8 @@ func TestGetSession(t *testing.T) {
 		out, err := h.GetSession(context.Background(), &GetSessionInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.CHAT_SESSION_GET_SUCCESS, out.Message)
-		assert.Equal(t, want, out.Data)
+		require.NotNil(t, out)
+		assert.Equal(t, want, out.Body)
 	})
 
 	t.Run("service-error-passthrough", func(t *testing.T) {
@@ -83,7 +80,7 @@ func TestGetSession(t *testing.T) {
 		out, err := h.GetSession(context.Background(), &GetSessionInput{})
 
 		require.ErrorIs(t, err, sentinel)
-		assert.Equal(t, SessionOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 
@@ -97,9 +94,7 @@ func TestClearSession(t *testing.T) {
 		out, err := h.ClearSession(context.Background(), &ClearSessionInput{})
 
 		require.NoError(t, err)
-		assert.Equal(t, commonModel.DEFAULT_SUCCESS_CODE, out.Code)
-		assert.Equal(t, commonModel.CHAT_SESSION_CLEAR_SUCCESS, out.Message)
-		assert.Nil(t, out.Data)
+		assert.Equal(t, &EmptyOutput{}, out)
 	})
 
 	t.Run("service-error-passthrough", func(t *testing.T) {
@@ -112,7 +107,7 @@ func TestClearSession(t *testing.T) {
 		out, err := h.ClearSession(context.Background(), &ClearSessionInput{})
 
 		require.ErrorIs(t, err, sentinel)
-		assert.Equal(t, EmptyOutput{}, out)
+		assert.Nil(t, out)
 	})
 }
 

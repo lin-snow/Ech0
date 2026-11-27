@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/config"
 	"github.com/lin-snow/ech0/internal/database"
@@ -110,8 +111,8 @@ func TestRequireAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "TOKEN_TRANSPORT_FORBIDDEN" {
-		t.Fatalf("expected error code TOKEN_TRANSPORT_FORBIDDEN, got %s", got)
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrTokenQueryForbidden.Error() {
+		t.Fatalf("expected the query-string rejection, got %q", got)
 	}
 }
 
@@ -142,8 +143,8 @@ func TestOptionalAuth_RejectsAdminScopeTokenFromQuery(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "TOKEN_TRANSPORT_FORBIDDEN" {
-		t.Fatalf("expected error code TOKEN_TRANSPORT_FORBIDDEN, got %s", got)
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrTokenQueryForbidden.Error() {
+		t.Fatalf("expected the query-string rejection, got %q", got)
 	}
 }
 
@@ -181,31 +182,40 @@ func initMiddlewareTestDB(t *testing.T) {
 	database.SetDB(db)
 }
 
-func parseAuthErrorCode(body []byte) string {
+func parseAuthDetail(body []byte) string {
 	var payload struct {
-		ErrorCode string `json:"error_code"`
+		Detail string `json:"detail"`
 	}
 	_ = json.Unmarshal(body, &payload)
-	return payload.ErrorCode
+	return payload.Detail
 }
 
 type accountStatusRevoker struct {
-	active bool
-	err    error
+	state userModel.AccountState
+	err   error
 }
 
 func (accountStatusRevoker) RevokeToken(string, time.Duration) {}
 func (accountStatusRevoker) IsTokenRevoked(string) bool        { return false }
-func (r accountStatusRevoker) IsAccountActive(context.Context, string) (bool, error) {
-	return r.active, r.err
+func (r accountStatusRevoker) AccountState(context.Context, string) (userModel.AccountState, error) {
+	return r.state, r.err
 }
+
+var (
+	activeAdminState = userModel.AccountState{
+		Found: true, Role: userModel.RoleAdmin, Status: userModel.StatusActive,
+	}
+	disabledState = userModel.AccountState{
+		Found: true, Role: userModel.RoleAdmin, Status: userModel.StatusDisabled,
+	}
+)
 
 func TestRequireAuth_RejectsDisabledAccount(t *testing.T) {
 	initMiddlewareTestDB(t)
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(RequireAuth(accountStatusRevoker{active: false}))
+	r.Use(RequireAuth(accountStatusRevoker{state: disabledState}))
 	r.GET("/api/user", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -223,8 +233,8 @@ func TestRequireAuth_RejectsDisabledAccount(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "ACCOUNT_DISABLED" {
-		t.Fatalf("expected error code ACCOUNT_DISABLED, got %s", got)
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrAccountDisabled.Error() {
+		t.Fatalf("expected the disabled-account detail, got %q", got)
 	}
 }
 
@@ -233,8 +243,12 @@ func TestRequireAuth_AllowsActiveAccount(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(RequireAuth(accountStatusRevoker{active: true}))
+	r.Use(RequireAuth(accountStatusRevoker{state: activeAdminState}))
 	r.GET("/api/user", func(c *gin.Context) {
+		if got := viewer.MustFromContext(c.Request.Context()).Role(); got != userModel.RoleAdmin {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
 		c.Status(http.StatusOK)
 	})
 
@@ -258,7 +272,7 @@ func TestOptionalAuth_RejectsDisabledAccount(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(OptionalAuth(accountStatusRevoker{active: false}))
+	r.Use(OptionalAuth(accountStatusRevoker{state: disabledState}))
 	r.POST("/api/comments", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -276,8 +290,8 @@ func TestOptionalAuth_RejectsDisabledAccount(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
 	}
-	if got := parseAuthErrorCode(rec.Body.Bytes()); got != "ACCOUNT_DISABLED" {
-		t.Fatalf("expected error code ACCOUNT_DISABLED, got %s", got)
+	if got := parseAuthDetail(rec.Body.Bytes()); got != apperr.ErrAccountDisabled.Error() {
+		t.Fatalf("expected the disabled-account detail, got %q", got)
 	}
 }
 
@@ -286,7 +300,7 @@ func TestOptionalAuth_AttachesActiveAccount(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.Use(OptionalAuth(accountStatusRevoker{active: true}))
+	r.Use(OptionalAuth(accountStatusRevoker{state: activeAdminState}))
 	r.POST("/api/comments", func(c *gin.Context) {
 		if got := viewer.MustFromContext(c.Request.Context()).UserID(); got != "user-1" {
 			c.Status(http.StatusInternalServerError)

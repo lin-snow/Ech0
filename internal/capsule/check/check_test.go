@@ -87,7 +87,7 @@ id: ` + echoID + `
 created_at: 2026-01-01T00:00:00Z
 layout: grid
 files:
-  - key: cat.png
+  - key: 2026/01/cat.png
     category: image
     size: 9
 extension:
@@ -106,7 +106,7 @@ comments:
     status: approved
     created_at: 2026-01-02T03:04:05Z
 `,
-		"files/images/cat.png": catBytes,
+		"files/2026/01/cat.png": catBytes,
 	})
 
 	report := runCheck(t, dir, Options{})
@@ -178,15 +178,15 @@ owner:
 id: ` + echoID + `
 created_at: 2026-01-01T00:00:00Z
 files:
-  - key: cat.png
+  - key: 2026/01/cat.png
     url: https://cdn.example/cat.png
-  - key: ghost.png
+  - key: 2026/01/ghost.png
   - url: https://cdn.example/doc.pdf
     category: document
 ---
 body
 `,
-		"files/images/cat.png": catBytes,
+		"files/2026/01/cat.png": catBytes,
 	})
 
 	report := runCheck(t, dir, Options{})
@@ -205,13 +205,13 @@ body
 		t.Errorf("未知 category 应为 warning:%s", dumpIssues(report))
 	}
 	if it := findIssue(report, LevelError, echoPath, "files[1].key"); it != nil &&
-		!strings.Contains(it.Message, "files/images/ghost.png") {
+		!strings.Contains(it.Message, "files/2026/01/ghost.png") {
 		t.Errorf("缺字节的报错应指出期望路径，实际 %q", it.Message)
 	}
 }
 
 func TestValidatePrivacyAndWarnings(t *testing.T) {
-	const orphanMedia = "files/images/orphan.png"
+	const orphanMedia = "files/2026/01/orphan.png"
 	dir := buildCapsule(t, map[string]string{
 		capsule.ManifestPath: `schema_version: 1
 site:

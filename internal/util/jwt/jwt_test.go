@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,16 +34,22 @@ func TestCreateClaims_WithSessionType(t *testing.T) {
 	if claims.Type != authModel.TokenTypeSession {
 		t.Fatalf("expected typ=%s, got %s", authModel.TokenTypeSession, claims.Type)
 	}
-	if claims.IsAdmin {
-		t.Fatal("ordinary user session must not carry the admin role")
-	}
 }
 
-func TestCreateClaims_SessionCarriesAdminRole(t *testing.T) {
-	user := userModel.User{ID: "u-owner", Username: "owner", IsAdmin: true}
+// Role is deliberately absent from claims: authorization reads it from the
+// database on every request, so a demotion cannot survive in a token.
+func TestCreateClaims_NeverCarriesRole(t *testing.T) {
+	user := userModel.User{ID: "u-owner", Username: "owner", Role: userModel.RoleOwner}
 	claims := CreateClaims(user).(authModel.MyClaims)
-	if !claims.IsAdmin {
-		t.Fatal("admin session must carry the admin role")
+
+	raw, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims failed: %v", err)
+	}
+	for _, forbidden := range []string{"is_admin", "role"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("claims must not contain %q: %s", forbidden, raw)
+		}
 	}
 }
 
@@ -62,10 +69,12 @@ func TestCreateAccessClaimsWithExpiry_NeverExpiryGetsFiniteExp(t *testing.T) {
 	}
 }
 
-func TestParseToken_RejectsTokenWithoutType(t *testing.T) {
+func TestParseSessionToken_RejectsTokenWithoutType(t *testing.T) {
 	legacyToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":  "u-legacy",
 		"username": "legacy",
+		"iss":      config.Config().Auth.Jwt.Issuer,
+		"aud":      config.Config().Auth.Jwt.Audience,
 		"exp":      time.Now().UTC().Add(10 * time.Minute).Unix(),
 		"iat":      time.Now().UTC().Unix(),
 		"nbf":      time.Now().UTC().Add(-1 * time.Minute).Unix(),
@@ -75,8 +84,38 @@ func TestParseToken_RejectsTokenWithoutType(t *testing.T) {
 		t.Fatalf("failed to sign legacy token: %v", err)
 	}
 
-	if _, err := ParseToken(tokenString); err == nil {
-		t.Fatal("expected ParseToken to reject token without typ")
+	if _, err := ParseSessionToken(tokenString); err == nil {
+		t.Fatal("expected ParseSessionToken to reject token without typ")
+	}
+}
+
+// A session token is bound to the instance audience; a token minted for
+// another audience must not authenticate against this instance.
+func TestParseSessionToken_RejectsForeignAudience(t *testing.T) {
+	claims := CreateClaims(userModel.User{ID: "u-aud"}).(authModel.MyClaims)
+	claims.Audience = jwt.ClaimStrings{"someone-else"}
+	tokenString, err := GenerateToken(claims)
+	if err != nil {
+		t.Fatalf("failed to sign token: %v", err)
+	}
+
+	if _, err := ParseSessionToken(tokenString); err == nil {
+		t.Fatal("expected foreign audience to be rejected")
+	}
+}
+
+// An access token names its resource in aud; a token without one cannot be
+// narrowed by any endpoint and is therefore invalid.
+func TestParseAccessToken_RequiresAudience(t *testing.T) {
+	claims := CreateAccessClaimsWithExpiry(userModel.User{ID: "u-aud"}, 60, []string{"echo:read"}, "", "jti").(authModel.MyClaims)
+	claims.Audience = nil
+	tokenString, err := GenerateToken(claims)
+	if err != nil {
+		t.Fatalf("failed to sign token: %v", err)
+	}
+
+	if _, err := ParseAccessToken(tokenString); err == nil {
+		t.Fatal("expected access token without audience to be rejected")
 	}
 }
 

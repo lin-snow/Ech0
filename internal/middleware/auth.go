@@ -8,20 +8,24 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/authz"
+	"github.com/lin-snow/ech0/internal/httperr"
 	i18nUtil "github.com/lin-snow/ech0/internal/i18n"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	authModel "github.com/lin-snow/ech0/internal/model/auth"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 	authService "github.com/lin-snow/ech0/internal/service/auth"
-	errUtil "github.com/lin-snow/ech0/internal/util/err"
 	jwtUtil "github.com/lin-snow/ech0/internal/util/jwt"
 	"github.com/lin-snow/ech0/pkg/viewer"
 )
 
 type rejection struct {
-	status  int
-	errCode string
-	msgKey  string
-	msg     string
+	status int
+	err    error
+}
+
+func reject(err error) *rejection {
+	return &rejection{status: httperr.Code(err), err: err}
 }
 
 func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (rej *rejection, hard bool) {
@@ -39,56 +43,68 @@ func resolveViewer(ctx *gin.Context, tokenBlacklist authService.TokenRevoker) (r
 	parts := strings.SplitN(auth, " ", 2)
 
 	if auth == "" || len(parts) != 2 || len(parts[1]) == 0 || parts[1] == "null" || parts[1] == "undefined" {
-		return &rejection{http.StatusUnauthorized, commonModel.ErrCodeTokenMissing, commonModel.MsgKeyAuthTokenMissing, commonModel.TOKEN_NOT_FOUND}, false
+		return reject(apperr.ErrTokenMissing), false
 	}
 	if parts[0] != "Bearer" {
-		return &rejection{http.StatusUnauthorized, commonModel.ErrCodeTokenInvalid, commonModel.MsgKeyAuthTokenInvalid, commonModel.TOKEN_NOT_VALID}, false
+		return reject(apperr.ErrTokenInvalid), false
 	}
 
-	mc, err := jwtUtil.ParseToken(parts[1])
+	// The bearer is either a session or an access token; each parser pins its
+	// own type, issuer, and (for sessions) instance audience, so a token can
+	// never be accepted as the wrong kind.
+	mc, err := jwtUtil.ParseAccessToken(parts[1])
 	if err != nil {
-		return &rejection{http.StatusUnauthorized, commonModel.ErrCodeTokenParse, commonModel.MsgKeyAuthTokenParse, commonModel.TOKEN_PARSE_ERROR}, false
+		mc, err = jwtUtil.ParseSessionToken(parts[1])
+	}
+	if err != nil {
+		return reject(apperr.ErrTokenUnparsable), false
 	}
 
 	if tokenBlacklist != nil && mc.ID != "" && tokenBlacklist.IsTokenRevoked(mc.ID) {
-		return &rejection{http.StatusUnauthorized, commonModel.ErrCodeTokenRevoked, commonModel.MsgKeyAuthTokenRevoked, commonModel.TOKEN_REVOKED}, false
+		return reject(apperr.ErrTokenRevoked), false
 	}
 
 	if tokenFromQuery && authz.HasAdminScope(mc.Scopes) {
-		return &rejection{http.StatusForbidden, commonModel.ErrCodeTokenTransportForbidden, commonModel.MsgKeyAuthTokenTransportForbidden, commonModel.NO_PERMISSION_DENIED}, true
+		return reject(apperr.ErrTokenQueryForbidden), true
 	}
 
-	// Account status lives in the database, not in the signed token: a token
-	// minted before an account was disabled must stop working immediately.
+	// Role and status live in the database, not in the signed token: a token
+	// minted before a demotion, an ownership transfer or a disable must stop
+	// working on the next request.
+	state := userModel.AccountState{Found: true}
 	if tokenBlacklist != nil {
-		active, err := tokenBlacklist.IsAccountActive(ctx.Request.Context(), mc.Userid)
+		var err error
+		state, err = tokenBlacklist.AccountState(ctx.Request.Context(), mc.Subject)
 		if err != nil {
-			return &rejection{http.StatusInternalServerError, commonModel.ErrCodeInternal, commonModel.MsgKeyCommonRequestFailed, ""}, true
+			return reject(apperr.ErrAccountState), true
 		}
-		if !active {
-			return &rejection{http.StatusForbidden, commonModel.ErrCodeAccountDisabled, commonModel.MsgKeyAuthAccountDisabled, commonModel.ACCOUNT_DISABLED}, true
+		if !state.Active() {
+			return reject(apperr.ErrAccountDisabled), true
 		}
 	}
 
-	viewer.AttachToRequest(
-		&ctx.Request,
-		viewer.NewUserViewerWithToken(
-			mc.Userid, mc.Type, mc.Scopes, []string(mc.Audience), mc.ID,
-		).WithAdmin(mc.IsAdmin),
-	)
-	i18nUtil.ApplyUserLocaleFromUserID(ctx, mc.Userid)
+	var principal viewer.Principal
+	switch mc.Type {
+	case authModel.TokenTypeSession:
+		// A session's capabilities are its role's capabilities, derived on every
+		// request. The token carries no scopes, so a promotion or demotion takes
+		// effect immediately without a re-login.
+		principal = viewer.NewSession(mc.Subject, state.Role, authz.ScopesForRole(state.Role))
+	case authModel.TokenTypeAccess:
+		// An access token was minted with an explicit, frozen capability set.
+		// The role is still live: it bounds rank-based decisions.
+		principal = viewer.NewAccess(mc.Subject, mc.ID, state.Role, mc.Scopes, []string(mc.Audience))
+	default:
+		return reject(apperr.ErrTokenUnparsable), false
+	}
+
+	viewer.AttachToRequest(&ctx.Request, principal)
+	i18nUtil.ApplyUserLocaleFromUserID(ctx, mc.Subject)
 	return nil, false
 }
 
 func writeRejection(ctx *gin.Context, rej *rejection) {
-	msg := i18nUtil.Localize(
-		i18nUtil.LocalizerFromGin(ctx),
-		rej.msgKey,
-		errUtil.HandleError(&commonModel.ServerError{Msg: rej.msg, Err: nil}),
-		nil,
-	)
-	ctx.JSON(rej.status, commonModel.FailWithLocalized[any](msg, rej.errCode, rej.msgKey, nil))
-	ctx.Abort()
+	httperr.Abort(ctx, rej.err)
 }
 
 func RequireAuth(tokenBlacklist authService.TokenRevoker) gin.HandlerFunc {
@@ -130,7 +146,7 @@ func OptionalAuth(tokenBlacklist authService.TokenRevoker) gin.HandlerFunc {
 				writeRejection(ctx, rej)
 				return
 			}
-			viewer.AttachToRequest(&ctx.Request, viewer.NewNoopViewer())
+			viewer.AttachToRequest(&ctx.Request, viewer.Anonymous)
 		}
 		ctx.Next()
 	}

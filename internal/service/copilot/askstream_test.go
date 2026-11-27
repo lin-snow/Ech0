@@ -6,11 +6,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	settingModel "github.com/lin-snow/ech0/internal/model/setting"
@@ -88,8 +91,8 @@ func TestCopilot_NonAdminIsRefused(t *testing.T) {
 	ctx := helpers.CtxAsUser("u2")
 	rec := httptest.NewRecorder()
 
-	if err := s.AskStream(ctx, "你好", "zh-CN", "", rec); err == nil || err.Error() != commonModel.NO_PERMISSION_DENIED {
-		t.Fatalf("AskStream: want %q, got %v", commonModel.NO_PERMISSION_DENIED, err)
+	if err := s.AskStream(ctx, "你好", "zh-CN", "", rec); !errors.Is(err, authz.ErrDenied) {
+		t.Fatalf("AskStream: want ErrDenied, got %v", err)
 	}
 	if rec.Body.Len() != 0 {
 		t.Fatalf("AskStream wrote %q for a refused caller", rec.Body.String())
@@ -100,23 +103,24 @@ func TestCopilot_NonAdminIsRefused(t *testing.T) {
 	if err := s.ClearSession(ctx); err == nil {
 		t.Fatalf("ClearSession: want refusal")
 	}
-	if err := s.AnswerAsk(ctx, "ask-1", []AskAnswer{{QuestionID: "q"}}); err == nil || err.Error() != commonModel.NO_PERMISSION_DENIED {
+	if err := s.AnswerAsk(ctx, "ask-1", []AskAnswer{{QuestionID: "q"}}); !errors.Is(err, authz.ErrDenied) {
 		t.Fatalf("AnswerAsk: want refusal, got %v", err)
 	}
 }
 
-func TestAskStream_AgentSettingMissing(t *testing.T) {
+func TestAskStream_AgentSettingMissingServesDisabledDefault(t *testing.T) {
 	s := &CopilotService{
-		durableKV:  kvstore.NewMemory(),
-		userReader: &stubUserReader{user: userModel.User{ID: "u1", Username: "alice", IsAdmin: true}},
+		durableKV:   kvstore.NewMemory(),
+		userReader:  &stubUserReader{user: userModel.User{ID: "u1", Username: "alice", Role: userModel.RoleAdmin}},
+		echoService: &stubEchoSvc{tags: nil},
 	}
 	rec := httptest.NewRecorder()
 
 	if err := s.AskStream(helpers.CtxAsUser("u1"), "你好", "zh-CN", "", rec); err != nil {
 		t.Fatalf("AskStream should return nil, got %v", err)
 	}
-	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, commonModel.AGENT_SETTING_NOT_FOUND) {
-		t.Fatalf("expected SSE agent-setting-not-found error, got %q", body)
+	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, apperr.ErrAgentDisabled.Error()) {
+		t.Fatalf("expected SSE agent-not-enabled error, got %q", body)
 	}
 }
 
@@ -125,7 +129,7 @@ func TestAskStream_AgentRunValidationError(t *testing.T) {
 	seedAgentSetting(t, kv, settingModel.AgentSetting{Enable: false, Protocol: "openai", Model: "gpt"})
 	s := &CopilotService{
 		durableKV:   kv,
-		userReader:  &stubUserReader{user: userModel.User{ID: "u1", Username: "alice", IsAdmin: true}},
+		userReader:  &stubUserReader{user: userModel.User{ID: "u1", Username: "alice", Role: userModel.RoleAdmin}},
 		echoService: &stubEchoSvc{tags: nil},
 	}
 	rec := httptest.NewRecorder()
@@ -133,7 +137,7 @@ func TestAskStream_AgentRunValidationError(t *testing.T) {
 	if err := s.AskStream(helpers.CtxAsUser("u1"), "你好", "zh-CN", "Asia/Shanghai", rec); err != nil {
 		t.Fatalf("AskStream should return nil, got %v", err)
 	}
-	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, commonModel.AGENT_NOT_ENABLED) {
+	if body := rec.Body.String(); !strings.Contains(body, "event: error") || !strings.Contains(body, apperr.ErrAgentDisabled.Error()) {
 		t.Fatalf("expected SSE agent-not-enabled error, got %q", body)
 	}
 }

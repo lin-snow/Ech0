@@ -26,19 +26,19 @@ import (
 )
 
 type CapsuleEngine struct {
-	db             *gorm.DB
-	storageManager StorageManager
-	durableKV      kvstore.Store
-	tx             transaction.Transactor
+	db        *gorm.DB
+	registry  *storage.Registry
+	durableKV kvstore.Store
+	tx        transaction.Transactor
 }
 
 func NewCapsuleEngine(
 	db *gorm.DB,
-	storageManager StorageManager,
+	registry *storage.Registry,
 	durableKV kvstore.Store,
 	tx transaction.Transactor,
 ) *CapsuleEngine {
-	return &CapsuleEngine{db: db, storageManager: storageManager, durableKV: durableKV, tx: tx}
+	return &CapsuleEngine{db: db, registry: registry, durableKV: durableKV, tx: tx}
 }
 
 func (e *CapsuleEngine) Export(
@@ -57,9 +57,9 @@ func (e *CapsuleEngine) Export(
 	report(migratorModel.ExportPhasePacking, nil)
 
 	if _, err := capsuleExport.Run(ctx, capsuleExport.Deps{
-		DB:       e.db,
-		Selector: e.selector(),
-		KV:       e.durableKV,
+		DB:      e.db,
+		Storage: e.registry,
+		KV:      e.durableKV,
 	}, capsuleExport.Options{
 		Output:         outPath,
 		IncludePrivate: includePrivate,
@@ -101,7 +101,7 @@ func (e *CapsuleEngine) Import(
 
 	dir, ok := resolveTmpDir(payload.SourcePayload)
 	if !ok {
-		return nil, errors.New("胶囊来源缺失或路径非法")
+		return nil, errors.New("capsule source is missing or the path is invalid")
 	}
 
 	src, err := capsule.Open(dir)
@@ -123,10 +123,10 @@ func (e *CapsuleEngine) Import(
 
 	report(migratorModel.ImportPhaseImporting, nil)
 	result, err := capsuleImporter.Run(ctx, capsuleImporter.Deps{
-		DB:       e.db,
-		Tx:       e.tx,
-		Selector: e.selector(),
-		KV:       e.durableKV,
+		DB:      e.db,
+		Tx:      e.tx,
+		Storage: e.registry,
+		KV:      e.durableKV,
 	}, loaded, capsuleImporter.Options{IncludePrivate: includePrivate})
 	if err != nil {
 		return nil, err
@@ -151,11 +151,4 @@ func (e *CapsuleEngine) Import(
 		"warnings":         checkReport.Count(capsuleCheck.LevelWarning),
 	}
 	return enriched, nil
-}
-
-func (e *CapsuleEngine) selector() *storage.StorageSelector {
-	if e.storageManager == nil {
-		return nil
-	}
-	return e.storageManager.GetSelector()
 }

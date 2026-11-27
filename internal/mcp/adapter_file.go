@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/lin-snow/ech0/internal/authz"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	fileService "github.com/lin-snow/ech0/internal/service/file"
 )
 
 func (a *Adapter) registerFileTools(reg *Registry) {
@@ -18,10 +18,11 @@ func (a *Adapter) registerFileTools(reg *Registry) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"page":         map[string]any{"type": "integer", "description": "Page number, 1-based", "default": 1},
-				"page_size":    map[string]any{"type": "integer", "description": "Results per page (1–100)", "default": 20},
-				"search":       map[string]any{"type": "string", "description": "Search by file name"},
-				"storage_type": map[string]any{"type": "string", "enum": []string{"local", "s3"}, "description": "Filter by storage backend"},
+				"page":      map[string]any{"type": "integer", "description": "Page number, 1-based", "default": 1},
+				"page_size": map[string]any{"type": "integer", "description": "Results per page (1–100)", "default": 20},
+				"search":    map[string]any{"type": "string", "description": "Search by file name"},
+				"kind":      map[string]any{"type": "string", "enum": []string{"owned", "blob", "ref"}, "description": "Filter by how the bytes are held"},
+				"access":    map[string]any{"type": "string", "enum": []string{"public", "owner", "private"}, "description": "Filter by access rule"},
 			},
 		},
 		Annotations: readOnlyHints(),
@@ -101,22 +102,21 @@ func (a *Adapter) resourceFileUploadGuide(ctx context.Context, _ string) (*Resou
 		"- **Bearer Token**: `" + token + "`\n\n" +
 		"You can reuse this token directly in the curl commands below.\n\n" +
 		"## Upload Endpoint\n\n" +
-		"```\nPOST " + baseURL + "/api/files/upload\nContent-Type: multipart/form-data\nAuthorization: Bearer " + token + "\n```\n\n" +
+		"```\nPOST " + baseURL + "/api/files\nContent-Type: multipart/form-data\nAuthorization: Bearer " + token + "\n```\n\n" +
 		"### Form Fields\n\n" +
 		"| Field | Required | Description |\n" +
 		"|-------|----------|-------------|\n" +
 		"| file | Yes | The binary file to upload |\n" +
-		"| category | No | image (default), video, audio, document, file |\n" +
-		"| storage_type | No | local (default) or s3 |\n\n" +
+		"| profile | No | attachment (default, owner-only), avatar, instance, or draft (private) |\n" +
+		"| name | No | Display name; defaults to the uploaded filename |\n\n" +
 		"### Example (curl)\n\n" +
-		"```bash\ncurl -X POST " + baseURL + "/api/files/upload \\\n" +
+		"```bash\ncurl -X POST " + baseURL + "/api/files \\\n" +
 		"  -H \"Authorization: Bearer " + token + "\" \\\n" +
-		"  -F \"file=@/path/to/photo.png\" \\\n" +
-		"  -F \"category=image\"\n```\n\n" +
+		"  -F \"file=@/path/to/photo.png\"\n```\n\n" +
 		"### Response\n\n" +
-		"```json\n{\n  \"code\": 1,\n  \"data\": {\n    \"id\": \"<file-uuid>\",\n    \"name\": \"photo.png\",\n" +
-		"    \"url\": \"/api/files/images/...\",\n    \"content_type\": \"image/png\",\n" +
-		"    \"size\": 123456,\n    \"width\": 1920,\n    \"height\": 1080\n  }\n}\n```\n\n" +
+		"```json\n{\n  \"code\": 1,\n  \"data\": {\n    \"file\": {\n      \"id\": \"<file-uuid>\",\n      \"name\": \"photo.png\",\n" +
+		"      \"url\": \"/api/files/<file-uuid>/content\",\n      \"content_type\": \"image/png\",\n" +
+		"      \"size\": 123456,\n      \"width\": 1920,\n      \"height\": 1080\n    }\n  }\n}\n```\n\n" +
 		"## Using the Uploaded File in a Post\n\n" +
 		"After uploading, use the returned `id` as `file_id` in create_post or update_post:\n\n" +
 		"```json\n{\n  \"name\": \"create_post\",\n  \"arguments\": {\n    \"content\": \"Check out this image!\",\n" +
@@ -124,9 +124,8 @@ func (a *Adapter) resourceFileUploadGuide(ctx context.Context, _ string) (*Resou
 		"## External Files (No Upload Needed)\n\n" +
 		"If your file is already hosted at a public URL, use the MCP tool `create_external_file` instead—no upload required.\n\n" +
 		"## Constraints\n\n" +
-		"- Allowed MIME types are configured server-side (images, audio, video, etc.)\n" +
-		"- Max file size: configured per instance (default varies by category)\n" +
-		"- Only admin users can upload files\n" +
+		"- Allowed MIME types and size limits are configured server-side per profile\n" +
+		"- An uploaded file is private to its owner until it is referenced by a post\n" +
 		"- The access token must have the `file:write` scope\n"
 
 	return &ResourceReadResult{
@@ -139,16 +138,12 @@ func (a *Adapter) resourceFileUploadGuide(ctx context.Context, _ string) (*Resou
 }
 
 func (a *Adapter) listFiles(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
-	page := intArg(args, "page", 1)
-	pageSize := min(intArg(args, "page_size", 20), 100)
-	search := stringArg(args, "search")
-	storageType := stringArg(args, "storage_type")
-
-	result, err := a.fileSvc.ListFiles(ctx, commonModel.FileListQueryDto{
-		Page:        page,
-		PageSize:    pageSize,
-		Search:      search,
-		StorageType: storageType,
+	result, err := a.fileSvc.Browse(ctx, fileService.BrowseInput{
+		Page:     intArg(args, "page", 1),
+		PageSize: min(intArg(args, "page_size", 20), 100),
+		Search:   stringArg(args, "search"),
+		Kind:     stringArg(args, "kind"),
+		Access:   stringArg(args, "access"),
 	})
 	if err != nil {
 		return nil, err
@@ -161,7 +156,7 @@ func (a *Adapter) getFile(ctx context.Context, args map[string]any) (*ToolCallRe
 	if id == "" {
 		return textError("id is required"), nil
 	}
-	file, err := a.fileSvc.GetFileByID(ctx, id)
+	file, err := a.fileSvc.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -173,19 +168,17 @@ func (a *Adapter) createExternalFile(ctx context.Context, args map[string]any) (
 	if url == "" {
 		return textError("url is required"), nil
 	}
-	dto := commonModel.CreateExternalFileDto{
-		URL:         url,
+	file, err := a.fileSvc.Create(ctx, fileService.CreateInput{
+		ExternalURL: url,
 		Name:        stringArg(args, "name"),
 		ContentType: stringArg(args, "content_type"),
-		Category:    stringArg(args, "category"),
 		Width:       intArg(args, "width", 0),
 		Height:      intArg(args, "height", 0),
-	}
-	file, err := a.fileSvc.CreateExternalFile(ctx, dto)
+	})
 	if err != nil {
 		return nil, err
 	}
-	return jsonResult(file)
+	return jsonResult(file.File)
 }
 
 func (a *Adapter) deleteFile(ctx context.Context, args map[string]any) (*ToolCallResult, error) {
@@ -193,7 +186,7 @@ func (a *Adapter) deleteFile(ctx context.Context, args map[string]any) (*ToolCal
 	if id == "" {
 		return textError("id is required"), nil
 	}
-	if err := a.fileSvc.DeleteFile(ctx, id); err != nil {
+	if _, err := a.fileSvc.Delete(ctx, id, false); err != nil {
 		return nil, err
 	}
 	return jsonResult(map[string]string{"id": id, "message": "file deleted successfully"})

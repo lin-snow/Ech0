@@ -6,7 +6,7 @@ package capsule
 import (
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
-	"github.com/lin-snow/ech0/internal/storage"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 )
 
 var ValidLayouts = map[string]struct{}{
@@ -30,12 +30,12 @@ var ValidExtensionTypes = map[string]struct{}{
 }
 
 var ValidCategories = map[string]struct{}{
-	string(storage.CategoryImage):    {},
-	string(storage.CategoryVideo):    {},
-	string(storage.CategoryAudio):    {},
-	string(storage.CategoryPDF):      {},
-	string(storage.CategoryMarkdown): {},
-	string(storage.CategoryFile):     {},
+	fileModel.CategoryImage:    {},
+	fileModel.CategoryVideo:    {},
+	fileModel.CategoryAudio:    {},
+	fileModel.CategoryPDF:      {},
+	fileModel.CategoryMarkdown: {},
+	fileModel.CategoryFile:     {},
 }
 
 const DefaultCommentStatus = string(commentModel.StatusApproved)

@@ -77,7 +77,6 @@ async function select(target: AppLocale) {
       username: user.value.username,
       password: user.value.password ?? '',
       email: user.value.email,
-      is_admin: user.value.is_admin,
       avatar: user.value.avatar ?? '',
       locale: target,
     }

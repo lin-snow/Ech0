@@ -28,28 +28,27 @@ Ech0 采用 **Access Token + Refresh Token** 双令牌机制，遵循 OWASP 推�
 ```go
 // internal/model/auth/auth.go
 type MyClaims struct {
-    Userid   string   `json:"user_id"`
-    Username string   `json:"username"`
-    Type     string   `json:"typ"`       // "session" | "access" | "refresh"
-    Scopes   []string `json:"scope,omitempty"`
-    IsAdmin  bool     `json:"is_admin,omitempty"` // session 角色，access token 不依赖它
-    jwt.RegisteredClaims                  // iss, sub, aud, exp, iat, nbf, jti
+    Type   string   `json:"typ"`             // "session" | "access" | "refresh"
+    Scopes []string `json:"scope,omitempty"` // 仅 access token
+    jwt.RegisteredClaims                      // iss, sub, aud, exp, iat, nbf, jti
 }
 ```
 
+`sub` 是用户 ID（不是用户名）；用户名不入 token，需要展示时按 `sub` 读库。
+
 ### 2.2 三种 Token 类型
 
-| 常量 | `typ` 值 | 签发函数 | 使用场景 |
-|---|---|---|---|
-| `TokenTypeSession` | `"session"` | `CreateClaims()` | 用户浏览器会话的 access token |
-| `TokenTypeAccess` | `"access"` | `CreateAccessClaimsWithExpiry()` | 管理面板创建的 API token |
-| `TokenTypeRefresh` | `"refresh"` | `CreateRefreshClaims()` | 静默刷新专用 |
+| 常量 | `typ` 值 | 签发函数 | 使用场景 | 校验入口 |
+|---|---|---|---|---|
+| `TokenTypeSession` | `"session"` | `CreateClaims()` | 用户浏览器会话的 access token | `ParseSessionToken()` |
+| `TokenTypeAccess` | `"access"` | `CreateAccessClaimsWithExpiry()` | 管理面板创建的 API token | `ParseAccessToken()` |
+| `TokenTypeRefresh` | `"refresh"` | `CreateRefreshClaims()` | 静默刷新专用 | `ParseRefreshToken()` |
 
-> `ParseToken()` 仅接受 `session` / `access`，`ParseRefreshToken()` 仅接受 `refresh`，两者互不接受对方类型，防止 token 混用。
+三个入口互不接受对方的 `typ`，各自固定校验项：算法仅 `HS256`（`jwt.WithValidMethods`）、`iss` 必须匹配配置、`exp` 必须存在（`WithExpirationRequired`，30 秒 leeway）、`sub` 非空。session 与 refresh 额外校验实例 `aud`；access token 必须自带非空 `aud`，由消费端点声明期望的 audience 后再比对——同一枚令牌不能同时适用于多类端点。
 
-`session` token 额外携带 `is_admin`。`admin:*` 路由与系统日志流在 `RequireScopes` 之后还会执行 `RequireAdminSession`：普通用户的浏览器会话即使能登录，也不能读取日志、修改站点设置或访问其他管理面板接口。`access` token 不依赖该 claim，仍以签发的 scope 为准。
+**角色不进任何 token。** `role` 与 `status` 在每次请求解析 principal 时一起从 `users` 读出（`repository/auth.AccountState`，`Select("role","status")` 单行查询），因此降级、禁用、转让、吊销都立即生效，不存在"令牌里的角色已过期"这一问题。
 
-刷新会话时 `AuthHandler.Refresh` 会重新加载用户并调用 `CreateClaims(user)`，因此旧 token 刷新后自动带上最新角色；已签发但未携带 `is_admin` 的旧 session 需要重新登录或等待刷新。
+**准入门禁是声明式的。** Huma 端点用 `endpoint` 声明准入（`public(reason)` / `optional()` / `session()` / `scoped(scopes...)`）；秩下限不单独声明，而是由 scope 经 `authz.MinimumRole` 反查得出（秩是能力的函数，不是另一个可漂移的声明），管理端点——含 `comment:settings` 这类不以 `admin:` 开头的 scope——由 `RequireMinRank` 统一执行。浏览器会话的 scope 由角色派生（`authz.ScopesForRole`），与 access token 走同一条 `RequireScopes` 谓词，没有 session 旁路。裸 gin 路由（文件内容、SSE/WS 日志）在路由组上显式挂 `RequireScopes` / `RequireSession` + `RequireMinRank`。
 
 ### 2.3 TokenPair 结构
 

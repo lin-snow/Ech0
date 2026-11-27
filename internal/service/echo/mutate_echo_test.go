@@ -8,16 +8,19 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lin-snow/ech0/internal/apperr"
+	"github.com/lin-snow/ech0/internal/authz"
 	"github.com/lin-snow/ech0/internal/event"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	userModel "github.com/lin-snow/ech0/internal/model/user"
 	echoService "github.com/lin-snow/ech0/internal/service/echo"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	commonmock "github.com/lin-snow/ech0/internal/test/mocks/commonmock"
 	filemock "github.com/lin-snow/ech0/internal/test/mocks/filemock"
 	txmock "github.com/lin-snow/ech0/internal/test/mocks/txmock"
 	"github.com/lin-snow/ech0/pkg/busen"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -37,12 +40,13 @@ func TestDeleteEchoById_Guards(t *testing.T) {
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&foreign, nil).Once()
 
 		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-		require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID), commonModel.ECHO_OTHER_USER_FORBIDDEN)
+		require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID), authz.ErrDenied)
 	})
 
 	t.Run("member deletes their own echo", func(t *testing.T) {
 		repo := newEchoRepoMock(t)
 		common := commonmock.NewMockService(t)
+		file := filemock.NewMockService(t)
 		tx := txmock.NewMockTransactor(t)
 		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 		common.EXPECT().
@@ -51,10 +55,11 @@ func TestDeleteEchoById_Guards(t *testing.T) {
 			Once()
 		own := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = userID })
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&own, nil).Once()
+		file.EXPECT().ClearOwner(mock.Anything, fileModel.OwnerKindEcho, echoID).Return(nil).Once()
 		repo.EXPECT().DeleteEchoById(mock.Anything, echoID).Return(nil).Once()
 		repo.EXPECT().InvalidateEchoCaches(echoID).Return().Once()
 
-		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
+		svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
 		require.NoError(t, svc.DeleteEchoById(helpers.CtxAsUser(userID), echoID))
 	})
 
@@ -68,7 +73,7 @@ func TestDeleteEchoById_Guards(t *testing.T) {
 			Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID), echoID), boom)
+		require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID), boom)
 	})
 }
 
@@ -84,7 +89,7 @@ func TestDeleteEchoById_NotFound(t *testing.T) {
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(nil, nil).Once()
 
 	svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-	require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID), echoID), commonModel.ECHO_NOT_FOUND)
+	require.EqualError(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID), apperr.ErrEchoNotFound.Error())
 }
 
 func TestDeleteEchoById_GetEchoError(t *testing.T) {
@@ -100,7 +105,7 @@ func TestDeleteEchoById_GetEchoError(t *testing.T) {
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(nil, boom).Once()
 
 	svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-	require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID), echoID), boom)
+	require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID), boom)
 }
 
 func TestDeleteEchoById_Success(t *testing.T) {
@@ -118,17 +123,15 @@ func TestDeleteEchoById_Success(t *testing.T) {
 
 	stored := helpers.NewEcho(func(e *echoModel.Echo) {
 		e.ID = echoID
-		e.EchoFiles = []fileModel.EchoFile{
-			{File: fileModel.File{ID: "f-local", Key: "k-local", StorageType: "local"}},
-			{File: fileModel.File{ID: "f-ext", Key: "k-ext", StorageType: "external"}},
+		e.EchoFiles = []echoModel.EchoFile{
+			{File: fileModel.File{ID: "f-local"}},
+			{File: fileModel.File{ID: "f-ext"}},
 		}
 	})
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&stored, nil).Once()
-	file.EXPECT().DeleteFileRecord(mock.Anything, "f-local").Return(nil).Once()
-	file.EXPECT().DeleteFileRecord(mock.Anything, "f-ext").Return(nil).Once()
+	file.EXPECT().ClearOwner(mock.Anything, fileModel.OwnerKindEcho, echoID).Return(nil).Once()
 	repo.EXPECT().DeleteEchoById(mock.Anything, echoID).Return(nil).Once()
 	repo.EXPECT().InvalidateEchoCaches(echoID).Once()
-	file.EXPECT().DeleteStoredFile("local", "k-local").Return(errors.New("ignored")).Once()
 
 	var got event.EchoDeleted
 	var fired int
@@ -141,19 +144,19 @@ func TestDeleteEchoById_Success(t *testing.T) {
 	defer unsub()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
-	require.NoError(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID), echoID))
+	require.NoError(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID))
 
 	require.Equal(t, 1, fired)
 	assert.Equal(t, echoID, got.Echo.ID)
-	assert.True(t, got.User.IsAdmin)
+	assert.Equal(t, userModel.RoleAdmin, got.User.Role)
 }
 
-func TestDeleteEchoById_DeleteFileRecordError(t *testing.T) {
+func TestDeleteEchoById_ClearOwnerError(t *testing.T) {
 	repo := newEchoRepoMock(t)
 	common := commonmock.NewMockService(t)
 	file := filemock.NewMockService(t)
 	tx := txmock.NewMockTransactor(t)
-	boom := errors.New("delete record failed")
+	boom := errors.New("clear links failed")
 
 	common.EXPECT().
 		CommonGetUserByUserId(mock.Anything, adminID).
@@ -162,13 +165,13 @@ func TestDeleteEchoById_DeleteFileRecordError(t *testing.T) {
 	tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 	stored := helpers.NewEcho(func(e *echoModel.Echo) {
 		e.ID = echoID
-		e.EchoFiles = []fileModel.EchoFile{{File: fileModel.File{ID: "f-1", Key: "k-1", StorageType: "local"}}}
+		e.EchoFiles = []echoModel.EchoFile{{File: fileModel.File{ID: "f-1"}}}
 	})
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&stored, nil).Once()
-	file.EXPECT().DeleteFileRecord(mock.Anything, "f-1").Return(boom).Once()
+	file.EXPECT().ClearOwner(mock.Anything, fileModel.OwnerKindEcho, echoID).Return(boom).Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
-	require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID), echoID), boom)
+	require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID, role.Admin), echoID), boom)
 }
 
 func TestUpdateEcho_Guards(t *testing.T) {
@@ -184,10 +187,7 @@ func TestUpdateEcho_Guards(t *testing.T) {
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
 		_, err := svc.UpdateEcho(helpers.CtxAsUser(userID), &echoModel.Echo{ID: echoID, Content: "hi"})
-		require.EqualError(t, err, commonModel.ECHO_OTHER_USER_FORBIDDEN)
-		bizErr, ok := errors.AsType[*commonModel.BizError](err)
-		require.True(t, ok)
-		assert.Equal(t, commonModel.ErrCodePermissionDenied, bizErr.Code)
+		require.ErrorIs(t, err, authz.ErrDenied)
 	})
 
 	t.Run("invalid extension rejected before transaction", func(t *testing.T) {
@@ -201,13 +201,46 @@ func TestUpdateEcho_Guards(t *testing.T) {
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{
+		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{
 			ID:        echoID,
 			Content:   "hi",
 			Extension: &echoModel.EchoExtension{Type: echoModel.Extension_MUSIC},
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "extension payload")
+	})
+
+	t.Run("attachment replacement failure surfaces from the transaction", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		file := filemock.NewMockService(t)
+		tx := txmock.NewMockTransactor(t)
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, adminID).
+			Return(helpers.NewUser(helpers.AsAdmin), nil).
+			Once()
+		existing := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID; e.UserID = adminID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
+		file.EXPECT().
+			Get(mock.Anything, "file-1").
+			Return(fileModel.FileDTO{ID: "file-1", Category: fileModel.CategoryImage}, nil).
+			Once()
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
+		repo.EXPECT().UpdateEcho(mock.Anything, mock.Anything).Return(nil).Once()
+		boom := errors.New("replace failed")
+		file.EXPECT().
+			Replace(mock.Anything, []string{"file-1"}, fileModel.OwnerKindEcho, echoID, fileModel.RoleAttachment).
+			Return(boom).
+			Once()
+
+		svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
+		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{
+			ID:        echoID,
+			Content:   "updated",
+			EchoFiles: []echoModel.EchoFile{{FileID: "file-1"}},
+		})
+		require.ErrorIs(t, err, boom)
 	})
 
 	t.Run("empty echo rejected", func(t *testing.T) {
@@ -221,8 +254,8 @@ func TestUpdateEcho_Guards(t *testing.T) {
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 
 		svc := echoService.NewEchoService(nil, common, nil, repo, nilBus)
-		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{ID: echoID, Content: "   "})
-		require.EqualError(t, err, commonModel.ECHO_CAN_NOT_BE_EMPTY)
+		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{ID: echoID, Content: "   "})
+		require.EqualError(t, err, apperr.ErrEchoEmpty.Error())
 	})
 }
 
@@ -240,8 +273,8 @@ func TestUpdateEcho_Success(t *testing.T) {
 	existing := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID; e.UserID = adminID })
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
 	file.EXPECT().
-		GetFilesByIDs(mock.Anything, []string{"file-1"}).
-		Return([]commonModel.FileDto{{ID: "file-1", Category: "image"}}, nil).
+		Get(mock.Anything, "file-1").
+		Return(fileModel.FileDTO{ID: "file-1", Category: fileModel.CategoryImage}, nil).
 		Once()
 	tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
 	repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
@@ -255,7 +288,10 @@ func TestUpdateEcho_Success(t *testing.T) {
 	repo.EXPECT().InvalidateEchoCaches(echoID).Once()
 	saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID })
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&saved, nil).Once()
-	file.EXPECT().ConfirmTempFiles(mock.Anything, []string{"file-1"}).Return(nil).Once()
+	file.EXPECT().
+		Replace(mock.Anything, []string{"file-1"}, fileModel.OwnerKindEcho, echoID, fileModel.RoleAttachment).
+		Return(nil).
+		Once()
 
 	var got event.EchoUpdated
 	var fired int
@@ -271,17 +307,105 @@ func TestUpdateEcho_Success(t *testing.T) {
 		ID:        echoID,
 		Content:   "updated",
 		Layout:    "bogus-layout",
-		EchoFiles: []fileModel.EchoFile{{FileID: "file-1"}},
+		EchoFiles: []echoModel.EchoFile{{FileID: "file-1"}},
 	}
 	svc := echoService.NewEchoService(tx, common, file, repo, func() *busen.Bus { return bus })
-	_, err = svc.UpdateEcho(helpers.CtxAsUser(adminID), in)
+	_, err = svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), in)
 	require.NoError(t, err)
 
 	assert.Equal(t, echoModel.LayoutWaterfall, updated.Layout)
 	require.Len(t, updated.EchoFiles, 1)
-	assert.Equal(t, echoID, updated.EchoFiles[0].EchoID)
+	assert.Equal(t, "file-1", updated.EchoFiles[0].FileID)
 	require.Equal(t, 1, fired)
 	assert.Equal(t, echoID, got.Echo.ID)
+}
+
+func TestUpdateEcho_EchoFilesSemantics(t *testing.T) {
+	t.Run("omitted echo_files keeps existing attachments", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		file := filemock.NewMockService(t)
+		tx := txmock.NewMockTransactor(t)
+
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, adminID).
+			Return(helpers.NewUser(helpers.AsAdmin), nil).
+			Once()
+		existing := helpers.NewEcho(func(e *echoModel.Echo) {
+			e.ID = echoID
+			e.UserID = adminID
+			e.EchoFiles = []echoModel.EchoFile{{FileID: "file-1", SortOrder: 2}}
+		})
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
+		file.EXPECT().
+			Get(mock.Anything, "file-1").
+			Return(fileModel.FileDTO{ID: "file-1", Category: fileModel.CategoryImage}, nil).
+			Once()
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
+
+		var updated echoModel.Echo
+		repo.EXPECT().UpdateEcho(mock.Anything, mock.Anything).
+			Run(func(_ context.Context, e *echoModel.Echo) { updated = *e }).
+			Return(nil).
+			Once()
+		repo.EXPECT().InvalidateEchoCaches(echoID).Once()
+		saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&saved, nil).Once()
+
+		svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
+		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{
+			ID:      echoID,
+			Content: "new body",
+		})
+		require.NoError(t, err)
+		require.Len(t, updated.EchoFiles, 1)
+		assert.Equal(t, "file-1", updated.EchoFiles[0].FileID)
+		assert.Equal(t, 2, updated.EchoFiles[0].SortOrder)
+	})
+
+	t.Run("explicit empty echo_files clears attachments", func(t *testing.T) {
+		repo := newEchoRepoMock(t)
+		common := commonmock.NewMockService(t)
+		file := filemock.NewMockService(t)
+		tx := txmock.NewMockTransactor(t)
+
+		common.EXPECT().
+			CommonGetUserByUserId(mock.Anything, adminID).
+			Return(helpers.NewUser(helpers.AsAdmin), nil).
+			Once()
+		existing := helpers.NewEcho(func(e *echoModel.Echo) {
+			e.ID = echoID
+			e.UserID = adminID
+			e.EchoFiles = []echoModel.EchoFile{{FileID: "file-1"}}
+		})
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&existing, nil).Once()
+		tx.EXPECT().Run(mock.Anything, mock.Anything).RunAndReturn(runTx).Once()
+		repo.EXPECT().GetTagsByNames(mock.Anything, mock.Anything).Return([]*echoModel.Tag{}, nil).Once()
+		file.EXPECT().
+			Replace(mock.Anything, []string{}, fileModel.OwnerKindEcho, echoID, fileModel.RoleAttachment).
+			Return(nil).
+			Once()
+
+		var updated echoModel.Echo
+		repo.EXPECT().UpdateEcho(mock.Anything, mock.Anything).
+			Run(func(_ context.Context, e *echoModel.Echo) { updated = *e }).
+			Return(nil).
+			Once()
+		repo.EXPECT().InvalidateEchoCaches(echoID).Once()
+		saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID })
+		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&saved, nil).Once()
+
+		empty := []echoModel.EchoFile{}
+		svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
+		_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{
+			ID:        echoID,
+			Content:   "new body",
+			EchoFiles: empty,
+		})
+		require.NoError(t, err)
+		assert.Empty(t, updated.EchoFiles)
+	})
 }
 
 func TestUpdateEcho_TransactionError(t *testing.T) {
@@ -301,6 +425,6 @@ func TestUpdateEcho_TransactionError(t *testing.T) {
 	repo.EXPECT().UpdateEcho(mock.Anything, mock.Anything).Return(boom).Once()
 
 	svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
-	_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID), &echoModel.Echo{ID: echoID, Content: "x", Layout: echoModel.LayoutGrid})
+	_, err := svc.UpdateEcho(helpers.CtxAsUser(adminID, role.Admin), &echoModel.Echo{ID: echoID, Content: "x", Layout: echoModel.LayoutGrid})
 	require.ErrorIs(t, err, boom)
 }

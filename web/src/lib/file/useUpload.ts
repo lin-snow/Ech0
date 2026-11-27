@@ -3,17 +3,16 @@
 
 import { computed, type Ref, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
+import { FILE_CATEGORY } from '@/constants/file'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { theToast } from '@/utils/toast'
 import { formatBytes } from '@/utils/file'
 import { getImageSize } from '@/utils/image'
 import { getFileToAddUrl } from '@/utils/other'
-import { compressImage, inferFileExtFromType } from './compress'
-import { getPresign, updateFileMeta } from './api/adapter'
+import { compressImage } from './compress'
 import { globalFileRegistry } from './registry/file-registry'
-import { httpUpload, UPLOAD_KIND } from './upload'
+import { httpUpload } from './upload'
 
 export const UPLOAD_STATUS = {
   PENDING: 'pending',
@@ -62,8 +61,8 @@ export interface QueueItem {
 }
 
 export interface UseUploadOptions {
-  storageType: Ref<App.Api.File.StorageType>
   enableCompressor: Ref<boolean>
+  profile?: App.Api.File.Profile
   category?: App.Api.File.Category
   allowedTypes?: string[]
   maxFiles?: number
@@ -72,19 +71,25 @@ export interface UseUploadOptions {
   onAllComplete: (files: App.Api.Ech0.FileToAdd[]) => void
 }
 
-function extractUploadPayload(response: unknown): Record<string, unknown> {
-  const resp = (response || {}) as Record<string, unknown>
-  const data = resp.data
-  if (data && typeof data === 'object') return data as Record<string, unknown>
-  return resp
-}
-
 function mimeMatches(rule: string, fileType: string): boolean {
   if (rule === fileType) return true
   if (rule.endsWith('/*')) {
     return fileType.startsWith(rule.slice(0, -1))
   }
   return false
+}
+
+async function measureImage(file: File): Promise<{ width?: number; height?: number }> {
+  if (!file.type.startsWith('image/')) return {}
+  const objectUrl = URL.createObjectURL(file)
+  try {
+    const size = await getImageSize(objectUrl)
+    return { width: size.width, height: size.height }
+  } catch {
+    return {}
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
 }
 
 export function useUpload(opts: UseUploadOptions) {
@@ -97,6 +102,7 @@ export function useUpload(opts: UseUploadOptions) {
   const envURL = (import.meta.env.VITE_SERVICE_BASE_URL as string) || ''
   const backendURL = envURL.endsWith('/') ? envURL.slice(0, -1) : envURL
 
+  const profile = opts.profile ?? 'attachment'
   const category = opts.category ?? FILE_CATEGORY.IMAGE
   const allowedTypes = opts.allowedTypes?.length ? opts.allowedTypes : ['image/*']
   const maxFiles = opts.maxFiles ?? 6
@@ -177,10 +183,7 @@ export function useUpload(opts: UseUploadOptions) {
   }
 
   function hydratedName(file: App.Api.Ech0.FileToAdd): string {
-    const keyName = String(file.key || '')
-      .split('/')
-      .pop()
-    if (keyName) return keyName
+    if (file.name) return file.name
     try {
       const urlName = decodeURIComponent(new URL(file.url).pathname.split('/').pop() || '')
       if (urlName) return urlName
@@ -263,10 +266,7 @@ export function useUpload(opts: UseUploadOptions) {
       item.status = UPLOAD_STATUS.UPLOADING
       item.progress = 0
 
-      const result =
-        opts.storageType.value === FILE_STORAGE_TYPE.OBJECT
-          ? await uploadToS3(working, item, ctl.signal)
-          : await uploadToLocal(working, item, ctl.signal)
+      const result = await uploadMultipart(working, item, ctl.signal)
 
       item.result = result
       item.status = UPLOAD_STATUS.SUCCESS
@@ -274,11 +274,10 @@ export function useUpload(opts: UseUploadOptions) {
 
       globalFileRegistry.upsert({
         id: result.id || '',
-        key: result.key,
+        name: result.name,
         url: result.url,
         category: result.category,
         contentType: result.content_type,
-        storageType: result.storage_type,
         size: result.size,
         width: result.width,
         height: result.height,
@@ -300,21 +299,25 @@ export function useUpload(opts: UseUploadOptions) {
     }
   }
 
-  async function uploadToLocal(
+  async function uploadMultipart(
     file: File,
     item: QueueItem,
     signal: AbortSignal,
   ): Promise<App.Api.Ech0.FileToAdd> {
+    const dimensions = await measureImage(file)
+    const fields: Record<string, string> = {
+      profile,
+      name: file.name,
+    }
+    if (dimensions.width) fields.width = String(dimensions.width)
+    if (dimensions.height) fields.height = String(dimensions.height)
+
     const res = await httpUpload(
       file,
       {
-        kind: UPLOAD_KIND.LOCAL,
-        endpoint: `${backendURL}/api/files/upload`,
+        endpoint: `${backendURL}/api/files`,
         authHeader: authStore.authHeader,
-        fields: {
-          category,
-          storage_type: FILE_STORAGE_TYPE.LOCAL,
-        },
+        fields,
       },
       {
         signal,
@@ -324,99 +327,33 @@ export function useUpload(opts: UseUploadOptions) {
       },
     )
 
-    const payload = extractUploadPayload(res.responseBody)
-    const fileId = pickField(payload, ['id', 'file_id', 'ID'])
-    const fileKey = pickField(payload, ['key', 'object_key'])
-    const fileUrl = pickField(payload, ['url', 'file_url', 'access_url'])
+    // The upload endpoint answers the bare create result: `{ file, upload? }`.
+    const body: unknown = res.responseBody
+    if (!body || typeof body !== 'object' || !('file' in body)) {
+      throw new Error(String(t('uploader.missingFileIdentifier')))
+    }
+    const rawFile = body.file
+    if (!rawFile || typeof rawFile !== 'object') {
+      throw new Error(String(t('uploader.missingFileIdentifier')))
+    }
+    const payload = rawFile as Record<string, unknown>
+    const fileId = pickField(payload, ['id'])
+    const fileUrl = pickField(payload, ['url'])
     if (!fileId || !fileUrl) {
       throw new Error(String(t('uploader.missingFileIdentifier')))
     }
+    const payloadCategory = pickField(payload, ['category'])
     return {
       id: fileId,
       url: fileUrl,
-      storage_type: FILE_STORAGE_TYPE.LOCAL,
-      key: fileKey,
+      name: typeof payload.name === 'string' ? payload.name : file.name,
       content_type: typeof payload.content_type === 'string' ? payload.content_type : file.type,
       size: typeof payload.size === 'number' ? payload.size : file.size,
-      width: typeof payload.width === 'number' ? payload.width : undefined,
-      height: typeof payload.height === 'number' ? payload.height : undefined,
-      category,
-    }
-  }
-
-  async function uploadToS3(
-    file: File,
-    item: QueueItem,
-    signal: AbortSignal,
-  ): Promise<App.Api.Ech0.FileToAdd> {
-    const contentType = file.type || 'application/octet-stream'
-    const rawName = String(file.name || '').trim()
-    const fileName = rawName || `upload_${Date.now()}${inferFileExtFromType(contentType)}`
-
-    const presign = await getPresign({
-      fileName,
-      contentType,
-      storageType: FILE_STORAGE_TYPE.OBJECT,
-    })
-
-    if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-
-    await httpUpload(
-      file,
-      {
-        kind: UPLOAD_KIND.S3,
-        presignUrl: presign.presign_url,
-        contentType,
-      },
-      {
-        signal,
-        onProgress: (loaded, total) => {
-          if (total > 0) item.progress = Math.round((loaded / total) * 100)
-        },
-      },
-    )
-
-    let width: number | undefined
-    let height: number | undefined
-    if (category === FILE_CATEGORY.IMAGE) {
-      try {
-        const dim = await getImageSize(item.preview)
-        width = dim.width
-        height = dim.height
-      } catch {}
-    }
-
-    let resolvedSize = file.size
-    let resolvedWidth = width
-    let resolvedHeight = height
-    let resolvedContentType: string | undefined = contentType
-    try {
-      const updated = await updateFileMeta({
-        id: presign.id,
-        size: file.size,
-        width,
-        height,
-        contentType,
-      })
-      resolvedSize = updated.size ?? resolvedSize
-      resolvedWidth = updated.width
-      resolvedHeight = updated.height
-      resolvedContentType = updated.contentType ?? resolvedContentType
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(t('uploader.fileMetaFillbackFailed'))
-      theToast.error(msg)
-    }
-
-    return {
-      id: presign.id,
-      url: presign.file_url,
-      storage_type: FILE_STORAGE_TYPE.OBJECT,
-      key: presign.key,
-      content_type: resolvedContentType,
-      size: resolvedSize,
-      width: resolvedWidth,
-      height: resolvedHeight,
-      category,
+      width: typeof payload.width === 'number' ? payload.width : dimensions.width,
+      height: typeof payload.height === 'number' ? payload.height : dimensions.height,
+      category: payloadCategory
+        ? (payloadCategory as App.Api.File.Category)
+        : (category as App.Api.File.Category),
     }
   }
 

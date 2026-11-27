@@ -15,7 +15,6 @@ internal/test/helpers/            # 共享脚手架（手写，package helpers�
   db.go        NewTestDB(t) / NewTestDBWithVec(t)：唯一 DSN 内存 sqlite + SetDB + MigrateDB + t.Cleanup
   viewer.go    CtxAsUser / CtxAsToken / CtxAnonymous：注入身份到 context
   config.go    SetJWTSecret(t, secret)：覆写并自动还原 JWT 密钥
-  envelope.go  ParseResult / DecodeData：解析 commonModel.Result 封套，断言 i18n 错误契约
   fixtures.go  NewUser / NewEcho（+ AsAdmin / AsOwner / AsPrivate option）
 internal/test/mocks/<domain>mock/ # mockery 生成（mocks.go），如 commentmock.NewMockRepository(t)
 .mockery.yaml                     # mockery 配置（集中输出 + SPDX boilerplate）
@@ -29,7 +28,7 @@ internal/test/mocks/<domain>mock/ # mockery 生成（mocks.go），如 commentmo
 ## 写法约定
 
 - **表驱动 + 子测试**：`for _, tc := range cases { t.Run(tc.name, ...) }`；helper 函数首行 `t.Helper()`。
-- **错误路径断言 i18n 契约**：用 `helpers.ParseResult` 取 `error_code` / `message_key`，参照 `auth_handler_test.go`。
+- **错误路径断言 problem 契约**：成功的 handler 直接断言 `out.Body`；Huma 路由断言 `err`（经 `httperr.From` 取到 `status` / `detail`），裸 gin 路由解 `application/problem+json` 体断言同样字段。断言 `status` 与 `detail`，不要断言文案之外的实现细节。
 - **安全/回归测试绑定来源**：注释里写明 `GHSA-xxxx` 或 issue 号（仓库既有惯例）。
 - **禁止**：`time.Sleep` 等异步、真实网络、硬编码端口。异步用 channel/同步钩子，HTTP 用 `httptest`。
 - **DB 测试**：用 `helpers.NewTestDB(t)`（embedding/vec0 用 `NewTestDBWithVec`）；因依赖全局 `database.SetDB` 单例，**不要 `t.Parallel()`**。

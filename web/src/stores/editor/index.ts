@@ -6,7 +6,7 @@ import { computed, ref } from 'vue'
 import { theToast } from '@/utils/toast'
 import { fetchAddEcho, fetchGetEchoById, fetchUpdateEcho } from '@/service/api'
 import { Mode, ExtensionType, ImageLayout, VideoLayout, AudioLayout } from '@/enums/enums'
-import { FILE_CATEGORY, FILE_STORAGE_TYPE } from '@/constants/file'
+import { FILE_CATEGORY } from '@/constants/file'
 import {
   HOME_TIMELINE_ANCHOR_KEY,
   HOME_TIMELINE_CURSORS_KEY,
@@ -14,7 +14,6 @@ import {
 } from '@/utils/timeline'
 import { useEchoStore, useSettingStore } from '@/stores'
 import { getEchoFiles } from '@/utils/echo'
-import { localStg } from '@/utils/storage'
 import { globalFileRegistry } from '@/lib/file'
 import { i18n } from '@/locales'
 import router from '@/router'
@@ -99,9 +98,6 @@ export const useEditorStore = defineStore('editorStore', () => {
   }
 
   const clearEditor = () => {
-    const rememberedStorageType =
-      localStg.getItem<App.Api.File.StorageType>('file_storage_type') ?? FILE_STORAGE_TYPE.LOCAL
-
     echoToAdd.value = {
       content: '',
       private: false,
@@ -110,8 +106,6 @@ export const useEditorStore = defineStore('editorStore', () => {
     files.fileToAdd.value = {
       id: undefined,
       url: '',
-      storage_type: rememberedStorageType,
-      key: '',
     }
     files.resetFilesState()
     extension.resetExtensionState()
@@ -128,10 +122,9 @@ export const useEditorStore = defineStore('editorStore', () => {
       files.fileToAdd.value = {
         id: file.id,
         url: file.url,
-        storage_type: file.storage_type,
+        name: file.name,
         category: file.category,
         content_type: file.content_type,
-        key: file.key ? file.key : '',
         size: file.size,
         width: file.width,
         height: file.height,
@@ -139,11 +132,10 @@ export const useEditorStore = defineStore('editorStore', () => {
       if (file.id) {
         globalFileRegistry.upsert({
           id: file.id,
-          key: file.key,
+          name: file.name,
           url: file.url,
           category: file.category,
           contentType: file.content_type,
-          storageType: file.storage_type,
           size: file.size,
           width: file.width,
           height: file.height,
@@ -223,17 +215,16 @@ export const useEditorStore = defineStore('editorStore', () => {
         theToast.promise(fetchAddEcho(payload), {
           loading: t('editor.publishing'),
           success: (res) => {
-            if (res.code === 1) {
-              resetHomeTimelineState()
-              clearEditor()
-              echoStore.refreshEchos()
-              setMode(Mode.ECH0)
-              echoStore.getTags()
-              jumpToHomeTimeline()
-              return t('editor.publishSuccess')
-            } else {
+            if (!res) {
               return t('editor.publishFailed')
             }
+            resetHomeTimelineState()
+            clearEditor()
+            echoStore.refreshEchos()
+            setMode(Mode.ECH0)
+            echoStore.getTags()
+            jumpToHomeTimeline()
+            return t('editor.publishSuccess')
           },
           error: t('editor.publishFailed'),
         })
@@ -254,21 +245,19 @@ export const useEditorStore = defineStore('editorStore', () => {
         theToast.promise(fetchUpdateEcho(updatePayload), {
           loading: justSyncFiles ? t('editor.syncingFiles') : t('editor.updating'),
           success: (res) => {
-            if (res.code === 1 && !justSyncFiles) {
-              if (res.data) {
-                echoStore.replaceEcho(res.data)
-              }
-              clearEditor()
-              session.value = { kind: 'compose' }
-              setMode(Mode.ECH0)
-              echoStore.getTags()
-              backToTimelineTab()
-              return t('editor.updateSuccess')
-            } else if (res.code === 1 && justSyncFiles) {
-              return t('editor.updateSuccessWithSync')
-            } else {
+            if (!res) {
               return t('editor.updateFailed')
             }
+            if (justSyncFiles) {
+              return t('editor.updateSuccessWithSync')
+            }
+            echoStore.replaceEcho(res)
+            clearEditor()
+            session.value = { kind: 'compose' }
+            setMode(Mode.ECH0)
+            echoStore.getTags()
+            backToTimelineTab()
+            return t('editor.updateSuccess')
           },
           error: t('editor.updateFailed'),
         })
@@ -288,11 +277,10 @@ export const useEditorStore = defineStore('editorStore', () => {
     files.setFilesToAdd(
       getEchoFiles(echo).map((file) => ({
         id: String(file.id || ''),
+        name: file.name,
         url: file.url || '',
-        storage_type: file.storage_type || 'local',
         category: file.category,
         content_type: file.content_type,
-        key: file.key || '',
         size: file.size,
         width: file.width,
         height: file.height,
@@ -353,7 +341,7 @@ export const useEditorStore = defineStore('editorStore', () => {
 
   const startUpdate = async (echo: App.Api.Ech0.Echo) => {
     const res = await fetchGetEchoById(String(echo.id))
-    const target = res.code === 1 && res.data ? res.data : echo
+    const target = res ?? echo
 
     session.value = { kind: 'update', echo: target }
     clearEditor()

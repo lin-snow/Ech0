@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/lin-snow/ech0/internal/cache"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	userModel "github.com/lin-snow/ech0/internal/model/user"
 	"github.com/lin-snow/ech0/internal/test/helpers"
 	"github.com/lin-snow/ech0/internal/transaction"
@@ -65,42 +64,23 @@ func TestUserRepository_UpdateUser_CacheCoordination(t *testing.T) {
 		assert.Equal(t, "new", dbUser.Username)
 	})
 
-	t.Run("admin downgrade deletes the admin key", func(t *testing.T) {
+	t.Run("role change refreshes the cached row", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
-		existing := seedUser(t, db, userModel.User{ID: "u1", Username: "a", IsAdmin: true})
-		c.Set(GetAdminKey("u1"), existing, 1)
+		seedUser(t, db, userModel.User{ID: "u1", Username: "x"})
 
-		updated := existing
-		updated.IsAdmin = false
-		require.NoError(t, repo.UpdateUser(context.Background(), &updated))
-
-		_, ok := cacheGetUser(t, c, GetAdminKey("u1"))
-		assert.False(t, ok, "admin key must be deleted when demoting from admin")
+		require.NoError(t, repo.UpdateUserRole(context.Background(), "u1", userModel.RoleAdmin))
 
 		gotID, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
 		require.True(t, ok)
-		assert.Equal(t, updated, gotID)
-	})
-
-	t.Run("promotion to admin sets id/username/admin keys", func(t *testing.T) {
-		repo, db, c := newUserRepo(t)
-		existing := seedUser(t, db, userModel.User{ID: "u1", Username: "x"})
-
-		updated := existing
-		updated.IsAdmin = true
-		require.NoError(t, repo.UpdateUser(context.Background(), &updated))
-
-		gotID, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
-		require.True(t, ok)
-		assert.Equal(t, updated, gotID)
+		assert.Equal(t, userModel.RoleAdmin, gotID.(userModel.User).Role)
 
 		gotName, ok := cacheGetUser(t, c, GetUsernameKey("x"))
 		require.True(t, ok)
-		assert.Equal(t, updated, gotName)
+		assert.Equal(t, userModel.RoleAdmin, gotName.(userModel.User).Role)
 
-		gotAdmin, ok := cacheGetUser(t, c, GetAdminKey("u1"))
-		require.True(t, ok)
-		assert.Equal(t, updated, gotAdmin)
+		var dbUser userModel.User
+		require.NoError(t, db.Where("id = ?", "u1").First(&dbUser).Error)
+		assert.Equal(t, userModel.RoleAdmin, dbUser.Role)
 	})
 
 	t.Run("updating a missing user errors and writes no cache", func(t *testing.T) {
@@ -119,7 +99,7 @@ func TestUserRepository_CreateUser_KeyFanout(t *testing.T) {
 	t.Run("regular user sets only id and username keys", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
 
-		user := userModel.User{ID: "u1", Username: "alice", IsAdmin: true}
+		user := userModel.User{ID: "u1", Username: "alice", Role: userModel.RoleAdmin}
 		require.NoError(t, repo.CreateUser(context.Background(), &user))
 
 		gotID, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
@@ -130,9 +110,6 @@ func TestUserRepository_CreateUser_KeyFanout(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, user, gotName)
 
-		_, ok = cacheGetUser(t, c, GetAdminKey("u1"))
-		assert.False(t, ok, "create does not populate the admin key")
-
 		var n int64
 		require.NoError(t, db.Model(&userModel.User{}).Where("id = ?", "u1").Count(&n).Error)
 		assert.Equal(t, int64(1), n)
@@ -140,17 +117,16 @@ func TestUserRepository_CreateUser_KeyFanout(t *testing.T) {
 }
 
 func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
-	t.Run("admin deletes id/username/admin keys", func(t *testing.T) {
+	t.Run("admin deletes id/username keys", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
-		u := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", IsAdmin: true})
+		u := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", Role: userModel.RoleAdmin})
 		c.Set(GetUserIDKey("u1"), u, 1)
 		c.Set(GetUsernameKey("boss"), u, 1)
-		c.Set(GetAdminKey("u1"), u, 1)
 
 		_, err := repo.PurgeUserContent(context.Background(), "u1")
 		require.NoError(t, err)
 
-		for _, key := range []string{GetUserIDKey("u1"), GetUsernameKey("boss"), GetAdminKey("u1")} {
+		for _, key := range []string{GetUserIDKey("u1"), GetUsernameKey("boss")} {
 			_, ok := cacheGetUser(t, c, key)
 			assert.Falsef(t, ok, "key %q must be invalidated", key)
 		}
@@ -165,7 +141,6 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 		u := seedUser(t, db, userModel.User{ID: "u1", Username: "bob"})
 		c.Set(GetUserIDKey("u1"), u, 1)
 		c.Set(GetUsernameKey("bob"), u, 1)
-		c.Set(GetAdminKey("u1"), u, 1)
 
 		_, err := repo.PurgeUserContent(context.Background(), "u1")
 		require.NoError(t, err)
@@ -174,9 +149,6 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 		assert.False(t, ok)
 		_, ok = cacheGetUser(t, c, GetUsernameKey("bob"))
 		assert.False(t, ok)
-
-		_, ok = cacheGetUser(t, c, GetAdminKey("u1"))
-		assert.False(t, ok, "purge clears the admin key unconditionally")
 	})
 
 	t.Run("deleting a missing user errors", func(t *testing.T) {
@@ -187,7 +159,7 @@ func TestUserRepository_DeleteUser_KeyFanout(t *testing.T) {
 	})
 }
 
-func TestUserRepository_MarkInitialized_Idempotent(t *testing.T) {
+func TestUserRepository_IsInitialized_FollowsOwnership(t *testing.T) {
 	repo, db, _ := newUserRepo(t)
 	ctx := context.Background()
 
@@ -195,22 +167,15 @@ func TestUserRepository_MarkInitialized_Idempotent(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, got, "fresh db should not be initialized")
 
-	require.NoError(t, repo.MarkInitialized(ctx))
-
-	var kv commonModel.KeyValue
-	require.NoError(t, db.Where("key = ?", commonModel.InstallInitializedKey).First(&kv).Error)
-	assert.Equal(t, "true", kv.Value)
-
+	seedUser(t, db, userModel.User{ID: "u-admin", Username: "admin", Role: userModel.RoleAdmin})
 	got, err = repo.IsInitialized(ctx)
 	require.NoError(t, err)
-	assert.True(t, got)
+	assert.False(t, got, "an admin without an owner is not initialized")
 
-	require.NoError(t, repo.MarkInitialized(ctx))
-
-	var n int64
-	require.NoError(t, db.Model(&commonModel.KeyValue{}).
-		Where("key = ?", commonModel.InstallInitializedKey).Count(&n).Error)
-	assert.Equal(t, int64(1), n, "MarkInitialized must be idempotent (no duplicate row)")
+	seedUser(t, db, userModel.User{ID: "u-owner", Username: "owner", Role: userModel.RoleOwner})
+	got, err = repo.IsInitialized(ctx)
+	require.NoError(t, err)
+	assert.True(t, got, "an owner is what marks the space as claimed")
 }
 
 func TestUserRepository_GetAllUsers(t *testing.T) {
@@ -235,7 +200,6 @@ func TestUserRepository_GetAllUsers(t *testing.T) {
 func TestUserCacheKeyBuilders(t *testing.T) {
 	assert.Equal(t, "id:u1", GetUserIDKey("u1"))
 	assert.Equal(t, "username:alice", GetUsernameKey("alice"))
-	assert.Equal(t, "admin:u1", GetAdminKey("u1"))
 	assert.Equal(t, "passkey:reg:nonce1", GetPasskeyRegisterSessionKey("nonce1"))
 	assert.Equal(t, "passkey:login:nonce2", GetPasskeyLoginSessionKey("nonce2"))
 }
@@ -334,26 +298,26 @@ func TestUserRepository_GetUserByUsername_ReadThrough(t *testing.T) {
 	})
 }
 
-func TestUserRepository_GetPrimaryAdmin(t *testing.T) {
-	t.Run("returns the earliest admin and never caches it", func(t *testing.T) {
+func TestUserRepository_GetOwner(t *testing.T) {
+	t.Run("returns the owner and never caches it", func(t *testing.T) {
 		repo, db, c := newUserRepo(t)
-		seedUser(t, db, userModel.User{ID: "u2", Username: "plain"})
-		want := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", IsAdmin: true})
+		seedUser(t, db, userModel.User{ID: "u2", Username: "admin", Role: userModel.RoleAdmin})
+		want := seedUser(t, db, userModel.User{ID: "u1", Username: "boss", Role: userModel.RoleOwner})
 
-		got, err := repo.GetPrimaryAdmin(context.Background())
+		got, err := repo.GetOwner(context.Background())
 		require.NoError(t, err)
 		assert.Equal(t, want.ID, got.ID)
-		assert.True(t, got.IsAdmin)
+		assert.Equal(t, userModel.RoleOwner, got.Role)
 
 		_, ok := cacheGetUser(t, c, GetUserIDKey("u1"))
-		assert.False(t, ok, "primary admin lookup must stay uncached")
+		assert.False(t, ok, "owner lookup must stay uncached")
 	})
 
-	t.Run("no admin returns record-not-found", func(t *testing.T) {
+	t.Run("no owner returns record-not-found", func(t *testing.T) {
 		repo, db, _ := newUserRepo(t)
 		seedUser(t, db, userModel.User{ID: "u2", Username: "plain"})
 
-		_, err := repo.GetPrimaryAdmin(context.Background())
+		_, err := repo.GetOwner(context.Background())
 		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	})
 }

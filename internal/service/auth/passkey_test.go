@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/kvstore"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
@@ -55,11 +56,11 @@ func TestBindingPermissionError(t *testing.T) {
 		provider string
 		want     string
 	}{
-		{string(commonModel.OAuth2GITHUB), commonModel.NO_PERMISSION_BINDING_GITHUB},
-		{string(commonModel.OAuth2GOOGLE), commonModel.NO_PERMISSION_BINDING_GOOGLE},
-		{string(commonModel.OAuth2QQ), commonModel.NO_PERMISSION_BINDING_QQ},
-		{string(commonModel.OAuth2CUSTOM), commonModel.NO_PERMISSION_BINDING_CUSTOM},
-		{"unknown", commonModel.NO_PERMISSION_DENIED},
+		{string(commonModel.OAuth2GITHUB), apperr.ErrBindGitHub.Error()},
+		{string(commonModel.OAuth2GOOGLE), apperr.ErrBindGoogle.Error()},
+		{string(commonModel.OAuth2QQ), apperr.ErrBindQQ.Error()},
+		{string(commonModel.OAuth2CUSTOM), apperr.ErrBindCustom.Error()},
+		{"unknown", apperr.ErrDenied.Error()},
 	}
 	for _, tc := range cases {
 		t.Run(tc.provider, func(t *testing.T) {
@@ -199,7 +200,7 @@ func TestUpdatePasskeyDeviceName(t *testing.T) {
 		ctx := helpers.CtxAsUser("u-1")
 		svc, _, _, _ := newSvc(t, kvstore.NewMemory())
 		err := svc.UpdatePasskeyDeviceName(ctx, "pk-1", "   ")
-		require.EqualError(t, err, commonModel.INVALID_PARAMS_BODY)
+		require.EqualError(t, err, apperr.ErrInvalidParams.Error())
 	})
 
 	t.Run("valid name updates inside tx", func(t *testing.T) {

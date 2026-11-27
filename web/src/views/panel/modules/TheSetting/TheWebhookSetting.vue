@@ -450,7 +450,7 @@ const submitForm = async () => {
       isEditMode.value && editingWebhookId.value
         ? await fetchUpdateWebhook(editingWebhookId.value, payload)
         : await fetchCreateWebhook(payload)
-    if (res.code === 1) {
+    if (res) {
       theToast.success(
         String(t(isEditMode.value ? 'webhookSetting.updateSuccess' : 'webhookSetting.addSuccess')),
       )
@@ -458,7 +458,6 @@ const submitForm = async () => {
       resetForm()
       return
     }
-    theToast.error(String(res.msg || t('webhookSetting.operateFailed')))
   } finally {
     formSubmitting.value = false
   }
@@ -477,12 +476,11 @@ const handleToggleWebhook = async (webhook: App.Api.Setting.Webhook) => {
       secret: '',
       is_active: !webhook.is_active,
     })
-    if (res.code === 1) {
+    if (res) {
       theToast.success(String(t('webhookSetting.updateSuccess')))
       await refreshWebhooks()
       return
     }
-    theToast.error(String(res.msg || t('webhookSetting.operateFailed')))
   } finally {
     togglingId.value = null
   }
@@ -497,12 +495,11 @@ const handleDeleteWebhook = (id: string) => {
       deletingId.value = id
       try {
         const res = await fetchDeleteWebhook(id)
-        if (res.code === 1) {
+        if (res) {
           theToast.success(String(t('webhookSetting.deleteSuccess')))
           await refreshWebhooks()
           return
         }
-        theToast.error(String(res.msg || t('webhookSetting.operateFailed')))
       } finally {
         deletingId.value = null
       }

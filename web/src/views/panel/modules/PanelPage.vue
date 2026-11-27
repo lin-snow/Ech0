@@ -108,6 +108,7 @@ import Log from '@/components/icons/log.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
+import { isAdminRole } from '@/utils/role'
 import { useRouter, useRoute } from 'vue-router'
 import { theToast } from '@/utils/toast'
 import { useBaseDialog } from '@/composables/useBaseDialog'
@@ -119,7 +120,7 @@ const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 
-const isAdmin = computed(() => userStore.user?.is_admin === true)
+const isAdmin = computed(() => isAdminRole(userStore.user?.role))
 const adminBlocked = computed(() => route.meta.requiresAdmin === true && !isAdmin.value)
 
 const navItems = computed(() => {

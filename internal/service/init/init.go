@@ -6,8 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/lin-snow/ech0/internal/apperr"
 	authModel "github.com/lin-snow/ech0/internal/model/auth"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	initModel "github.com/lin-snow/ech0/internal/model/init"
 	logUtil "github.com/lin-snow/ech0/pkg/log"
 )
@@ -32,7 +32,7 @@ func (s *InitService) GetStatus() (initModel.Status, error) {
 		return initModel.Status{}, err
 	}
 
-	_, adminErr := s.repository.GetPrimaryAdmin()
+	_, adminErr := s.repository.GetOwner()
 	ownerExists := adminErr == nil
 
 	return initModel.Status{
@@ -47,7 +47,7 @@ func (s *InitService) InitOwner(dto *initModel.InitOwnerDto) error {
 		return err
 	}
 	if initialized {
-		return commonModel.NewBizError(commonModel.ErrCodeInitAlreadyDone, commonModel.SYSTEM_ALREADY_INITED)
+		return apperr.ErrAlreadyInitialized
 	}
 	if err := s.userService.InitOwner(&authModel.RegisterDto{
 		Username: dto.Username,

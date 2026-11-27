@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/lin-snow/ech0/internal/capsule"
-	"github.com/lin-snow/ech0/internal/storage"
+	fileModel "github.com/lin-snow/ech0/internal/model/file"
 	uuidUtil "github.com/lin-snow/ech0/internal/util/uuid"
 )
 
@@ -154,7 +154,7 @@ func validateFiles(r *Report, loaded *capsule.Loaded, echoPath string, files []c
 
 		if f.Category != "" {
 			if _, ok := capsule.ValidCategories[f.Category]; !ok {
-				r.warnf(echoPath, field+".category", "unknown category %q, consumers fall back to %q", f.Category, string(storage.CategoryFile))
+				r.warnf(echoPath, field+".category", "unknown category %q, consumers fall back to %q", f.Category, fileModel.CategoryFile)
 			}
 		}
 

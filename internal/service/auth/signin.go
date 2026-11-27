@@ -5,11 +5,10 @@ package auth
 
 import (
 	"context"
-	"time"
 
-	"github.com/lin-snow/ech0/internal/clientip"
-	commonModel "github.com/lin-snow/ech0/internal/model/common"
+	"github.com/lin-snow/ech0/internal/apperr"
 	"github.com/lin-snow/ech0/internal/ratelimit"
+	"github.com/lin-snow/ech0/internal/util/clientip"
 )
 
 // signInAttempt is budget reserved for one sign-in try. It is refunded only
@@ -66,15 +65,9 @@ func (attempt *signInAttempt) refundAddress() {
 	}
 }
 
-func signInRateLimited(decision ratelimit.Decision) error {
-	seconds := int((decision.RetryAfter + time.Second - 1) / time.Second)
-	if seconds < 1 {
-		seconds = 1
-	}
-	return commonModel.NewBizErrorWithMessageKey(
-		commonModel.ErrCodeRateLimited,
-		commonModel.RATE_LIMIT_EXCEEDED,
-		commonModel.MsgKeyAuthRateLimited,
-		map[string]any{"retry_after": seconds},
-	)
+// signInRateLimited reports a rate limit. The problem document carries 429;
+// huma.StatusError has no header channel, so the cool-down is the status
+// alone. The middleware-set Retry-After covers the transport layer.
+func signInRateLimited(_ ratelimit.Decision) error {
+	return apperr.ErrRateLimited
 }

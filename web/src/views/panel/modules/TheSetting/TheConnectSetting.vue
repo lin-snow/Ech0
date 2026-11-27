@@ -134,6 +134,7 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import Disconnect from '@/components/icons/disconnect.vue'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { i18n } from '@/locales'
 import { fetchAddConnect, fetchDeleteConnect, fetchGetConnectsHealth } from '@/service/api'
 import { theToast } from '@/utils/toast'
 
@@ -212,12 +213,12 @@ const refreshConnectivityStatus = async () => {
   healthLoading.value = true
   try {
     const res = await fetchGetConnectsHealth()
-    if (res.code !== 1 || !res.data) {
+    if (!res) {
       healthById.value = {}
       return
     }
     const next: Record<string, { status: 'online' | 'offline'; version: string }> = {}
-    for (const row of res.data) {
+    for (const row of res) {
       next[row.id] = {
         status: row.status === 'online' ? 'online' : 'offline',
         version: row.version ?? '',
@@ -252,8 +253,8 @@ const handleAddConnect = async () => {
   isSubmitting.value = true
   await fetchAddConnect(target)
     .then((res) => {
-      if (res.code === 1) {
-        theToast.success(res.msg)
+      if (res) {
+        theToast.success(String(i18n.global.t('common.success')))
         connectUrl.value = ''
         connectUrlError.value = ''
         connectsEdit.value = false
@@ -271,8 +272,8 @@ const handleDisconnect = async (connect_id: string) => {
     description: '',
     onConfirm: async () => {
       await fetchDeleteConnect(connect_id).then((res) => {
-        if (res.code === 1) {
-          theToast.success(res.msg)
+        if (res) {
+          theToast.success(String(i18n.global.t('common.success')))
           refreshConnectData()
         }
       })

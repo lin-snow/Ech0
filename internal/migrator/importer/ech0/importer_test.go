@@ -6,6 +6,7 @@ package ech0
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,6 +19,7 @@ import (
 	commonModel "github.com/lin-snow/ech0/internal/model/common"
 	echoModel "github.com/lin-snow/ech0/internal/model/echo"
 	fileModel "github.com/lin-snow/ech0/internal/model/file"
+	"github.com/lin-snow/ech0/internal/storage"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -42,7 +44,7 @@ func TestImporterMigrate_SuccessAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open source db failed: %v", err)
 	}
-	if err := migrateBaseTables(sourceDB); err != nil {
+	if err := migrateLegacyTables(sourceDB); err != nil {
 		t.Fatalf("migrate source tables failed: %v", err)
 	}
 	if err := seedSourceDB(sourceDB); err != nil {
@@ -61,12 +63,22 @@ func TestImporterMigrate_SuccessAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open target db failed: %v", err)
 	}
-	if err := migrateBaseTables(targetDB); err != nil {
+	if err := migrateTargetTables(targetDB); err != nil {
 		t.Fatalf("migrate target tables failed: %v", err)
 	}
 	database.SetDB(targetDB)
 
-	extractor := New()
+	registry := storage.NewRegistry()
+	if err := registry.Reload(context.Background(), []storage.Config{{
+		ID:      "mem",
+		Driver:  storage.DriverMem,
+		Name:    "mem",
+		Default: true,
+	}}); err != nil {
+		t.Fatalf("load storage registry failed: %v", err)
+	}
+
+	extractor := New(registry)
 	req := spec.ImportRequest{
 		SourcePayload: map[string]any{
 			"tmp_dir": artifact.TmpDir + "/ech0_v4_test",
@@ -106,27 +118,114 @@ func TestImporterMigrate_SuccessAndIdempotent(t *testing.T) {
 	assertCount(t, targetDB, "tags", 1)
 	assertCount(t, targetDB, "echo_tags", 1)
 	assertCount(t, targetDB, "files", 1)
-	assertCount(t, targetDB, "echo_files", 1)
+	assertCount(t, targetDB, "file_links", 1)
 	assertCount(t, targetDB, "comments", 1)
 	assertCount(t, targetDB, "echo_reactions", 1)
-	if _, err := os.Stat(filepath.Join("data", "files", "images", "source.png")); err != nil {
-		t.Fatalf("expected migrated source image exists: %v", err)
+
+	var migrated fileModel.File
+	if err := targetDB.First(&migrated).Error; err != nil {
+		t.Fatalf("load migrated file failed: %v", err)
+	}
+	if migrated.Kind != string(fileModel.KindOwned) {
+		t.Fatalf("unexpected migrated file kind: %q", migrated.Kind)
+	}
+	if migrated.Status != string(fileModel.StatusReady) {
+		t.Fatalf("unexpected migrated file status: %q", migrated.Status)
+	}
+	if migrated.Access != string(fileModel.AccessOwner) {
+		t.Fatalf("unexpected migrated file access: %q", migrated.Access)
+	}
+	if migrated.StorageID == nil || migrated.ObjectKey == nil {
+		t.Fatalf("expected migrated file to be stored: %+v", migrated)
+	}
+	if migrated.Size != int64(len("png-bytes")) {
+		t.Fatalf("unexpected migrated file size: got=%d", migrated.Size)
+	}
+
+	var link fileModel.Link
+	if err := targetDB.First(&link).Error; err != nil {
+		t.Fatalf("load migrated link failed: %v", err)
+	}
+	if link.FileID != migrated.ID || link.OwnerKind != fileModel.OwnerKindEcho ||
+		link.OwnerID != "echo-source-1" || link.Role != fileModel.RoleAttachment {
+		t.Fatalf("unexpected migrated link: %+v", link)
+	}
+
+	_, store, err := registry.Default()
+	if err != nil {
+		t.Fatalf("resolve default store failed: %v", err)
+	}
+	reader, _, err := store.Open(context.Background(), *migrated.ObjectKey)
+	if err != nil {
+		t.Fatalf("open migrated object failed: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read migrated object failed: %v", err)
+	}
+	if string(got) != "png-bytes" {
+		t.Fatalf("unexpected migrated object bytes: %q", string(got))
 	}
 }
 
-func migrateBaseTables(db *gorm.DB) error {
+func migrateLegacyTables(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&echoModel.Echo{},
+		&echoModel.EchoExtension{},
+		&echoModel.Tag{},
+		&echoModel.EchoTag{},
+		&legacyFileRow{},
+		&legacyEchoFileRow{},
+		&commentModel.Comment{},
+		&echoModel.Reaction{},
+		&commonModel.KeyValue{},
+	)
+}
+
+func migrateTargetTables(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&echoModel.Echo{},
 		&echoModel.EchoExtension{},
 		&echoModel.Tag{},
 		&echoModel.EchoTag{},
 		&fileModel.File{},
-		&fileModel.EchoFile{},
+		&fileModel.Link{},
 		&commentModel.Comment{},
 		&echoModel.Reaction{},
 		&commonModel.KeyValue{},
 	)
 }
+
+// legacyFileRow mirrors the pre-rewrite files table the snapshot carries.
+type legacyFileRow struct {
+	ID          string `gorm:"primaryKey;type:text"`
+	Key         string
+	StorageType string
+	Provider    string
+	Bucket      string
+	URL         string
+	Name        string
+	ContentType string
+	Size        int64
+	Width       int
+	Height      int
+	Category    string
+	UserID      string
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+func (legacyFileRow) TableName() string { return "files" }
+
+type legacyEchoFileRow struct {
+	ID        string `gorm:"primaryKey;type:text"`
+	EchoID    string
+	FileID    string
+	SortOrder int
+}
+
+func (legacyEchoFileRow) TableName() string { return "echo_files" }
 
 func seedSourceDB(db *gorm.DB) error {
 	now := time.Now().UTC().Unix()
@@ -170,7 +269,7 @@ func seedSourceDB(db *gorm.DB) error {
 	if err := db.Create(&echoModel.EchoTag{EchoID: echo.ID, TagID: tag.ID}).Error; err != nil {
 		return err
 	}
-	file := fileModel.File{
+	file := legacyFileRow{
 		ID:          "file-source-1",
 		Key:         "images/source.png",
 		StorageType: "local",
@@ -189,7 +288,7 @@ func seedSourceDB(db *gorm.DB) error {
 	if err := db.Create(&file).Error; err != nil {
 		return err
 	}
-	if err := db.Create(&fileModel.EchoFile{
+	if err := db.Create(&legacyEchoFileRow{
 		ID:        "echofile-source-1",
 		EchoID:    echo.ID,
 		FileID:    file.ID,
@@ -238,6 +337,118 @@ func seedSourceDB(db *gorm.DB) error {
 		{Key: commonModel.OAuth2SettingKey, Value: string(oauthRaw)},
 	}
 	return db.Create(&settings).Error
+}
+
+func TestImporterMigrate_RefFileWithoutAttachmentRows(t *testing.T) {
+	tmpRoot := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWD) }()
+	if err := os.Chdir(tmpRoot); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+
+	sourceTmpDir := filepath.Join(artifact.TmpRoot(), "ech0_ref_test")
+	if err := os.MkdirAll(sourceTmpDir, 0o755); err != nil {
+		t.Fatalf("mkdir source tmp dir failed: %v", err)
+	}
+	sourceDB, err := gorm.Open(sqlite.Open(filepath.Join(sourceTmpDir, "ech0.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open source db failed: %v", err)
+	}
+	if err := migrateLegacyTables(sourceDB); err != nil {
+		t.Fatalf("migrate source tables failed: %v", err)
+	}
+	if err := sourceDB.Migrator().DropTable("echo_files"); err != nil {
+		t.Fatalf("drop source echo_files failed: %v", err)
+	}
+
+	now := time.Now().UTC().Unix()
+	if err := sourceDB.Create(&echoModel.Echo{
+		ID:        "echo-ref-1",
+		Content:   "external image",
+		Username:  "tester",
+		Layout:    echoModel.LayoutWaterfall,
+		UserID:    "user-ref-1",
+		CreatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("seed source echo failed: %v", err)
+	}
+	if err := sourceDB.Create(&legacyFileRow{
+		ID:          "legacy-ref-file",
+		StorageType: "s3",
+		Provider:    "r2",
+		Bucket:      "bucket-a",
+		URL:         "https://cdn.example.com/a.png",
+		Name:        "a.png",
+		ContentType: "image/png",
+		Size:        42,
+		Width:       1,
+		Height:      1,
+		Category:    "image",
+		UserID:      "user-ref-1",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}).Error; err != nil {
+		t.Fatalf("seed source file failed: %v", err)
+	}
+
+	targetDB, err := gorm.Open(sqlite.Open(filepath.Join(tmpRoot, "target.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open target db failed: %v", err)
+	}
+	if err := migrateTargetTables(targetDB); err != nil {
+		t.Fatalf("migrate target tables failed: %v", err)
+	}
+	database.SetDB(targetDB)
+
+	registry := storage.NewRegistry()
+	if err := registry.Reload(context.Background(), []storage.Config{{
+		ID:      "mem",
+		Driver:  storage.DriverMem,
+		Name:    "mem",
+		Default: true,
+	}}); err != nil {
+		t.Fatalf("load storage registry failed: %v", err)
+	}
+
+	extractor := New(registry)
+	req := spec.ImportRequest{
+		SourcePayload: map[string]any{
+			"tmp_dir": artifact.TmpDir + "/ech0_ref_test",
+		},
+	}
+	for i := range 2 {
+		result, err := extractor.Import(context.Background(), req)
+		if err != nil {
+			t.Fatalf("import %d failed: %v", i+1, err)
+		}
+		if result.SuccessCount != 1 || result.FailCount != 0 {
+			t.Fatalf("unexpected import %d result: %+v", i+1, result)
+		}
+	}
+
+	assertCount(t, targetDB, "files", 1)
+	assertCount(t, targetDB, "file_links", 0)
+
+	var migrated fileModel.File
+	if err := targetDB.First(&migrated).Error; err != nil {
+		t.Fatalf("load migrated file failed: %v", err)
+	}
+	if migrated.Kind != string(fileModel.KindRef) {
+		t.Fatalf("unexpected migrated file kind: %q", migrated.Kind)
+	}
+	if migrated.Status != string(fileModel.StatusReady) {
+		t.Fatalf("unexpected migrated file status: %q", migrated.Status)
+	}
+	if migrated.StorageID != nil || migrated.ObjectKey != nil {
+		t.Fatalf("ref file must not carry storage columns: %+v", migrated)
+	}
+	if migrated.RefURL == nil || *migrated.RefURL != "https://cdn.example.com/a.png" {
+		t.Fatalf("unexpected ref url: %+v", migrated.RefURL)
+	}
 }
 
 func assertCount(t *testing.T, db *gorm.DB, table string, expected int64) {

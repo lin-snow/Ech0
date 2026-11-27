@@ -293,11 +293,9 @@ const handleFetchWebsiteTitle = async () => {
   isFetchingWebsiteTitle.value = true
   try {
     const res = await fetchGetWebsiteTitle(websiteURL)
-    if (res.code === 1) {
-      editorStore.websiteToAdd.title = res.data
+    if (res) {
+      editorStore.websiteToAdd.title = res
       theToast.success(String(t('editor.fetchTitleSuccess')))
-    } else {
-      theToast.error(res.msg || String(t('editor.fetchTitleFailed')))
     }
   } catch (error) {
     console.error('Failed to fetch website title', error)

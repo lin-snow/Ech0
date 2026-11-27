@@ -9,6 +9,7 @@ import (
 
 	commentModel "github.com/lin-snow/ech0/internal/model/comment"
 	"github.com/lin-snow/ech0/internal/test/helpers"
+	"github.com/lin-snow/ech0/pkg/role"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,6 @@ func mailEnabledSetting() commentModel.SystemSetting {
 
 func TestUpdateCommentStatus_NotifySkipsInvalidRecipient(t *testing.T) {
 	d := newDeps(t)
-	expectAdmin(t, d, "admin-1")
 	d.repo.EXPECT().
 		UpdateCommentStatus(mock.Anything, "c-1", commentModel.StatusRejected).
 		Return(nil).
@@ -33,7 +33,7 @@ func TestUpdateCommentStatus_NotifySkipsInvalidRecipient(t *testing.T) {
 		Once()
 	d.expectSetting(t, mailEnabledSetting())
 
-	err := d.service().UpdateCommentStatus(helpers.CtxAsUser("admin-1"), "c-1", commentModel.StatusRejected)
+	err := d.service().UpdateCommentStatus(helpers.CtxAsUser("admin-1", role.Admin), "c-1", commentModel.StatusRejected)
 	require.NoError(t, err)
 }
 
@@ -61,7 +61,7 @@ func TestCreateComment_NotifyOwnerSkipsWhenOwnerEmailMissing(t *testing.T) {
 		Run(func(_ context.Context, c *commentModel.Comment) { c.ID = "g-1" }).
 		Return(nil).
 		Once()
-	d.common.EXPECT().GetPrimaryAdmin().Return(helpers.NewUser(), nil).Once()
+	d.common.EXPECT().GetOwner().Return(helpers.NewUser(), nil).Once()
 
 	res, err := d.service().CreateComment(helpers.CtxAnonymous(), testIP, "ua",
 		&commentModel.CreateCommentDto{
@@ -108,7 +108,7 @@ func TestCreateComment_ReplyNotifySkipsInvalidParentEmail(t *testing.T) {
 		Return(nil).
 		Once()
 
-	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1"), testIP, "ua",
+	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1", role.Admin), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
 			Content:   "a reply",
@@ -153,9 +153,9 @@ func TestCreateComment_ReplyNotifySkipsWhenTargetIsAdmin(t *testing.T) {
 		Once()
 	adminWithEmail := helpers.NewUser(helpers.AsAdmin)
 	adminWithEmail.Email = "shared@example.com"
-	d.common.EXPECT().GetPrimaryAdmin().Return(adminWithEmail, nil).Once()
+	d.common.EXPECT().GetOwner().Return(adminWithEmail, nil).Once()
 
-	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1"), testIP, "ua",
+	res, err := d.service().CreateComment(helpers.CtxAsUser("admin-1", role.Admin), testIP, "ua",
 		&commentModel.CreateCommentDto{
 			EchoID:    "echo-1",
 			Content:   "a reply",

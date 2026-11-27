@@ -4,22 +4,22 @@
 package model
 
 type SystemSettingDto struct {
-	SiteTitle             string `json:"site_title"`
-	ServerLogo            string `json:"server_logo"`
-	ServerLogoFileID      string `json:"server_logo_file_id"`
-	ServerName            string `json:"server_name"`
-	ServerURL             string `json:"server_url"`
-	AllowRegister         bool   `json:"allow_register"`
-	DefaultLocale         string `json:"default_locale"`
-	ICPNumber             string `json:"ICP_number"`
-	FooterContent         string `json:"footer_content"`
-	FooterLink            string `json:"footer_link"`
-	MetingAPI             string `json:"meting_api"`
-	CustomCSS             string `json:"custom_css"`
-	CustomJS              string `json:"custom_js"`
-	PrivacyPolicy         string `json:"privacy_policy"`
-	ShowPrivacyFooter     bool   `json:"show_privacy_footer"`
-	DisableAgentDiscovery bool   `json:"disable_agent_discovery"`
+	SiteTitle            string `json:"site_title"`
+	ServerLogo           string `json:"server_logo"`
+	ServerLogoFileID     string `json:"server_logo_file_id"`
+	ServerName           string `json:"server_name"`
+	ServerURL            string `json:"server_url"`
+	AllowRegister        bool   `json:"allow_register"`
+	DefaultLocale        string `json:"default_locale"`
+	ICPNumber            string `json:"ICP_number"`
+	FooterContent        string `json:"footer_content"`
+	FooterLink           string `json:"footer_link"`
+	MetingAPI            string `json:"meting_api"`
+	CustomCSS            string `json:"custom_css"`
+	CustomJS             string `json:"custom_js"`
+	PrivacyPolicy        string `json:"privacy_policy"`
+	ShowPrivacyFooter    bool   `json:"show_privacy_footer"`
+	EnableAgentDiscovery bool   `json:"enable_agent_discovery"`
 }
 
 type S3SettingDto struct {

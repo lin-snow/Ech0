@@ -20,9 +20,8 @@ export class UsageError extends Error {
 
 export interface ErrorDetails {
   status?: number;
-  errorCode?: string;
-  messageKey?: string;
-  messageParams?: Record<string, unknown>;
+  /** RFC 9457 `type`: the only reason a client may branch on. */
+  type?: string;
   /** One actionable line printed after the message, e.g. which command to inspect. */
   hint?: string;
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2025-2026 lin-snow
 
-import type { ApiResult } from '../types/echo'
 import { timeoutSignal } from '../utils/fetchTimeout'
 
 export interface HealthzData {
@@ -50,11 +49,7 @@ export async function fetchHealthz(
     if (typeof json !== 'object' || json === null) {
       return { ok: false, message: 'invalid JSON' }
     }
-    const r = json as ApiResult<HealthzData>
-    if (r.code !== 1 || !r.data) {
-      return { ok: false, message: r.msg || 'healthz failed' }
-    }
-    const { status, version } = r.data
+    const { status, version } = json as HealthzData
     if (typeof version !== 'string' || !version.trim()) {
       return { ok: false, message: 'missing version' }
     }
