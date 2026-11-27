@@ -134,11 +134,13 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 		return err
 	}
 
-	type deletableFileRef struct {
+	type fileRef struct {
+		id          string
 		key         string
 		storageType string
 	}
-	var deletableFiles []deletableFileRef
+	var fileRefs []fileRef
+	var deletableFiles []fileRef
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
 		echo, err := echoService.echoRepository.GetEchosById(txCtx, id)
 		if err != nil {
@@ -156,21 +158,46 @@ func (echoService *EchoService) DeleteEchoById(ctx context.Context, id string) e
 			)
 		}
 
+		tagIDs := make([]string, 0, len(echo.Tags))
+		for _, tag := range echo.Tags {
+			tagIDs = append(tagIDs, tag.ID)
+		}
+
 		for _, ef := range echo.EchoFiles {
-			if ef.File.Key != "" && storage.NormalizeStorageType(ef.File.StorageType) != storage.StorageTypeExternal {
-				deletableFiles = append(deletableFiles, deletableFileRef{
-					key:         ef.File.Key,
-					storageType: ef.File.StorageType,
-				})
+			fileID := ef.FileID
+			if fileID == "" {
+				fileID = ef.File.ID
 			}
-			if ef.File.ID != "" {
-				if err := echoService.fileService.DeleteFileRecord(txCtx, ef.File.ID); err != nil {
-					return err
-				}
+			if fileID == "" {
+				continue
+			}
+			fileRefs = append(fileRefs, fileRef{
+				id:          fileID,
+				key:         ef.File.Key,
+				storageType: ef.File.StorageType,
+			})
+		}
+
+		// Remove the echo first so its links no longer count as references.
+		// A file another echo still uses then survives.
+		if err := echoService.echoRepository.DeleteEchoById(txCtx, id); err != nil {
+			return err
+		}
+
+		for _, ref := range fileRefs {
+			deleted, err := echoService.fileService.DeleteFileRecordIfUnused(txCtx, ref.id)
+			if err != nil {
+				return err
+			}
+			if !deleted {
+				continue
+			}
+			if ref.key != "" && storage.NormalizeStorageType(ref.storageType) != storage.StorageTypeExternal {
+				deletableFiles = append(deletableFiles, ref)
 			}
 		}
 
-		return echoService.echoRepository.DeleteEchoById(txCtx, id)
+		return echoService.echoRepository.RecountTagUsage(txCtx, tagIDs)
 	}); err != nil {
 		return err
 	}
@@ -288,11 +315,24 @@ func (echoService *EchoService) UpdateEcho(ctx context.Context, echo *model.Echo
 		return nil, err
 	}
 
+	oldTagIDs := make([]string, 0, len(existing.Tags))
+	for _, tag := range existing.Tags {
+		oldTagIDs = append(oldTagIDs, tag.ID)
+	}
+
 	if err := echoService.transactor.Run(ctx, func(txCtx context.Context) error {
 		if err := echoService.ProcessEchoTags(txCtx, echo); err != nil {
 			return err
 		}
-		return echoService.echoRepository.UpdateEcho(txCtx, echo)
+		if err := echoService.echoRepository.UpdateEcho(txCtx, echo); err != nil {
+			return err
+		}
+		tagIDs := make([]string, 0, len(oldTagIDs)+len(echo.Tags))
+		tagIDs = append(tagIDs, oldTagIDs...)
+		for _, tag := range echo.Tags {
+			tagIDs = append(tagIDs, tag.ID)
+		}
+		return echoService.echoRepository.RecountTagUsage(txCtx, tagIDs)
 	}); err != nil {
 		return nil, err
 	}

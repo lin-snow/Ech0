@@ -19,6 +19,10 @@ For releases prior to v4.6.5, see the [GitHub releases page](https://github.com/
 
 ### Fixed
 
+- **Deleting an echo no longer deletes an attachment another echo still uses.** External files are deduplicated by URL, so two echoes can link the same `files` row; the row and its stored object are now removed only when no echo references it.
+
+- **Tag usage counts stay correct after edits and deletes.** Editing an echo no longer increments a tag that was already attached, and deleting an echo removes its `echo_tags` rows and recounts the affected tags.
+
 - **`linux/amd64` release binaries run on pre-Haswell CPUs again.** The v5.9.10 tarball was linked with the CI runner's `gcc -static`, and that runner's glibc now targets `x86-64-v3`, so the binary took a `SIGILL` on any CPU without AVX2 (an Ivy Bridge Xeon, for example) before it printed its first log line. Both release architectures are now cross-compiled with `zig cc` against musl at the baseline ISA, independent of the runner image, and CI fails if the amd64 ELF declares `x86-64-v2` or newer as required.
 
 - **`docker/build.Dockerfile` builds again.** The frontend stage now copies `web/pnpm-workspace.yaml` — pnpm 12 reads the lockfile's `overrides` from it, so the frozen install aborted with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` — and the backend stage synthesizes the `sqlite3.h` that `sqlite-vec`'s cgo binding includes from the go-sqlite3 header, exactly as the release workflow does.

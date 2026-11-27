@@ -34,6 +34,7 @@ type Service interface {
 	CleanupOrphanFiles() error
 	ConfirmTempFiles(ctx context.Context, fileIDs []string) error
 	DeleteFileRecord(ctx context.Context, id string) error
+	DeleteFileRecordIfUnused(ctx context.Context, id string) (bool, error)
 	DeleteStoredFile(storageType string, key string) error
 }
 
@@ -69,5 +70,6 @@ type FileRepository interface {
 	DeleteTempByID(ctx context.Context, id string) error
 	ListExpiredTemps(ctx context.Context, before int64) ([]fileModel.TempFile, error)
 	Delete(ctx context.Context, id string) error
+	DeleteIfUnused(ctx context.Context, id string) (bool, error)
 	DeleteByRoute(ctx context.Context, storageType, provider, bucket, key string) error
 }

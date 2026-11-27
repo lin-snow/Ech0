@@ -52,6 +52,7 @@ func TestDeleteEchoById_Guards(t *testing.T) {
 		own := helpers.NewEcho(func(e *echoModel.Echo) { e.UserID = userID })
 		repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&own, nil).Once()
 		repo.EXPECT().DeleteEchoById(mock.Anything, echoID).Return(nil).Once()
+		repo.EXPECT().RecountTagUsage(mock.Anything, mock.Anything).Return(nil).Once()
 		repo.EXPECT().InvalidateEchoCaches(echoID).Return().Once()
 
 		svc := echoService.NewEchoService(tx, common, nil, repo, nilBus)
@@ -124,9 +125,10 @@ func TestDeleteEchoById_Success(t *testing.T) {
 		}
 	})
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&stored, nil).Once()
-	file.EXPECT().DeleteFileRecord(mock.Anything, "f-local").Return(nil).Once()
-	file.EXPECT().DeleteFileRecord(mock.Anything, "f-ext").Return(nil).Once()
 	repo.EXPECT().DeleteEchoById(mock.Anything, echoID).Return(nil).Once()
+	file.EXPECT().DeleteFileRecordIfUnused(mock.Anything, "f-local").Return(true, nil).Once()
+	file.EXPECT().DeleteFileRecordIfUnused(mock.Anything, "f-ext").Return(true, nil).Once()
+	repo.EXPECT().RecountTagUsage(mock.Anything, mock.Anything).Return(nil).Once()
 	repo.EXPECT().InvalidateEchoCaches(echoID).Once()
 	file.EXPECT().DeleteStoredFile("local", "k-local").Return(errors.New("ignored")).Once()
 
@@ -165,7 +167,8 @@ func TestDeleteEchoById_DeleteFileRecordError(t *testing.T) {
 		e.EchoFiles = []fileModel.EchoFile{{File: fileModel.File{ID: "f-1", Key: "k-1", StorageType: "local"}}}
 	})
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&stored, nil).Once()
-	file.EXPECT().DeleteFileRecord(mock.Anything, "f-1").Return(boom).Once()
+	repo.EXPECT().DeleteEchoById(mock.Anything, echoID).Return(nil).Once()
+	file.EXPECT().DeleteFileRecordIfUnused(mock.Anything, "f-1").Return(false, boom).Once()
 
 	svc := echoService.NewEchoService(tx, common, file, repo, nilBus)
 	require.ErrorIs(t, svc.DeleteEchoById(helpers.CtxAsUser(adminID), echoID), boom)
@@ -252,6 +255,7 @@ func TestUpdateEcho_Success(t *testing.T) {
 		Run(func(_ context.Context, e *echoModel.Echo) { updated = *e }).
 		Return(nil).
 		Once()
+	repo.EXPECT().RecountTagUsage(mock.Anything, mock.Anything).Return(nil).Once()
 	repo.EXPECT().InvalidateEchoCaches(echoID).Once()
 	saved := helpers.NewEcho(func(e *echoModel.Echo) { e.ID = echoID })
 	repo.EXPECT().GetEchosById(mock.Anything, echoID).Return(&saved, nil).Once()
